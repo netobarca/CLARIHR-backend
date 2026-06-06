@@ -243,7 +243,7 @@ internal static class OccupationalPyramidLevelPatchApplier
         {
             errors["name"] = ["Name is required."];
         }
-        else if (state.Name.Trim().Length > 120)
+        else if (state.Name.Trim().Length > OccupationalPyramidLevel.MaxNameLength)
         {
             errors["name"] = ["Name must be 120 characters or fewer."];
         }
@@ -253,7 +253,7 @@ internal static class OccupationalPyramidLevelPatchApplier
             errors["levelOrder"] = ["Level order must be greater than zero."];
         }
 
-        if (state.Description is not null && state.Description.Trim().Length > 500)
+        if (state.Description is not null && state.Description.Trim().Length > OccupationalPyramidLevel.MaxDescriptionLength)
         {
             errors["description"] = ["Description must be 500 characters or fewer."];
         }

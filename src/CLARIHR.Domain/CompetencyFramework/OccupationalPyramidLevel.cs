@@ -4,6 +4,14 @@ namespace CLARIHR.Domain.CompetencyFramework;
 
 public sealed class OccupationalPyramidLevel : TenantEntity
 {
+    // Domain-owned length invariants (single source of truth): the application-layer validators and
+    // JSON Patch appliers reference these, and the EF column lengths mirror them. The guards below are
+    // a defensive backstop — the application layer rejects out-of-range input first (400), so they only
+    // fire on a layering bug, turning a DB length violation (500) into a clear domain ArgumentException.
+    public const int MaxCodeLength = 50;
+    public const int MaxNameLength = 120;
+    public const int MaxDescriptionLength = 500;
+
     private OccupationalPyramidLevel()
     {
     }
@@ -19,7 +27,7 @@ public sealed class OccupationalPyramidLevel : TenantEntity
         SetCode(code);
         SetName(name);
         LevelOrder = levelOrder;
-        Description = CompetencyFrameworkNormalization.CleanOptional(description);
+        SetDescription(description);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -53,7 +61,7 @@ public sealed class OccupationalPyramidLevel : TenantEntity
         SetCode(code);
         SetName(name);
         LevelOrder = levelOrder;
-        Description = CompetencyFrameworkNormalization.CleanOptional(description);
+        SetDescription(description);
         RefreshConcurrencyToken();
     }
 
@@ -72,13 +80,32 @@ public sealed class OccupationalPyramidLevel : TenantEntity
     private void SetCode(string code)
     {
         Code = CompetencyFrameworkNormalization.NormalizeCode(code);
+        if (Code.Length > MaxCodeLength)
+        {
+            throw new ArgumentException($"Code must be {MaxCodeLength} characters or fewer.", nameof(code));
+        }
+
         NormalizedCode = Code;
     }
 
     private void SetName(string name)
     {
         Name = CompetencyFrameworkNormalization.Clean(name, nameof(name));
+        if (Name.Length > MaxNameLength)
+        {
+            throw new ArgumentException($"Name must be {MaxNameLength} characters or fewer.", nameof(name));
+        }
+
         NormalizedName = CompetencyFrameworkNormalization.NormalizeName(name);
+    }
+
+    private void SetDescription(string? description)
+    {
+        Description = CompetencyFrameworkNormalization.CleanOptional(description);
+        if (Description is not null && Description.Length > MaxDescriptionLength)
+        {
+            throw new ArgumentException($"Description must be {MaxDescriptionLength} characters or fewer.", nameof(description));
+        }
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();

@@ -1,0 +1,453 @@
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.CompetencyFramework;
+using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
+using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Policies;
+using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.CompetencyFramework;
+using CLARIHR.Domain.JobProfiles;
+using FluentValidation;
+
+namespace CLARIHR.Application.Features.CompetencyFramework;
+
+public sealed record JobProfileCompetencyMatrixItemConductResponse(
+    Guid ConductId,
+    string Description,
+    int SortOrder);
+
+public sealed record JobProfileCompetencyMatrixItemResponse(
+    Guid OccupationalPyramidLevelId,
+    string OccupationalPyramidLevelCode,
+    string OccupationalPyramidLevelName,
+    int OccupationalPyramidLevelOrder,
+    Guid CompetencyId,
+    string CompetencyCode,
+    string CompetencyName,
+    Guid CompetencyTypeId,
+    string CompetencyTypeCode,
+    string CompetencyTypeName,
+    Guid BehaviorLevelId,
+    string BehaviorLevelCode,
+    string BehaviorLevelName,
+    string? ExpectedEvidence,
+    int SortOrder,
+    IReadOnlyCollection<JobProfileCompetencyMatrixItemConductResponse> Conducts);
+
+public sealed record JobProfileCompetencyMatrixResponse(
+    Guid JobProfileId,
+    string JobProfileCode,
+    string JobProfileTitle,
+    JobProfileStatus JobProfileStatus,
+    int JobProfileVersion,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<JobProfileCompetencyMatrixItemResponse> Items,
+    AllowedActionsResponse? AllowedActions = null);
+
+public sealed record JobProfileCompetencyMatrixExportRow(
+    Guid JobProfileId,
+    string JobProfileCode,
+    string JobProfileTitle,
+    string JobProfileStatus,
+    int JobProfileVersion,
+    Guid OccupationalPyramidLevelId,
+    string OccupationalPyramidLevelCode,
+    string OccupationalPyramidLevelName,
+    int OccupationalPyramidLevelOrder,
+    Guid CompetencyId,
+    string CompetencyCode,
+    string CompetencyName,
+    Guid CompetencyTypeId,
+    string CompetencyTypeCode,
+    string CompetencyTypeName,
+    Guid BehaviorLevelId,
+    string BehaviorLevelCode,
+    string BehaviorLevelName,
+    Guid? ConductId,
+    string? ConductDescription,
+    int? ConductSortOrder,
+    string? ExpectedEvidence,
+    int ItemSortOrder);
+
+public sealed record JobProfileCompetencyMatrixItemInput(
+    Guid OccupationalPyramidLevelId,
+    Guid CompetencyId,
+    Guid CompetencyTypeId,
+    Guid BehaviorLevelId,
+    IReadOnlyCollection<Guid> ConductIds,
+    string? ExpectedEvidence,
+    int SortOrder);
+
+public sealed record GetJobProfileCompetencyMatrixQuery(Guid JobProfileId)
+    : IQuery<JobProfileCompetencyMatrixResponse>;
+
+public sealed record ExportJobProfileCompetencyMatrixQuery(Guid JobProfileId, int? MaxRows = null)
+    : IQuery<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>;
+
+public sealed record UpdateJobProfileCompetencyMatrixCommand(
+    Guid JobProfileId,
+    IReadOnlyCollection<JobProfileCompetencyMatrixItemInput> Items,
+    Guid ConcurrencyToken)
+    : ICommand<JobProfileCompetencyMatrixResponse>;
+
+internal sealed class GetJobProfileCompetencyMatrixQueryValidator : AbstractValidator<GetJobProfileCompetencyMatrixQuery>
+{
+    public GetJobProfileCompetencyMatrixQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+    }
+}
+
+internal sealed class ExportJobProfileCompetencyMatrixQueryValidator : AbstractValidator<ExportJobProfileCompetencyMatrixQuery>
+{
+    public ExportJobProfileCompetencyMatrixQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+    }
+}
+
+internal sealed class UpdateJobProfileCompetencyMatrixCommandValidator : AbstractValidator<UpdateJobProfileCompetencyMatrixCommand>
+{
+    public UpdateJobProfileCompetencyMatrixCommandValidator()
+    {
+        RuleFor(command => command.JobProfileId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleForEach(command => command.Items).SetValidator(new JobProfileCompetencyMatrixItemInputValidator());
+    }
+}
+
+internal sealed class JobProfileCompetencyMatrixItemInputValidator : AbstractValidator<JobProfileCompetencyMatrixItemInput>
+{
+    public JobProfileCompetencyMatrixItemInputValidator()
+    {
+        RuleFor(item => item.OccupationalPyramidLevelId).NotEmpty();
+        RuleFor(item => item.CompetencyId).NotEmpty();
+        RuleFor(item => item.CompetencyTypeId).NotEmpty();
+        RuleFor(item => item.BehaviorLevelId).NotEmpty();
+        RuleFor(item => item.ExpectedEvidence).MaximumLength(1000);
+        RuleFor(item => item.SortOrder).GreaterThanOrEqualTo(0);
+        RuleForEach(item => item.ConductIds).NotEqual(Guid.Empty);
+    }
+}
+
+internal sealed class GetJobProfileCompetencyMatrixQueryHandler(
+    ICompetencyFrameworkAuthorizationService authorizationService,
+    ICompetencyFrameworkRepository repository,
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
+    : IQueryHandler<GetJobProfileCompetencyMatrixQuery, JobProfileCompetencyMatrixResponse>
+{
+    public async Task<Result<JobProfileCompetencyMatrixResponse>> Handle(
+        GetJobProfileCompetencyMatrixQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(authorizationResult.Error);
+        }
+
+        var response = await repository.GetJobProfileCompetencyMatrixResponseAsync(query.JobProfileId, cancellationToken);
+        if (response is not null)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
+            return Result<JobProfileCompetencyMatrixResponse>.Success(response);
+        }
+
+        return Result<JobProfileCompetencyMatrixResponse>.Failure(
+            await repository.JobProfileExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : CompetencyFrameworkErrors.JobProfileNotFound);
+    }
+}
+
+internal sealed class ExportJobProfileCompetencyMatrixQueryHandler(
+    ICompetencyFrameworkAuthorizationService authorizationService,
+    ICompetencyFrameworkRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<ExportJobProfileCompetencyMatrixQuery, IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>
+{
+    public async Task<Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>> Handle(
+        ExportJobProfileCompetencyMatrixQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(authorizationResult.Error);
+        }
+
+        var rows = await repository.GetJobProfileCompetencyMatrixExportRowsAsync(query.JobProfileId, query.MaxRows, cancellationToken);
+        if (rows.Count > 0)
+        {
+            return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Success(rows);
+        }
+
+        var matrix = await repository.GetJobProfileCompetencyMatrixResponseAsync(query.JobProfileId, cancellationToken);
+        if (matrix is not null)
+        {
+            return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Success(rows);
+        }
+
+        return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(
+            await repository.JobProfileExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : CompetencyFrameworkErrors.JobProfileNotFound);
+    }
+}
+
+internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
+    ICompetencyFrameworkAuthorizationService authorizationService,
+    ICompetencyFrameworkRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<UpdateJobProfileCompetencyMatrixCommand, JobProfileCompetencyMatrixResponse>
+{
+    public async Task<Result<JobProfileCompetencyMatrixResponse>> Handle(
+        UpdateJobProfileCompetencyMatrixCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(authorizationResult.Error);
+        }
+
+        var profile = await repository.GetJobProfileAggregateByIdAsync(command.JobProfileId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(
+                await repository.JobProfileExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : CompetencyFrameworkErrors.JobProfileNotFound);
+        }
+
+        if (profile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.ConcurrencyConflict);
+        }
+
+        if (profile.Status == JobProfileStatus.Archived)
+        {
+            return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+        }
+
+        var before = await repository.GetJobProfileCompetencyMatrixResponseAsync(profile.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Job profile competency matrix response could not be resolved before update.");
+
+        // Batch-resolve every referenced level / catalog item / conduct up front (one query per
+        // category) so the per-item loop below resolves from memory instead of issuing an N+1
+        // fan-out of one query per item (and per conduct).
+        var levelsById = await repository.ResolveActiveOccupationalPyramidLevelsAsync(
+            profile.TenantId,
+            command.Items.Select(item => item.OccupationalPyramidLevelId).ToArray(),
+            cancellationToken);
+        var competenciesById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.Competency,
+            command.Items.Select(item => item.CompetencyId).ToArray(),
+            cancellationToken);
+        var competencyTypesById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.CompetencyType,
+            command.Items.Select(item => item.CompetencyTypeId).ToArray(),
+            cancellationToken);
+        var behaviorLevelsById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.BehaviorLevel,
+            command.Items.Select(item => item.BehaviorLevelId).ToArray(),
+            cancellationToken);
+        var conductsById = await repository.ResolveActiveCompetencyConductsAsync(
+            profile.TenantId,
+            command.Items.SelectMany(item => item.ConductIds).ToArray(),
+            cancellationToken);
+
+        var matrixItems = new List<JobProfileCompetencyExpectation>();
+        var uniqueCombinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in command.Items)
+        {
+            var levelResolution = await CompetencyFrameworkCatalogResolver.ResolvePyramidLevelFromMapAsync(
+                levelsById,
+                item.OccupationalPyramidLevelId,
+                repository,
+                authorizationService,
+                RbacPermissionAction.Update,
+                cancellationToken);
+            if (levelResolution.IsFailure)
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(levelResolution.Error);
+            }
+
+            var competencyResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                competenciesById,
+                item.CompetencyId,
+                JobCatalogCategory.Competency,
+                repository,
+                authorizationService,
+                RbacPermissionAction.Update,
+                cancellationToken);
+            if (competencyResolution.IsFailure)
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(competencyResolution.Error);
+            }
+
+            var typeResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                competencyTypesById,
+                item.CompetencyTypeId,
+                JobCatalogCategory.CompetencyType,
+                repository,
+                authorizationService,
+                RbacPermissionAction.Update,
+                cancellationToken);
+            if (typeResolution.IsFailure)
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(typeResolution.Error);
+            }
+
+            var behaviorLevelResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                behaviorLevelsById,
+                item.BehaviorLevelId,
+                JobCatalogCategory.BehaviorLevel,
+                repository,
+                authorizationService,
+                RbacPermissionAction.Update,
+                cancellationToken);
+            if (behaviorLevelResolution.IsFailure)
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(behaviorLevelResolution.Error);
+            }
+
+            var uniqueKey = $"{levelResolution.Value.Id}:{competencyResolution.Value.Id}:{typeResolution.Value.Id}:{behaviorLevelResolution.Value.Id}";
+            if (!uniqueCombinations.Add(uniqueKey))
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+            }
+
+            var expectation = JobProfileCompetencyExpectation.Create(
+                profile.Id,
+                levelResolution.Value.Id,
+                competencyResolution.Value.Id,
+                typeResolution.Value.Id,
+                behaviorLevelResolution.Value.Id,
+                item.ExpectedEvidence,
+                item.SortOrder);
+            expectation.SetTenantId(profile.TenantId);
+
+            var conducts = new List<JobProfileCompetencyExpectationConduct>();
+            var conductSet = new HashSet<Guid>();
+            var conductSort = 0;
+            foreach (var conductId in item.ConductIds)
+            {
+                if (!conductSet.Add(conductId))
+                {
+                    return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+                }
+
+                var conductResolution = await CompetencyFrameworkCatalogResolver.ResolveConductFromMapAsync(
+                    conductsById,
+                    conductId,
+                    repository,
+                    authorizationService,
+                    RbacPermissionAction.Update,
+                    cancellationToken);
+                if (conductResolution.IsFailure)
+                {
+                    return Result<JobProfileCompetencyMatrixResponse>.Failure(conductResolution.Error);
+                }
+
+                var conduct = conductResolution.Value;
+                if (conduct.CompetencyCatalogItemId != competencyResolution.Value.Id ||
+                    conduct.CompetencyTypeCatalogItemId != typeResolution.Value.Id ||
+                    conduct.BehaviorLevelCatalogItemId != behaviorLevelResolution.Value.Id)
+                {
+                    return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+                }
+
+                var link = JobProfileCompetencyExpectationConduct.Create(conduct.Id, conductSort++);
+                link.SetTenantId(profile.TenantId);
+                conducts.Add(link);
+            }
+
+            expectation.ReplaceConducts(conducts);
+            matrixItems.Add(expectation);
+        }
+
+        var previous = await repository.GetExpectationsByJobProfileIdAsync(profile.Id, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.RemoveExpectations(previous);
+            repository.AddExpectations(matrixItems);
+
+            profile.UpdateCore(
+                profile.Code,
+                profile.Title,
+                profile.Objective,
+                profile.OrgUnitId,
+                profile.ReportsToJobProfileId,
+                profile.PositionCategoryId,
+                profile.StrategicObjectiveCatalogItemId,
+                profile.AssignedWorkEquipmentCatalogItemId,
+                profile.ResponsibilityCatalogItemId,
+                profile.DecisionScope,
+                profile.AssignedResources,
+                profile.Responsibilities,
+                profile.BenefitsSummary,
+                profile.WorkingConditionSummary,
+                profile.MarketSalaryReference,
+                profile.ValuationNotes,
+                profile.EffectiveFromUtc,
+                profile.EffectiveToUtc,
+                bumpVersion: true);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetJobProfileCompetencyMatrixResponseAsync(profile.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Job profile competency matrix response could not be resolved after update.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.JobProfileCompetencyMatrixUpdated,
+                    AuditEntityTypes.JobProfileCompetencyMatrix,
+                    profile.PublicId,
+                    profile.Code,
+                    AuditActions.Update,
+                    $"Updated competency matrix for job profile {profile.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<JobProfileCompetencyMatrixResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}

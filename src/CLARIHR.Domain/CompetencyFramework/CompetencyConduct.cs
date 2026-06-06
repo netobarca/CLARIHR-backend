@@ -4,6 +4,12 @@ namespace CLARIHR.Domain.CompetencyFramework;
 
 public sealed class CompetencyConduct : TenantEntity
 {
+    // Domain-owned length invariant (single source of truth): the application-layer validator and JSON
+    // Patch applier reference this, and the EF column length mirrors it. The guard is a defensive
+    // backstop — the application layer rejects out-of-range input first (400), so it only fires on a
+    // layering bug, turning a DB length violation (500) into a clear domain ArgumentException.
+    public const int MaxDescriptionLength = 1000;
+
     private readonly List<CompetencyConductBehavior> _behaviors = [];
 
     private CompetencyConduct()
@@ -42,8 +48,7 @@ public sealed class CompetencyConduct : TenantEntity
         CompetencyCatalogItemId = competencyCatalogItemId;
         CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
         BehaviorLevelCatalogItemId = behaviorLevelCatalogItemId;
-        Description = CompetencyFrameworkNormalization.Clean(description, nameof(description));
-        NormalizedDescription = CompetencyFrameworkNormalization.NormalizeName(description);
+        SetDescription(description);
         SortOrder = sortOrder;
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
@@ -111,8 +116,7 @@ public sealed class CompetencyConduct : TenantEntity
         CompetencyCatalogItemId = competencyCatalogItemId;
         CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
         BehaviorLevelCatalogItemId = behaviorLevelCatalogItemId;
-        Description = CompetencyFrameworkNormalization.Clean(description, nameof(description));
-        NormalizedDescription = CompetencyFrameworkNormalization.NormalizeName(description);
+        SetDescription(description);
         SortOrder = sortOrder;
         RefreshConcurrencyToken();
     }
@@ -134,6 +138,17 @@ public sealed class CompetencyConduct : TenantEntity
     {
         IsActive = false;
         RefreshConcurrencyToken();
+    }
+
+    private void SetDescription(string description)
+    {
+        Description = CompetencyFrameworkNormalization.Clean(description, nameof(description));
+        if (Description.Length > MaxDescriptionLength)
+        {
+            throw new ArgumentException($"Description must be {MaxDescriptionLength} characters or fewer.", nameof(description));
+        }
+
+        NormalizedDescription = CompetencyFrameworkNormalization.NormalizeName(description);
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();

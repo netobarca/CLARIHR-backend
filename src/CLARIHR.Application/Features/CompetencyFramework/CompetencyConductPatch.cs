@@ -9,6 +9,7 @@ using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using FluentValidation;
 
@@ -298,7 +299,7 @@ internal static class CompetencyConductPatchApplier
         {
             errors["description"] = ["Description is required."];
         }
-        else if (state.Description.Trim().Length > 1000)
+        else if (state.Description.Trim().Length > CompetencyConduct.MaxDescriptionLength)
         {
             errors["description"] = ["Description must be 1000 characters or fewer."];
         }
