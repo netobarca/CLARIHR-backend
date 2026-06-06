@@ -401,15 +401,30 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
             return iamAdminUsers;
         }
 
-        return activeMemberUserIds
-            .Where(item => dbContext.IamRoles
-                // Intentional tenant filter bypass: resolves fallback membership role by internal RoleId without exposing cross-tenant rows.
+        // Fallback (no IAM-linked administrator resolved — e.g. incomplete IAM linkage / legacy data):
+        // resolve which of the membership RoleIds are administrative in a SINGLE set-based query, then
+        // match in memory — instead of probing dbContext.IamRoles once per active member, which was an
+        // N+1 of *synchronous* .Any() calls inside an in-memory Where (one blocking round-trip per member).
+        var membershipRoleIds = activeMemberUserIds
+            .Select(static item => item.RoleId)
+            .Distinct()
+            .ToArray();
+
+        var administrativeRoleIds = (await dbContext.IamRoles
+                // Intentional tenant filter bypass: resolves fallback membership roles by internal RoleId set from tenant-scoped memberships, without exposing cross-tenant rows.
                 .IgnoreQueryFilters()
-                .Any(role =>
-                    role.Id == item.RoleId &&
+                .AsNoTracking()
+                .Where(role =>
+                    membershipRoleIds.Contains(role.Id) &&
                     role.PermissionAssignments.Any(assignment =>
                         assignment.Permission.NormalizedCode == normalizedManageUsers ||
-                        assignment.Permission.NormalizedCode == normalizedManageAdministration)))
+                        assignment.Permission.NormalizedCode == normalizedManageAdministration))
+                .Select(static role => role.Id)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        return activeMemberUserIds
+            .Where(item => administrativeRoleIds.Contains(item.RoleId))
             .Select(static item => item.PublicId)
             .Distinct()
             .ToArray();
