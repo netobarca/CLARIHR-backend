@@ -31,6 +31,14 @@ public interface ICostCenterRepository
 
     Task<bool> HasActiveUsageAsync(long costCenterId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Boolean usage probe by (tenant, normalized code) — whether the cost center is referenced by
+    /// any ACTIVE org unit or position slot. Cheaper than <see cref="GetUsageByIdAsync"/> (which
+    /// computes the full reference breakdown); used by the detail GET to set the allowedActions
+    /// <c>hasActiveUsage</c> flag.
+    /// </summary>
+    Task<bool> HasActiveUsageAsync(Guid tenantId, string normalizedCode, CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<CostCenterExportRow>> GetExportRowsAsync(
         Guid tenantId,
         CostCenterType? type,

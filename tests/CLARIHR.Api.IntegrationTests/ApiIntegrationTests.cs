@@ -8065,6 +8065,41 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CostCenters_GetById_AllowedActions_ShouldReflectActiveUsage()
+    {
+        // CC1 (perf): the detail GET computes hasActiveUsage via the cheap boolean probe
+        // (HasActiveUsageAsync) instead of the full 5-query usage breakdown. This guards that the
+        // resulting allowedActions.canInactivate flag still flips correctly: a cost center with no
+        // active references can be inactivated; once an active org unit references it, it cannot.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USAGE", "Centro Uso GetById", "Mixed");
+
+        Assert.True(await GetCostCenterCanInactivateAsync(client, costCenter.Id));
+
+        _ = await CreateOrgUnitAsync(
+            client,
+            scenario.TenantId,
+            code: "DIR-CC-USAGE",
+            name: "Direccion Uso GetById",
+            orgUnitTypeCode: "Direccion",
+            costCenterCode: costCenter.Code);
+
+        Assert.False(await GetCostCenterCanInactivateAsync(client, costCenter.Id));
+    }
+
+    private static async Task<bool> GetCostCenterCanInactivateAsync(HttpClient client, Guid costCenterId)
+    {
+        var response = await client.GetAsync($"/api/v1/cost-centers/{costCenterId}");
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var allowedActions = document.RootElement.GetProperty("allowedActions");
+        return allowedActions.GetProperty("canInactivate").GetBoolean();
+    }
+
+    [Fact]
     public async Task CostCenters_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
     {
         var scenario = await factory.ResetDatabaseAsync();

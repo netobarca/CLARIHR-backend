@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
@@ -46,7 +47,7 @@ public sealed class CostCentersController(
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = CostCenterValidationRules.DefaultPageSize,
+        [FromQuery, Range(1, CostCenterValidationRules.MaxPageSize)] int pageSize = CostCenterValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -64,8 +65,9 @@ public sealed class CostCentersController(
         Summary = "Get a cost center by id",
         Description = """
             Returns a single cost center by its public id. The owning company is resolved
-            from the authenticated tenant; a cost center belonging to another tenant yields
-            `404`. The current `concurrencyToken` is emitted as the `ETag` header on mutations.
+            from the authenticated tenant; a non-existent id yields `404`, while an id that
+            belongs to another tenant yields `403 TENANT_MISMATCH`. The current
+            `concurrencyToken` is emitted as the `ETag` header on mutations.
             """)]
     public async Task<ActionResult<CostCenterResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {

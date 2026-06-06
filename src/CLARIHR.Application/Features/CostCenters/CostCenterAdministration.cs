@@ -331,13 +331,21 @@ internal sealed class GetCostCenterByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.CostCenterId, cancellationToken);
         if (response is not null)
         {
-            var usage = await repository.GetUsageByIdAsync(query.CostCenterId, cancellationToken);
+            // CC1 (perf): the detail GET only needs the boolean "has active usage" to populate
+            // allowedActions. Use the cheap probe (1-2 queries, early-exit) keyed by the authenticated
+            // tenant and the cost center's normalized code — instead of GetUsageByIdAsync, which
+            // computes the full 5-query reference breakdown (reserved for the dedicated /usage
+            // endpoint). `response.Code` is the normalized code (CostCenter keeps Code == NormalizedCode).
+            var hasActiveUsage = await repository.HasActiveUsageAsync(
+                tenantContext.TenantId.Value,
+                response.Code,
+                cancellationToken);
             var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = CostCenterPolicyAdapter.ApplyAllowedActions(
                 response,
                 resourceActionPolicyService,
                 canManage,
-                hasActiveUsage: usage?.HasActiveReferences ?? false);
+                hasActiveUsage: hasActiveUsage);
 
             return Result<CostCenterResponse>.Success(response);
         }

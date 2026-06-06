@@ -740,6 +740,9 @@ public sealed class PositionSlotAdministrationTests
         public Task<bool> HasActiveUsageAsync(long costCenterId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<bool> HasActiveUsageAsync(Guid tenantId, string normalizedCode, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<CostCenterExportRow>> GetExportRowsAsync(
             Guid tenantId,
             CostCenterType? type,

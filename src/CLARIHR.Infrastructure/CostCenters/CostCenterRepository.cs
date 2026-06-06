@@ -195,19 +195,23 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (costCenter is null)
-        {
-            return false;
-        }
+        return costCenter is not null
+            && await HasActiveUsageAsync(costCenter.TenantId, costCenter.NormalizedCode, cancellationToken);
+    }
 
+    // Boolean usage probe by (tenant, normalized code): used by the detail GET to populate the
+    // `hasActiveUsage` flag of allowedActions without paying for the full breakdown of
+    // GetUsageByIdAsync (5 queries). Early-exits after the org-unit check, so it costs 1-2 queries.
+    public async Task<bool> HasActiveUsageAsync(Guid tenantId, string normalizedCode, CancellationToken cancellationToken)
+    {
         var hasActiveOrgUnitUsage = await dbContext.OrgUnits
             .AsNoTracking()
             .AnyAsync(
                 orgUnit =>
-                    orgUnit.TenantId == costCenter.TenantId &&
+                    orgUnit.TenantId == tenantId &&
                     orgUnit.IsActive &&
                     orgUnit.CostCenterCode != null &&
-                    orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode,
+                    orgUnit.CostCenterCode.Trim().ToUpper() == normalizedCode,
                 cancellationToken);
 
         if (hasActiveOrgUnitUsage)
@@ -219,10 +223,10 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
             (from slot in dbContext.PositionSlots.AsNoTracking()
              join profile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals profile.Id
              join orgUnit in dbContext.OrgUnits.AsNoTracking() on profile.OrgUnitId equals orgUnit.Id
-             where slot.TenantId == costCenter.TenantId &&
+             where slot.TenantId == tenantId &&
                    slot.IsActive &&
                    orgUnit.CostCenterCode != null &&
-                   orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode
+                   orgUnit.CostCenterCode.Trim().ToUpper() == normalizedCode
              select slot.Id)
             .AnyAsync(cancellationToken);
     }

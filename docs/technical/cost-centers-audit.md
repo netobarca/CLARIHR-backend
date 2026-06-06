@@ -1,0 +1,73 @@
+# Auditoría CostCenters — seguimiento
+
+> **Documento vivo / tracker.** Se actualiza al cerrar cada hallazgo.
+> **Creado:** 2026-06-06 · **Estado:** 🟢 **CERRADO** (CC1 ✅ PR-A · CC2/CC3 ✅ PR-B · 2026-06-06) · **Owner:** equipo backend
+> **Alcance:** dominio CostCenters completo — `CostCentersController` (`api/v1`, 9 endpoints) + `Features/CostCenters/` (Search/GetById/Usage/Export/Create/Update/Patch/Activate/Inactivate + Common + PATCH applier) + `CostCenterRepository` + authz (`ICostCenterAuthorizationService`) + dominio (`CostCenter`/`CostCenterNormalization`) + `CostCentersExportHandler`.
+> **Dimensiones:** seguridad · arquitectura · rendimiento, contra `AGENTS.md` (§8, §17) y `docs/technical/overview/project-foundation.md` (§11).
+
+---
+
+## 1. Veredicto
+
+Controlador **maduro y canónico** — fue el piloto (wave 0) del plan de alineación canónica y lo refleja: `[AuthorizationPolicySet]` + two-layer authz, `If-Match`/ETag en **todas** las mutaciones, POST→201+Location+ETag, PATCH RFC-6902 con whitelist + hardening (size limit), soft-delete vía `inactivate` con guard de uso, export acotado por el límite síncrono (413), enrolado en los guardrails de OpenAPI y de authz. **Sin vulnerabilidades crítico/alto** tras verificación adversarial.
+
+- **Aislamiento de tenant VERIFICADO sólido:** los endpoints por `{id}` resuelven el tenant del JWT y distinguen 404 (no existe) vs `TENANT_MISMATCH` 403 (existe en otro tenant); `CostCenter : TenantEntity` → filtro global EF. Search/Export/Create validan el `{companyId}` del route contra el tenant autenticado (no se confía en el route). **Sin IDOR.**
+- **Two-layer authz superset VERIFICADO:** el `[AuthorizationPolicySet(Read, Manage)]` declarativo es superset de los gates `EnsureCanRead`/`EnsureCanManage` del handler → sin 403 falsos.
+- **PATCH whitelist sólida:** sólo `code/name/type/*AccountCode/description`; `concurrencyToken` e `isActive` rechazados; paths anidados rechazados; sin bypass (state validado → `Update(...)`).
+- **Validación consistente** entre command validators y PATCH applier (code/name/account-codes acotados + regex; sin gaps de inyección ni de longitud; sin pitfall trim/domain — los campos son MAX-length, no exact-length).
+
+Lo accionable: **un sobre-fetch de `usage` en el GET de detalle (perf), la ausencia de `[Range]` en `pageSize` (enrolado en guardrails), y una imprecisión en el Swagger del caso cross-tenant.**
+
+## 2. Leyenda de estado
+
+⬜ pendiente · 🟡 en progreso · ✅ resuelto · ⏸️ diferido · ➖ descartado
+
+| Severidad | P1 crítico | P2 alto | P3 medio/bajo |
+|---|---|---|---|
+| Conteo | 0 | 1 | 2 |
+
+---
+
+## 3. Hallazgos accionables
+
+| # | Dim | Sev | Estado | Hallazgo | Evidencia (`file:line`) | Fix propuesto |
+|---|-----|-----|--------|----------|-------------------------|---------------|
+| **CC1** | PERF | P2 | ✅ | **El GET de detalle sobre-fetcha el `usage` completo.** `GetCostCenterByIdQueryHandler` invoca `GetUsageByIdAsync` en **cada** lectura de detalle sólo para poblar el booleano `hasActiveUsage` de `allowedActions`. Ese método ejecuta **5 queries** (load + 2 COUNT de OrgUnits + 2 COUNT de PositionSlots con **triple-join** PositionSlots→JobProfiles→OrgUnits). Además, el predicado `orgUnit.CostCenterCode.Trim().ToUpper() == NormalizedCode` aplica funciones sobre la columna → no usa índice (aunque sí traduce a SQL). Ya existe `HasActiveUsageAsync` (≤2 `Any()` con early-exit) que da exactamente el booleano. El `Search` (lista) **no** tiene este problema (allowedActions in-memory, sin usage por ítem). | `CostCenterAdministration.cs:331-340`; `CostCenterRepository.cs:115-184,186-228` | En el path de `GetById` usar un chequeo booleano barato (`Any` con early-exit, espejo de `HasActiveUsageAsync` pero por `publicId`) en vez del desglose de 5 queries. Conservar `GetUsageByIdAsync` (desglose completo) sólo para el endpoint dedicado `/usage`, que sí lo necesita. <br>**✅ Resuelto (PR-A · 2026-06-06):** nuevo `ICostCenterRepository.HasActiveUsageAsync(tenantId, normalizedCode)` (probe booleano con early-exit, 1-2 queries); el `HasActiveUsageAsync(long)` existente ahora delega en él. `GetById` lo invoca con `tenantContext.TenantId.Value` + `response.Code` (que es el código normalizado) en vez de `GetUsageByIdAsync` → el GET de detalle baja de ~6 a ~2-3 queries (sin los 2 triple-join salvo que el chequeo de org-units sea false). `GetUsageByIdAsync` intacto para el endpoint `/usage`. Anclado en `CostCenters_GetById_AllowedActions_ShouldReflectActiveUsage` (canInactivate=true sin uso → false con org-unit activo; guard de equivalencia de comportamiento). Build 0/0, unit 110/0 (CostCenter+PositionSlot), integración CostCenters 13/13. |
+| **CC2** | ARCH | P3 | ✅ | **Falta `[Range]` en el `pageSize` del controller.** `Search` declara `[FromQuery] int pageSize = DefaultPageSize` **sin** `[Range(1, MaxPageSize)]`. El validator del handler **sí** acota (`InclusiveBetween(1, MaxPageSize)`), así que no hay bug funcional, pero el borde del controller queda sin defensa-en-profundidad e inconsistente con los controllers canónicos (CompanyUsers/JobProfiles declaran ambos). No está enrolado en ningún guardrail de paginación. | `CostCentersController.cs:48-49`; `CostCenterAdministration.cs:143` | Agregar `[Range(1, CostCenterValidationRules.MaxPageSize)]` al `pageSize` + un guardrail drift-proof `CostCenterPaginationGuardrailsTests` (espejo de CompanyUsers F5). <br>**✅ Resuelto (PR-B · 2026-06-06):** `[Range(1, CostCenterValidationRules.MaxPageSize)]` añadido al `pageSize` de `Search` (+ `using System.ComponentModel.DataAnnotations`); validator del handler intacto (defensa-en-profundidad, mismos bounds). Nuevo `CostCenterPaginationGuardrailsTests` (regex de familia `^CostCenters`, estructural/drift-proof; red→green). Build 0/0, unit 17/17, integración 13/13. |
+| **CC3** | DOCS | P3 | ✅ | **El Swagger del caso cross-tenant dice 404, el comportamiento real es 403.** La descripción de `GetById` afirma "a cost center belonging to another tenant yields `404`", pero el handler devuelve `TENANT_MISMATCH` → `ErrorType.Forbidden` → **403** (la convención app-wide: 404 = no existe en ningún lado, 403 = existe en otro tenant). El código es correcto y consistente con ~16 features; **el doc es el que miente.** | `CostCentersController.cs:66-68`; `CostCenterAdministration.cs:345-348`; `AuthorizationErrors.cs:25-29` | Corregir la prosa del `[SwaggerOperation]` de `GetById` (y revisar `Usage`/mutaciones) para decir 403 `TENANT_MISMATCH` en el caso cross-tenant, alineado a la convención app-wide. (No cambiar el comportamiento.) <br>**✅ Resuelto (PR-B · 2026-06-06):** la prosa del `[SwaggerOperation]` de `GetById` ahora dice "a non-existent id yields `404`, while an id that belongs to another tenant yields `403 TENANT_MISMATCH`" — alineada al comportamiento real y a la convención app-wide. Comportamiento sin cambios. (Revisado: ninguna otra prosa del controller afirmaba 404 cross-tenant.) |
+
+---
+
+## 4. Descartado / ya cumple (verificado — no son hallazgos)
+
+| Tema | Resolución |
+|---|---|
+| ➖ N+1 en `Search` con `includeAllowedActions` | **Falso positivo:** `ApplyAllowedActions` es in-memory (`ResourceActionPolicyService`, sin DB). La lista cuesta 2 queries (count + page projection). |
+| ➖ IDOR / aislamiento de tenant | Verificado sólido: `{id}` scoped al JWT (404 vs 403 TenantMismatch); `{companyId}` validado contra el tenant; filtro global EF sobre `TenantEntity`. |
+| ➖ Two-layer authz / 403 falsos | Verificado: policy declarativa ⊇ gate del handler (Read/Manage). |
+| ➖ PATCH bypass / campos no permitidos | Whitelist estricta; `concurrencyToken`/`isActive` rechazados; paths anidados rechazados. |
+| ➖ Pitfall trim/domain en el PATCH applier | No aplica: los campos son **MAX-length** (no exact-length); la normalización del dominio (trim+upper) es intencional; código whitespace-only → falla `IsValidCode` (regex) → error de validación, no 500. |
+| ➖ Mensajes de validación FluentValidation hardcoded en inglés | **No es desviación:** es el patrón app-wide (CompanyUsers/JobProfiles/CompetencyFramework hacen igual `.WithMessage("…")`). Lo que se localiza (resx en+es) son los **códigos de error** (`CostCenterErrors`), que CostCenters sí localiza. |
+| ➖ "load entity + before/after" en command handlers (3 queries) | By-design app-wide: el load es para mutar; before/after alimentan el diff de auditoría. Mismo patrón en todos los command handlers. |
+| ➖ `Contains()` en el free-text search → "full scan" | Traducible a SQL `LIKE` (no client-eval); coste esperado de búsqueda libre sobre columnas normalizadas. Hay índices `(TenantId, NormalizedCode)` y `(TenantId, NormalizedName)`. |
+| ➖ Export sin acotar | Acotado por `SynchronousReadLimit` (`Take(maxRows)` antes de materializar) + 413; `AsNoTracking` + proyección SQL-side. |
+| ✅ Cumple | If-Match/ETag en todas las mutaciones, POST→201+Location, PATCH RFC-6902 + size limit, soft-delete + guard de uso (409 InUse), 409 para conflictos de negocio + `CONCURRENCY_CONFLICT` sólo concurrencia, `[ProducesStandardErrors]`, `[Tags]`+`[SwaggerOperation]`, enrolado en guardrails OpenAPI + authz, índices adecuados, `AsNoTracking` en lecturas, sin god-file, sin código muerto. |
+
+---
+
+## 5. Plan de PRs sugerido
+
+| PR | Hallazgos | Tema |
+|---|---|---|
+| **PR-A** ✅ | CC1 | Perf: el GET de detalle usa un chequeo booleano de uso (early-exit) en vez del desglose de 5 queries. **Hecho 2026-06-06.** |
+| **PR-B** ✅ | CC2 + CC3 | Alineación/contrato: `[Range]` en `pageSize` + guardrail drift-proof; corrección de la prosa Swagger cross-tenant (404 → 403). **Hecho 2026-06-06.** |
+
+---
+
+## 6. Bitácora
+
+| Fecha | Cambio |
+|---|---|
+| 2026-06-06 | **PR-B (CC2 + CC3) ✅ resuelto — auditoría CERRADA.** **CC2:** `[Range(1, CostCenterValidationRules.MaxPageSize)]` en el `pageSize` de `Search` (defensa-en-profundidad, validator del handler intacto) + nuevo `CostCenterPaginationGuardrailsTests` (estructural, regex `^CostCenters`, drift-proof). **CC3:** corregida la prosa Swagger de `GetById` (cross-tenant 404 → `403 TENANT_MISMATCH`), alineada al comportamiento real y a la convención app-wide; sin cambio de comportamiento. Build 0/0, unit 17/17 (CostCenter, incl. 2 guardrails), integración CostCenters 13/13. **Los 3 hallazgos cerrados (CC1/CC2/CC3 ✅).** |
+| 2026-06-06 | **PR-A (CC1) ✅ resuelto.** El GET de detalle ya no invoca `GetUsageByIdAsync` (5 queries, 2 triple-join) sólo para el booleano `hasActiveUsage`: nuevo `HasActiveUsageAsync(tenantId, normalizedCode)` (probe booleano con early-exit, 1-2 queries) — el `HasActiveUsageAsync(long)` existente delega en él, sin duplicar lógica. `GetById` lo invoca con el tenant del JWT + `response.Code`. GET de detalle: ~6 → ~2-3 queries. `GetUsageByIdAsync` se conserva para el endpoint `/usage`. +1 test de integración `CostCenters_GetById_AllowedActions_ShouldReflectActiveUsage` (guard de equivalencia: canInactivate=true sin uso → false con org-unit activo). Actualizado el único otro implementador de `ICostCenterRepository` (test double de PositionSlot). Build 0/0, unit 110/0, integración CostCenters 13/13. |
+| 2026-06-06 | Auditoría inicial (3 agentes Explore: seguridad/perf/arquitectura + verificación adversarial). Veredicto: controlador maduro/canónico (piloto wave 0), **sin crit/high**. Verificaciones que degradaron falsos positivos: el "N+1 en Search" es in-memory (no DB); los mensajes FluentValidation hardcoded son el patrón app-wide (no desviación); el pitfall trim/domain no aplica (campos MAX-length). 3 hallazgos accionables (0 P1, 1 P2, 2 P3): CC1 sobre-fetch de usage en el GET de detalle (perf), CC2 `[Range]` ausente en `pageSize` (guardrail), CC3 imprecisión Swagger cross-tenant (404 vs 403 real). Todos ⬜ pendientes. |
