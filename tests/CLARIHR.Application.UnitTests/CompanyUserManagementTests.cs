@@ -3,12 +3,14 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
+using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.AcceptInvitation;
 using CLARIHR.Application.Features.Auth.Common;
@@ -20,6 +22,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.Preferences;
 using CLARIHR.Infrastructure.IdentityAccess;
 using CLARIHR.Infrastructure.Policies;
@@ -274,6 +277,208 @@ public sealed class CompanyUserManagementTests
     }
 
     [Fact]
+    public async Task Handle_WhenEmailBelongsToAnotherCompany_ShouldReturnSameCodeAsSameCompany()
+    {
+        // F4 (anti-enumeration): inviting an e-mail that lives in a DIFFERENT tenant must be
+        // indistinguishable from the same-company case, so an authenticated admin cannot probe
+        // cross-tenant e-mail existence. Both paths return company_users.user_already_in_company.
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        var otherCompanyPublicId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        companyRepository.Seed(CreateCompany(otherCompanyPublicId, "Other Corp"));
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+
+        var user = CreatePersistedLocalUser("ana@other.test");
+        userRepository.Seed(user);
+        var otherCompany = companyRepository.Items.Single(item => item.PublicId == otherCompanyPublicId);
+        var otherRole = CreateRole(iamRepository, otherCompanyPublicId, "Usuario Estandar");
+        userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, otherCompany.Id, otherRole.Id, isPrimary: true));
+
+        var currentRole = CreateRole(iamRepository, TenantId, "Usuario Estandar");
+
+        var handler = new CreateCompanyUserCommandHandler(
+            userRepository,
+            new TestUserPreferenceRepository(),
+            userCompanyRepository,
+            companyRepository,
+            iamRepository,
+            new TestInvitationTokenRepository(),
+            new TestInvitationTokenHasher(),
+            new TestEmailService(),
+            new AllowCompanyUserAuthorizationService(),
+            CreateRbacAuthorizationService(),
+            new TestTenantContext(TenantId),
+            CreateFieldPermissionService(),
+            CreateFieldSerializationService(),
+            new TestUnitOfWork(),
+            new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)),
+            CreateAuditService(),
+            NullLogger<CreateCompanyUserCommandHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CreateCompanyUserCommand("ana@other.test", "Ana", "Mendoza", [currentRole.PublicId]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(CompanyUserErrors.UserAlreadyInCompany.Code, result.Error.Code);
+        Assert.NotEqual(CompanyUserErrors.UserAssignedToAnotherCompany.Code, result.Error.Code);
+    }
+
+    // --- CompanyUserProvisioningService (provisioning audit) ---
+
+    [Fact]
+    public async Task Provision_WhenRoleBelongsToAnotherTenant_ShouldReturnRoleNotFound()
+    {
+        // PV1: the service is tenant-parameterized and must validate the resolved role's tenant
+        // explicitly rather than trusting the ambient EF filter.
+        var fixture = new ProvisioningFixture();
+        var foreignRole = CreateRole(fixture.IamRepository, Guid.Parse("11111111-1111-1111-1111-111111111111"), "Foreign");
+
+        var result = await fixture.Service.ProvisionAsync(
+            new CompanyUserProvisioningRequest(TenantId, "newcomer@acme.test", "New", "Comer", foreignRole.PublicId, Country: null, Source: "test", AllowExistingMembershipReuse: false),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(CompanyUserErrors.RoleNotFound.Code, result.Error.Code);
+        Assert.Empty(fixture.AuditService.Entries);
+    }
+
+    [Fact]
+    public async Task Provision_WhenInvitingNewUser_ShouldEmitPerUserInvitedAudit()
+    {
+        // PV2: provisioning a new user must emit a per-user audit event (UserInvited), not only the
+        // file/slot-level audit logged by the caller.
+        var fixture = new ProvisioningFixture();
+        var role = CreateRole(fixture.IamRepository, TenantId, "Usuario Estandar");
+
+        var result = await fixture.Service.ProvisionAsync(
+            new CompanyUserProvisioningRequest(TenantId, "newcomer@acme.test", "New", "Comer", role.PublicId, Country: null, Source: "test", AllowExistingMembershipReuse: false),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var entry = Assert.Single(fixture.AuditService.Entries);
+        Assert.Equal(AuditEventTypes.UserInvited, entry.EventType);
+        Assert.Equal(AuditActions.Invite, entry.Action);
+        Assert.Equal(AuditEntityTypes.User, entry.EntityType);
+        Assert.Equal(result.Value.User.PublicId, entry.EntityId);
+    }
+
+    [Fact]
+    public async Task SyncRoleForPositionSlot_WhenRoleBelongsToAnotherTenant_ShouldReturnRoleNotFound()
+    {
+        // PV1: same explicit tenant validation on the cascade path.
+        var fixture = new ProvisioningFixture();
+        var foreignRole = CreateRole(fixture.IamRepository, Guid.Parse("22222222-2222-2222-2222-222222222222"), "Foreign");
+
+        var result = await fixture.Service.SyncRoleAssignmentsForPositionSlotAsync(
+            TenantId,
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            foreignRole.PublicId,
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(CompanyUserErrors.RoleNotFound.Code, result.Error.Code);
+        Assert.Empty(fixture.AuditService.Entries);
+    }
+
+    [Fact]
+    public async Task SyncRoleForPositionSlot_ShouldEmitPerUserAuditForEachLinkedUser()
+    {
+        // PV2: the position-slot role cascade must emit a per-user audit event so the privilege
+        // change is traceable per user (the slot-level audit does not record WHICH users changed).
+        var fixture = new ProvisioningFixture();
+        var role = CreateRole(fixture.IamRepository, TenantId, "Nuevo Rol");
+        var user = CreatePersistedLocalUser("ana@acme.test");
+        fixture.UserRepository.Seed(user);
+        fixture.UserCompanyRepository.Add(
+            UserCompanyMembership.Create(user.Id, fixture.CompanyRepository.Items[0].Id, role.Id, isPrimary: true));
+        var slotId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        fixture.PersonnelFileRepository.LinkedUserIds = [user.PublicId];
+
+        var result = await fixture.Service.SyncRoleAssignmentsForPositionSlotAsync(
+            TenantId,
+            slotId,
+            role.PublicId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value);
+        var entry = Assert.Single(fixture.AuditService.Entries);
+        Assert.Equal(AuditEventTypes.UserUpdated, entry.EventType);
+        Assert.Equal(AuditActions.Update, entry.Action);
+        Assert.Equal(user.PublicId, entry.EntityId);
+    }
+
+    [Fact]
+    public async Task SyncRoleForPositionSlot_ShouldBatchResolveAggregatesOncePerCascade()
+    {
+        // PV3: the cascade must resolve users/memberships/iam-users ONCE for the whole linked-user
+        // set (batched), not 3 queries per user (N+1). Anchored via per-batch-method call counters:
+        // each must be invoked exactly once regardless of how many users are linked.
+        var fixture = new ProvisioningFixture();
+        var role = CreateRole(fixture.IamRepository, TenantId, "Nuevo Rol");
+        var companyId = fixture.CompanyRepository.Items[0].Id;
+
+        var first = CreatePersistedLocalUser("ana@acme.test");
+        var second = CreatePersistedLocalUser("bruno@acme.test");
+        fixture.UserRepository.Seed(first);
+        fixture.UserRepository.Seed(second);
+        fixture.UserCompanyRepository.Add(UserCompanyMembership.Create(first.Id, companyId, role.Id, isPrimary: true));
+        fixture.UserCompanyRepository.Add(UserCompanyMembership.Create(second.Id, companyId, role.Id, isPrimary: true));
+        fixture.PersonnelFileRepository.LinkedUserIds = [first.PublicId, second.PublicId];
+
+        var result = await fixture.Service.SyncRoleAssignmentsForPositionSlotAsync(
+            TenantId,
+            Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            role.PublicId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value);
+        Assert.Equal(2, fixture.AuditService.Entries.Count);
+        Assert.Equal(1, fixture.UserRepository.GetByPublicIdsCallCount);
+        Assert.Equal(1, fixture.UserCompanyRepository.GetMembershipsCallCount);
+        Assert.Equal(1, fixture.IamRepository.GetUsersByTenantAndLinkedUserPublicIdsCallCount);
+    }
+
+    private sealed class ProvisioningFixture
+    {
+        public TestUserRepository UserRepository { get; }
+        public TestCompanyRepository CompanyRepository { get; }
+        public TestIamAdministrationRepository IamRepository { get; }
+        public TestUserCompanyRepository UserCompanyRepository { get; }
+        public TestProvisioningPersonnelFileRepository PersonnelFileRepository { get; }
+        public TestAuditService AuditService { get; }
+        public CompanyUserProvisioningService Service { get; }
+
+        public ProvisioningFixture()
+        {
+            UserRepository = new TestUserRepository();
+            CompanyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+            IamRepository = new TestIamAdministrationRepository();
+            UserCompanyRepository = new TestUserCompanyRepository(CompanyRepository, UserRepository, IamRepository);
+            PersonnelFileRepository = new TestProvisioningPersonnelFileRepository();
+            AuditService = CreateAuditService();
+
+            Service = new CompanyUserProvisioningService(
+                UserRepository,
+                UserCompanyRepository,
+                CompanyRepository,
+                IamRepository,
+                new TestInvitationTokenRepository(),
+                new TestInvitationTokenHasher(),
+                new TestEmailService(),
+                new TestPasswordHasher(),
+                PersonnelFileRepository,
+                new TestUserPreferenceRepository(),
+                new TestUnitOfWork(),
+                new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)),
+                AuditService);
+        }
+    }
+
+    [Fact]
     public async Task Handle_WhenDeactivatingLastAdministrator_ShouldReturnConflict()
     {
         var userRepository = new TestUserRepository();
@@ -401,6 +606,11 @@ public sealed class CompanyUserManagementTests
         Assert.NotNull(invitationTokenRepository.Items[0].RevokedUtc);
         Assert.Single(emailService.Messages);
         Assert.True(unitOfWork.Transaction.CommitCalled);
+        // F6: reset-invitation must attach the weak ETag to its response (mirroring create), so the
+        // client can mutate immediately without a follow-up GET. It is computed from the unfiltered
+        // projection, so it equals the ETag recomputed from the returned user.
+        Assert.False(string.IsNullOrWhiteSpace(result.Value.User.WeakETag));
+        Assert.Equal(CompanyUserETag.Compute(result.Value.User), result.Value.User.WeakETag);
     }
 
     [Fact]
@@ -934,11 +1144,21 @@ public sealed class CompanyUserManagementTests
     {
         public List<User> Items { get; } = [];
 
+        public int GetByPublicIdsCallCount { get; private set; }
+
         public Task<User?> GetByIdAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(user => user.Id == userId));
 
         public Task<User?> GetByPublicIdAsync(Guid userPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(user => user.PublicId == userPublicId));
+
+        // Overrides the IUserRepository default batch method (PV3) so the test can assert the cascade
+        // resolves users once for the whole set rather than once per user.
+        public Task<IReadOnlyList<User>> GetByPublicIdsAsync(IReadOnlyCollection<Guid> userPublicIds, CancellationToken cancellationToken)
+        {
+            GetByPublicIdsCallCount++;
+            return Task.FromResult<IReadOnlyList<User>>(Items.Where(user => userPublicIds.Contains(user.PublicId)).ToArray());
+        }
 
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
         {
@@ -1019,6 +1239,8 @@ public sealed class CompanyUserManagementTests
         public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary));
 
+        public int GetMembershipsCallCount { get; private set; }
+
         public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
         {
             var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
@@ -1027,6 +1249,18 @@ public sealed class CompanyUserManagementTests
                 : Items.SingleOrDefault(item => item.UserId == userId && item.CompanyId == company.Id);
 
             return Task.FromResult(membership);
+        }
+
+        // Overrides the IUserCompanyRepository default batch method (PV3) — see GetByPublicIdsAsync.
+        public Task<IReadOnlyList<UserCompanyMembership>> GetMembershipsAsync(IReadOnlyCollection<long> userIds, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            GetMembershipsCallCount++;
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var memberships = company is null
+                ? []
+                : Items.Where(item => item.CompanyId == company.Id && userIds.Contains(item.UserId)).ToArray();
+
+            return Task.FromResult<IReadOnlyList<UserCompanyMembership>>(memberships);
         }
 
         public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
@@ -1415,6 +1649,69 @@ public sealed class CompanyUserManagementTests
         }
     }
 
+    private sealed class TestProvisioningPersonnelFileRepository : IPersonnelFileRepository
+    {
+        public IReadOnlyCollection<Guid> LinkedUserIds { get; set; } = [];
+
+        public Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(Guid tenantId, Guid assignedPositionSlotId, CancellationToken cancellationToken) =>
+            Task.FromResult(LinkedUserIds);
+
+        public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
+        public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFile?> GetForAccessCheckAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFile?> GetForProfileSectionUpdateAsync(Guid personnelFileId, PersonnelFileTrackedSection section, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> IdentificationExistsAsync(Guid tenantId, string identificationType, string normalizedIdentificationNumber, long? excludingPersonnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PagedResponse<PersonnelFileListItemResponse>> SearchAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileIdentificationResponse?> GetIdentificationAsync(Guid personnelFileId, Guid identificationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileAddressResponse?> GetAddressAsync(Guid personnelFileId, Guid addressPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileEmergencyContactResponse?> GetEmergencyContactAsync(Guid personnelFileId, Guid emergencyContactPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileFamilyMemberResponse?> GetFamilyMemberAsync(Guid personnelFileId, Guid familyMemberPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileHobbyResponse?> GetHobbyAsync(Guid personnelFileId, Guid hobbyPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(Guid personnelFileId, Guid employeeRelationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(Guid personnelFileId, Guid bankAccountPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileAssociationResponse?> GetAssociationAsync(Guid personnelFileId, Guid associationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileEducationResponse?> GetEducationAsync(Guid personnelFileId, Guid educationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileLanguageResponse?> GetLanguageAsync(Guid personnelFileId, Guid languagePublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileTrainingResponse?> GetTrainingAsync(Guid personnelFileId, Guid trainingPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFilePreviousEmploymentResponse?> GetPreviousEmploymentAsync(Guid personnelFileId, Guid previousEmploymentPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileReferenceResponse?> GetReferenceAsync(Guid personnelFileId, Guid referencePublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid personnelFileId, Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(string countryCode, string departmentCode, string municipalityCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDynamicQueryResponse> DynamicQueryAsync(Guid tenantId, IReadOnlyCollection<PersonnelFileDynamicFilterInput> filters, IReadOnlyCollection<string> groupBy, IReadOnlyCollection<PersonnelFileDynamicSortInput> sort, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileAnalyticsSummaryResponse> GetAnalyticsSummaryAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
     private sealed class TestIamAdministrationRepository : IIamAdministrationRepository
     {
         private long _nextUserId = 1;
@@ -1475,6 +1772,8 @@ public sealed class CompanyUserManagementTests
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult(Users.SingleOrDefault(user => user.PublicId == userId));
 
+        public int GetUsersByTenantAndLinkedUserPublicIdsCallCount { get; private set; }
+
         public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
             Guid tenantId,
             Guid linkedUserPublicId,
@@ -1484,6 +1783,21 @@ public sealed class CompanyUserManagementTests
                 Users.SingleOrDefault(user =>
                     user.TenantId == tenantId &&
                     user.LinkedUserPublicId == linkedUserPublicId));
+
+        // Overrides the IIamAdministrationRepository default batch method (PV3) — see GetByPublicIdsAsync.
+        public Task<IReadOnlyList<IamUser>> GetUsersByTenantAndLinkedUserPublicIdsAsync(
+            Guid tenantId,
+            IReadOnlyCollection<Guid> linkedUserPublicIds,
+            bool includeRoles,
+            CancellationToken cancellationToken)
+        {
+            GetUsersByTenantAndLinkedUserPublicIdsCallCount++;
+            return Task.FromResult<IReadOnlyList<IamUser>>(
+                Users.Where(user =>
+                    user.TenantId == tenantId &&
+                    user.LinkedUserPublicId.HasValue &&
+                    linkedUserPublicIds.Contains(user.LinkedUserPublicId.Value)).ToArray());
+        }
 
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult(Roles.SingleOrDefault(role => role.PublicId == roleId));

@@ -60,6 +60,19 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (membership, _) => membership)
             .SingleOrDefaultAsync(membership => membership.UserId == userId, cancellationToken);
 
+    public async Task<IReadOnlyList<UserCompanyMembership>> GetMembershipsAsync(
+        IReadOnlyCollection<long> userIds,
+        Guid companyPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.UserCompanyMemberships
+            .Join(
+                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership)
+            .Where(membership => userIds.Contains(membership.UserId))
+            .ToListAsync(cancellationToken);
+
     public async Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
     {
         var linkedUserPublicId = await dbContext.UserCompanyMemberships

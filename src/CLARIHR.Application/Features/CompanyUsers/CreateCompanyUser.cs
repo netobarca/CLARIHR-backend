@@ -109,7 +109,14 @@ internal sealed class CreateCompanyUserCommandHandler(
                 var existingCompanyPublicId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
                 if (!existingCompanyPublicId.HasValue || existingCompanyPublicId.Value != companyPublicId)
                 {
-                    return Result<CompanyUserInvitationResponse>.Failure(CompanyUserErrors.UserAssignedToAnotherCompany);
+                    // F4 (anti-enumeration): the e-mail belongs to a DIFFERENT tenant. Returning a
+                    // distinct "user_in_another_company" code would let an authenticated admin probe
+                    // for the cross-tenant existence of an arbitrary e-mail (a distinct generic code
+                    // would only rename the oracle). Collapse this into the same response as the
+                    // same-company case so the two outcomes are indistinguishable — the caller cannot
+                    // tell whether the address lives in their own tenant or another. The system-driven
+                    // provisioning flow keeps the specific code (not attacker-facing).
+                    return Result<CompanyUserInvitationResponse>.Failure(CompanyUserErrors.UserAlreadyInCompany);
                 }
             }
         }

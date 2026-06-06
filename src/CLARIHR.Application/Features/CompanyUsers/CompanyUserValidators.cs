@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Features.CompanyUsers.Common;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.CompanyUsers;
@@ -11,7 +12,7 @@ internal sealed class GetCompanyUsersQueryValidator : AbstractValidator<GetCompa
             .GreaterThan(0);
 
         RuleFor(query => query.PageSize)
-            .InclusiveBetween(1, 100);
+            .InclusiveBetween(1, CompanyUserValidationRules.MaxPageSize);
 
         RuleFor(query => query.RoleId)
             .NotEqual(Guid.Empty)

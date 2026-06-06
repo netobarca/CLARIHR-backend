@@ -30,6 +30,30 @@ public interface IIamAdministrationRepository
         bool includeRoles,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Batch variant of <see cref="FindUserByTenantAndLinkedUserPublicIdAsync"/> for a set of linked
+    /// user public ids within one tenant. The default falls back to per-id lookups; the EF repository
+    /// overrides it with a single batched query (used to de-N+1 the position-slot role cascade).
+    /// </summary>
+    async Task<IReadOnlyList<IamUser>> GetUsersByTenantAndLinkedUserPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> linkedUserPublicIds,
+        bool includeRoles,
+        CancellationToken cancellationToken)
+    {
+        var users = new List<IamUser>(linkedUserPublicIds.Count);
+        foreach (var linkedUserPublicId in linkedUserPublicIds)
+        {
+            var user = await FindUserByTenantAndLinkedUserPublicIdAsync(tenantId, linkedUserPublicId, includeRoles, cancellationToken);
+            if (user is not null)
+            {
+                users.Add(user);
+            }
+        }
+
+        return users;
+    }
+
     Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken);
 
     Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(

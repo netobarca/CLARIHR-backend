@@ -74,6 +74,37 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
         return query.SingleOrDefaultAsync(user => user.LinkedUserPublicId == linkedUserPublicId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<IamUser>> GetUsersByTenantAndLinkedUserPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> linkedUserPublicIds,
+        bool includeRoles,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<IamUser> query = dbContext.IamUsers
+            // Intentional tenant filter bypass: applies explicit tenantId filter before materializing IAM user data.
+            .IgnoreQueryFilters()
+            .Where(user => user.TenantId == tenantId);
+
+        if (includeRoles)
+        {
+            query = query
+                .Include(user => user.RoleAssignments)
+                .ThenInclude(assignment => assignment.Role)
+                .ThenInclude(role => role.PermissionAssignments)
+                .ThenInclude(assignment => assignment.Permission);
+        }
+
+        // Project the ids to a nullable List so the predicate is a plain `LinkedUserPublicId IN (...)`
+        // — EF translates this cleanly (a NULL column simply never matches). A List (not an array) is
+        // required: array .Contains binds to the span-based overload that EF's funcletizer cannot
+        // evaluate for Nullable<Guid>, and the `.Value` member access form is likewise not translatable.
+        var nullableLinkedUserPublicIds = linkedUserPublicIds.Select(id => (Guid?)id).ToList();
+
+        return await query
+            .Where(user => nullableLinkedUserPublicIds.Contains(user.LinkedUserPublicId))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken)
     {
         IQueryable<IamRole> query = dbContext.IamRoles;

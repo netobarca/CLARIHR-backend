@@ -13,6 +13,13 @@ internal sealed class UserRepository(ApplicationDbContext dbContext) : IUserRepo
     public Task<User?> GetByPublicIdAsync(Guid userPublicId, CancellationToken cancellationToken) =>
         dbContext.AuthUsers.SingleOrDefaultAsync(user => user.PublicId == userPublicId, cancellationToken);
 
+    public async Task<IReadOnlyList<User>> GetByPublicIdsAsync(
+        IReadOnlyCollection<Guid> userPublicIds,
+        CancellationToken cancellationToken) =>
+        await dbContext.AuthUsers
+            .Where(user => userPublicIds.Contains(user.PublicId))
+            .ToListAsync(cancellationToken);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
     {
         var normalizedEmail = User.NormalizeEmail(email);

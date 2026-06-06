@@ -8,6 +8,7 @@ using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -220,6 +221,12 @@ builder.Services.AddRateLimiter(options =>
     // plus a generous limiter for the paged occupational-pyramid-levels / competency-conducts search.
     options.AddPolicy(CompetencyFrameworkRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompetencyFramework:Export:PermitLimit", 10));
     options.AddPolicy(CompetencyFrameworkRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompetencyFramework:Search:PermitLimit", 120));
+
+    // Company Users: tight limiter for the invitation e-mail senders (invite + reset-invitation) —
+    // same abuse class as auth-invite-accept (e-mail bomb / cross-tenant enumeration) — plus a
+    // generous limiter for the paged company-users search/list.
+    options.AddPolicy(CompanyUserRateLimitPolicies.Invite, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompanyUsers:Invite:PermitLimit", 10));
+    options.AddPolicy(CompanyUserRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompanyUsers:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
@@ -7,6 +8,7 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Domain.Auth;
@@ -28,7 +30,8 @@ internal sealed class CompanyUserProvisioningService(
     IPersonnelFileRepository personnelFileRepository,
     IUserPreferenceRepository userPreferenceRepository,
     IUnitOfWork unitOfWork,
-    IDateTimeProvider dateTimeProvider) : ICompanyUserProvisioningService
+    IDateTimeProvider dateTimeProvider,
+    IAuditService auditService) : ICompanyUserProvisioningService
 {
     public async Task<Result<CompanyUserProvisioningResult>> ProvisionAsync(
         CompanyUserProvisioningRequest request,
@@ -47,6 +50,17 @@ internal sealed class CompanyUserProvisioningService(
         }
 
         var role = roles[0];
+
+        // PV1 (defense-in-depth): the role is resolved through the EF global tenant filter, which
+        // is only active when an ambient tenant is set. This service is tenant-parameterized, so it
+        // must not trust the ambient filter — validate the resolved role belongs to the requested
+        // tenant explicitly. Without this, a future system/background caller (no ambient tenant)
+        // could provision a cross-tenant role.
+        if (role.TenantId != request.CompanyPublicId)
+        {
+            return Result<CompanyUserProvisioningResult>.Failure(CompanyUserErrors.RoleNotFound);
+        }
+
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         var wasCreated = false;
         var membershipReused = false;
@@ -180,6 +194,39 @@ internal sealed class CompanyUserProvisioningService(
                 cancellationToken);
         }
 
+        // PV2: provisioning assigns a role (and may invite) without going through the CompanyUsers
+        // controller, so it must emit its own per-user audit event — otherwise the privilege change
+        // is only traceable at the file/slot level. Use LogForTenantAsync (explicit tenant) to stay
+        // consistent with PV1 and not depend on the ambient tenant context.
+        if (invitationIssued)
+        {
+            await auditService.LogForTenantAsync(
+                request.CompanyPublicId,
+                new AuditLogEntry(
+                    AuditEventTypes.UserInvited,
+                    AuditEntityTypes.User,
+                    user.PublicId,
+                    EntityKey: user.Email,
+                    AuditActions.Invite,
+                    $"Provisioned and invited user {user.Email}.",
+                    After: CompanyUserAuditMapper.CreateInvitationSnapshot(user, membership!, [role], invitationExpiresUtc!.Value)),
+                cancellationToken);
+        }
+        else
+        {
+            await auditService.LogForTenantAsync(
+                request.CompanyPublicId,
+                new AuditLogEntry(
+                    AuditEventTypes.UserUpdated,
+                    AuditEntityTypes.User,
+                    user.PublicId,
+                    EntityKey: user.Email,
+                    AuditActions.Update,
+                    $"Provisioned user {user.Email} (role assignment updated).",
+                    After: CompanyUserAuditMapper.CreateSnapshot(user, membership!, [role])),
+                cancellationToken);
+        }
+
         var response = await userCompanyRepository.GetUserAsync(request.CompanyPublicId, user.PublicId, cancellationToken);
         if (response is null)
         {
@@ -209,36 +256,81 @@ internal sealed class CompanyUserProvisioningService(
         }
 
         var role = roles[0];
+
+        // PV1 (defense-in-depth): validate the role belongs to the requested tenant explicitly
+        // rather than trusting the ambient EF tenant filter (see ProvisionAsync for the rationale).
+        if (role.TenantId != companyPublicId)
+        {
+            return Result<int>.Failure(CompanyUserErrors.RoleNotFound);
+        }
+
         var linkedUserIds = await personnelFileRepository.GetLinkedUserIdsByAssignedPositionSlotAsync(
             companyPublicId,
             assignedPositionSlotId,
             cancellationToken);
+        if (linkedUserIds.Count == 0)
+        {
+            return Result<int>.Success(0);
+        }
+
+        // PV3: batch-resolve the three aggregates once for the whole linked-user set instead of
+        // issuing 3 queries per user (N+1). The EF repositories override the batch methods with a
+        // single query each; the in-memory loop below mutates and audits without further round-trips.
+        var users = await userRepository.GetByPublicIdsAsync(linkedUserIds, cancellationToken);
+        if (users.Count == 0)
+        {
+            return Result<int>.Success(0);
+        }
+
+        var membershipsByUserId = (await userCompanyRepository.GetMembershipsAsync(
+                users.Select(user => user.Id).ToArray(),
+                companyPublicId,
+                cancellationToken))
+            .ToDictionary(membership => membership.UserId);
+
+        var iamUsersByLinkedPublicId = (await iamRepository.GetUsersByTenantAndLinkedUserPublicIdsAsync(
+                companyPublicId,
+                users.Select(user => user.PublicId).ToArray(),
+                includeRoles: true,
+                cancellationToken))
+            .Where(iamUser => iamUser.LinkedUserPublicId.HasValue)
+            .ToDictionary(iamUser => iamUser.LinkedUserPublicId!.Value);
 
         var updatedCount = 0;
-        foreach (var linkedUserId in linkedUserIds)
+        foreach (var user in users)
         {
-            var user = await userRepository.GetByPublicIdAsync(linkedUserId, cancellationToken);
-            if (user is null)
-            {
-                continue;
-            }
-
-            var membership = await userCompanyRepository.GetMembershipAsync(user.Id, companyPublicId, cancellationToken);
-            if (membership is not null)
+            if (membershipsByUserId.TryGetValue(user.Id, out var membership))
             {
                 membership.ChangeRole(role.Id);
             }
 
-            var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
-                companyPublicId,
-                linkedUserId,
-                includeRoles: true,
-                cancellationToken);
-            if (iamUser is not null)
+            if (iamUsersByLinkedPublicId.TryGetValue(user.PublicId, out var iamUser))
             {
                 iamUser.SyncRoles([role]);
                 CompanyUserManagementHelpers.StampTenant(iamUser.RoleAssignments, companyPublicId);
             }
+
+            // PV2: the position-slot role cascade changes the privilege of each linked user, so emit
+            // a per-user audit event — the slot-level PositionSlotUpdated entry records that the slot
+            // role changed but not WHICH users were re-assigned.
+            await auditService.LogForTenantAsync(
+                companyPublicId,
+                new AuditLogEntry(
+                    AuditEventTypes.UserUpdated,
+                    AuditEntityTypes.User,
+                    user.PublicId,
+                    EntityKey: user.Email,
+                    AuditActions.Update,
+                    $"Synced role for user {user.Email} from position slot {assignedPositionSlotId}.",
+                    After: CompanyUserAuditMapper.CreateSnapshot(
+                        user.PublicId,
+                        user.Email,
+                        user.FirstName,
+                        user.LastName,
+                        CompanyUserAuditMapper.MapRoles([role]),
+                        user.Status.ToString(),
+                        membership?.Status.ToString() ?? string.Empty)),
+                cancellationToken);
 
             updatedCount++;
         }

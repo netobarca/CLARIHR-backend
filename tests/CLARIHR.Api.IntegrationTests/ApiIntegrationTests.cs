@@ -2956,6 +2956,65 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompanyUsers_Invite_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Create)));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 11; index++)
+        {
+            lastResponse = await client.PostJsonAsync("/api/v1/company/users", new
+            {
+                email = $"company-user-rl{index}@acme.test",
+                firstName = "Rate",
+                lastName = "Limit",
+                rolePublicIds = new[] { scenario.TargetRoleId }
+            });
+
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Search_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 121; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/company/users?page=1&pageSize=20&search={index}");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
     public async Task PersonnelFiles_GetObservations_ShouldReturnNewestFirst()
     {
         var scenario = await factory.ResetDatabaseAsync();

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Authorization;
@@ -5,10 +6,13 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
+using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -33,6 +37,7 @@ public sealed class CompanyUsersController(
 {
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
     [HttpGet]
+    [EnableRateLimiting(CompanyUserRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<CompanyUserSummaryResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -43,10 +48,18 @@ public sealed class CompanyUsersController(
             `pageSize`, `status`, `roleId` and `search` to navigate and filter.
             """)]
     public async Task<ActionResult<PagedResponse<CompanyUserSummaryResponse>>> List(
-        [FromQuery] GetCompanyUsersQuery query,
-        CancellationToken cancellationToken)
+        [FromQuery] UserStatus? status,
+        [FromQuery] Guid? roleId,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [Range(1, CompanyUserValidationRules.MaxPageSize)]
+        [FromQuery] int pageSize = CompanyUserValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
+        CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(query, cancellationToken);
+        var result = await queryDispatcher.SendAsync(
+            new GetCompanyUsersQuery(page, pageSize, status, roleId, search, includeAllowedActions),
+            cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -72,6 +85,7 @@ public sealed class CompanyUsersController(
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Create)]
     [HttpPost]
+    [EnableRateLimiting(CompanyUserRateLimitPolicies.Invite)]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
@@ -226,6 +240,7 @@ public sealed class CompanyUsersController(
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPost("{userId:guid}/reset-invitation")]
+    [EnableRateLimiting(CompanyUserRateLimitPolicies.Invite)]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(

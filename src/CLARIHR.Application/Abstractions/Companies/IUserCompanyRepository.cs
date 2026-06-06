@@ -21,6 +21,29 @@ public interface IUserCompanyRepository
 
     Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Batch variant of <see cref="GetMembershipAsync"/> for a set of user ids within one company.
+    /// The default falls back to per-user lookups; the EF repository overrides it with a single
+    /// batched query (used to de-N+1 the position-slot role cascade).
+    /// </summary>
+    async Task<IReadOnlyList<UserCompanyMembership>> GetMembershipsAsync(
+        IReadOnlyCollection<long> userIds,
+        Guid companyPublicId,
+        CancellationToken cancellationToken)
+    {
+        var memberships = new List<UserCompanyMembership>(userIds.Count);
+        foreach (var userId in userIds)
+        {
+            var membership = await GetMembershipAsync(userId, companyPublicId, cancellationToken);
+            if (membership is not null)
+            {
+                memberships.Add(membership);
+            }
+        }
+
+        return memberships;
+    }
+
     Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
 
     Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);

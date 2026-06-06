@@ -63,6 +63,10 @@ public sealed class OpenApiContractGuardrailsTests
         // all consolidated under the "Competency Framework" tag. JobProfileCompetencyMatrix is carved
         // out of the JobProfile family above by its (?!CompetencyMatrix) lookahead.
         ("CompetencyFramework", new Regex(@"^(OccupationalPyramidLevels|CompetencyConducts|JobProfileCompetencyMatrix)", RegexOptions.Compiled), "Competency Framework"),
+        // CompanyUsersController carries [Tags("Company Users")] + per-action [SwaggerOperation]; its
+        // handler-gated authz keeps it out of GovernedFamilyRegex by design, but it is still a public
+        // contract family. `^CompanyUsers` matches only CompanyUsersController (not CompanyPreferences).
+        ("CompanyUsers", new Regex(@"^CompanyUsers", RegexOptions.Compiled), "Company Users"),
     ];
 
     public static TheoryData<string> FamilyLabels()
