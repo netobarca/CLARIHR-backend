@@ -41,6 +41,16 @@ public interface ILegalRepresentativeRepository
 
     Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Cheap boolean probe: does the tenant have another active legal representative besides the
+    /// given one? Used by the detail GET to derive <c>CanInactivate</c> without re-projecting the
+    /// entity or counting (§LR5) — pairs with the response's own <c>IsActive</c>.
+    /// </summary>
+    Task<bool> HasOtherActiveRepresentativeAsync(
+        Guid tenantId,
+        Guid excludingLegalRepresentativePublicId,
+        CancellationToken cancellationToken);
+
     Task<LegalRepresentative?> GetActivePrimaryAsync(
         Guid tenantId,
         Guid? excludingLegalRepresentativePublicId,

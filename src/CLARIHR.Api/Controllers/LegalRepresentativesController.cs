@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
@@ -14,6 +15,7 @@ using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -30,6 +32,7 @@ public sealed class LegalRepresentativesController(
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/legal-representatives")]
+    [EnableRateLimiting(LegalRepresentativeRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<LegalRepresentativeListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -47,7 +50,7 @@ public sealed class LegalRepresentativesController(
         [FromQuery] LegalRepresentativeRepresentationType? representationType,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = LegalRepresentativeValidationRules.DefaultPageSize,
+        [FromQuery, Range(1, LegalRepresentativeValidationRules.MaxPageSize)] int pageSize = LegalRepresentativeValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -98,6 +101,7 @@ public sealed class LegalRepresentativesController(
     }
 
     [HttpGet("companies/{companyId:guid}/legal-representatives/export")]
+    [EnableRateLimiting(LegalRepresentativeRateLimitPolicies.Export)]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesStandardErrors(StandardErrorSet.Query)]

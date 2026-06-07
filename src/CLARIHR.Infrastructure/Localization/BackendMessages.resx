@@ -295,9 +295,6 @@
   <data name="LEGAL_REPRESENTATIVE_NOT_FOUND" xml:space="preserve">
     <value>The legal representative could not be found.</value>
   </data>
-  <data name="LEGAL_REPRESENTATIVE_PRIMARY_CONFLICT" xml:space="preserve">
-    <value>Only one active primary legal representative is allowed per company.</value>
-  </data>
   <data name="LEGAL_REPRESENTATIVE_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The requested operation is not allowed for the current legal representative state.</value>
   </data>

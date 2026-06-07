@@ -2281,8 +2281,9 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `LegalRepresentativeListItemResponse` devuelve `companyId`, nombre, documento, cargo, `representationType`, `isPrimary`, `isActive`, vigencias, `concurrencyToken`, timestamps y opcionalmente `allowedActions`.
 - `LegalRepresentativeResponse` agrega `authorityDescription`, `appointmentInstrument`, `appointmentDateUtc`, `email` y `phone`.
 - `isPrimary` es nullable en respuestas. `true` significa primario vigente; `false`, no primario; `null`, prioridad no especificada en el alta original.
-- `LegalRepresentativeUsageResponse` hoy devuelve `legalRepresentativeId`, `activeDocumentReferencesCount` y `canInactivate`.
+- `LegalRepresentativeUsageResponse` devuelve `legalRepresentativeId` y `canInactivate`.
 - `firstName` y `lastName` son obligatorios, maximo `100`, y usan validacion de nombre.
+- `documentType` es obligatorio y maximo `40` (alineado con la columna; un valor mas largo responde `400`, no `500`).
 - `documentNumber` es obligatorio, maximo `80`, y usa regex alfanumerica con `_`, `.`, `/` o `-`.
 - `positionTitle` es obligatorio, maximo `150`, y usa regex controlada.
 - `authorityDescription` y `appointmentInstrument` aceptan hasta `500` caracteres.
@@ -2293,6 +2294,7 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `pageSize` maximo es `100`, el default es `20`.
 - `update`, `activate`, `inactivate` y `set-primary` usan concurrencia optimista con `ConcurrencyToken`.
 - Todas las escrituras y el export generan auditoria.
+- `search` y `export` tienen rate-limiting por usuario+tenant (`search` ~`120`/min, `export` ~`10`/min, configurables); al excederse responden `429`.
 - El sistema exige que siempre exista al menos un representante legal activo por compania.
 - Solo puede existir un representante activo marcado como primario a la vez.
 
@@ -2316,7 +2318,8 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `LEGAL_REPRESENTATIVE_EFFECTIVE_DATES_INVALID`: `422`, `effectiveToUtc` es menor que `effectiveFromUtc`.
 - `LEGAL_REPRESENTATIVE_STATE_RULE_VIOLATION`: `422`, la operacion no es valida para el estado actual, por ejemplo marcar primario un registro inactivo.
 - `LEGAL_REPRESENTATIVE_EXPORT_FORMAT_INVALID`: `400`, `format` no soportado en el export.
-- `400` de validacion: `page/pageSize` invalidos, nombres invalidos, `documentNumber` invalido, `positionTitle` invalido, email invalido, ids vacios o `ConcurrencyToken` ausente.
+- `400` de validacion: `page/pageSize` invalidos, nombres invalidos, `documentType` o `documentNumber` invalido, `positionTitle` invalido, `q` menor a `2` caracteres, email invalido, ids vacios o `ConcurrencyToken` ausente.
+- `429`: se excedio el rate-limit por usuario+tenant de `search` o `export`.
 
 #### 5.7.6 Search y detalle de legal representatives
 
@@ -2333,7 +2336,7 @@ Uso principal:
 Observaciones funcionales:
 
 - `search` soporta filtros `isActive`, `isPrimary`, `representationType`, `q`, `page`, `pageSize` e `includeAllowedActions`.
-- `q` busca por `fullName`, `positionTitle` y `documentNumber`.
+- `q` busca por `fullName`, `positionTitle` y `documentNumber`. Si se envia, debe tener al menos `2` caracteres tras `trim` (vacio o solo espacios = sin filtro); un `q` mas corto responde `400`. Aplica igual en `search` y `export`.
 - el orden observable del listado prioriza los registros con `isPrimary = true` y luego `fullName`; `false` y `null` no se tratan como primarios.
 - `search` devuelve `PagedResponse<LegalRepresentativeListItemResponse>`.
 - `get by id` devuelve `LegalRepresentativeResponse`.
@@ -2353,7 +2356,6 @@ Uso principal:
 
 Observaciones funcionales:
 
-- hoy `activeDocumentReferencesCount` se devuelve en `0`; el contrato existe, pero la implementacion actual no contabiliza referencias documentales activas.
 - `canInactivate` depende de una sola regla observable hoy: si el registro ya esta inactivo, devuelve `true`; si esta activo, solo devuelve `true` cuando la compania tiene mas de un representante activo.
 - la inactivacion no se bloquea por ser primario; al inactivarse, el dominio limpia `IsPrimary`.
 

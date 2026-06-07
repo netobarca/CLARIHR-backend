@@ -227,6 +227,12 @@ builder.Services.AddRateLimiter(options =>
     // generous limiter for the paged company-users search/list.
     options.AddPolicy(CompanyUserRateLimitPolicies.Invite, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompanyUsers:Invite:PermitLimit", 10));
     options.AddPolicy(CompanyUserRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompanyUsers:Search:PermitLimit", 120));
+
+    // Legal Representatives: tight limiter for the unbounded-cost report export (synchronous,
+    // scan + LIKE '%x%'), plus a generous limiter for the paged free-text search/list — same
+    // abuse class as competency-framework-export/search; mirrors its 10/min + 120/min defaults.
+    options.AddPolicy(LegalRepresentativeRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:LegalRepresentatives:Export:PermitLimit", 10));
+    options.AddPolicy(LegalRepresentativeRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:LegalRepresentatives:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

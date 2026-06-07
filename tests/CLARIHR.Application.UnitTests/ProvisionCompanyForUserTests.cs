@@ -1202,6 +1202,15 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Count(item => item.TenantId == tenantId && item.IsActive));
 
+        public Task<bool> HasOtherActiveRepresentativeAsync(
+            Guid tenantId,
+            Guid excludingLegalRepresentativePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Any(item =>
+                item.TenantId == tenantId &&
+                item.IsActive &&
+                item.PublicId != excludingLegalRepresentativePublicId));
+
         public Task<LegalRepresentative?> GetActivePrimaryAsync(
             Guid tenantId,
             Guid? excludingLegalRepresentativePublicId,

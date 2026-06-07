@@ -161,7 +161,6 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
         return new LegalRepresentativeUsageResponse(
             legalRepresentative.PublicId,
-            ActiveDocumentReferencesCount: 0,
             CanInactivate: canInactivate);
     }
 
@@ -204,6 +203,17 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.IsActive)
             .CountAsync(cancellationToken);
+
+    public Task<bool> HasOtherActiveRepresentativeAsync(
+        Guid tenantId,
+        Guid excludingLegalRepresentativePublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: applies explicit tenantId before probing for another active legal representative.
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.IsActive && item.PublicId != excludingLegalRepresentativePublicId)
+            .AnyAsync(cancellationToken);
 
     public Task<LegalRepresentative?> GetActivePrimaryAsync(
         Guid tenantId,

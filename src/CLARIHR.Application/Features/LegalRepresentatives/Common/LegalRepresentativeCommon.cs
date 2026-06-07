@@ -27,6 +27,25 @@ public static partial class LegalRepresentativeValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
+    /// <summary>
+    /// Max length of <c>DocumentType</c> — pinned to the <c>document_type varchar(40)</c> column
+    /// (single source of truth shared by the Create/Update/InitialInput validators). Keeping the
+    /// validator at the column width turns an over-length value into a clean 400 instead of an
+    /// unmapped PostgreSQL "value too long" → HTTP 500 (audit §LR2).
+    /// </summary>
+    public const int MaxDocumentTypeLength = 40;
+
+    // §12.8 / §LR3 — free-text search (NormalizedFullName/PositionTitle/DocumentNumber Contains →
+    // non-sargable LIKE '%x%') must enforce a minimum trimmed length in the validator (rejected 400
+    // before DB). Threshold aligned with the PersonnelFiles §PF1 / PositionSlots §PS2 precedent (2).
+    // Scale assumption: legal representatives per tenant are a tiny handful, so the (TenantId, …)
+    // scan + min length is comfortably cheap; escalate to pg_trgm GIN + EF.Functions.ILike only if
+    // cardinality grows unexpectedly. See project-foundation.md §12.8 / ADR-0002.
+    public const int MinSearchLength = 2;
+
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
     public static bool IsValidName(string value) =>
         NameRegex().IsMatch(value.Trim());
 
@@ -69,11 +88,6 @@ public static class LegalRepresentativeErrors
     public static readonly Error DocumentConflict = new(
         "LEGAL_REPRESENTATIVE_DOCUMENT_CONFLICT",
         "Another legal representative already uses the requested document.",
-        ErrorType.Conflict);
-
-    public static readonly Error PrimaryConflict = new(
-        "LEGAL_REPRESENTATIVE_PRIMARY_CONFLICT",
-        "Only one active primary legal representative is allowed per company.",
         ErrorType.Conflict);
 
     public static readonly Error ActiveMinimumRequired = new(
@@ -123,7 +137,7 @@ internal sealed class InitialLegalRepresentativeInputValidator : AbstractValidat
 
         RuleFor(input => input.DocumentType)
             .NotEmpty()
-            .MaximumLength(80);
+            .MaximumLength(LegalRepresentativeValidationRules.MaxDocumentTypeLength);
 
         RuleFor(input => input.DocumentNumber)
             .NotEmpty()

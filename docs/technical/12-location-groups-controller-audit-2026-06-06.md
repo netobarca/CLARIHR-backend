@@ -1,0 +1,130 @@
+# 12 — Auditoría `LocationGroupsController` (2026-06-06)
+
+> **Propósito**: auditar por deuda técnica y seguridad el `LocationGroupsController`, validado contra la definición del proyecto en **seguridad, performance y arquitectura** (`docs/technical/overview/project-foundation.md` §9, §12.5–§12.8) y el playbook/checklist `AGENTS.md §17.4`/`§17.6`. Espeja la metodología de los docs `10` (PersonnelFiles) y `11` (LegalRepresentatives).
+>
+> **Metodología**: lectura completa del controlador + su vertical de Application (`LocationGroupAdministration.cs`: 8 handlers, 8 validators, `LocationGroupPatchApplier`, `LocationGroupTreeBuilder`, `LocationGroupLookup`, `LocationGroupPolicyAdapter`), `Common` (errores, reglas, policies), repositorio (`LocationGroupRepository`), `LocationDependencyPolicy`, dominio (`LocationGroup`), authz (`LocationAuthorizationService` + `Program.cs` + `[AuthorizationPolicySet]`), EF config (`LocationGroupConfiguration`), e infra de auditoría (`AuditService`, `AuditLogRepository`, `UnitOfWork`) para validar la persistencia del audit-log. Verificación **ítem por ítem del checklist `§17.4` contra el código real** + revisión manual de superset (`§17.6`). Spot-checks: `dotnet build` **0/0**; tests unit de Location **31/31**. *(Auditoría de análisis: los hallazgos están **abiertos**; no se modificó código.)*
+>
+> **Alcance**: **`LocationGroupsController`** (8 endpoints: `Tree`, `Search`, `GetById`, `Create`, `Update`, `Patch`, `Move`, `Activate`, `Inactivate`) + su vertical Application/Infra/Domain. Los **controladores hermanos del feature Locations** (`LocationHierarchyController`, `LocationLevelsController`, `WorkCentersController`, `WorkCenterTypesController`) son **fuera de alcance**, pero se registran en §3 porque **comparten el defecto de auditoría §LG1** (deuda material del feature).
+>
+> **Veredicto headline**: **Núcleo de seguridad sólido (0×🔴).** Tenant-isolation verificado (companyId == tenant del JWT; filtro global + `ExistsOutsideTenant`), authz de dos capas con **superset confirmado**, concurrencia optimista real (`.IsConcurrencyToken()` + check + 409), PATCH deny-list completa, ciclos de árbol detectados (`IsDescendantAsync`), grupo por defecto protegido (app + dominio + índice). **Pero** dos defectos 🟠 reales: **§LG1 — el audit-log NO se persiste en ninguna mutación** (falta `SaveChangesAsync` tras `LogAsync`; defecto **feature-wide** en todo Locations) y **§LG2 — N+1 + violación de §12.7** (el listado calcula dependencias por ítem). Backlog: **0×🔴, 2×🟠, 4×🟡, 3×🟢**.
+
+---
+
+## 1. Certificación del checklist `§17.4` contra código
+
+| Checklist §17.4 | Verificado en código | Estado |
+|---|---|---|
+| **Authz (dos capas)** | `[AuthorizationPolicySet(LocationPolicies.Read, Manage)]` (`Controller:22`); convención Read→GET, Manage→resto. Enrolado en `AuthorizationPolicyConventionGovernanceTests`. | ✅ PASS |
+| **Authz superset (MANUAL)** | `Program.cs:337-350` Read=`{Read, Admin, iam.administration.manage}`, Manage=`{Admin, iam.administration.manage}` — **idénticos** al gate `LocationAuthorizationService.EnsureAuthorizedAsync` (`:50-61`) → ⊇. Sin 403 falso. | ✅ PASS |
+| **Tenant** | Endpoints company-scoped (Tree/Search/Create) validan `tenantContext.TenantId == companyId` (`AuthorizationService:36`); by-id vía filtro global EF + `ExistsOutsideTenantAsync` (404 vs `TenantMismatch`). `IgnoreQueryFilters` sólo en `ExistsOutsideTenantAsync` (comentado, gobernado). | ✅ PASS |
+| **Auditoría (persistencia)** | Los 6 handlers de mutación hacen `SaveChanges`(entidad) → `auditService.LogAsync` → `CommitAsync` **sin `SaveChangesAsync` tras el `LogAsync`**. Como `LogAsync` sólo hace `Add` (deferred) y `CommitAsync` no hace flush, **el audit-log nunca se persiste**. | ❌ Ver §LG1 |
+| **Rate limit** | **Ningún** endpoint declara `[EnableRateLimiting]` — ni `/tree` (proyección de **grafo** completo) ni `/search` (free-text). No enrolado en `RateLimitingGovernanceTests`. | ⚠️ Ver §LG3 |
+| **Paginación** | El validator hace `PageSize.InclusiveBetween(1, MaxPageSize)`, pero el `pageSize` del controller (`:63`) **no** declara `[Range]` y usa el literal `20` (no `DefaultPageSize`); la familia **no** está en `PaginationRangeGuardrailsTests`. | ⚠️ Ver §LG6 |
+| **OpenAPI** | `[ApiVersion("1.0")]` + ruta versionada + `[Tags("Location Groups")]` + `[ProducesStandardErrors]` (×8) + `[SwaggerOperation]` (×8). Enrolado en `OpenApiContractGuardrailsTests`. | ✅ PASS |
+| **Errores** | `Result` + `ProblemDetails`; **todo** conflicto de negocio → 409 (`GroupCodeConflict`, `GroupInvalidParent`, `GroupCycleDetected`, `GroupHasActiveChildren/WorkCenters`, `DefaultGroupProtected`, `ParentGroupInactive`, `ConcurrencyConflict`); 404 (`GroupNotFound`/`LevelNotFound`); `If-Match` vía `[FromIfMatch]`. Sin stack traces. | ✅ PASS |
+| **Concurrency** | `LocationGroup.ConcurrencyToken` mapeado `.IsConcurrencyToken()` (`Configuration:57-59`); todas las mutaciones exigen `[FromIfMatch]` + comparan token → `CONCURRENCY_CONFLICT` (409). *(No está en el sentinel de `ConcurrencyTokenMappingGuardrailsTests` — §LG9.)* | ✅ PASS |
+| **PII / sensibles** | No expone PII (códigos/nombres geográficos). Detrás del gate del módulo (RBAC + tenant + entitlement `CommercialModuleKeys.Locations`). Sin logging no acotado. | ✅ PASS |
+| **Wire contract** | Params Guid `*Id`; `Create` usa `publicId` en `Location` (`Controller:123`); queries proyectan a DTO; `ParentId` se expone como public-id del padre (subquery correlada). | ✅ PASS |
+| **Rendimiento** | `AsNoTracking` + proyección en lecturas; `IsDescendantAsync` (cycle) acotado por profundidad. **Pero:** (a) `Search` con `includeAllowedActions` calcula dependencias **por ítem** (N+1, §12.7 — §LG2); (b) la respuesta de un grupo se arma con un `SearchAsync(...,1,100).Single(...)` (§LG4); (c) free-text sin min-length (§12.8 — §LG5). | ❌ Ver §LG2/§LG4/§LG5 |
+| **Guardrail drift-proof** | Enrolado en OpenAPI + Authz-governance. **No** en Pagination (§LG6), RateLimiting (§LG3) ni el sentinel de ConcurrencyToken (§LG9). | ⚠️ Ver §LG3/§LG6/§LG9 |
+
+> **Conclusión §1**: el **núcleo de seguridad/tenant/concurrencia/authz es sólido y verificado** — **sin hallazgo 🔴**. Pero hay **dos defectos 🟠 reales**: la auditoría no se persiste (§LG1, feature-wide) y el listado viola §12.7 con un N+1 (§LG2). El resto es endurecimiento (rate-limit, §12.8, `[Range]`) y un anti-patrón de lectura (§LG4).
+
+---
+
+## 2. Hallazgos
+
+### §LG1 🟠 El audit-log **no se persiste** en ninguna mutación — *auditoría / compliance (defecto vivo)*
+**Dónde**: los 6 handlers de mutación de `LocationGroupAdministration.cs` (`Create:386-416`, `Update:478-497`, `Move:592-611`, `Activate:661-680`, `Inactivate:742-761`, `Patch:883-902`) siguen el patrón `await unitOfWork.SaveChangesAsync(...)` (persiste la **entidad**) → `await auditService.LogAsync(...)` → `await transaction.CommitAsync(...)`, **sin** un `SaveChangesAsync` entre el `LogAsync` y el `CommitAsync`.
+**Qué pasa**: `AuditService.LogAsync` (`AuditService.cs:63`) sólo hace `auditLogRepository.Add(auditLog)` → `dbContext.Set<AuditLog>().Add(...)` — **deferred**, no persiste. `UnitOfWork.CommitAsync` (`UnitOfWork.cs:48-57`) sólo hace `transaction.CommitAsync()` — **no** hace flush de los cambios pendientes. Por tanto la entidad `AuditLog` queda *Added* en el change-tracker pero **nunca se ejecuta su `INSERT`**: la transacción commitea con la mutación de la entidad pero **sin** la fila de auditoría, y al disponerse el `DbContext` scoped la entidad de audit se descarta. **Cada create/update/move/activate/inactivate/patch de un location group pierde silenciosamente su registro de auditoría.** Los controladores que lo hacen bien (`LegalRepresentatives`, `CompetencyFramework`) intercalan un `SaveChangesAsync` **después** del `LogAsync` y antes del `CommitAsync`. El defecto pasa desapercibido porque **no hay test** que asserte la persistencia del audit-log de location-groups (los tests sólo asertan códigos de conflicto). **Defecto feature-wide** — ver §3.
+**Severidad**: 🟠 Media-alta (pérdida total del rastro de auditoría de un controlador con mutaciones; impacto de compliance/forense; `§17.1` clasifica la auditoría como alta sensibilidad). **No** es brecha explotable (sin exposición/escalación) → no 🔴, pero es un **bug real**, no endurecimiento.
+**Acción concreta**: añadir `_ = await unitOfWork.SaveChangesAsync(cancellationToken);` **inmediatamente después** de cada `auditService.LogAsync(...)` y antes del `CommitAsync` en los 6 handlers (espejo exacto de `LegalRepresentatives`/`CompetencyFramework`). **Guardrail**: test de integración que cree/mute un grupo y asserte que existe la fila `AuditLogs` con el `EventType` esperado (rojo→verde); idealmente extender el mismo test a los hermanos (§3).
+
+### §LG2 🟠 N+1 + violación de §12.7 en `Search` con `includeAllowedActions` — *performance / arquitectura*
+**Dónde**: `SearchLocationGroupsQueryHandler` (`LocationGroupAdministration.cs:265-276`) itera `groups.Items` y por **cada** ítem llama `dependencyPolicy.CanInactivateLocationGroupAsync(group.Id, …)` para calcular `hasDependencies`. `LocationDependencyPolicy.CanInactivateLocationGroupAsync` (`LocationDependencyPolicy.cs:11-30`) hace **3 queries** (`GetByIdAsync` + `HasActiveChildrenAsync` + `HasActiveWorkCentersAsync`).
+**Qué pasa**: una página de N grupos con `includeAllowedActions=true` dispara **3N queries** (hasta **300** con `pageSize=100`), además de re-cargar cada grupo que el `SearchAsync` ya trajo. `project-foundation §12.7` lo **prohíbe explícitamente**: *"los listados/búsquedas **no** calculan estado de dependencia por ítem… En listados, `AllowedActions` deriva **únicamente** del permiso del usuario (`canManage`), no del estado de dependencia"* (decisión registrada en `ADR-0001`). El bloqueo real de inactivación ya se enforça server-side en el `Inactivate` handler (vía `dependencyPolicy`), independiente del flag del listado. Los controladores de referencia (`JobProfiles`, `CompetencyFramework`, `CompanyUsers`) derivan el `AllowedActions` del listado **sólo** de `canManage`.
+**Severidad**: 🟠 Media-alta (N+1 real + violación directa de una regla del foundation; gatillado por el flag `includeAllowedActions=true`, que la UI usa para pintar botones de acción).
+**Acción concreta**: en el listado, derivar `AllowedActions` **sólo** de `canManage` (eliminar el cálculo de `hasDependencies` por ítem) — `ApplyAllowedActions` con `hasDependencies: false` o sin ese parámetro en el path de listado, espejo de `JobProfilePolicyAdapter`/`CompetencyFrameworkPolicyAdapter`. El `Inactivate` handler conserva la verificación de dependencias (correcto). Guardrail: test que asegure que el listado no invoca `ILocationDependencyPolicy` por ítem.
+
+### §LG3 🟡 `/tree` y `/search` sin rate-limiting — *seguridad/perf (defensa en profundidad)*
+**Dónde**: `LocationGroupsController` — ningún endpoint declara `[EnableRateLimiting]`. En particular `/tree` (`:27`, proyecta la **jerarquía completa** del tenant) y `/search` (`:46`, free-text). No enrolado en `RateLimitingGovernanceTests`.
+**Qué pasa**: `§17.3` (RATE LIMIT) mandata `[EnableRateLimiting]` en endpoints costosos (export, search, **graph**). `/tree` es una proyección de grafo y `/search` es free-text; ambos son objetivos canónicos. Atenuante: la cardinalidad de location groups por tenant es **acotada** (jerarquías geográficas: país/departamento/municipio → decenas-cientos), así que la amplificación de costo es menor que un export pesado.
+**Severidad**: 🟡 Media-baja (control de defensa-en-profundidad ausente; amplificación acotada por cardinalidad; sin explotabilidad anónima).
+**Acción concreta**: `LocationRateLimitPolicies` (Tree/Search ~120/min, partición user+tenant) + `Program.cs` + `[EnableRateLimiting]` + extender `RateLimitingGovernanceTests` a la familia Locations (espejo CompetencyFramework F3).
+
+### §LG4 🟡 La respuesta de un grupo se arma con un `SearchAsync(...,1,100).Single(...)` — *performance / robustez*
+**Dónde**: `LocationGroupLookup.GetResponseAsync` (`LocationGroupAdministration.cs:1126-1136`) — para proyectar **un** grupo llama `repository.SearchAsync(tenantId, levelOrder, isActive:null, group.Code, 1, 100, …)` y luego `page.Items.Single(item => item.Id == group.PublicId)`. El repo **no** tiene `GetResponseByIdAsync`. `GetById` lo usa 1 vez; cada mutación lo usa **2 veces** (before/after).
+**Qué pasa**: (a) **perf** — cada respuesta de grupo ejecuta un `count` + una página de 100 + una subquery correlada de parent, en vez de una proyección directa por `PublicId`; las mutaciones lo pagan ×2. (b) **robustez latente** — el `search: group.Code` filtra `NormalizedCode.Contains(code)`, así que puede traer varios grupos cuyo código *contiene* el del target; si hubiera >100 coincidencias y el target cayera fuera de la página, `.Single(...)` lanza `InvalidOperationException` → **500** (en `GetById` no hay try/catch). Trigger muy improbable (códigos cortos, cardinalidad chica), pero es una fragilidad real.
+**Severidad**: 🟡 Media-baja (perf + correctitud latente; acotado por cardinalidad).
+**Acción concreta**: añadir `GetResponseByIdAsync(Guid groupId)` al repo (proyección directa por `PublicId`, espejo de `CompetencyFrameworkRepository.GetOccupationalPyramidLevelResponseByIdAsync`) y usarlo en `GetById`/before/after; eliminar `LocationGroupLookup`.
+
+### §LG5 🟡 `Search` free-text sin longitud mínima de `q` (§12.8) — *performance*
+**Dónde**: `SearchLocationGroupsQueryValidator` (`LocationGroupAdministration.cs:113-123`) sólo declara `RuleFor(Search).MaximumLength(150)`, sin mínimo; el repo aplica `NormalizedCode.Contains(q) || NormalizedName.Contains(q)` → `LIKE '%x%'` no-sargable (`LocationGroupRepository.cs:77-83`). El índice `(TenantId, NormalizedName)` (`Configuration:84`) no aplica al wildcard inicial.
+**Qué pasa**: `§12.8` exige `MinSearchLength = 2` (tras `Trim()`) en el validador. No se aplica. Mismo hallazgo que `LegalRepresentatives §LR3` / `PersonnelFiles §PF1`. Atenuante: cardinalidad chica por tenant.
+**Severidad**: 🟡 Media-baja (perf bajo carga; mitigado por cardinalidad; no explotable).
+**Acción concreta**: `MinSearchLength = 2` + helper `IsValidSearchLength` en `LocationValidationRules`, aplicado en el validator de Search (`q` vacía = "sin filtro").
+
+### §LG6 🟡 `pageSize` sin `[Range]` (y default literal `20`) + familia fuera de `PaginationRangeGuardrailsTests` — *guardrail / defensa en profundidad*
+**Dónde**: `LocationGroupsController.Search` (`:63`) declara `[FromQuery] int pageSize = 20` — sin `[Range(1, MaxPageSize)]` y con el literal `20` en vez de `LocationValidationRules.DefaultPageSize` (que sí usa el record `SearchLocationGroupsQuery:65`). El validator del handler sí acota (`InclusiveBetween(1, MaxPageSize)`); la familia no está en `PaginationRangeGuardrailsTests`.
+**Qué pasa**: `§17.4` pide el `[Range]` en el borde (defensa-en-profundidad). No hay riesgo real de página sin acotar (el validator rechaza), pero falta el doble enforcement, el guardrail, y el default literal puede driftar del constante. Mismo hallazgo que `LegalRepresentatives §LR4` / `CompetencyFramework F6`.
+**Severidad**: 🟡 Media-baja (defensa-en-profundidad; el límite efectivo ya existe).
+**Acción concreta**: `[Range(1, LocationValidationRules.MaxPageSize)]` + default `= LocationValidationRules.DefaultPageSize` en el `pageSize` del controller + extender `PaginationRangeGuardrailsTests` a la familia Locations.
+
+### §LG7 🟢 `/tree` sin paginación / sin cap de nodos — *performance (§4.5, acotado)*
+**Dónde**: `GetLocationGroupTreeQueryHandler` → `repository.GetTreeAsync(companyId)` (`LocationGroupRepository.cs:30-52`) devuelve **todos** los grupos del tenant (una query) y `LocationGroupTreeBuilder` arma el árbol completo en memoria.
+**Qué pasa**: respuesta de tamaño no acotado por contrato (toda la jerarquía). `§4.5` desaconseja listados sin paginar, pero un árbol es difícil de paginar y la cardinalidad geográfica por tenant es chica. Es una sola query (la subquery de parent es correlada, no N+1 en C#).
+**Severidad**: 🟢 Baja (acotado por cardinalidad de dominio; árbol inherentemente no paginable).
+**Acción concreta**: aceptar con supuesto de escala declarado (comentario/ADR), o cap defensivo de nodos si se quiere blindar (§17.3 graph cap). Combinar con §LG3 (rate-limit del `/tree`).
+
+### §LG8 🟢 Event-types de auditoría como literales crudos, no constantes — *consistencia / mantenibilidad*
+**Dónde**: los handlers usan `"LOCATION_GROUP_CREATED"`/`"LocationGroup"` inline (p. ej. `:407-408`), no constantes de `AuditEventTypes`/`AuditEntityTypes` (los controladores de referencia usan `AuditEventTypes.LegalRepresentativeCreated`, etc.).
+**Qué pasa**: literales mágicos repetidos; sin tipado/refactor-safety ni catálogo central de eventos.
+**Severidad**: 🟢 Baja (sin efecto runtime).
+**Acción concreta**: promover a constantes en `AuditEventTypes`/`AuditEntityTypes` (al cerrar §LG1, que toca los mismos bloques).
+
+### §LG9 🟢 `LocationGroup` fuera del sentinel de `ConcurrencyTokenMappingGuardrailsTests` — *guardrail drift-proof*
+**Dónde**: `LocationGroup.ConcurrencyToken` **sí** está mapeado `.IsConcurrencyToken()` (`Configuration:57-59`) y funciona, pero no está en la lista "must-be-present" del sentinel.
+**Severidad**: 🟢 Baja (el mapeo existe; falta el centinela). Mismo que `LegalRepresentatives §LR8` / `CompetencyFramework F7`.
+**Acción concreta**: añadir `typeof(LocationGroup)` al sentinel de `ConcurrencyTokenMappingGuardrailsTests`.
+
+---
+
+## 3. Hallazgos a nivel de familia (fuera del alcance del controller — trazabilidad)
+
+> **§LG1 es feature-wide.** El patrón `SaveChanges`(entidad) → `LogAsync` → `CommitAsync` **sin** `SaveChanges` intermedio aparece en **las 4 admin de Locations con mutaciones** (verificado estructuralmente: 23 `LogAsync` en total, **ninguno** seguido de `SaveChanges` antes del `Commit`):
+
+| Admin (controller) | Handlers con audit | `SaveChanges` tras `LogAsync` | Estado |
+|---|---|---|---|
+| `LocationGroupAdministration` (este) | 6 | 0 | ❌ §LG1 (confirmado línea-a-línea) |
+| `WorkCenterAdministration` (`WorkCentersController`) | 6 | 0 | ❌ mismo defecto (confirmado por grep: `LogAsync:411`→`Commit:422`, etc.) |
+| `LocationHierarchyAdministration` (`LocationLevelsController`/`LocationHierarchyController`) | 6 | 0 | ❌ mismo patrón estructural (verificar) |
+| `WorkCenterTypeAdministration` (`WorkCenterTypesController`) | 5 | 0 | ❌ mismo patrón estructural (verificar) |
+| `CountryCatalogAdministration` | 0 | — | ➖ read-only (sin audit) |
+
+**Acción de familia**: la remediación de §LG1 debe aplicarse a las 4 admin (≈23 sitios) en un PR de familia, con un **guardrail estructural** drift-proof (p. ej. un test que falle si un handler de Locations llama `CommitAsync` con una entidad `AuditLog` *Added*-pero-no-*SaveChanged* — o, más simple, un test de integración por controller que asserte la fila de auditoría). **§LG2 (§12.7 N+1)** podría también repetirse en los `Search` de los hermanos (verificar `WorkCentersController`).
+
+---
+
+## 4. Tabla de priorización
+
+| Item | Alcance | Severidad | Categoría | Esfuerzo | Acción |
+|---|---|---|---|---|---|
+| §LG1 | Controller (+familia) | 🟠 | Auditoría/compliance | 1 h (controller) / 2–3 h (familia) | `SaveChangesAsync` tras cada `LogAsync` (6 handlers) + guardrail de persistencia; extender a los 4 admin (§3) |
+| §LG2 | Controller | 🟠 | Perf/arquitectura (§12.7) | 1 h | Listado deriva `AllowedActions` sólo de `canManage`; quitar la dependencia por ítem (espejo JobProfiles) |
+| §LG3 | Controller (+familia) | 🟡 | Seguridad/perf (rate-limit) | 1–2 h | `LocationRateLimitPolicies` (Tree/Search) + `[EnableRateLimiting]` + `RateLimitingGovernanceTests` |
+| §LG4 | Controller | 🟡 | Perf/robustez | 1 h | `GetResponseByIdAsync` directo; eliminar `LocationGroupLookup` |
+| §LG5 | Controller | 🟡 | Performance (§12.8) | <1 h | `MinSearchLength=2` en el validator de Search |
+| §LG6 | Controller | 🟡 | Guardrail/def. prof. | <1 h | `[Range(1,MaxPageSize)]` + default constante + `PaginationRangeGuardrailsTests` |
+| §LG7 | Controller | 🟢 | Performance (§4.5) | <1 h | Supuesto de escala/ADR o cap de nodos del `/tree` |
+| §LG8 | Controller | 🟢 | Consistencia | <30 min | Event-types a constantes `AuditEventTypes`/`AuditEntityTypes` |
+| §LG9 | Controller | 🟢 | Guardrail drift-proof | <15 min | `typeof(LocationGroup)` al sentinel de tokens |
+
+> **Sin items 🔴.** Tenant-isolation, superset authz, concurrencia y deny-list de PATCH están **verificados**. Pero hay **2×🟠 reales** (no endurecimiento): **§LG1** (auditoría no persistida — el más material, y **feature-wide**) y **§LG2** (N+1 + violación de §12.7). El resto es endurecimiento (rate-limit/§12.8/`[Range]`) y un anti-patrón de lectura (§LG4).
+
+## 5. Política de seguimiento
+
+- Mover items a "Cerradas" con fecha + commit/PR al remediarlos (convención docs `02`/`03`/`04`/`10`/`11`).
+- **Agrupación sugerida de PRs**: **PR-A** = §LG1 (auditoría) — empezar por el controller, luego extender a la familia (§3) con guardrail de persistencia · **PR-B** = §LG2 (§12.7, quitar dependencia por ítem) · **PR-C** = §LG3 (rate-limit familia) · **PR-D** = §LG4+§LG5+§LG6 (lookup directo + min-length + `[Range]`) · **PR-E** = §LG7/§LG8/§LG9 (tree/strings/sentinel).
+- Cada brecha cerrada con su **guardrail drift-proof** + centinela zero-match: §LG1→test de persistencia de audit (idealmente estructural de familia), §LG2→test de no-dependencia-por-ítem, §LG3→`RateLimitingGovernanceTests`, §LG6→`PaginationRangeGuardrailsTests`, §LG9→sentinel de `ConcurrencyTokenMappingGuardrailsTests`.
+- **Invariantes verificadas (NO re-litigar)**: superset declarativa==gate (revisión manual hecha); 409 para todos los conflictos de negocio (consistente con la convención); paridad validador↔columna correcta (Code 50 / Name 150 / Desc 500 — sin el mismatch de `LegalRepresentatives §LR2`); grupo por defecto protegido en 3 capas (handler + dominio + comparación); ciclos de árbol detectados (`IsDescendantAsync`).
+- Próxima revisión: al abrir la remediación de §LG1 (extender a la familia Locations) o si se toca el `Search`/listado (revisar §LG2).

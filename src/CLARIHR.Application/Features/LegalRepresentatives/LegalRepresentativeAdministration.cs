@@ -69,7 +69,6 @@ public sealed record LegalRepresentativeResponse(
 
 public sealed record LegalRepresentativeUsageResponse(
     Guid LegalRepresentativeId,
-    int ActiveDocumentReferencesCount,
     bool CanInactivate);
 
 public sealed record LegalRepresentativePositionTitleCatalogItemResponse(
@@ -200,7 +199,10 @@ internal sealed class SearchLegalRepresentativesQueryValidator : AbstractValidat
     public SearchLegalRepresentativesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(LegalRepresentativeValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {LegalRepresentativeValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LegalRepresentativeValidationRules.MaxPageSize);
     }
@@ -227,7 +229,10 @@ internal sealed class ExportLegalRepresentativesQueryValidator : AbstractValidat
     public ExportLegalRepresentativesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(LegalRepresentativeValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {LegalRepresentativeValidationRules.MinSearchLength} characters when provided.");
     }
 }
 
@@ -248,7 +253,7 @@ internal sealed class CreateLegalRepresentativeCommandValidator : AbstractValida
             .WithMessage("LastName format is invalid.");
         RuleFor(command => command.DocumentType)
             .NotEmpty()
-            .MaximumLength(80);
+            .MaximumLength(LegalRepresentativeValidationRules.MaxDocumentTypeLength);
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
@@ -290,7 +295,7 @@ internal sealed class UpdateLegalRepresentativeCommandValidator : AbstractValida
             .WithMessage("LastName format is invalid.");
         RuleFor(command => command.DocumentType)
             .NotEmpty()
-            .MaximumLength(80);
+            .MaximumLength(LegalRepresentativeValidationRules.MaxDocumentTypeLength);
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
@@ -427,13 +432,18 @@ internal sealed class GetLegalRepresentativeByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.LegalRepresentativeId, cancellationToken);
         if (response is not null)
         {
-            var usage = await repository.GetUsageByIdAsync(query.LegalRepresentativeId, cancellationToken);
+            // §LR5: derive CanInactivate from the response's own IsActive plus a single cheap
+            // boolean probe — an inactive rep can always be inactivated; an active one only if the
+            // company keeps another active rep. Avoids GetUsageByIdAsync's re-projection + count.
+            var canInactivate = !response.IsActive ||
+                await repository.HasOtherActiveRepresentativeAsync(
+                    tenantContext.TenantId.Value, query.LegalRepresentativeId, cancellationToken);
             var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = LegalRepresentativePolicyAdapter.ApplyAllowedActions(
                 response,
                 resourceActionPolicyService,
                 canManage,
-                usage?.CanInactivate ?? true);
+                canInactivate);
 
             return Result<LegalRepresentativeResponse>.Success(response);
         }
