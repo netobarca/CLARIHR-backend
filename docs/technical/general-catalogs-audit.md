@@ -1,7 +1,7 @@
 # Auditoría GeneralCatalogs — seguimiento
 
 > **Documento vivo / tracker.** Se actualiza al cerrar cada hallazgo.
-> **Creado:** 2026-06-06 · **Estado:** ✅ **Cerrada para acción** 2026-06-06 (GC1 ✅ · GC4 ✅ · GC2/GC3 ➖ by-design · GC5 ⏸️ diferido; 0 P1 · 0 P2 · 5 P3) · **Owner:** equipo backend
+> **Creado:** 2026-06-06 · **Estado:** ✅ **Cerrada para acción** 2026-06-06 (GC1 ✅ · GC4 ✅ · GC2/GC3 ➖ by-design · GC5 ⏸️ diferido; 0 P1 · 0 P2 · 5 P3) · **Reauditado:** 2026-06-07 — sigue sólida, fixes intactos, seguridad re-verificada (sin hallazgos materiales); +GC6 ✅ (limpieza de usings muertos, PR-D) · **Owner:** equipo backend
 > **Alcance:** `GeneralCatalogsController` (`api/v1/companies/{companyId}/general-catalogs/{key}` y `.../reference-catalogs/{key}`, 2 GET read-only) + las queries que despacha (`GetPersonnelCatalogItemsQuery` / `GetPersonnelReferenceCatalogItemsQuery`, en `Features/PersonnelFiles/Catalogs`) + sus handlers/authz (`IPersonnelFileAuthorizationService`) + repo (`GetCatalogItemsAsync`/`GetReferenceCatalogItemsAsync`) + `GeneralCatalogItems` + config EF.
 > **Dimensiones:** seguridad · arquitectura · rendimiento, contra `AGENTS.md` (§8, §17) y `docs/technical/overview/project-foundation.md` (§11).
 
@@ -40,6 +40,23 @@ Lo accionable (todo P3): **deriva canónica + no enrolado en guardrails, autz de
 
 ---
 
+## 3-bis. Reauditoría 2026-06-07
+
+**Veredicto: sigue sólida y cerrada — sin hallazgos nuevos de seguridad/correctitud.** Controlador read-only ya bien auditado; la reauditoría confirma todo y agrega 2 verificaciones que la auditoría original no hizo explícitas.
+
+- **GC1 ✅ intacto** — `[Tags("General Catalogs")]` + `[SwaggerOperation]` en ambos GET + familia `^GeneralCatalogs` en `OpenApiContractGuardrailsTests`.
+- **GC4 ✅ intacto** — `GeneralCatalogKeyMap` single-source (14+6 keys sobre constantes, nunca literales) + bijección `GeneralCatalogKeyMapGuardrailsTests`.
+- **Seguridad re-verificada sólida** — ambos handlers llaman `EnsureCanReadAsync(companyId)` **antes** del repo (`PersonnelReferenceCatalogs.cs:375,395`); sin IDOR. **2 chequeos nuevos (lección de Files):** (a) **sin ruta de exposición adyacente** — las queries `GetPersonnelCatalogItemsQuery`/`...Reference...` y los métodos de repo `GetCatalogItemsAsync`/`GetReferenceCatalogItemsAsync` se invocan **solo** desde GeneralCatalogs (+ validación interna de personnel-files, ya gateada); no hay un 2.º endpoint que sirva estos datos sin authz. (b) **superficie de escritura (Backoffice) correctamente gateada** — `BankCatalogs`/`SystemCatalogs`/`EducationCatalogs`/`DocumentTypeCatalogs`Controller corren bajo la `FallbackPolicy` `client_type=Platform` (solo operadores de plataforma); no está abierta. (Dominio Ola 3 aparte — solo se confirmó el gate.)
+- **GC2/GC3 ➖, GC5 ⏸️ sin cambios** (no apareció consumidor sin permiso PF que dispare el re-open de GC2; queries siguen baratas). **Rate-limiting ➖ descartado con criterio:** reads de listas pequeñas de referencia que todo usuario legítimo pide en cada form-load — perfil de abuso distinto al de Search/Export (caros/abusables); limitarlos rompería UX, valor de abuso mínimo (queries indexadas, sin mutación ni enumeración sensible).
+
+| # | Dim | Sev | Estado | Hallazgo | Fix |
+|---|-----|-----|--------|----------|-----|
+| **GC6** | ARCH | P3-trivial | ✅ | **~22 `using` muertos** en `PersonnelReferenceCatalogs.cs` (Auditing, Banks, Files, EducationCatalogs, DocumentTypeCatalogs, JsonPatch, Pagination, Text.Json, Tenancy, Policies…), heredados de un split de god-file. Cero impacto funcional (build 0/0, no son warning), pero ensucian y aparentan un acoplamiento cross-feature falso. | **PR-D:** eliminados los 22 sin uso; quedan los 7 reales (`Abstractions.PersonnelFiles`, `Common.CQRS`, `Common.Errors`, `Features.Locations.Common`, `Features.PersonnelFiles.Common`, `Domain.PersonnelFiles`, `FluentValidation`). Auto-verificado por compilación. |
+
+**Verificación:** build **0/0** · unit **1678/0** (incl. guardrails GeneralCatalogs) · integración de catálogos **56/58** (2 skip pre-existentes de RBAC-backfill, ajenos). **Sin migración.**
+
+---
+
 ## 4. Descartado / ya cumple (verificado — no son hallazgos)
 
 | Tema | Resolución |
@@ -61,6 +78,7 @@ Lo accionable (todo P3): **deriva canónica + no enrolado en guardrails, autz de
 | **PR-A** | GC1 + GC4 | Contrato/mantenibilidad: `[Tags]`/`[SwaggerOperation]` + enrolar guardrail OpenAPI + fuente única `GeneralCatalogKeyMap` + test de completitud del mapeo key↔category. | ✅ HECHO |
 | **Decisión** | GC2 (+ GC3) | Producto/arquitectura: ¿los catálogos son sólo de personnel-files (by-design) o cross-feature? | ✅ Resuelta → **by-design** (➖ GC2/GC3) |
 | **PR-C** | GC5 | Perf (opcional): cachear listas por `(category, country)` si la frecuencia de fetch lo justifica. | ⏸️ Diferido |
+| **PR-D** | GC6 | Limpieza (reauditoría): eliminar ~22 `using` muertos en `PersonnelReferenceCatalogs.cs` (leftover de god-file split). | ✅ HECHO 2026-06-07 (uncommitted) |
 
 ---
 
@@ -68,5 +86,6 @@ Lo accionable (todo P3): **deriva canónica + no enrolado en guardrails, autz de
 
 | Fecha | Cambio |
 |---|---|
+| 2026-06-07 | **Reauditoría ✅ — sigue sólida y cerrada; sin hallazgos nuevos de seguridad/correctitud.** GC1/GC4 verificados intactos. Seguridad re-verificada con 2 chequeos nuevos (lección de Files): (a) las queries y métodos de repo de catálogo se invocan **solo** desde GeneralCatalogs — sin ruta de exposición adyacente sin authz; (b) la superficie de escritura del Backoffice (`BankCatalogs`/`SystemCatalogs`/`EducationCatalogs`/`DocumentTypeCatalogs`Controller) está platform-gated (`FallbackPolicy` `client_type=Platform`). GC2/GC3 ➖ y GC5 ⏸️ sin cambios; rate-limiting ➖ descartado con criterio (reads de referencia frecuentes y legítimos, perfil de abuso distinto a Search/Export). **GC6 ✅ (PR-D):** eliminados ~22 `using` muertos en `PersonnelReferenceCatalogs.cs` (leftover de god-file split; quedan 7 reales), auto-verificado por compilación. Build 0/0, unit 1678/0, integración de catálogos 56/58 (2 skip pre-existentes). Sin migración. |
 | 2026-06-06 | Auditoría inicial (2 agentes Explore: seguridad + perf/arquitectura, con verificación adversarial). Veredicto: read-only, **sin vulnerabilidades** (IDOR descartado — `companyId` validado contra el tenant; catálogos system-scoped globales by-design; whitelist de keys; parentCode validado/acotado). Severidades de arquitectura recalibradas de "HIGH" (etiqueta de los agentes) a **P3** (governance/docs/consistencia, no seguridad/correctitud). 5 hallazgos accionables (0 P1, 0 P2, 5 P3): GC1 deriva canónica + guardrail, GC2 autz acoplada a personnel-files (posibles 403 falsos cross-feature; decisión de producto), GC3 acoplamiento cross-feature, GC4 switch key→category sin fuente única, GC5 catálogos no cacheados. Todos ⬜ pendientes. |
 | 2026-06-06 | **Cerrada para acción (PR-A + decisiones).** **GC1 ✅** — `[Tags("General Catalogs")]` + `[SwaggerOperation]` en ambos GET + familia `^GeneralCatalogs` enrolada en `OpenApiContractGuardrailsTests` (handler-gated → fuera de `GovernedFamilyRegex` by-design). **GC4 ✅** — fuente única `GeneralCatalogKeyMap` (key↔categoría sobre constantes, nunca literales); completadas constantes `Career`/`FileDocumentType`/`Bank`; controller consume el mapa (eliminados los 2 `switch`); guardrail `GeneralCatalogKeyMapGuardrailsTests` valida bijección constantes⇄mapa + kebab/unicidad + trim/case-insensitive. **GC2/GC3 ➖** — decisión de producto: autz handler-gated en personnel-files se mantiene **by-design** (riesgo = restrictividad, no seguridad). **GC5 ⏸️** — diferido (ROI marginal sin medir frecuencia de fetch; queries ya baratas). Verificación: build 0/0 · unit 1633/0 (incl. 54 de guardrails) · integración de catálogos 4/4 (bancos 2, reference/identification-types 2). Wire-keys preservados (sin cambios en tests de integración). |

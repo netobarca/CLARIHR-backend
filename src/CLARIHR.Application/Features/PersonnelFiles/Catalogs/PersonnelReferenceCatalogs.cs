@@ -1,32 +1,10 @@
-using System.Globalization;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Banks;
-using CLARIHR.Application.Abstractions.Authentication;
-using CLARIHR.Application.Abstractions.EducationCatalogs;
-using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
-using CLARIHR.Application.Abstractions.Files;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
-using CLARIHR.Application.Abstractions.Policies;
-using CLARIHR.Application.Abstractions.Tenancy;
-using CLARIHR.Application.Features.Files.Common;
-using CLARIHR.Domain.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
-using CLARIHR.Application.Common.JsonPatch;
-using CLARIHR.Application.Common.Pagination;
-using CLARIHR.Application.Common.Policies;
-using CLARIHR.Application.Features.Audit.Common;
-using CLARIHR.Application.Features.EducationCatalogs.Common;
-using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
-using FluentValidation.Results;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
