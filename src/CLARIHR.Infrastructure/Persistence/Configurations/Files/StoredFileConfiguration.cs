@@ -24,7 +24,6 @@ internal sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredF
         builder.Property(f => f.ObjectKey).HasColumnName("object_key").HasMaxLength(1000);
         builder.Property(f => f.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(30);
         builder.Property(f => f.Purpose).HasColumnName("purpose").HasConversion<string>().HasMaxLength(50);
-        builder.Property(f => f.Visibility).HasColumnName("visibility").HasConversion<string>().HasMaxLength(30);
         builder.Property(f => f.UploadType).HasColumnName("upload_type").HasConversion<string>().HasMaxLength(30);
         builder.Property(f => f.EntityId).HasColumnName("entity_id");
         builder.Property(f => f.CreatedByUserId).HasColumnName("created_by_user_id").HasMaxLength(80);

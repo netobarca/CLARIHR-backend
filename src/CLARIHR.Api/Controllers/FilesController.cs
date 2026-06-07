@@ -3,8 +3,10 @@ using CLARIHR.Api.Contracts.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Files;
+using CLARIHR.Application.Features.Files.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -17,6 +19,7 @@ public sealed class FilesController(
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpPost("api/v1/files/upload-session")]
+    [EnableRateLimiting(FileRateLimitPolicies.Upload)]
     [ProducesResponseType<CreateUploadSessionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -48,6 +51,7 @@ public sealed class FilesController(
     }
 
     [HttpPatch("api/v1/files/{filePublicId:guid}/complete")]
+    [EnableRateLimiting(FileRateLimitPolicies.Lifecycle)]
     [ProducesResponseType<CompleteFileUploadResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -76,6 +80,7 @@ public sealed class FilesController(
     }
 
     [HttpGet("api/v1/files/{filePublicId:guid}/read-url")]
+    [EnableRateLimiting(FileRateLimitPolicies.Read)]
     [ProducesResponseType<GetFileReadUrlResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -101,6 +106,7 @@ public sealed class FilesController(
     }
 
     [HttpDelete("api/v1/files/{filePublicId:guid}")]
+    [EnableRateLimiting(FileRateLimitPolicies.Lifecycle)]
     [ProducesResponseType<DeleteFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]

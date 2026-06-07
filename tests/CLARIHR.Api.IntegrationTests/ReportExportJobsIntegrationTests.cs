@@ -143,6 +143,80 @@ public sealed class ReportExportJobsIntegrationTests(ReportExportIntegrationTest
         Assert.Equal(content, await downloadResponse.Content.ReadAsByteArrayAsync());
     }
 
+    [Fact]
+    public async Task ReportExportJobs_ReadDownloadCancel_WhenCallerLacksResourcePermission_ShouldForbid()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        // Owner holds LegalRepresentatives:Read — creating the export proves the module is enabled
+        // for the tenant, so the only factor the intruder below is missing is the resource permission.
+        using var ownerClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                LegalRepresentativePermissionCodes.Read));
+
+        var createResponse = await ownerClient.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "LEGAL_REPRESENTATIVES",
+                format = "csv",
+                parameters = new { isActive = true }
+            });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(created);
+
+        var blobName = $"tests/report-export-jobs/{created.Id:N}.csv";
+        var content = Encoding.UTF8.GetBytes("FullName,Email\nSecurity Representative,security.representative@acme-one.test\n");
+        factory.Storage.Seed(blobName, content, "text/csv");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var job = await dbContext.ReportExportJobs
+                .IgnoreQueryFilters()
+                .SingleAsync(item => item.PublicId == created.Id);
+
+            job.MarkSucceeded(
+                rowCount: 1,
+                blobName,
+                "LegalRepresentatives.csv",
+                contentType: "text/csv",
+                sizeBytes: content.Length,
+                completedUtc: DateTime.UtcNow,
+                expiresUtc: DateTime.UtcNow.AddHours(1));
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // A different user in the SAME tenant who does NOT hold LegalRepresentatives:Read.
+        using var intruderClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(Guid.NewGuid(), scenario.TenantId));
+
+        // REX-1: download must enforce the per-resource read permission (was an intra-tenant IDOR
+        // exfiltrating completed export artifacts).
+        var intruderDownload = await intruderClient.GetAsync($"/api/v1/report-export-jobs/{created.Id}/download");
+        Assert.Equal(HttpStatusCode.Forbidden, intruderDownload.StatusCode);
+
+        // REX-2: per-job metadata read is gated by the same permission.
+        var intruderDetail = await intruderClient.GetAsync($"/api/v1/report-export-jobs/{created.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, intruderDetail.StatusCode);
+
+        // REX-3: cancel is gated too — the concurrency token (visible to any tenant user) is not authorization.
+        var intruderCancel = await intruderClient.PatchAsJsonAsync(
+            $"/api/v1/report-export-jobs/{created.Id}/cancel",
+            new { concurrencyToken = created.ConcurrencyToken },
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.Forbidden, intruderCancel.StatusCode);
+
+        // Sanity: the authorized owner still downloads successfully — the gate did not break the happy path.
+        var ownerDownload = await ownerClient.GetAsync($"/api/v1/report-export-jobs/{created.Id}/download");
+        ownerDownload.EnsureSuccessStatusCode();
+        Assert.Equal(content, await ownerDownload.Content.ReadAsByteArrayAsync());
+    }
+
     private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response)
     {
         await using var stream = await response.Content.ReadAsStreamAsync();

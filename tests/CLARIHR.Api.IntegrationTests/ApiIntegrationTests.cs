@@ -2692,7 +2692,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             "clarihr-personnel-documents",
             $"personnel-documents/{Guid.NewGuid():N}{extension}",
             FilePurpose.PersonnelDocument,
-            FileVisibility.Private,
             FileUploadType.DirectUpload,
             scenario.ActorUserId.ToString(),
             personnelFilePublicId);

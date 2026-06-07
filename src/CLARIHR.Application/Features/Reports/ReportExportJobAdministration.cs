@@ -1,16 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CLARIHR.Application.Abstractions.Authentication;
-using CLARIHR.Application.Abstractions.CompetencyFramework;
-using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.JobProfiles;
-using CLARIHR.Application.Abstractions.LegalRepresentatives;
-using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.Persistence;
-using CLARIHR.Application.Abstractions.PersonnelFiles;
-using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Reports;
-using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
@@ -176,13 +169,7 @@ internal sealed class CreateReportExportJobCommandHandler(
     ITenantContext tenantContext,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
-    IPersonnelFileAuthorizationService personnelFileAuthorizationService,
-    IOrgUnitAuthorizationService orgUnitAuthorizationService,
-    IPositionSlotAuthorizationService positionSlotAuthorizationService,
-    ISalaryTabulatorAuthorizationService salaryTabulatorAuthorizationService,
-    ICostCenterAuthorizationService costCenterAuthorizationService,
-    ILegalRepresentativeAuthorizationService legalRepresentativeAuthorizationService,
-    ICompetencyFrameworkAuthorizationService competencyFrameworkAuthorizationService,
+    IReportExportResourceAuthorizer resourceAuthorizer,
     IJobProfileAuthorizationService jobProfileAuthorizationService)
     : ICommandHandler<CreateReportExportJobCommand, ReportExportJobResponse>
 {
@@ -211,7 +198,7 @@ internal sealed class CreateReportExportJobCommandHandler(
         }
 
         var normalizedResourceKey = ReportExportResources.Normalize(command.ResourceKey);
-        var authorizationResult = await AuthorizeReadAsync(normalizedResourceKey, command.CompanyId, cancellationToken);
+        var authorizationResult = await resourceAuthorizer.EnsureCanReadResourceAsync(normalizedResourceKey, command.CompanyId, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<ReportExportJobResponse>.Failure(authorizationResult.Error);
@@ -238,23 +225,6 @@ internal sealed class CreateReportExportJobCommandHandler(
 
         return Result<ReportExportJobResponse>.Success(ReportExportJobMapper.Map(job));
     }
-
-    private Task<Result> AuthorizeReadAsync(string resourceKey, Guid companyId, CancellationToken cancellationToken) =>
-        resourceKey switch
-        {
-            ReportExportResources.PersonnelFiles or
-            ReportExportResources.PersonnelFilePersonnelActions or
-            ReportExportResources.PersonnelFilePayrollTransactions =>
-                personnelFileAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.OrgUnits => orgUnitAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.PositionSlots => positionSlotAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.SalaryTabulator => salaryTabulatorAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.CostCenters => costCenterAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.LegalRepresentatives => legalRepresentativeAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.JobProfileCompetencyMatrix => competencyFrameworkAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            ReportExportResources.JobProfilePdf => jobProfileAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
-            _ => Task.FromResult(Result.Failure(ReportPolicyErrors.ResourceNotSupported))
-        };
 
     /// <summary>
     /// Returns the parameter payload persisted on the job. For the job-profile
@@ -351,7 +321,8 @@ internal sealed class SearchReportExportJobsQueryHandler(
 }
 
 internal sealed class GetReportExportJobQueryHandler(
-    IReportExportJobRepository repository)
+    IReportExportJobRepository repository,
+    IReportExportResourceAuthorizer resourceAuthorizer)
     : IQueryHandler<GetReportExportJobQuery, ReportExportJobResponse>
 {
     public async Task<Result<ReportExportJobResponse>> Handle(
@@ -359,14 +330,27 @@ internal sealed class GetReportExportJobQueryHandler(
         CancellationToken cancellationToken)
     {
         var job = await repository.GetByPublicIdAsync(query.JobId, cancellationToken);
-        return job is null
-            ? Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportJobNotFound)
-            : Result<ReportExportJobResponse>.Success(ReportExportJobMapper.Map(job));
+        if (job is null)
+        {
+            return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportJobNotFound);
+        }
+
+        // REX-1/REX-2: reading a job requires the same per-resource read permission as creating it —
+        // otherwise any tenant user could inspect (and, via /download, exfiltrate) exports of
+        // resources they cannot read.
+        var authorizationResult = await resourceAuthorizer.EnsureCanReadResourceAsync(job.ResourceKey, job.TenantId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<ReportExportJobResponse>.Failure(authorizationResult.Error);
+        }
+
+        return Result<ReportExportJobResponse>.Success(ReportExportJobMapper.Map(job));
     }
 }
 
 internal sealed class GetReportExportJobDownloadQueryHandler(
     IReportExportJobRepository repository,
+    IReportExportResourceAuthorizer resourceAuthorizer,
     IDateTimeProvider dateTimeProvider)
     : IQueryHandler<GetReportExportJobDownloadQuery, ReportExportJobDownloadResponse>
 {
@@ -378,6 +362,15 @@ internal sealed class GetReportExportJobDownloadQueryHandler(
         if (job is null)
         {
             return Result<ReportExportJobDownloadResponse>.Failure(ReportPolicyErrors.ExportJobNotFound);
+        }
+
+        // REX-1: the download path must enforce the SAME per-resource read permission as create — it
+        // previously checked only the tenant filter, letting any tenant user download exports
+        // (e.g. salary tabulators, personnel files) of resources they cannot read.
+        var authorizationResult = await resourceAuthorizer.EnsureCanReadResourceAsync(job.ResourceKey, job.TenantId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<ReportExportJobDownloadResponse>.Failure(authorizationResult.Error);
         }
 
         if (job.Status != ReportExportJobStatus.Succeeded)
@@ -411,6 +404,7 @@ internal sealed class GetReportExportJobDownloadQueryHandler(
 
 internal sealed class CancelReportExportJobCommandHandler(
     IReportExportJobRepository repository,
+    IReportExportResourceAuthorizer resourceAuthorizer,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider)
     : ICommandHandler<CancelReportExportJobCommand, ReportExportJobResponse>
@@ -423,6 +417,15 @@ internal sealed class CancelReportExportJobCommandHandler(
         if (job is null)
         {
             return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportJobNotFound);
+        }
+
+        // REX-3: cancelling requires the same per-resource read permission as create — the
+        // concurrency token is not authorization (it is handed to every tenant user via
+        // Search/GetById), so without this gate any tenant user could cancel another user's export.
+        var authorizationResult = await resourceAuthorizer.EnsureCanReadResourceAsync(job.ResourceKey, job.TenantId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<ReportExportJobResponse>.Failure(authorizationResult.Error);
         }
 
         if (job.ConcurrencyToken != command.ConcurrencyToken)

@@ -92,7 +92,6 @@ internal sealed class CreateUploadSessionCommandHandler(
             containerName: rule.ContainerOverride ?? "clarihr-files",
             objectKey: objectKeyBuilder.Build(purpose, tenantId, userGuid, filePublicId, extension),
             purpose: purpose,
-            visibility: FileVisibility.Private,
             uploadType: FileUploadType.DirectUpload,
             createdByUserId: userId,
             entityId: command.EntityId);

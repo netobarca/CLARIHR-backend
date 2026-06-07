@@ -15,7 +15,6 @@ public sealed class StoredFile : TenantEntity
     public string ObjectKey { get; private set; } = string.Empty;
     public FileStatus Status { get; private set; }
     public FilePurpose Purpose { get; private set; }
-    public FileVisibility Visibility { get; private set; }
     public FileUploadType UploadType { get; private set; }
     public Guid? EntityId { get; private set; }
     public string CreatedByUserId { get; private set; } = string.Empty;
@@ -33,7 +32,6 @@ public sealed class StoredFile : TenantEntity
         string containerName,
         string objectKey,
         FilePurpose purpose,
-        FileVisibility visibility,
         FileUploadType uploadType,
         string createdByUserId,
         Guid? entityId = null)
@@ -61,7 +59,6 @@ public sealed class StoredFile : TenantEntity
             ObjectKey = objectKey.Trim(),
             Status = FileStatus.PendingUpload,
             Purpose = purpose,
-            Visibility = visibility,
             UploadType = uploadType,
             CreatedByUserId = createdByUserId,
             EntityId = entityId

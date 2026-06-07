@@ -9,13 +9,6 @@ public enum FileStatus
     Quarantined
 }
 
-public enum FileVisibility
-{
-    Private,
-    Authenticated,
-    Public
-}
-
 public enum FilePurpose
 {
     ProfileImage,

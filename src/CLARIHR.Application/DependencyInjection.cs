@@ -1,8 +1,10 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.Provisioning;
+using CLARIHR.Application.Features.Reports.Common;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryDispatcher, RequestDispatcher>();
         services.AddScoped<ICompanyProvisioningService, CompanyProvisioningService>();
         services.AddScoped<ICompanyUserProvisioningService, CompanyUserProvisioningService>();
+        services.AddScoped<IReportExportResourceAuthorizer, ReportExportResourceAuthorizer>();
 
         RegisterHandlers(services, assembly, typeof(ICommandHandler<,>));
         RegisterHandlers(services, assembly, typeof(IQueryHandler<,>));

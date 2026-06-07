@@ -11,6 +11,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
@@ -245,6 +246,13 @@ builder.Services.AddRateLimiter(options =>
     // as legal-representatives-export/search; mirrors its 10/min + 120/min defaults.
     options.AddPolicy(CostCenterRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Export:PermitLimit", 10));
     options.AddPolicy(CostCenterRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Search:PermitLimit", 120));
+
+    // Files: per-user+tenant limiters for the direct-upload surface — upload-session reserves a row
+    // and mints a write SAS, read-url mints a read SAS, and complete/delete mutate the stored object.
+    // Same abuse class as personnel-files-create; mirrors its 20/120/30 defaults.
+    options.AddPolicy(FileRateLimitPolicies.Upload, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Upload:PermitLimit", 20));
+    options.AddPolicy(FileRateLimitPolicies.Read, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Read:PermitLimit", 120));
+    options.AddPolicy(FileRateLimitPolicies.Lifecycle, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Lifecycle:PermitLimit", 30));
 });
 builder.Services.AddAuthorization(options =>
 {

@@ -71,6 +71,7 @@ public sealed class ReportExportJobsController(
     [HttpGet("api/v1/report-export-jobs/{jobId:guid}")]
     [ProducesResponseType<ReportExportJobResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ReportExportJobResponse>> GetById(
         Guid jobId,
@@ -83,6 +84,7 @@ public sealed class ReportExportJobsController(
     [HttpGet("api/v1/report-export-jobs/{jobId:guid}/download")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status410Gone)]
@@ -116,6 +118,7 @@ public sealed class ReportExportJobsController(
     [HttpPatch("api/v1/report-export-jobs/{jobId:guid}/cancel")]
     [ProducesResponseType<ReportExportJobResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ReportExportJobResponse>> Cancel(
         Guid jobId,

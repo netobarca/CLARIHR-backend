@@ -58,7 +58,6 @@ public sealed class FileAccessControlTests
             containerName: "clarihr-files",
             objectKey: "tenants/t/users/u/documents/f.pdf",
             purpose: FilePurpose.PersonnelDocument,
-            visibility: FileVisibility.Private,
             uploadType: FileUploadType.DirectUpload,
             createdByUserId: ownerUserId);
         file.MarkActive(1024, "application/pdf");
