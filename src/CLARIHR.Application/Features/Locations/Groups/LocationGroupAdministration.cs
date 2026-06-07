@@ -54,6 +54,23 @@ public sealed record LocationGroupTreeNodeData(
     bool IsDefault,
     Guid ConcurrencyToken);
 
+public sealed record LocationGroupPathNodeResponse(
+    Guid Id,
+    int LevelOrder,
+    string Code,
+    string Name);
+
+public sealed record LocationGroupUsageResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int ActiveChildGroupCount,
+    int InactiveChildGroupCount,
+    int ActiveWorkCenterCount,
+    int InactiveWorkCenterCount,
+    bool IsDefault,
+    bool CanInactivate);
+
 public sealed record GetLocationGroupTreeQuery(Guid CompanyId) : IQuery<IReadOnlyCollection<LocationGroupTreeNodeResponse>>;
 
 public sealed record SearchLocationGroupsQuery(
@@ -66,6 +83,12 @@ public sealed record SearchLocationGroupsQuery(
     bool IncludeAllowedActions = false) : IQuery<PagedResponse<LocationGroupResponse>>;
 
 public sealed record GetLocationGroupByIdQuery(Guid GroupId) : IQuery<LocationGroupResponse>;
+
+public sealed record GetLocationGroupChildrenQuery(Guid GroupId, bool? IsActive) : IQuery<IReadOnlyCollection<LocationGroupResponse>>;
+
+public sealed record GetLocationGroupPathQuery(Guid GroupId) : IQuery<IReadOnlyCollection<LocationGroupPathNodeResponse>>;
+
+public sealed record GetLocationGroupUsageQuery(Guid GroupId) : IQuery<LocationGroupUsageResponse>;
 
 public sealed record CreateLocationGroupCommand(
     Guid CompanyId,
@@ -810,6 +833,110 @@ internal sealed class GetLocationGroupByIdQueryHandler(
         }
 
         return Result<LocationGroupResponse>.Failure(
+            await groupRepository.ExistsOutsideTenantAsync(query.GroupId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : LocationErrors.GroupNotFound);
+    }
+}
+
+internal sealed class GetLocationGroupChildrenQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationGroupRepository groupRepository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetLocationGroupChildrenQuery, IReadOnlyCollection<LocationGroupResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<LocationGroupResponse>>> Handle(
+        GetLocationGroupChildrenQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<IReadOnlyCollection<LocationGroupResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<LocationGroupResponse>>.Failure(authorizationResult.Error);
+        }
+
+        var group = await groupRepository.GetByIdAsync(query.GroupId, cancellationToken);
+        if (group is null)
+        {
+            return Result<IReadOnlyCollection<LocationGroupResponse>>.Failure(
+                await groupRepository.ExistsOutsideTenantAsync(query.GroupId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : LocationErrors.GroupNotFound);
+        }
+
+        var children = await groupRepository.GetChildrenAsync(query.GroupId, query.IsActive, cancellationToken);
+        return Result<IReadOnlyCollection<LocationGroupResponse>>.Success(children);
+    }
+}
+
+internal sealed class GetLocationGroupPathQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationGroupRepository groupRepository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetLocationGroupPathQuery, IReadOnlyCollection<LocationGroupPathNodeResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<LocationGroupPathNodeResponse>>> Handle(
+        GetLocationGroupPathQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<IReadOnlyCollection<LocationGroupPathNodeResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<LocationGroupPathNodeResponse>>.Failure(authorizationResult.Error);
+        }
+
+        var group = await groupRepository.GetByIdAsync(query.GroupId, cancellationToken);
+        if (group is null)
+        {
+            return Result<IReadOnlyCollection<LocationGroupPathNodeResponse>>.Failure(
+                await groupRepository.ExistsOutsideTenantAsync(query.GroupId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : LocationErrors.GroupNotFound);
+        }
+
+        var path = await groupRepository.GetAncestorPathAsync(query.GroupId, cancellationToken);
+        return Result<IReadOnlyCollection<LocationGroupPathNodeResponse>>.Success(path);
+    }
+}
+
+internal sealed class GetLocationGroupUsageQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationGroupRepository groupRepository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetLocationGroupUsageQuery, LocationGroupUsageResponse>
+{
+    public async Task<Result<LocationGroupUsageResponse>> Handle(
+        GetLocationGroupUsageQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LocationGroupUsageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LocationGroupUsageResponse>.Failure(authorizationResult.Error);
+        }
+
+        var usage = await groupRepository.GetUsageByIdAsync(query.GroupId, cancellationToken);
+        if (usage is not null)
+        {
+            return Result<LocationGroupUsageResponse>.Success(usage);
+        }
+
+        return Result<LocationGroupUsageResponse>.Failure(
             await groupRepository.ExistsOutsideTenantAsync(query.GroupId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : LocationErrors.GroupNotFound);

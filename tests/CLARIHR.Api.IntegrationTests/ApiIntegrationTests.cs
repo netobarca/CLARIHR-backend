@@ -3993,6 +3993,97 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task LocationGroups_Children_ReturnsDirectChildren_AndRespectsIsActiveFilter()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var parent = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-CH-PARENT");
+        var activeChild = await CreateChildLocationGroupAsync(client, scenario.TenantId, parent.Id, "LG-CH-ACTIVE");
+        var inactiveChild = await CreateChildLocationGroupAsync(client, scenario.TenantId, parent.Id, "LG-CH-INACTIVE");
+
+        // Inactivate the second child (a leaf with no work centers → allowed) so the filter has something to hide.
+        var inactivateResponse = await client.PatchJsonAsync(
+            $"/api/v1/location-groups/{inactiveChild.Id}/inactivate",
+            new { concurrencyToken = inactiveChild.ConcurrencyToken });
+        inactivateResponse.EnsureSuccessStatusCode();
+
+        // No filter → both direct children, each pointing at the parent.
+        var allResponse = await client.GetAsync($"/api/v1/location-groups/{parent.Id}/children");
+        allResponse.EnsureSuccessStatusCode();
+        var all = (await allResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationGroupItem>>(JsonOptions))!;
+        Assert.Equal(2, all.Count);
+        Assert.All(all, child => Assert.Equal(parent.Id, child.ParentId));
+
+        // isActive=true → only the active child.
+        var activeOnlyResponse = await client.GetAsync($"/api/v1/location-groups/{parent.Id}/children?isActive=true");
+        activeOnlyResponse.EnsureSuccessStatusCode();
+        var activeOnly = (await activeOnlyResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationGroupItem>>(JsonOptions))!;
+        Assert.Equal("LG-CH-ACTIVE", Assert.Single(activeOnly).Code);
+
+        // A leaf has no children.
+        var leafResponse = await client.GetAsync($"/api/v1/location-groups/{activeChild.Id}/children");
+        leafResponse.EnsureSuccessStatusCode();
+        var leaf = (await leafResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationGroupItem>>(JsonOptions))!;
+        Assert.Empty(leaf);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Path_ReturnsRootToNodeBreadcrumb()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var root = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-P-ROOT");
+        var middle = await CreateChildLocationGroupAsync(client, scenario.TenantId, root.Id, "LG-P-MID", levelOrder: 2);
+        var leaf = await CreateChildLocationGroupAsync(client, scenario.TenantId, middle.Id, "LG-P-LEAF", levelOrder: 3);
+
+        var response = await client.GetAsync($"/api/v1/location-groups/{leaf.Id}/path");
+        response.EnsureSuccessStatusCode();
+        var path = (await response.Content.ReadFromJsonAsync<IReadOnlyList<LocationGroupPathNodeItem>>(JsonOptions))!;
+
+        Assert.Equal(new[] { "LG-P-ROOT", "LG-P-MID", "LG-P-LEAF" }, path.Select(node => node.Code).ToArray());
+        Assert.Equal(new[] { 1, 2, 3 }, path.Select(node => node.LevelOrder).ToArray());
+        Assert.Equal(leaf.Id, path[^1].Id);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Usage_ReturnsCountsAndCanInactivateFlag()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var parent = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-U-PARENT");
+        var child = await CreateChildLocationGroupAsync(client, scenario.TenantId, parent.Id, "LG-U-CHILD", levelOrder: 2);
+
+        // Parent has an active child → blocked from inactivation.
+        var parentUsage = await GetUsageAsync(client, parent.Id);
+        Assert.Equal(1, parentUsage.ActiveChildGroupCount);
+        Assert.Equal(0, parentUsage.ActiveWorkCenterCount);
+        Assert.False(parentUsage.CanInactivate);
+
+        // Leaf child with no dependencies → can be inactivated.
+        var childUsage = await GetUsageAsync(client, child.Id);
+        Assert.Equal(0, childUsage.ActiveChildGroupCount);
+        Assert.Equal(0, childUsage.ActiveWorkCenterCount);
+        Assert.True(childUsage.CanInactivate);
+        Assert.False(childUsage.IsDefault);
+        // Note: the protected-default rule (CanInactivate == false when IsDefault) is enforced by the
+        // domain (LocationGroup.Inactivate throws) and unit-tested there; the test seeder creates no
+        // default group and the API does not expose the flag, so it is not asserted at this layer.
+    }
+
+    [Fact]
+    public async Task LocationGroups_Usage_WhenGroupDoesNotExist_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/location-groups/{Guid.NewGuid()}/usage");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task LocationGroups_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -10104,6 +10195,32 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return Assert.Single(payload!.Items, static group => group.LevelOrder == 3 && group.Code == "APOPA");
     }
 
+    private async Task<LocationGroupItem> CreateChildLocationGroupAsync(
+        HttpClient client,
+        Guid tenantId,
+        Guid parentPublicId,
+        string code,
+        int levelOrder = 2)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/location-groups", new
+        {
+            levelOrder,
+            code,
+            name = code,
+            parentPublicId = (Guid?)parentPublicId,
+            description = (string?)null
+        });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions))!;
+    }
+
+    private async Task<LocationGroupUsageItem> GetUsageAsync(HttpClient client, Guid groupId)
+    {
+        var response = await client.GetAsync($"/api/v1/location-groups/{groupId}/usage");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<LocationGroupUsageItem>(JsonOptions))!;
+    }
+
     private async Task<IReadOnlyCollection<LocationGroupTreeItem>> GetLocationGroupTreeAsync(HttpClient client, Guid companyId)
     {
         var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-groups/tree");
@@ -11176,6 +11293,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
+
+    private sealed record LocationGroupPathNodeItem(
+        Guid Id,
+        int LevelOrder,
+        string Code,
+        string Name);
+
+    private sealed record LocationGroupUsageItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int ActiveChildGroupCount,
+        int InactiveChildGroupCount,
+        int ActiveWorkCenterCount,
+        int InactiveWorkCenterCount,
+        bool IsDefault,
+        bool CanInactivate);
 
     private sealed record LocationGroupTreeItem(
         Guid Id,

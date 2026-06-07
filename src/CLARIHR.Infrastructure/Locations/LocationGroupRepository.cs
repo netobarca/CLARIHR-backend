@@ -136,6 +136,121 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
         return new PagedResponse<LocationGroupResponse>(items, pageNumber, pageSize, totalCount);
     }
 
+    public async Task<IReadOnlyCollection<LocationGroupResponse>> GetChildrenAsync(
+        Guid parentPublicId,
+        bool? isActive,
+        CancellationToken cancellationToken)
+    {
+        // Resolve the parent's internal id (restricted to the ambient tenant by the global query filter);
+        // a missing parent yields an empty collection — the handler has already enforced 404/403 here.
+        var parentId = await dbContext.LocationGroups
+            .AsNoTracking()
+            .Where(group => group.PublicId == parentPublicId)
+            .Select(group => (long?)group.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (parentId is null)
+        {
+            return [];
+        }
+
+        var query = dbContext.LocationGroups
+            .AsNoTracking()
+            .Where(group => group.ParentId == parentId.Value);
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(group => group.IsActive == isActive.Value);
+        }
+
+        return await query
+            .OrderBy(group => group.LevelOrder)
+            .ThenBy(group => group.Name)
+            .Select(group => new LocationGroupResponse(
+                group.PublicId,
+                group.LevelOrder,
+                group.Code,
+                group.Name,
+                dbContext.LocationGroups
+                    .AsNoTracking()
+                    .Where(parent => parent.Id == group.ParentId)
+                    .Select(parent => (Guid?)parent.PublicId)
+                    .FirstOrDefault(),
+                group.Description,
+                group.IsActive,
+                group.IsDefault,
+                group.ConcurrencyToken,
+                group.CreatedUtc,
+                group.ModifiedUtc))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LocationGroupPathNodeResponse>> GetAncestorPathAsync(
+        Guid groupPublicId,
+        CancellationToken cancellationToken)
+    {
+        // Single query: load the tenant's lightweight node projection (bounded by the §LG7 scale
+        // assumption) and walk parent links in memory from the node up to the root, returned root-first.
+        var nodes = await dbContext.LocationGroups
+            .AsNoTracking()
+            .Select(group => new LocationGroupAncestorRow(
+                group.Id,
+                group.ParentId,
+                group.PublicId,
+                group.LevelOrder,
+                group.Code,
+                group.Name))
+            .ToListAsync(cancellationToken);
+
+        var byId = nodes.ToDictionary(node => node.Id);
+        var current = nodes.FirstOrDefault(node => node.PublicId == groupPublicId);
+
+        var path = new List<LocationGroupPathNodeResponse>();
+        while (current is not null)
+        {
+            path.Add(new LocationGroupPathNodeResponse(current.PublicId, current.LevelOrder, current.Code, current.Name));
+            current = current.ParentId.HasValue && byId.TryGetValue(current.ParentId.Value, out var parent) ? parent : null;
+        }
+
+        path.Reverse();
+        return path;
+    }
+
+    public async Task<LocationGroupUsageResponse?> GetUsageByIdAsync(
+        Guid groupPublicId,
+        CancellationToken cancellationToken)
+    {
+        var group = await dbContext.LocationGroups
+            .AsNoTracking()
+            .Where(item => item.PublicId == groupPublicId)
+            .Select(item => new { item.Id, item.Code, item.Name, item.IsDefault })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (group is null)
+        {
+            return null;
+        }
+
+        var activeChildGroupCount = await dbContext.LocationGroups
+            .CountAsync(item => item.ParentId == group.Id && item.IsActive, cancellationToken);
+        var inactiveChildGroupCount = await dbContext.LocationGroups
+            .CountAsync(item => item.ParentId == group.Id && !item.IsActive, cancellationToken);
+        var activeWorkCenterCount = await dbContext.WorkCenters
+            .CountAsync(workCenter => workCenter.LocationGroupId == group.Id && workCenter.IsActive, cancellationToken);
+        var inactiveWorkCenterCount = await dbContext.WorkCenters
+            .CountAsync(workCenter => workCenter.LocationGroupId == group.Id && !workCenter.IsActive, cancellationToken);
+
+        // Mirrors LocationDependencyPolicy.CanInactivateLocationGroupAsync + the protected default-group rule.
+        return new LocationGroupUsageResponse(
+            groupPublicId,
+            group.Code,
+            group.Name,
+            activeChildGroupCount,
+            inactiveChildGroupCount,
+            activeWorkCenterCount,
+            inactiveWorkCenterCount,
+            group.IsDefault,
+            CanInactivate: !group.IsDefault && activeChildGroupCount == 0 && activeWorkCenterCount == 0);
+    }
+
     public Task<bool> HasActiveChildrenAsync(long groupId, CancellationToken cancellationToken) =>
         dbContext.LocationGroups.AnyAsync(group => group.ParentId == groupId && group.IsActive, cancellationToken);
 
@@ -170,3 +285,13 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
     public Task<bool> HasActiveWorkCentersAsync(long groupId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters.AnyAsync(workCenter => workCenter.LocationGroupId == groupId && workCenter.IsActive, cancellationToken);
 }
+
+// Lightweight row used only to walk parent links in memory for GetAncestorPathAsync (carries the
+// internal id + ParentId fk that the public-facing path response intentionally omits).
+file sealed record LocationGroupAncestorRow(
+    long Id,
+    long? ParentId,
+    Guid PublicId,
+    int LevelOrder,
+    string Code,
+    string Name);

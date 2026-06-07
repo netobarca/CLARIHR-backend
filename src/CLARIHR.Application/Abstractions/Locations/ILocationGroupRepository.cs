@@ -27,6 +27,17 @@ public interface ILocationGroupRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    // Direct children of a group (for lazy-loaded tree navigation). Unpaginated: a single node's direct
+    // fan-out is bounded, mirroring the GetTreeAsync scale assumption (§LG7). Optional isActive filter.
+    Task<IReadOnlyCollection<LocationGroupResponse>> GetChildrenAsync(Guid parentPublicId, bool? isActive, CancellationToken cancellationToken);
+
+    // Root-to-node ancestor chain (breadcrumb), ordered root-first and inclusive of the node itself.
+    Task<IReadOnlyList<LocationGroupPathNodeResponse>> GetAncestorPathAsync(Guid groupPublicId, CancellationToken cancellationToken);
+
+    // Active/inactive reference counts (child groups + work centers) and the derived CanInactivate flag,
+    // mirroring CostCenter/LegalRepresentative usage. Returns null when the group is not in the tenant.
+    Task<LocationGroupUsageResponse?> GetUsageByIdAsync(Guid groupPublicId, CancellationToken cancellationToken);
+
     Task<bool> HasActiveChildrenAsync(long groupId, CancellationToken cancellationToken);
 
     Task<bool> HasActiveGroupsAtLevelAsync(Guid tenantId, int levelOrder, CancellationToken cancellationToken);

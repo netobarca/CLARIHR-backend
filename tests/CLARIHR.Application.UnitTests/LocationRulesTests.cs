@@ -178,6 +178,9 @@ public sealed class LocationRulesTests
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IReadOnlyList<LocationGroupTreeNodeData>> GetTreeAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LocationGroupTreeNodeData>>([]);
         public Task<PagedResponse<LocationGroupResponse>> SearchAsync(Guid tenantId, int? levelOrder, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<LocationGroupResponse>> GetChildrenAsync(Guid parentPublicId, bool? isActive, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<LocationGroupPathNodeResponse>> GetAncestorPathAsync(Guid groupPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<LocationGroupUsageResponse?> GetUsageByIdAsync(Guid groupPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> HasActiveChildrenAsync(long groupId, CancellationToken cancellationToken) => Task.FromResult(HasActiveChildrenValue);
         public Task<bool> HasActiveGroupsAtLevelAsync(Guid tenantId, int levelOrder, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> IsDescendantAsync(long ancestorGroupId, long candidateDescendantId, CancellationToken cancellationToken) => Task.FromResult(false);

@@ -94,6 +94,64 @@ public sealed class LocationGroupsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("location-groups/{id:guid}/children")]
+    [ProducesResponseType<IReadOnlyCollection<LocationGroupResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get the direct children of a location group",
+        Description = """
+            Returns the direct child groups of the location group (exactly one level below), optionally
+            filtered by `isActive`. Intended for lazy-loaded tree navigation — expand a node to fetch its
+            children without downloading the whole `/tree`. The owning company is resolved from the
+            authenticated tenant; a group belonging to another tenant yields `404`.
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<LocationGroupResponse>>> Children(
+        Guid id,
+        [FromQuery] bool? isActive,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLocationGroupChildrenQuery(id, isActive), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("location-groups/{id:guid}/path")]
+    [ProducesResponseType<IReadOnlyCollection<LocationGroupPathNodeResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get the ancestor path of a location group",
+        Description = """
+            Returns the breadcrumb chain from the root group down to (and including) the specified group,
+            ordered root-first. Useful for rendering breadcrumbs without reconstructing the tree on the
+            client. The owning company is resolved from the authenticated tenant; a group belonging to
+            another tenant yields `404`.
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<LocationGroupPathNodeResponse>>> Path(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLocationGroupPathQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("location-groups/{id:guid}/usage")]
+    [ProducesResponseType<LocationGroupUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a location group's usage",
+        Description = """
+            Returns the active/inactive reference counts for the group (child groups and work centers)
+            and whether it can be inactivated. `canInactivate` is `false` for the protected default group
+            or while the group still has active children or active work centers. The owning company is
+            resolved from the authenticated tenant; a group belonging to another tenant yields `404`.
+            """)]
+    public async Task<ActionResult<LocationGroupUsageResponse>> Usage(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLocationGroupUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("companies/{companyId:guid}/location-groups")]
     [ProducesResponseType<LocationGroupResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
