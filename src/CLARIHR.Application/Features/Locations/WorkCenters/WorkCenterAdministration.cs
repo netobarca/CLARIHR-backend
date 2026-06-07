@@ -214,7 +214,6 @@ internal sealed class PatchWorkCenterCommandValidator : AbstractValidator<PatchW
 internal sealed class SearchWorkCentersQueryHandler(
     ILocationAuthorizationService authorizationService,
     IWorkCenterRepository repository,
-    ILocationDependencyPolicy dependencyPolicy,
     IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchWorkCentersQuery, PagedResponse<WorkCenterResponse>>
 {
@@ -240,21 +239,13 @@ internal sealed class SearchWorkCentersQueryHandler(
 
         if (query.IncludeAllowedActions)
         {
+            // §12.7 (ADR-0001): list AllowedActions derive ONLY from the caller's permission (canManage),
+            // never from per-item dependency state — resolving dependencies per row is the forbidden N+1.
+            // The real inactivation block is enforced server-side in InactivateWorkCenterCommandHandler.
             var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
-            var enrichedItems = new List<WorkCenterResponse>(result.Items.Count);
-
-            foreach (var workCenter in result.Items)
-            {
-                var hasDependencies = workCenter.IsActive &&
-                    (await dependencyPolicy.CanInactivateWorkCenterAsync(workCenter.Id, cancellationToken)).IsFailure;
-
-                enrichedItems.Add(
-                    WorkCenterPolicyAdapter.ApplyAllowedActions(
-                        workCenter,
-                        resourceActionPolicyService,
-                        canManage,
-                        hasDependencies));
-            }
+            var enrichedItems = result.Items
+                .Select(workCenter => WorkCenterPolicyAdapter.ApplyAllowedActions(workCenter, resourceActionPolicyService, canManage))
+                .ToArray();
 
             result = new PagedResponse<WorkCenterResponse>(
                 enrichedItems,
@@ -272,8 +263,7 @@ internal static class WorkCenterPolicyAdapter
     public static WorkCenterResponse ApplyAllowedActions(
         WorkCenterResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
-        bool canManage,
-        bool hasDependencies) =>
+        bool canManage) =>
         response with
         {
             AllowedActions = resourceActionPolicyService.Evaluate(
@@ -281,7 +271,6 @@ internal static class WorkCenterPolicyAdapter
                     ResourceKey: "WorkCenters",
                     State: response.IsActive ? "Active" : "Inactive",
                     IsActive: response.IsActive,
-                    HasDependencies: hasDependencies,
                     SupportsEdit: true,
                     EditAllowed: canManage,
                     SupportsActivate: true,
@@ -418,6 +407,7 @@ internal sealed class CreateWorkCenterCommandHandler(
                     $"Created work center {workCenter.Code}.",
                     After: response),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(response);
@@ -543,6 +533,7 @@ internal sealed class UpdateWorkCenterCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
@@ -637,6 +628,7 @@ internal sealed class ReassignWorkCenterGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
@@ -708,6 +700,7 @@ internal sealed class ActivateWorkCenterCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
@@ -786,6 +779,7 @@ internal sealed class InactivateWorkCenterCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
@@ -934,6 +928,7 @@ internal sealed class PatchWorkCenterCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);

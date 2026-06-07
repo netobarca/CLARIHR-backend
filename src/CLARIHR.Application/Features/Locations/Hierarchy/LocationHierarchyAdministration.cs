@@ -252,6 +252,7 @@ internal sealed class UpdateLocationHierarchyConfigCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationHierarchyConfigResponse>.Success(after);
@@ -356,6 +357,7 @@ internal sealed class CreateLocationLevelCommandHandler(
                     $"Created location level {level.DisplayName}.",
                     After: response),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(response);
@@ -460,6 +462,7 @@ internal sealed class UpdateLocationLevelCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(after);
@@ -538,6 +541,7 @@ internal sealed class ActivateLocationLevelCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(after);
@@ -623,6 +627,7 @@ internal sealed class InactivateLocationLevelCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(after);
@@ -753,6 +758,7 @@ internal sealed class PatchLocationLevelCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(after);

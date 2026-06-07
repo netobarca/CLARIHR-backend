@@ -234,7 +234,6 @@ internal sealed class GetLocationGroupTreeQueryHandler(
 internal sealed class SearchLocationGroupsQueryHandler(
     ILocationAuthorizationService authorizationService,
     ILocationGroupRepository repository,
-    ILocationDependencyPolicy dependencyPolicy,
     IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchLocationGroupsQuery, PagedResponse<LocationGroupResponse>>
 {
@@ -259,21 +258,14 @@ internal sealed class SearchLocationGroupsQueryHandler(
 
         if (query.IncludeAllowedActions)
         {
+            // §12.7 (ADR-0001): list AllowedActions derive ONLY from the caller's permission (canManage),
+            // never from per-item dependency state — resolving dependencies per row is the forbidden N+1.
+            // The real inactivation block (active children / work centers / protected default group) is
+            // enforced server-side in InactivateLocationGroupCommandHandler, independent of this list flag.
             var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
-            var enrichedItems = new List<LocationGroupResponse>(groups.Items.Count);
-
-            foreach (var group in groups.Items)
-            {
-                var hasDependencies = group.IsActive &&
-                    (await dependencyPolicy.CanInactivateLocationGroupAsync(group.Id, cancellationToken)).IsFailure;
-
-                enrichedItems.Add(
-                    LocationGroupPolicyAdapter.ApplyAllowedActions(
-                        group,
-                        resourceActionPolicyService,
-                        canManage,
-                        hasDependencies));
-            }
+            var enrichedItems = groups.Items
+                .Select(group => LocationGroupPolicyAdapter.ApplyAllowedActions(group, resourceActionPolicyService, canManage))
+                .ToArray();
 
             groups = new PagedResponse<LocationGroupResponse>(
                 enrichedItems,
@@ -291,8 +283,7 @@ internal static class LocationGroupPolicyAdapter
     public static LocationGroupResponse ApplyAllowedActions(
         LocationGroupResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
-        bool canManage,
-        bool hasDependencies) =>
+        bool canManage) =>
         response with
         {
             AllowedActions = resourceActionPolicyService.Evaluate(
@@ -300,7 +291,6 @@ internal static class LocationGroupPolicyAdapter
                     ResourceKey: "LocationGroups",
                     State: response.IsActive ? "Active" : "Inactive",
                     IsActive: response.IsActive,
-                    HasDependencies: hasDependencies,
                     SupportsEdit: true,
                     EditAllowed: canManage,
                     SupportsActivate: true,
@@ -412,6 +402,7 @@ internal sealed class CreateLocationGroupCommandHandler(
                     $"Created location group {group.Code}.",
                     After: response),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(response);
@@ -493,6 +484,7 @@ internal sealed class UpdateLocationGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
@@ -607,6 +599,7 @@ internal sealed class MoveLocationGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
@@ -676,6 +669,7 @@ internal sealed class ActivateLocationGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
@@ -757,6 +751,7 @@ internal sealed class InactivateLocationGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
@@ -898,6 +893,7 @@ internal sealed class PatchLocationGroupCommandHandler(
                     Before: before,
                     After: after),
                 cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);

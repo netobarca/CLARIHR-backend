@@ -3758,6 +3758,84 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task LocationGroups_Create_ShouldPersistAuditLog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code = "AUDIT",
+            name = "Audit Trail",
+            parentPublicId = (Guid?)null,
+            description = "Created to assert the audit trail is persisted"
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var payload = (await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions))!;
+
+        // §LG1 (re-audit doc 12): the mutation handlers must SaveChanges the audit entry BEFORE
+        // committing the transaction. AuditService.LogAsync only Adds (deferred) and the unit-of-work
+        // CommitAsync does not flush, so without an intervening SaveChanges the AuditLog INSERT never
+        // runs and the audit trail is silently lost. Assert the row actually reached the database.
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var auditLog = await dbContext.AuditLogs
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(log => log.EntityId == payload.Id && log.EventType == "LOCATION_GROUP_CREATED");
+
+        Assert.NotNull(auditLog);
+        Assert.Equal("LocationGroup", auditLog!.EntityType);
+        Assert.Equal(scenario.TenantId, auditLog.TenantId);
+    }
+
+    [Fact]
+    public async Task LocationGroups_SearchWithAllowedActions_DerivesFromPermissionNotPerItemDependencies()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // A level-1 parent with an ACTIVE level-2 child → the parent has a real "active children"
+        // dependency that blocks server-side inactivation.
+        var parentResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code = "LG-PARENT",
+            name = "Parent Group",
+            parentPublicId = (Guid?)null,
+            description = (string?)null
+        });
+        Assert.Equal(HttpStatusCode.Created, parentResponse.StatusCode);
+        var parent = (await parentResponse.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions))!;
+
+        var childResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 2,
+            code = "LG-CHILD",
+            name = "Child Group",
+            parentPublicId = (Guid?)parent.Id,
+            description = (string?)null
+        });
+        Assert.Equal(HttpStatusCode.Created, childResponse.StatusCode);
+
+        // §LG2 / §12.7 (ADR-0001): the list derives AllowedActions from canManage ONLY — it must IGNORE
+        // the active-child dependency (no per-item N+1). So the parent shows canInactivate = true here
+        // even though a real /inactivate would 409; that block is enforced server-side, not via this flag.
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/location-groups?page=1&pageSize=50&includeAllowedActions=true");
+        listResponse.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync());
+        var parentItem = document.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("code").GetString() == "LG-PARENT");
+
+        Assert.True(
+            parentItem.GetProperty("allowedActions").GetProperty("canInactivate").GetBoolean(),
+            "§12.7: the list AllowedActions must derive canInactivate from the caller's permission " +
+            "(canManage), not from the active-child dependency state.");
+    }
+
+    [Fact]
     public async Task WorkCenters_Create_WithAddressRequirementSatisfied_ShouldReturnCreatedCenter()
     {
         var scenario = await factory.ResetDatabaseAsync();
