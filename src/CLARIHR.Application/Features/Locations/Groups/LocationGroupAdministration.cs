@@ -118,7 +118,10 @@ internal sealed class SearchLocationGroupsQueryValidator : AbstractValidator<Sea
         RuleFor(query => query.LevelOrder).GreaterThan(0).When(static query => query.LevelOrder.HasValue);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LocationValidationRules.MaxPageSize);
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(LocationValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {LocationValidationRules.MinSearchLength} characters when provided.");
     }
 }
 
@@ -464,7 +467,8 @@ internal sealed class UpdateLocationGroupCommandHandler(
             return Result<LocationGroupResponse>.Failure(LocationErrors.GroupCodeConflict);
         }
 
-        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var before = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -472,7 +476,8 @@ internal sealed class UpdateLocationGroupCommandHandler(
             group.Update(command.Code, command.Name, command.Description);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            var after = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
                     "LOCATION_GROUP_UPDATED",
@@ -579,7 +584,8 @@ internal sealed class MoveLocationGroupCommandHandler(
             }
         }
 
-        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var before = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -587,7 +593,8 @@ internal sealed class MoveLocationGroupCommandHandler(
             group.Move(parent?.Id);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            var after = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
                     "LOCATION_GROUP_MOVED",
@@ -649,7 +656,8 @@ internal sealed class ActivateLocationGroupCommandHandler(
             return Result<LocationGroupResponse>.Failure(LocationErrors.ConcurrencyConflict);
         }
 
-        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var before = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -657,7 +665,8 @@ internal sealed class ActivateLocationGroupCommandHandler(
             group.Activate();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            var after = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
                     "LOCATION_GROUP_ACTIVATED",
@@ -731,7 +740,8 @@ internal sealed class InactivateLocationGroupCommandHandler(
             return Result<LocationGroupResponse>.Failure(dependencyResult.Error);
         }
 
-        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var before = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -739,7 +749,8 @@ internal sealed class InactivateLocationGroupCommandHandler(
             group.Inactivate();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            var after = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
                     "LOCATION_GROUP_INACTIVATED",
@@ -794,7 +805,8 @@ internal sealed class GetLocationGroupByIdQueryHandler(
         if (group is not null)
         {
             return Result<LocationGroupResponse>.Success(
-                await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken));
+                await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved."));
         }
 
         return Result<LocationGroupResponse>.Failure(
@@ -841,7 +853,8 @@ internal sealed class PatchLocationGroupCommandHandler(
             return Result<LocationGroupResponse>.Failure(LocationErrors.ConcurrencyConflict);
         }
 
-        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var before = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
         var state = LocationGroupPatchState.From(before);
 
         var applied = LocationGroupPatchApplier.Apply(command.Operations, state);
@@ -881,7 +894,8 @@ internal sealed class PatchLocationGroupCommandHandler(
             group.Update(state.Code, state.Name, state.Description);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            var after = await groupRepository.GetResponseByIdAsync(group.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
                     "LOCATION_GROUP_UPDATED",
@@ -1117,18 +1131,6 @@ internal static class LocationGroupPatchApplier
         {
             [path.TrimStart('/')] = [message]
         }));
-}
-
-internal static class LocationGroupLookup
-{
-    public static async Task<LocationGroupResponse> GetResponseAsync(
-        ILocationGroupRepository repository,
-        LocationGroup group,
-        CancellationToken cancellationToken)
-    {
-        var page = await repository.SearchAsync(group.TenantId, group.LevelOrder, isActive: null, group.Code, 1, 100, cancellationToken);
-        return page.Items.Single(item => item.Id == group.PublicId);
-    }
 }
 
 internal static class LocationGroupTreeBuilder

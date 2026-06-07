@@ -10,6 +10,8 @@ public interface ILocationGroupRepository
 
     Task<LocationGroup?> GetByIdAsync(Guid groupId, CancellationToken cancellationToken);
 
+    Task<LocationGroupResponse?> GetResponseByIdAsync(Guid groupId, CancellationToken cancellationToken);
+
     Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken);

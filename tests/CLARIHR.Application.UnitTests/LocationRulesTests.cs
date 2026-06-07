@@ -173,6 +173,7 @@ public sealed class LocationRulesTests
 
         public void Add(LocationGroup group) => throw new NotSupportedException();
         public Task<LocationGroup?> GetByIdAsync(Guid groupId, CancellationToken cancellationToken) => Task.FromResult(_group is not null && _group.PublicId == groupId ? _group : null);
+        public Task<LocationGroupResponse?> GetResponseByIdAsync(Guid groupId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IReadOnlyList<LocationGroupTreeNodeData>> GetTreeAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LocationGroupTreeNodeData>>([]);

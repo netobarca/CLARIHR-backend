@@ -8,6 +8,7 @@ public static partial class LocationValidationRules
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+    public const int MinSearchLength = 2;
     public const string DefaultGroupCode = "GENERAL";
     public const string DefaultGroupName = "General";
     public const string GeneralLevelDisplayName = "General";
@@ -22,6 +23,13 @@ public static partial class LocationValidationRules
 
     public static bool SupportsSeedCountry(string countryCode) =>
         NormalizeCountryCode(countryCode) == ElSalvadorCountryCode;
+
+    // §12.8: free-text search must impose a minimum length (after Trim) so the non-sargable
+    // Normalized*.Contains(q) LIKE '%x%' scan cannot be triggered by a 1-char query. Empty/whitespace
+    // = "no filter" (valid). Mirrors LegalRepresentatives/PersonnelFiles. Per-tenant location-group
+    // cardinality is small, so the bounded scan above MinSearchLength is acceptable (ADR-0002).
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
