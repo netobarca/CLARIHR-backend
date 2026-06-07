@@ -7,19 +7,20 @@ using CLARIHR.Application.Features.Locations.Common;
 namespace CLARIHR.Application.UnitTests;
 
 /// <summary>
-/// §LG6 guardrail (defense-in-depth) for the LocationGroups search endpoint; mirrors
+/// §LG6 guardrail (defense-in-depth) for the Locations search/list endpoints, feature-wide; mirrors
 /// <see cref="CompetencyFrameworkPaginationGuardrailsTests"/> / the JobProfile template. Every paginated
-/// <c>pageSize</c> on a LocationGroups controller MUST constrain its bounds at the controller boundary
-/// with <c>[Range(1, LocationValidationRules.MaxPageSize)]</c> — the same bounds as the handler
-/// FluentValidation (<c>SearchLocationGroupsQueryValidator</c>) — instead of relying solely on the
-/// handler validator. Structural pattern (namespace + name regex), so a regression cannot pass silently.
+/// <c>pageSize</c> on a Locations controller (LocationGroups, WorkCenters, WorkCenterTypes, …) MUST
+/// constrain its bounds at the controller boundary with <c>[Range(1, LocationValidationRules.MaxPageSize)]</c>
+/// — the same bounds as the handler FluentValidation — instead of relying solely on the handler validator.
+/// Structural pattern (namespace + name regex), so a regression cannot pass silently.
 /// </summary>
 public sealed class LocationPaginationGuardrailsTests
 {
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
     private static readonly Regex LocationFamilyRegex =
-        new(@"^LocationGroups", RegexOptions.Compiled);
+        new(@"^(LocationGroups|LocationLevels|LocationHierarchy|WorkCenters|WorkCenterTypes)Controller$",
+            RegexOptions.Compiled);
 
     private static IReadOnlyList<MethodInfo> FamilyActions() =>
         ApiAssembly.GetTypes()
@@ -34,7 +35,7 @@ public sealed class LocationPaginationGuardrailsTests
             .ToArray();
 
     [Fact]
-    public void LocationGroupsFamily_ExposesPaginatedActions()
+    public void LocationsFamily_ExposePaginatedActions()
     {
         var pageSizeParams = FamilyActions()
             .SelectMany(static action => action.GetParameters())
@@ -42,12 +43,12 @@ public sealed class LocationPaginationGuardrailsTests
 
         Assert.True(
             pageSizeParams > 0,
-            "Expected at least one 'pageSize' parameter across the LocationGroups controller family. " +
+            "Expected at least one 'pageSize' parameter across the Locations controller family. " +
             "Zero means the namespace/name filter drifted and the guardrail would silently pass.");
     }
 
     [Fact]
-    public void EveryLocationGroupsPageSize_DeclaresRangeMatchingTheHandlerValidator()
+    public void EveryLocationsPageSize_DeclaresRangeMatchingTheHandlerValidator()
     {
         var violations = new List<string>();
 
@@ -85,7 +86,7 @@ public sealed class LocationPaginationGuardrailsTests
 
         Assert.True(
             violations.Count == 0,
-            "§LG6 (defense-in-depth): every paginated 'pageSize' on a LocationGroups controller must " +
+            "§LG6 (defense-in-depth): every paginated 'pageSize' on a Locations controller must " +
             "declare [Range(1, LocationValidationRules.MaxPageSize)] at the controller boundary, not rely " +
             "solely on the handler FluentValidation rule. Offending:\n  " +
             string.Join("\n  ", violations.OrderBy(static v => v, StringComparer.Ordinal)));

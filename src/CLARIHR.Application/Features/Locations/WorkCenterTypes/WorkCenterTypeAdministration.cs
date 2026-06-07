@@ -77,7 +77,10 @@ internal sealed class GetWorkCenterTypesQueryValidator : AbstractValidator<GetWo
     public GetWorkCenterTypesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(LocationValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {LocationValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LocationValidationRules.MaxPageSize);
     }

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
@@ -42,7 +43,8 @@ public sealed class WorkCenterTypesController(
         [FromQuery] bool? isActive,
         [FromQuery] string? q,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [Range(1, LocationValidationRules.MaxPageSize)]
+        [FromQuery] int pageSize = LocationValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {

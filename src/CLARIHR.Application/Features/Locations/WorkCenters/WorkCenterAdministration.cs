@@ -106,7 +106,10 @@ internal sealed class SearchWorkCentersQueryValidator : AbstractValidator<Search
         RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.GroupId).NotEqual(Guid.Empty).When(static query => query.GroupId.HasValue);
         RuleFor(query => query.TypeId).NotEqual(Guid.Empty).When(static query => query.TypeId.HasValue);
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(LocationValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {LocationValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LocationValidationRules.MaxPageSize);
     }
