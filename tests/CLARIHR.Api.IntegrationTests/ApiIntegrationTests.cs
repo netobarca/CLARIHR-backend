@@ -3836,6 +3836,28 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task LocationGroups_Tree_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // §LG3: the /tree graph read must be rate-limited (LocationRateLimitPolicies.Tree, 60/min/tenant).
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 61; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/location-groups/tree");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
     public async Task WorkCenters_Create_WithAddressRequirementSatisfied_ShouldReturnCreatedCenter()
     {
         var scenario = await factory.ResetDatabaseAsync();

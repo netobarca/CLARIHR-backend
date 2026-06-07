@@ -10,6 +10,7 @@ using CLARIHR.Application.Features.Locations.Groups;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -25,6 +26,7 @@ public sealed class LocationGroupsController(
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/location-groups/tree")]
+    [EnableRateLimiting(LocationRateLimitPolicies.Tree)]
     [ProducesResponseType<IReadOnlyCollection<LocationGroupTreeNodeResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -44,6 +46,7 @@ public sealed class LocationGroupsController(
     }
 
     [HttpGet("companies/{companyId:guid}/location-groups")]
+    [EnableRateLimiting(LocationRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<LocationGroupResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(

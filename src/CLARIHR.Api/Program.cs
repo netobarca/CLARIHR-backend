@@ -233,6 +233,12 @@ builder.Services.AddRateLimiter(options =>
     // abuse class as competency-framework-export/search; mirrors its 10/min + 120/min defaults.
     options.AddPolicy(LegalRepresentativeRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:LegalRepresentatives:Export:PermitLimit", 10));
     options.AddPolicy(LegalRepresentativeRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:LegalRepresentatives:Search:PermitLimit", 120));
+
+    // Locations: tighter limiter for the unpaginated full-hierarchy /tree (graph read that returns the
+    // whole company hierarchy in one shot), plus a generous limiter for the paged free-text
+    // location-group search/list. Same read abuse class as competency-framework/legal-representatives.
+    options.AddPolicy(LocationRateLimitPolicies.Tree, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Locations:Tree:PermitLimit", 60));
+    options.AddPolicy(LocationRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Locations:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

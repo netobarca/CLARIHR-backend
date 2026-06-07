@@ -10,6 +10,7 @@ using CLARIHR.Application.Features.Locations.WorkCenterTypes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -25,6 +26,7 @@ public sealed class WorkCenterTypesController(
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/work-center-types")]
+    [EnableRateLimiting(LocationRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<WorkCenterTypeResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
