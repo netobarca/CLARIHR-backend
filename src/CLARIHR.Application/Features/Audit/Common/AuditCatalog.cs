@@ -129,6 +129,25 @@ public static class AuditEventTypes
     public const string SalaryTabulatorLineInactivated = "SALARY_TABULATOR_LINE_INACTIVATED";
     public const string ReportExported = "REPORT_EXPORTED";
     public const string ReportPrinted = "REPORT_PRINTED";
+    public const string LocationGroupCreated = "LOCATION_GROUP_CREATED";
+    public const string LocationGroupUpdated = "LOCATION_GROUP_UPDATED";
+    public const string LocationGroupMoved = "LOCATION_GROUP_MOVED";
+    public const string LocationGroupActivated = "LOCATION_GROUP_ACTIVATED";
+    public const string LocationGroupInactivated = "LOCATION_GROUP_INACTIVATED";
+    public const string WorkCenterCreated = "WORK_CENTER_CREATED";
+    public const string WorkCenterUpdated = "WORK_CENTER_UPDATED";
+    public const string WorkCenterReassigned = "WORK_CENTER_REASSIGNED";
+    public const string WorkCenterActivated = "WORK_CENTER_ACTIVATED";
+    public const string WorkCenterInactivated = "WORK_CENTER_INACTIVATED";
+    public const string WorkCenterTypeCreated = "WORK_CENTER_TYPE_CREATED";
+    public const string WorkCenterTypeUpdated = "WORK_CENTER_TYPE_UPDATED";
+    public const string WorkCenterTypeActivated = "WORK_CENTER_TYPE_ACTIVATED";
+    public const string WorkCenterTypeInactivated = "WORK_CENTER_TYPE_INACTIVATED";
+    public const string LocationHierarchyUpdated = "LOCATION_HIERARCHY_UPDATED";
+    public const string LocationLevelCreated = "LOCATION_LEVEL_CREATED";
+    public const string LocationLevelUpdated = "LOCATION_LEVEL_UPDATED";
+    public const string LocationLevelActivated = "LOCATION_LEVEL_ACTIVATED";
+    public const string LocationLevelInactivated = "LOCATION_LEVEL_INACTIVATED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -258,7 +277,26 @@ public static class AuditEventTypes
         SalaryTabulatorLineApplied,
         SalaryTabulatorLineInactivated,
         ReportExported,
-        ReportPrinted
+        ReportPrinted,
+        LocationGroupCreated,
+        LocationGroupUpdated,
+        LocationGroupMoved,
+        LocationGroupActivated,
+        LocationGroupInactivated,
+        WorkCenterCreated,
+        WorkCenterUpdated,
+        WorkCenterReassigned,
+        WorkCenterActivated,
+        WorkCenterInactivated,
+        WorkCenterTypeCreated,
+        WorkCenterTypeUpdated,
+        WorkCenterTypeActivated,
+        WorkCenterTypeInactivated,
+        LocationHierarchyUpdated,
+        LocationLevelCreated,
+        LocationLevelUpdated,
+        LocationLevelActivated,
+        LocationLevelInactivated
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -308,6 +346,11 @@ public static class AuditEntityTypes
     public const string JobProfileCompetencyMatrix = "JobProfileCompetencyMatrix";
     public const string SalaryTabulatorChangeRequest = "SalaryTabulatorChangeRequest";
     public const string SalaryTabulatorLine = "SalaryTabulatorLine";
+    public const string LocationGroup = "LocationGroup";
+    public const string WorkCenter = "WorkCenter";
+    public const string WorkCenterType = "WorkCenterType";
+    public const string LocationHierarchy = "LocationHierarchy";
+    public const string LocationLevel = "LocationLevel";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -342,7 +385,12 @@ public static class AuditEntityTypes
         CompetencyConduct,
         JobProfileCompetencyMatrix,
         SalaryTabulatorChangeRequest,
-        SalaryTabulatorLine
+        SalaryTabulatorLine,
+        LocationGroup,
+        WorkCenter,
+        WorkCenterType,
+        LocationHierarchy,
+        LocationLevel
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

@@ -265,8 +265,8 @@ internal sealed class CreateWorkCenterTypeCommandHandler(
             var response = WorkCenterTypeMapper.Map(workCenterType);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_TYPE_CREATED",
-                    "WorkCenterType",
+                    AuditEventTypes.WorkCenterTypeCreated,
+                    AuditEntityTypes.WorkCenterType,
                     workCenterType.PublicId,
                     workCenterType.Code,
                     AuditActions.Create,
@@ -344,8 +344,8 @@ internal sealed class UpdateWorkCenterTypeCommandHandler(
             var after = WorkCenterTypeMapper.Map(workCenterType);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_TYPE_UPDATED",
-                    "WorkCenterType",
+                    AuditEventTypes.WorkCenterTypeUpdated,
+                    AuditEntityTypes.WorkCenterType,
                     workCenterType.PublicId,
                     workCenterType.Code,
                     AuditActions.Update,
@@ -414,8 +414,8 @@ internal sealed class ActivateWorkCenterTypeCommandHandler(
             var after = WorkCenterTypeMapper.Map(workCenterType);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_TYPE_ACTIVATED",
-                    "WorkCenterType",
+                    AuditEventTypes.WorkCenterTypeActivated,
+                    AuditEntityTypes.WorkCenterType,
                     workCenterType.PublicId,
                     workCenterType.Code,
                     AuditActions.Reactivate,
@@ -491,8 +491,8 @@ internal sealed class InactivateWorkCenterTypeCommandHandler(
             var after = WorkCenterTypeMapper.Map(workCenterType);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_TYPE_INACTIVATED",
-                    "WorkCenterType",
+                    AuditEventTypes.WorkCenterTypeInactivated,
+                    AuditEntityTypes.WorkCenterType,
                     workCenterType.PublicId,
                     workCenterType.Code,
                     AuditActions.Deactivate,
@@ -618,8 +618,8 @@ internal sealed class PatchWorkCenterTypeCommandHandler(
             var after = WorkCenterTypeMapper.Map(workCenterType);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_TYPE_UPDATED",
-                    "WorkCenterType",
+                    AuditEventTypes.WorkCenterTypeUpdated,
+                    AuditEntityTypes.WorkCenterType,
                     workCenterType.PublicId,
                     workCenterType.Code,
                     AuditActions.Update,

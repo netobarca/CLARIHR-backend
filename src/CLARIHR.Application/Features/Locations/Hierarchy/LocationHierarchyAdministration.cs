@@ -243,8 +243,8 @@ internal sealed class UpdateLocationHierarchyConfigCommandHandler(
             var after = LocationHierarchyMapper.Map(config);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_HIERARCHY_UPDATED",
-                    "LocationHierarchy",
+                    AuditEventTypes.LocationHierarchyUpdated,
+                    AuditEntityTypes.LocationHierarchy,
                     config.PublicId,
                     LocationPermissionCodes.ResourceKey,
                     AuditActions.Update,
@@ -349,8 +349,8 @@ internal sealed class CreateLocationLevelCommandHandler(
             var response = LocationHierarchyMapper.Map(level);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_LEVEL_CREATED",
-                    "LocationLevel",
+                    AuditEventTypes.LocationLevelCreated,
+                    AuditEntityTypes.LocationLevel,
                     level.PublicId,
                     level.LevelOrder.ToString(),
                     AuditActions.Create,
@@ -453,8 +453,8 @@ internal sealed class UpdateLocationLevelCommandHandler(
             var after = LocationHierarchyMapper.Map(level);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_LEVEL_UPDATED",
-                    "LocationLevel",
+                    AuditEventTypes.LocationLevelUpdated,
+                    AuditEntityTypes.LocationLevel,
                     level.PublicId,
                     level.LevelOrder.ToString(),
                     AuditActions.Update,
@@ -532,8 +532,8 @@ internal sealed class ActivateLocationLevelCommandHandler(
             var after = LocationHierarchyMapper.Map(level);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_LEVEL_ACTIVATED",
-                    "LocationLevel",
+                    AuditEventTypes.LocationLevelActivated,
+                    AuditEntityTypes.LocationLevel,
                     level.PublicId,
                     level.LevelOrder.ToString(),
                     AuditActions.Reactivate,
@@ -618,8 +618,8 @@ internal sealed class InactivateLocationLevelCommandHandler(
             var after = LocationHierarchyMapper.Map(level);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_LEVEL_INACTIVATED",
-                    "LocationLevel",
+                    AuditEventTypes.LocationLevelInactivated,
+                    AuditEntityTypes.LocationLevel,
                     level.PublicId,
                     level.LevelOrder.ToString(),
                     AuditActions.Deactivate,
@@ -749,8 +749,8 @@ internal sealed class PatchLocationLevelCommandHandler(
             var after = LocationHierarchyMapper.Map(level);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_LEVEL_UPDATED",
-                    "LocationLevel",
+                    AuditEventTypes.LocationLevelUpdated,
+                    AuditEntityTypes.LocationLevel,
                     level.PublicId,
                     level.LevelOrder.ToString(),
                     AuditActions.Update,

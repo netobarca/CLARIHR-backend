@@ -402,8 +402,8 @@ internal sealed class CreateWorkCenterCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_CREATED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterCreated,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Create,
@@ -527,8 +527,8 @@ internal sealed class UpdateWorkCenterCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_UPDATED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterUpdated,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Update,
@@ -622,8 +622,8 @@ internal sealed class ReassignWorkCenterGroupCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_REASSIGNED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterReassigned,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Update,
@@ -694,8 +694,8 @@ internal sealed class ActivateWorkCenterCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_ACTIVATED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterActivated,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Reactivate,
@@ -773,8 +773,8 @@ internal sealed class InactivateWorkCenterCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_INACTIVATED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterInactivated,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Deactivate,
@@ -922,8 +922,8 @@ internal sealed class PatchWorkCenterCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "WORK_CENTER_UPDATED",
-                    "WorkCenter",
+                    AuditEventTypes.WorkCenterUpdated,
+                    AuditEntityTypes.WorkCenter,
                     workCenter.PublicId,
                     workCenter.Code,
                     AuditActions.Update,

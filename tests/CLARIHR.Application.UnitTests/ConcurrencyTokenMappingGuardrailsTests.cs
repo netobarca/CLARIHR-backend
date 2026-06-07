@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.LegalRepresentatives;
+using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -44,8 +45,9 @@ public sealed class ConcurrencyTokenMappingGuardrailsTests
         Assert.Empty(violations);
         // Sanity check: the §1-bis remediation targets the PDC aggregates and their JobProfile sibling,
         // plus the CompetencyFramework aggregates (OccupationalPyramidLevel / CompetencyConduct /
-        // JobProfileCompetencyExpectation) and the LegalRepresentative aggregate (§LR8); if these
-        // ever disappear from the model the drift-proof loop above passes vacuously.
+        // JobProfileCompetencyExpectation), the LegalRepresentative aggregate (§LR8) and the
+        // LocationGroup aggregate (§LG9); if these ever disappear from the model the drift-proof loop
+        // above passes vacuously.
         Assert.Contains(typeof(PositionDescriptionCatalogItem), observed);
         Assert.Contains(typeof(PositionCategoryClassification), observed);
         Assert.Contains(typeof(PositionCategory), observed);
@@ -54,6 +56,7 @@ public sealed class ConcurrencyTokenMappingGuardrailsTests
         Assert.Contains(typeof(CompetencyConduct), observed);
         Assert.Contains(typeof(JobProfileCompetencyExpectation), observed);
         Assert.Contains(typeof(LegalRepresentative), observed);
+        Assert.Contains(typeof(LocationGroup), observed);
     }
 
     private static ApplicationDbContext CreateContext()

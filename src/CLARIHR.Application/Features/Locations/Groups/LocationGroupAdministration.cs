@@ -397,8 +397,8 @@ internal sealed class CreateLocationGroupCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_CREATED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupCreated,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Create,
@@ -480,8 +480,8 @@ internal sealed class UpdateLocationGroupCommandHandler(
                 ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_UPDATED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupUpdated,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Update,
@@ -597,8 +597,8 @@ internal sealed class MoveLocationGroupCommandHandler(
                 ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_MOVED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupMoved,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Update,
@@ -669,8 +669,8 @@ internal sealed class ActivateLocationGroupCommandHandler(
                 ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_ACTIVATED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupActivated,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Reactivate,
@@ -753,8 +753,8 @@ internal sealed class InactivateLocationGroupCommandHandler(
                 ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_INACTIVATED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupInactivated,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Deactivate,
@@ -898,8 +898,8 @@ internal sealed class PatchLocationGroupCommandHandler(
                 ?? throw new InvalidOperationException("Location group response could not be resolved.");
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "LOCATION_GROUP_UPDATED",
-                    "LocationGroup",
+                    AuditEventTypes.LocationGroupUpdated,
+                    AuditEntityTypes.LocationGroup,
                     group.PublicId,
                     group.Code,
                     AuditActions.Update,

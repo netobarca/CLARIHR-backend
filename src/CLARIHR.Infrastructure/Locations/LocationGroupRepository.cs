@@ -51,6 +51,11 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
 
     public async Task<IReadOnlyList<LocationGroupTreeNodeData>> GetTreeAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        // §LG7 (§4.5/§17.3): the full hierarchy is returned unpaginated by design — a tree is inherently
+        // non-paginable, and the result is bounded by the small geographic cardinality of a tenant's
+        // location groups (this is a documented scale assumption, not an unbounded list). It is a SINGLE
+        // query: the parent-public-id is a correlated subquery, not an N+1 round-trip. Abuse of the
+        // endpoint is capped by the §LG3 per-tenant rate limiter (LocationRateLimitPolicies.Tree).
         return await dbContext.LocationGroups
             .AsNoTracking()
             .Where(group => group.TenantId == tenantId)
