@@ -15,6 +15,7 @@ using CLARIHR.Domain.CostCenters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -31,6 +32,7 @@ public sealed class CostCentersController(
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/cost-centers")]
+    [EnableRateLimiting(CostCenterRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<CostCenterListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -92,6 +94,7 @@ public sealed class CostCentersController(
     }
 
     [HttpGet("companies/{companyId:guid}/cost-centers/export")]
+    [EnableRateLimiting(CostCenterRateLimitPolicies.Export)]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesStandardErrors(StandardErrorSet.Query)]

@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Domain.CostCenters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -78,7 +79,7 @@ internal sealed class CostCenterConfiguration : IEntityTypeConfiguration<CostCen
 
         builder.HasIndex(costCenter => new { costCenter.TenantId, costCenter.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_cost_centers__tenant_code");
+            .HasDatabaseName(CostCenterValidationRules.CodeUniqueConstraintName);
 
         builder.HasIndex(costCenter => new { costCenter.TenantId, costCenter.Type, costCenter.IsActive })
             .HasDatabaseName("ix_cost_centers__tenant_type_active");

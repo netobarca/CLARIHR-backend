@@ -9,8 +9,23 @@ public static partial class CostCenterValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
+    // §LR3 / §12.8 — free-text search (NormalizedCode/NormalizedName Contains → non-sargable
+    // LIKE '%x%') must enforce a minimum trimmed length in the validator (rejected 400 before DB).
+    // Threshold aligned with the LegalRepresentatives §LR3 / PositionSlots §PS2 precedent (2). Scale
+    // assumption: cost centers per tenant are a small set, so the (TenantId, …) scan above the
+    // minimum length is comfortably cheap. See project-foundation.md §12.8 / ADR-0002.
+    public const int MinSearchLength = 2;
+
+    // Single source of truth for the (TenantId, NormalizedCode) unique-index name — referenced by
+    // both the EF mapping (CostCenterConfiguration) and the command handlers' duplicate-code race
+    // backstop, so a rename cannot silently degrade the 23505 → clean 409 mapping into an HTTP 500.
+    public const string CodeUniqueConstraintName = "uq_cost_centers__tenant_code";
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
+
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
 
     public static bool IsValidAccountCode(string accountCode) =>
         AccountCodeRegex().IsMatch(accountCode.Trim());

@@ -239,6 +239,12 @@ builder.Services.AddRateLimiter(options =>
     // location-group search/list. Same read abuse class as competency-framework/legal-representatives.
     options.AddPolicy(LocationRateLimitPolicies.Tree, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Locations:Tree:PermitLimit", 60));
     options.AddPolicy(LocationRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Locations:Search:PermitLimit", 120));
+
+    // Cost Centers: tight limiter for the unbounded-cost report export (synchronous, scan +
+    // LIKE '%x%'), plus a generous limiter for the paged free-text search/list — same abuse class
+    // as legal-representatives-export/search; mirrors its 10/min + 120/min defaults.
+    options.AddPolicy(CostCenterRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Export:PermitLimit", 10));
+    options.AddPolicy(CostCenterRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

@@ -183,22 +183,6 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
             orgUnitActiveReferences > 0 || positionSlotActiveReferences > 0);
     }
 
-    public async Task<bool> HasActiveUsageAsync(long costCenterId, CancellationToken cancellationToken)
-    {
-        var costCenter = await dbContext.CostCenters
-            .AsNoTracking()
-            .Where(item => item.Id == costCenterId)
-            .Select(item => new
-            {
-                item.TenantId,
-                item.NormalizedCode
-            })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        return costCenter is not null
-            && await HasActiveUsageAsync(costCenter.TenantId, costCenter.NormalizedCode, cancellationToken);
-    }
-
     // Boolean usage probe by (tenant, normalized code): used by the detail GET to populate the
     // `hasActiveUsage` flag of allowedActions without paying for the full breakdown of
     // GetUsageByIdAsync (5 queries). Early-exits after the org-unit check, so it costs 1-2 queries.

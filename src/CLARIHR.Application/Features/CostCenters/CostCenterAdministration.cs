@@ -138,7 +138,10 @@ internal sealed class SearchCostCentersQueryValidator : AbstractValidator<Search
     public SearchCostCentersQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(CostCenterValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {CostCenterValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, CostCenterValidationRules.MaxPageSize);
     }
@@ -165,7 +168,10 @@ internal sealed class ExportCostCentersQueryValidator : AbstractValidator<Export
     public ExportCostCentersQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(CostCenterValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {CostCenterValidationRules.MinSearchLength} characters when provided.");
     }
 }
 
@@ -474,6 +480,11 @@ internal sealed class CreateCostCenterCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<CostCenterResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException ex) when (CostCenterConstraintViolations.IsCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -558,6 +569,11 @@ internal sealed class UpdateCostCenterCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<CostCenterResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException ex) when (CostCenterConstraintViolations.IsCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
         }
         catch
         {
@@ -677,7 +693,9 @@ internal sealed class InactivateCostCenterCommandHandler(
             return Result<CostCenterResponse>.Failure(CostCenterErrors.ConcurrencyConflict);
         }
 
-        if (await repository.HasActiveUsageAsync(costCenter.Id, cancellationToken))
+        // R3 (perf): the entity is already loaded, so probe usage by (tenant, normalized code)
+        // directly — avoids the extra round-trip the long-id overload paid to re-resolve them.
+        if (await repository.HasActiveUsageAsync(costCenter.TenantId, costCenter.NormalizedCode, cancellationToken))
         {
             return Result<CostCenterResponse>.Failure(CostCenterErrors.InUseConflict);
         }
@@ -814,12 +832,28 @@ internal sealed class PatchCostCenterCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<CostCenterResponse>.Success(after);
         }
+        catch (UniqueConstraintViolationException ex) when (CostCenterConstraintViolations.IsCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
     }
+}
+
+internal static class CostCenterConstraintViolations
+{
+    // The (TenantId, NormalizedCode) unique index is the real guard against duplicate codes; the
+    // up-front CodeExistsAsync probe only closes the common (sequential) case. On a concurrent
+    // create/update of the same code, the second writer trips this index — map it to the same clean
+    // 409 as the probe instead of letting the 23505 escape as an HTTP 500 (mirrors the
+    // JobProfileCompensation per-profile-constraint pattern).
+    public static bool IsCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, CostCenterValidationRules.CodeUniqueConstraintName, StringComparison.Ordinal);
 }
 
 internal sealed class CostCenterPatchState

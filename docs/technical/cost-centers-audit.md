@@ -1,7 +1,7 @@
 # Auditoría CostCenters — seguimiento
 
 > **Documento vivo / tracker.** Se actualiza al cerrar cada hallazgo.
-> **Creado:** 2026-06-06 · **Estado:** 🟢 **CERRADO** (CC1 ✅ PR-A · CC2/CC3 ✅ PR-B · 2026-06-06) · **Owner:** equipo backend
+> **Creado:** 2026-06-06 · **Estado:** 🟢 **CERRADO** (CC1 ✅ PR-A · CC2/CC3 ✅ PR-B · 2026-06-06) · **Reauditado:** 2026-06-07 (R1–R4 ✅ PR-C/PR-D, uncommitted) · **Owner:** equipo backend
 > **Alcance:** dominio CostCenters completo — `CostCentersController` (`api/v1`, 9 endpoints) + `Features/CostCenters/` (Search/GetById/Usage/Export/Create/Update/Patch/Activate/Inactivate + Common + PATCH applier) + `CostCenterRepository` + authz (`ICostCenterAuthorizationService`) + dominio (`CostCenter`/`CostCenterNormalization`) + `CostCentersExportHandler`.
 > **Dimensiones:** seguridad · arquitectura · rendimiento, contra `AGENTS.md` (§8, §17) y `docs/technical/overview/project-foundation.md` (§11).
 
@@ -38,6 +38,25 @@ Lo accionable: **un sobre-fetch de `usage` en el GET de detalle (perf), la ausen
 
 ---
 
+## 3-bis. Reauditoría 2026-06-07
+
+**Verificación de fixes previos (intactos):** CC1 (`CostCenterAdministration.cs` GetById usa el probe `HasActiveUsageAsync(tenant, code)`, no las 5 queries), CC2 (`[Range(1, MaxPageSize)]` en `pageSize` + `CostCenterPaginationGuardrailsTests`), CC3 (Swagger cross-tenant `403 TENANT_MISMATCH`). **Seguridad re-verificada sólida** — sin IDOR (`{id}` scoped al JWT; `{companyId}` validado contra el tenant; filtro global EF), two-layer authz superset, PATCH whitelist estricta, concurrencia → **409 limpio** (`UnhandledExceptionMiddleware` mapea `DbUpdateConcurrencyException`). Audit con constantes (`AuditEventTypes`/`AuditEntityTypes`) y persistido antes del commit (patrón §LG1) ✅. **Sin crit/high.**
+
+CostCenters fue el piloto wave 0; desde entonces los hermanos (LegalRepresentatives §LR, LocationGroups §LG, CompanyUsers) **subieron el listón canónico** (rate-limiting gobernado, piso de búsqueda) y el piloto quedó atrás. **4 hallazgos nuevos, todos P3, ninguno de seguridad — los 4 resueltos (PR-C/PR-D, uncommitted).**
+
+| # | Dim | Sev | Estado | Hallazgo | Evidencia | Fix |
+|---|-----|-----|--------|----------|-----------|-----|
+| **R1** | ARCH | P3 | ✅ | **Sin rate-limiting alguno** (Search/Export sin protección), inconsistente con **todos** los hermanos recientes (Search 120/min, Export 10/min vía `*RateLimitPolicies` + `[EnableRateLimiting]` + governance test). El Export es la clase de abuso "scan síncrono + free-text" para la que se creó `legal-representatives-export`. | `CostCentersController.cs` Search/Export (sin atributo) · `Program.cs` AddRateLimiter | **PR-C:** nuevo `CostCenterRateLimitPolicies` (`cost-centers-search`/`-export`); registro en `Program.cs` (120/10, espejo de §LR); `[EnableRateLimiting]` en Search+Export; `CostCenterRateLimitingGovernanceTests` drift-proof (regex `^CostCenters`, Inv-R1/R2/R3, clon de `LegalRepresentativeRateLimitingGovernanceTests`). |
+| **R2** | ROB | P3 | ✅ | **Carrera de código duplicado → HTTP 500, no 409.** Create/Update/Patch hacen `CodeExistsAsync` (TOCTOU) y confían en el índice único `uq_cost_centers__tenant_code`, pero el `UniqueConstraintViolationException` no se capturaba → burbujeaba al middleware → 500 + log Error (el happy-path sí da 409). | `CostCenterAdministration.cs` Create/Update/Patch · `UnitOfWork.cs:18-21` · espejo `JobProfileCompensationAdministration.cs:294` | **PR-D:** `catch (UniqueConstraintViolationException) when (CostCenterConstraintViolations.IsCodeConflict(...))` → `CodeConflict` (409) en los 3 handlers. Nombre del índice **single-sourced** en `CostCenterValidationRules.CodeUniqueConstraintName`, referenciado por la EF config **y** el matcher del handler → no puede driftar (un rename del índice mantiene el mapeo 409). |
+| **R3** | PERF | P3-bajo | ✅ | **`Inactivate` hacía una query redundante.** Llamaba al overload `HasActiveUsageAsync(long)`, que re-consultaba `(TenantId, NormalizedCode)` ya presentes en la entidad cargada. El overload `long` no tenía otro caller en producción. | `CostCenterAdministration.cs` Inactivate · `CostCenterRepository.cs` overload `long` | **PR-D:** `Inactivate` llama directo a `HasActiveUsageAsync(costCenter.TenantId, costCenter.NormalizedCode)` (−1 query); overload `long` huérfano eliminado del interface, repo y test double de PositionSlot. Mismo espíritu que CC1. |
+| **R4** | ARCH | P3-bajo | ✅ | **Sin `MinSearchLength` en Search/Export** (solo `MaximumLength(150)`), inconsistente con §LR3/§LG5 (piso de 2 contra scans de 1 char). Impacto **marginal** aquí (tabla pequeña por tenant), puro alineamiento. | `CostCenterAdministration.cs` Search/Export validators | **PR-D:** `MinSearchLength=2` + `IsValidSearchLength` en `CostCenterValidationRules`; `.Must(...).WithMessage(...)` en ambos validators (mensaje idéntico a §LR3 → reusa la resx existente, sin entradas nuevas) + `CostCenterSearchValidatorTests` con guard de precedente (`==` al de LegalRepresentatives). |
+
+**Anotado, NO accionado (sistémico — no es defecto de CostCenters):** `page` sin cota superior → overflow `int` en `Skip((pageNumber-1)*pageSize)` → OFFSET negativo → 500. **Idéntico en ~30 repositorios**; ningún validator del codebase acota el número de página. Corresponde un `IPipelineBehavior` global de clamp (iniciativa de plataforma transversal), no un fix por-controlador — registrarlo como hallazgo de CostCenters sería engañoso.
+
+**Verificación:** build **0/0** · unit **1675/0** (+11: governance 3 + search-validator 8) · integración CostCenters **16/16**.
+
+---
+
 ## 4. Descartado / ya cumple (verificado — no son hallazgos)
 
 | Tema | Resolución |
@@ -61,6 +80,8 @@ Lo accionable: **un sobre-fetch de `usage` en el GET de detalle (perf), la ausen
 |---|---|---|
 | **PR-A** ✅ | CC1 | Perf: el GET de detalle usa un chequeo booleano de uso (early-exit) en vez del desglose de 5 queries. **Hecho 2026-06-06.** |
 | **PR-B** ✅ | CC2 + CC3 | Alineación/contrato: `[Range]` en `pageSize` + guardrail drift-proof; corrección de la prosa Swagger cross-tenant (404 → 403). **Hecho 2026-06-06.** |
+| **PR-C** ✅ | R1 | Rate-limiting paridad: `CostCenterRateLimitPolicies` + registro en `Program.cs` + `[EnableRateLimiting]` en Search/Export + `CostCenterRateLimitingGovernanceTests`. **Hecho 2026-06-07 (uncommitted).** |
+| **PR-D** ✅ | R2 + R3 + R4 | Robustez/alineación: dup-code race → 409 (índice single-sourced), `Inactivate` sin query redundante (+ overload `long` eliminado), `MinSearchLength=2` en Search/Export. **Hecho 2026-06-07 (uncommitted).** |
 
 ---
 
@@ -68,6 +89,7 @@ Lo accionable: **un sobre-fetch de `usage` en el GET de detalle (perf), la ausen
 
 | Fecha | Cambio |
 |---|---|
+| 2026-06-07 | **Reauditoría ✅ — los 3 fixes previos (CC1/CC2/CC3) intactos; seguridad re-verificada sólida (sin crit/high).** 4 hallazgos nuevos P3 (deriva de consistencia del piloto wave 0 vs. hermanos posteriores), los 4 resueltos. **PR-C (R1):** rate-limiting paridad — `CostCenterRateLimitPolicies` (`cost-centers-search` 120/min + `cost-centers-export` 10/min) + registro `Program.cs` + `[EnableRateLimiting]` en Search/Export + `CostCenterRateLimitingGovernanceTests` (drift-proof, clon de §LR). **PR-D (R2+R3+R4):** dup-code race → 409 (`UniqueConstraintViolationException` capturado en Create/Update/Patch; índice single-sourced en `CostCenterValidationRules.CodeUniqueConstraintName` referenciado por EF config + handler); `Inactivate` usa `HasActiveUsageAsync(tenant, code)` directo (−1 query) y el overload `HasActiveUsageAsync(long)` huérfano se eliminó (interface/repo/test double); `MinSearchLength=2` + `IsValidSearchLength` en ambos validators + `CostCenterSearchValidatorTests`. Sistémico anotado (no accionado): `page` sin cota → overflow → 500 (idéntico en ~30 repos, fix de plataforma). Build 0/0, unit 1675/0, integración CostCenters 16/16. **Sin migración.** |
 | 2026-06-06 | **PR-B (CC2 + CC3) ✅ resuelto — auditoría CERRADA.** **CC2:** `[Range(1, CostCenterValidationRules.MaxPageSize)]` en el `pageSize` de `Search` (defensa-en-profundidad, validator del handler intacto) + nuevo `CostCenterPaginationGuardrailsTests` (estructural, regex `^CostCenters`, drift-proof). **CC3:** corregida la prosa Swagger de `GetById` (cross-tenant 404 → `403 TENANT_MISMATCH`), alineada al comportamiento real y a la convención app-wide; sin cambio de comportamiento. Build 0/0, unit 17/17 (CostCenter, incl. 2 guardrails), integración CostCenters 13/13. **Los 3 hallazgos cerrados (CC1/CC2/CC3 ✅).** |
 | 2026-06-06 | **PR-A (CC1) ✅ resuelto.** El GET de detalle ya no invoca `GetUsageByIdAsync` (5 queries, 2 triple-join) sólo para el booleano `hasActiveUsage`: nuevo `HasActiveUsageAsync(tenantId, normalizedCode)` (probe booleano con early-exit, 1-2 queries) — el `HasActiveUsageAsync(long)` existente delega en él, sin duplicar lógica. `GetById` lo invoca con el tenant del JWT + `response.Code`. GET de detalle: ~6 → ~2-3 queries. `GetUsageByIdAsync` se conserva para el endpoint `/usage`. +1 test de integración `CostCenters_GetById_AllowedActions_ShouldReflectActiveUsage` (guard de equivalencia: canInactivate=true sin uso → false con org-unit activo). Actualizado el único otro implementador de `ICostCenterRepository` (test double de PositionSlot). Build 0/0, unit 110/0, integración CostCenters 13/13. |
 | 2026-06-06 | Auditoría inicial (3 agentes Explore: seguridad/perf/arquitectura + verificación adversarial). Veredicto: controlador maduro/canónico (piloto wave 0), **sin crit/high**. Verificaciones que degradaron falsos positivos: el "N+1 en Search" es in-memory (no DB); los mensajes FluentValidation hardcoded son el patrón app-wide (no desviación); el pitfall trim/domain no aplica (campos MAX-length). 3 hallazgos accionables (0 P1, 1 P2, 2 P3): CC1 sobre-fetch de usage en el GET de detalle (perf), CC2 `[Range]` ausente en `pageSize` (guardrail), CC3 imprecisión Swagger cross-tenant (404 vs 403 real). Todos ⬜ pendientes. |

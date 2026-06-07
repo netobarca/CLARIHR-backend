@@ -29,13 +29,11 @@ public interface ICostCenterRepository
 
     Task<CostCenterUsageResponse?> GetUsageByIdAsync(Guid costCenterId, CancellationToken cancellationToken);
 
-    Task<bool> HasActiveUsageAsync(long costCenterId, CancellationToken cancellationToken);
-
     /// <summary>
     /// Boolean usage probe by (tenant, normalized code) — whether the cost center is referenced by
     /// any ACTIVE org unit or position slot. Cheaper than <see cref="GetUsageByIdAsync"/> (which
-    /// computes the full reference breakdown); used by the detail GET to set the allowedActions
-    /// <c>hasActiveUsage</c> flag.
+    /// computes the full reference breakdown); used by the detail GET (allowedActions
+    /// <c>hasActiveUsage</c> flag) and the inactivate usage guard.
     /// </summary>
     Task<bool> HasActiveUsageAsync(Guid tenantId, string normalizedCode, CancellationToken cancellationToken);
 
