@@ -32012,6 +32012,13 @@ paths:
     get:
       tags:
       - Salary Tabulator
+      summary: List salary tabulator lines for a company
+      description: |-
+        Returns a paginated list of the company's salary tabulator lines (salary PII), filterable by
+        `salaryClassId`, `salaryScale`, `isActive` and free-text `q` (minimum 2 characters). The owning
+        company is validated against the authenticated tenant and the read is gated behind the dedicated
+        `SalaryTabulator.Read` permission. Set `includeAllowedActions=true` for per-item request/approve
+        flags. Rate-limited per user+tenant.
       parameters:
       - name: companyPublicId
         in: path
@@ -32102,10 +32109,27 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too Many Requests
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/salary-tabulator/lines/{publicId}:
     get:
       tags:
       - Salary Tabulator
+      summary: Get a salary tabulator line by id
+      description: |-
+        Returns a single salary tabulator line (salary PII) by its public id. The owning company is
+        resolved from the authenticated tenant; a line belonging to another tenant yields `404`. Gated
+        behind the dedicated `SalaryTabulator.Read` permission.
       parameters:
       - name: publicId
         in: path
@@ -32166,6 +32190,13 @@ paths:
     get:
       tags:
       - Salary Tabulator
+      summary: Export salary tabulator lines
+      description: |-
+        Exports the filtered salary tabulator lines (salary PII) as a downloadable report in the
+        requested `format` (e.g. `xlsx`, `csv`; an unknown format yields `400`). The same filters as the
+        list endpoint apply (`salaryClassId`, `salaryScale`, `isActive`, free-text `q`). Gated behind the
+        dedicated `SalaryTabulator.Read` permission, bounded by the synchronous read limit (`413` if
+        exceeded), audited, and rate-limited per user+tenant.
       parameters:
       - name: companyPublicId
         in: path
@@ -32259,10 +32290,28 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too Many Requests
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests:
     get:
       tags:
       - Salary Tabulator
+      summary: List salary tabulator change requests
+      description: |-
+        Returns a paginated list of the company's salary tabulator change requests, filterable by
+        `status`, `requestedBy` and the `effectiveFrom`/`effectiveTo` range. The owning company is
+        validated against the authenticated tenant and the read is gated behind `SalaryTabulator.Read`.
+        Set `includeAllowedActions=true` for per-item request/approve flags. Rate-limited per user+tenant.
       parameters:
       - name: companyPublicId
         in: path
@@ -32355,6 +32404,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too Many Requests
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
       - Salary Tabulator
@@ -32430,6 +32491,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
           content:
@@ -32458,6 +32531,11 @@ paths:
     get:
       tags:
       - Salary Tabulator
+      summary: Get a salary tabulator change request by id
+      description: |-
+        Returns a single salary tabulator change request with its items by public id. The owning company
+        is resolved from the authenticated tenant; a request belonging to another tenant yields `404`.
+        Gated behind `SalaryTabulator.Read`.
       parameters:
       - name: publicId
         in: path
@@ -32634,6 +32712,12 @@ paths:
     get:
       tags:
       - Salary Tabulator
+      summary: Get the impact analysis of a change request
+      description: |-
+        Returns the projected impact of approving the change request — the salary tabulator lines that
+        would be created/updated/inactivated and any job-profile compensation coverage concerns — without
+        modifying anything. Tenant-scoped (a request of another tenant yields `404`); gated behind
+        `SalaryTabulator.Read`.
       parameters:
       - name: publicId
         in: path
@@ -33024,11 +33108,11 @@ paths:
     patch:
       tags:
       - Salary Tabulator
-      summary: Cancel a draft change request
+      summary: Cancel a draft or submitted change request
       description: |-
-        Cancels a `Draft` change request. Requires the current `concurrencyToken` in the `If-Match`
-        header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the
-        `ETag` header.
+        Cancels a `Draft` or `Submitted` change request (an already `Approved`/`Rejected` request cannot
+        be canceled → `409`). Requires the current `concurrencyToken` in the `If-Match` header (missing →
+        `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path

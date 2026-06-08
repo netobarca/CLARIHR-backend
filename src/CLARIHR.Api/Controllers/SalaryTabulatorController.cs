@@ -1,5 +1,6 @@
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -10,6 +11,7 @@ using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -28,11 +30,20 @@ public sealed class SalaryTabulatorController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
+    [EnableRateLimiting(SalaryTabulatorRateLimitPolicies.Search)]
     [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator/lines")]
     [ProducesResponseType<PagedResponse<SalaryTabulatorLineListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List salary tabulator lines for a company",
+        Description = """
+            Returns a paginated list of the company's salary tabulator lines (salary PII), filterable by
+            `salaryClassId`, `salaryScale`, `isActive` and free-text `q` (minimum 2 characters). The owning
+            company is validated against the authenticated tenant and the read is gated behind the dedicated
+            `SalaryTabulator.Read` permission. Set `includeAllowedActions=true` for per-item request/approve
+            flags. Rate-limited per user+tenant.
+            """)]
     public async Task<ActionResult<PagedResponse<SalaryTabulatorLineListItemResponse>>> SearchLines(
         Guid companyId,
         [FromQuery] Guid? salaryClassId,
@@ -61,21 +72,35 @@ public sealed class SalaryTabulatorController(
 
     [HttpGet("api/v1/salary-tabulator/lines/{id:guid}")]
     [ProducesResponseType<SalaryTabulatorLineResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a salary tabulator line by id",
+        Description = """
+            Returns a single salary tabulator line (salary PII) by its public id. The owning company is
+            resolved from the authenticated tenant; a line belonging to another tenant yields `404`. Gated
+            behind the dedicated `SalaryTabulator.Read` permission.
+            """)]
     public async Task<ActionResult<SalaryTabulatorLineResponse>> GetLineById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetSalaryTabulatorLineByIdQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(SalaryTabulatorRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Export salary tabulator lines",
+        Description = """
+            Exports the filtered salary tabulator lines (salary PII) as a downloadable report in the
+            requested `format` (e.g. `xlsx`, `csv`; an unknown format yields `400`). The same filters as the
+            list endpoint apply (`salaryClassId`, `salaryScale`, `isActive`, free-text `q`). Gated behind the
+            dedicated `SalaryTabulator.Read` permission, bounded by the synchronous read limit (`413` if
+            exceeded), audited, and rate-limited per user+tenant.
+            """)]
     public async Task<IActionResult> ExportLines(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -114,11 +139,19 @@ public sealed class SalaryTabulatorController(
             cancellationToken);
     }
 
+    [EnableRateLimiting(SalaryTabulatorRateLimitPolicies.Search)]
     [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator/change-requests")]
     [ProducesResponseType<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List salary tabulator change requests",
+        Description = """
+            Returns a paginated list of the company's salary tabulator change requests, filterable by
+            `status`, `requestedBy` and the `effectiveFrom`/`effectiveTo` range. The owning company is
+            validated against the authenticated tenant and the read is gated behind `SalaryTabulator.Read`.
+            Set `includeAllowedActions=true` for per-item request/approve flags. Rate-limited per user+tenant.
+            """)]
     public async Task<ActionResult<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>> SearchRequests(
         Guid companyId,
         [FromQuery] SalaryTabulatorChangeRequestStatus? status,
@@ -147,9 +180,14 @@ public sealed class SalaryTabulatorController(
 
     [HttpGet("api/v1/salary-tabulator/change-requests/{id:guid}")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a salary tabulator change request by id",
+        Description = """
+            Returns a single salary tabulator change request with its items by public id. The owning company
+            is resolved from the authenticated tenant; a request belonging to another tenant yields `404`.
+            Gated behind `SalaryTabulator.Read`.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> GetRequestById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetSalaryTabulatorChangeRequestByIdQuery(id), cancellationToken);
@@ -158,9 +196,15 @@ public sealed class SalaryTabulatorController(
 
     [HttpGet("api/v1/salary-tabulator/change-requests/{id:guid}/impact")]
     [ProducesResponseType<SalaryTabulatorChangeRequestImpactResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get the impact analysis of a change request",
+        Description = """
+            Returns the projected impact of approving the change request — the salary tabulator lines that
+            would be created/updated/inactivated and any job-profile compensation coverage concerns — without
+            modifying anything. Tenant-scoped (a request of another tenant yields `404`); gated behind
+            `SalaryTabulator.Read`.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestImpactResponse>> GetRequestImpact(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -171,11 +215,7 @@ public sealed class SalaryTabulatorController(
 
     [HttpPost("api/v1/companies/{companyId:guid}/salary-tabulator/change-requests")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
         Summary = "Create a salary-tabulator change request",
         Description = """
@@ -207,12 +247,7 @@ public sealed class SalaryTabulatorController(
 
     [HttpPut("api/v1/salary-tabulator/change-requests/{id:guid}")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
         Summary = "Update a draft change request",
         Description = """
@@ -241,11 +276,7 @@ public sealed class SalaryTabulatorController(
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/submit")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Submit a draft change request for approval",
         Description = """
@@ -267,12 +298,7 @@ public sealed class SalaryTabulatorController(
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/approve")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
         Summary = "Approve a submitted change request",
         Description = """
@@ -296,12 +322,7 @@ public sealed class SalaryTabulatorController(
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/reject")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
         Summary = "Reject a submitted change request",
         Description = """
@@ -325,15 +346,12 @@ public sealed class SalaryTabulatorController(
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/cancel")]
     [ProducesResponseType<SalaryTabulatorChangeRequestResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
-        Summary = "Cancel a draft change request",
+        Summary = "Cancel a draft or submitted change request",
         Description = """
-            Cancels a `Draft` change request. Requires the current `concurrencyToken` in the `If-Match`
+            Cancels a `Draft` or `Submitted` change request (an already `Approved`/`Rejected` request
+            cannot be canceled → `409`). Requires the current `concurrencyToken` in the `If-Match`
             header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the
             `ETag` header.
             """)]

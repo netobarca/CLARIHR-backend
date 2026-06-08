@@ -21,6 +21,7 @@ using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
@@ -275,6 +276,13 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(FileRateLimitPolicies.Upload, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Upload:PermitLimit", 20));
     options.AddPolicy(FileRateLimitPolicies.Read, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Read:PermitLimit", 120));
     options.AddPolicy(FileRateLimitPolicies.Lifecycle, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Files:Lifecycle:PermitLimit", 30));
+
+    // Salary Tabulator (ST-A): the export surfaces salary data (PII) — a tight limiter on the
+    // unbounded-cost synchronous export blocks scraping of the most sensitive data in the system, plus a
+    // generous limiter for the paged free-text line/change-request search. Same abuse class as
+    // cost-centers-export/search; mirrors its 10/min + 120/min defaults.
+    options.AddPolicy(SalaryTabulatorRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:SalaryTabulator:Export:PermitLimit", 10));
+    options.AddPolicy(SalaryTabulatorRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:SalaryTabulator:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

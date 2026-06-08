@@ -9,6 +9,17 @@ public static partial class SalaryTabulatorValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
+    // ST-B: free-text search guardrail. The repository fans a non-sargable LIKE '%x%' across the
+    // salary-class / scale / notes columns; a 1-char term is pure scan. Aligned with the PDC §P2
+    // precedent (MinSearchLength: 2) — mirrors PositionSlots §PS2 / CostCenters / OrgUnits OU-002.
+    public const int MinSearchLength = 2;
+    public const int MaxSearchLength = 150;
+
+    // Empty/whitespace search means "no filter" (the repository skips the predicate), so it is valid;
+    // otherwise enforce the minimum length on the trimmed term.
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
     public static bool IsValidCode(string value) =>
         CodeRegex().IsMatch(value.Trim());
 

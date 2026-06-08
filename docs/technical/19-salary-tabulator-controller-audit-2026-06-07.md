@@ -196,3 +196,19 @@ Compila; sin secretos hardcodeados; localización completa.
 - Seguridad/export: `SalaryTabulatorAuthorizationService.cs` (Read/Request/Approve), `SalaryTabulatorExportHandler.cs`, `ReportExportResourceAuthorizer.cs`.
 - Pruebas: `SalaryTabulatorDomainTests.cs`, `ApiIntegrationTests.cs` (11 SalaryTabulator_* métodos).
 - Ejecución: `dotnet test --filter ~SalaryTabulator|~ConcurrencyTokenMappingGuardrails` → **6/6 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-08, uncommitted)
+
+**Los 5 hallazgos cerrados (ST-A…ST-E).** Verificación: build **0/0** · suite unitaria completa **1722/1722** (incl. nuevos) · **sin migración** · **sin resx** (el mensaje de `MinSearchLength` es string interpolado `$"..."`, que el regex de `BackendMessageLocalizationTests` no captura — igual que PositionSlots/CostCenters) · `openapi.yaml` (placeholder bootstrap; el contrato autoritativo es el Swagger runtime) sección SalaryTabulator sincronizada y **validada (parsea)**.
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **ST-A** | ✅ Cerrado | Nuevo `SalaryTabulatorRateLimitPolicies` (Search/Export) + `[EnableRateLimiting]` en `SearchLines`/`ExportLines`/`SearchRequests` (+`429`) + registro en `Program.cs` (export 10 / search 120, mirror CostCenters) + `SalaryTabulatorRateLimitingGovernanceTests` (3 invariantes drift-proof, mirror `CostCenterRateLimitingGovernanceTests`). El export de PII salarial ya tiene guard de abuso por user+tenant. |
+| **ST-B** | ✅ Cerrado | `MinSearchLength=2` / `MaxSearchLength=150` / `IsValidSearchLength` en `SalaryTabulatorValidationRules` + `Must(IsValidSearchLength)` en los validators de **Search** y **Export** de líneas (mirror PositionSlots §PS2). El `q` de 1 char → `400`. |
+| **ST-C** | ✅ Cerrado | `[SwaggerOperation]` (Summary+Description) en los 6 GET + migración de todo el controller de `[ProducesResponseType<ProblemDetails>]` inline a `[ProducesStandardErrors]` (Query / Read / SubResourceWrite / Command) + enrolado `^SalaryTabulator`→"Salary Tabulator" en `OpenApiContractGuardrailsTests.Families` → el drift de contrato ahora es detectable por CI. |
+| **ST-D** | ✅ Cerrado | `SalaryTabulatorCommandSupportTests`: `MapDomainValidation` (9 mensajes→error + 2 de precedencia: amount>date, approve>state — el mapeo es string-matched y frágil al reword) + `GenerateRequestNumber` (formato `STR-`/32-char/uppercase + unicidad en el mismo ms). **Alcance:** `BuildItemsAsync`/`ApplyChangeRequestItemAsync` permanecen cubiertos por los 11 tests de integración (fakes de un repo de 15 métodos = desproporcionado para una Observación; las rutas críticas ya están integ-cubiertas). |
+| **ST-E** | ✅ Cerrado | Swagger de `Cancel` corregido a "Draft o Submitted" (el dominio `Cancel()` permite ambos; sólo bloquea Approved/Rejected → `409`) en el controller y en `openapi.yaml`. |
+
+**By-design (confirmado, NO re-flaggear):** autz handler-gated (sin `[AuthorizationPolicySet]`, fuera de `GovernedFamilyRegex`, mirror AccountCompanies) + ruta `api/v1` literal (sin `[ApiVersion]`) — decisiones intencionales del spike, documentadas en la cabecera del controller.
+
+**Pendiente:** commit (lo maneja el usuario).

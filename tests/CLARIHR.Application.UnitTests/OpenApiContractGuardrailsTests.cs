@@ -82,6 +82,12 @@ public sealed class OpenApiContractGuardrailsTests
         // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^ReportExportJobs` matches
         // only ReportExportJobsController. Tagged "Reports" (REX-B).
         ("ReportExportJobs", new Regex(@"^ReportExportJobs", RegexOptions.Compiled), "Reports"),
+        // SalaryTabulatorController administers salary PII via a maker-checker workflow. Its authz is
+        // handler-gated (no single Read/Manage policy pair — Read/Request/Approve), so it stays out of
+        // GovernedFamilyRegex by design (mirror AccountCompanies), but it is still a public OpenAPI surface.
+        // Enrolled for ST-C so a GET that drops [SwaggerOperation] or a class that drops [Tags] fails CI.
+        // `^SalaryTabulator` matches only SalaryTabulatorController.
+        ("SalaryTabulator", new Regex(@"^SalaryTabulator", RegexOptions.Compiled), "Salary Tabulator"),
     ];
 
     public static TheoryData<string> FamilyLabels()
