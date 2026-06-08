@@ -191,7 +191,10 @@ internal sealed class SearchOrgUnitsQueryValidator : AbstractValidator<SearchOrg
     public SearchOrgUnitsQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(OrgUnitValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {OrgUnitValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.OrgUnitTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.OrgUnitTypeId.HasValue);
@@ -352,7 +355,10 @@ internal sealed class GetOrgUnitExportRowsQueryValidator : AbstractValidator<Get
     public GetOrgUnitExportRowsQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(OrgUnitValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {OrgUnitValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.OrgUnitTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.OrgUnitTypeId.HasValue);
@@ -398,6 +404,10 @@ internal sealed class SearchOrgUnitsQueryHandler(
         }
 
         var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+        // OU-007 (by design): the list reports hasActiveChildren=false for every item to avoid an N+1
+        // child probe per row — so `canInactivate` here is an optimistic hint only. The authoritative
+        // check runs server-side in the Inactivate handler (HasActiveChildrenAsync → 409 if it has active
+        // children). GetById, which loads a single resource, resolves the real flag.
         var items = result.Items
             .Select(item => OrgUnitPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage, hasActiveChildren: false))
             .ToArray();
@@ -432,9 +442,8 @@ internal sealed class GetOrgUnitByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.OrgUnitId, cancellationToken);
         if (response is not null)
         {
-            var orgUnit = await repository.GetByIdAsync(query.OrgUnitId, cancellationToken);
-            var hasActiveChildren = orgUnit is not null &&
-                                    await repository.HasActiveChildrenAsync(orgUnit.Id, cancellationToken);
+            // OU-007: single child-flag query by public id (was GetByIdAsync + HasActiveChildrenAsync = 2 reads).
+            var hasActiveChildren = await repository.HasActiveChildrenByPublicIdAsync(query.OrgUnitId, cancellationToken);
             var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
 
             response = OrgUnitPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage, hasActiveChildren);
@@ -652,8 +661,8 @@ internal sealed class CreateOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_CREATED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitCreated,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Create,
@@ -664,6 +673,11 @@ internal sealed class CreateOrgUnitCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitResponse>.Success(response);
+        }
+        catch (UniqueConstraintViolationException ex) when (OrgUnitConstraintViolations.IsCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
         }
         catch
         {
@@ -776,8 +790,8 @@ internal sealed class UpdateOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_UPDATED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitUpdated,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Update,
@@ -789,6 +803,11 @@ internal sealed class UpdateOrgUnitCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException ex) when (OrgUnitConstraintViolations.IsCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
         }
         catch
         {
@@ -881,8 +900,8 @@ internal sealed class MoveOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_MOVED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitMoved,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Update,
@@ -954,8 +973,8 @@ internal sealed class ActivateOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_ACTIVATED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitActivated,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Reactivate,
@@ -1032,8 +1051,8 @@ internal sealed class InactivateOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_INACTIVATED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitInactivated,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Deactivate,
@@ -1136,8 +1155,8 @@ internal sealed class PatchOrgUnitCommandHandler(
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    "ORG_UNIT_UPDATED",
-                    "OrgUnit",
+                    AuditEventTypes.OrgUnitUpdated,
+                    AuditEntityTypes.OrgUnit,
                     orgUnit.PublicId,
                     orgUnit.Code,
                     AuditActions.Update,
@@ -1611,4 +1630,14 @@ internal static class OrgUnitHierarchyBuilder
             .OrderBy(static node => node.SortOrder ?? int.MaxValue)
             .ThenBy(static node => node.Name)
             .ThenBy(static node => node.Code);
+}
+
+internal static class OrgUnitConstraintViolations
+{
+    // OU-004: the (TenantId, NormalizedCode) unique index is the real guard against duplicate codes; the
+    // up-front CodeExistsAsync probe only closes the common (sequential) case. On a concurrent
+    // create/update of the same code, the second writer trips this index — map it to the same clean 409
+    // as the probe instead of letting the 23505 escape as an HTTP 500 (mirrors CostCenters R2).
+    public static bool IsCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, OrgUnitValidationRules.CodeUniqueConstraintName, StringComparison.Ordinal);
 }

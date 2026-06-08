@@ -1,7 +1,5 @@
-using System.Globalization;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.Json;
-using System.Xml;
 using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
@@ -17,6 +15,7 @@ using CLARIHR.Application.Features.Reports.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -25,14 +24,16 @@ namespace CLARIHR.Api.Controllers;
 [ApiVersion("1.0")]
 [Authorize]
 [Route("api/v{version:apiVersion}")]
-[Tags("Org Units")]
+[Tags("Organization Units")]
 [AuthorizationPolicySet(OrgUnitPolicies.Read, OrgUnitPolicies.Manage)]
-public sealed class OrgUnitsController(
+public sealed class OrganizationUnitsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService,
+    OrgUnitDiagramWriter diagramWriter) : ControllerBase
 {
-    [HttpGet("companies/{companyId:guid}/org-units")]
+    [HttpGet("companies/{companyId:guid}/organization-units")]
+    [EnableRateLimiting(OrgUnitRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<OrgUnitResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -52,7 +53,7 @@ public sealed class OrgUnitsController(
         [FromQuery] Guid? parentId,
         [FromQuery] string? q,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery, Range(1, OrgUnitValidationRules.MaxPageSize)] int pageSize = OrgUnitValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -63,7 +64,7 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("org-units/{id:guid}")]
+    [HttpGet("organization-units/{id:guid}")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
     [SwaggerOperation(
@@ -81,7 +82,8 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("companies/{companyId:guid}/org-units/tree")]
+    [HttpGet("companies/{companyId:guid}/organization-units/tree")]
+    [EnableRateLimiting(OrgUnitRateLimitPolicies.Tree)]
     [ProducesResponseType<IReadOnlyCollection<OrgUnitTreeNodeResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
     [SwaggerOperation(
@@ -105,7 +107,8 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("companies/{companyId:guid}/org-units/graph")]
+    [HttpGet("companies/{companyId:guid}/organization-units/graph")]
+    [EnableRateLimiting(OrgUnitRateLimitPolicies.Tree)]
     [ProducesResponseType<OrgUnitGraphResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
     [SwaggerOperation(
@@ -128,7 +131,8 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("companies/{companyId:guid}/org-units/export")]
+    [HttpGet("companies/{companyId:guid}/organization-units/export")]
+    [EnableRateLimiting(OrgUnitRateLimitPolicies.Export)]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
@@ -179,7 +183,8 @@ public sealed class OrgUnitsController(
             cancellationToken);
     }
 
-    [HttpGet("companies/{companyId:guid}/org-units/diagram-export")]
+    [HttpGet("companies/{companyId:guid}/organization-units/diagram-export")]
+    [EnableRateLimiting(OrgUnitRateLimitPolicies.Export)]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
@@ -223,7 +228,7 @@ public sealed class OrgUnitsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var graphml = BuildGraphMl(graphResult.Value);
+            var graphml = diagramWriter.WriteGraphMl(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "org-units-diagram.graphml");
         }
 
@@ -238,7 +243,7 @@ public sealed class OrgUnitsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var json = JsonSerializer.Serialize(graphResult.Value);
+            var json = diagramWriter.WriteJson(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(json), "application/json", "org-units-diagram.json");
         }
 
@@ -253,14 +258,14 @@ public sealed class OrgUnitsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var dot = BuildDot(graphResult.Value);
+            var dot = diagramWriter.WriteDot(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "org-units-diagram.dot");
         }
 
         return this.ToActionResult(Result<OrgUnitGraphResponse>.Failure(ReportPolicyErrors.FormatNotSupported)).Result!;
     }
 
-    [HttpPost("companies/{companyId:guid}/org-units")]
+    [HttpPost("companies/{companyId:guid}/organization-units")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -300,7 +305,7 @@ public sealed class OrgUnitsController(
             value => value.ConcurrencyToken);
     }
 
-    [HttpPut("org-units/{id:guid}")]
+    [HttpPut("organization-units/{id:guid}")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -335,7 +340,7 @@ public sealed class OrgUnitsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("org-units/{id:guid}")]
+    [HttpPatch("organization-units/{id:guid}")]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
@@ -369,7 +374,7 @@ public sealed class OrgUnitsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("org-units/{id:guid}/move")]
+    [HttpPatch("organization-units/{id:guid}/move")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -393,7 +398,7 @@ public sealed class OrgUnitsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("org-units/{id:guid}/activate")]
+    [HttpPatch("organization-units/{id:guid}/activate")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -415,7 +420,7 @@ public sealed class OrgUnitsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("org-units/{id:guid}/inactivate")]
+    [HttpPatch("organization-units/{id:guid}/inactivate")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -436,118 +441,6 @@ public sealed class OrgUnitsController(
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
-
-    private static string BuildGraphMl(OrgUnitGraphResponse graph)
-    {
-        var settings = new XmlWriterSettings
-        {
-            OmitXmlDeclaration = false,
-            Indent = true,
-            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-        };
-
-        using var stringWriter = new StringWriter(CultureInfo.InvariantCulture);
-        using (var writer = XmlWriter.Create(stringWriter, settings))
-        {
-            writer.WriteStartDocument();
-            writer.WriteStartElement("graphml", "http://graphml.graphdrawing.org/xmlns");
-            writer.WriteAttributeString("xmlns", "xsi", null, "http://www.w3.org/2001/XMLSchema-instance");
-            writer.WriteAttributeString(
-                "xsi",
-                "schemaLocation",
-                "http://www.w3.org/2001/XMLSchema-instance",
-                "http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd");
-
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "label");
-            writer.WriteAttributeString("for", "node");
-            writer.WriteAttributeString("attr.name", "label");
-            writer.WriteAttributeString("attr.type", "string");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "type");
-            writer.WriteAttributeString("for", "node");
-            writer.WriteAttributeString("attr.name", "type");
-            writer.WriteAttributeString("attr.type", "string");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "isActive");
-            writer.WriteAttributeString("for", "node");
-            writer.WriteAttributeString("attr.name", "isActive");
-            writer.WriteAttributeString("attr.type", "boolean");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("graph");
-            writer.WriteAttributeString("id", "G");
-            writer.WriteAttributeString("edgedefault", "directed");
-
-            foreach (var node in graph.Nodes)
-            {
-                writer.WriteStartElement("node");
-                writer.WriteAttributeString("id", node.Id.ToString());
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "label");
-                writer.WriteString(node.Label);
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "type");
-                writer.WriteString(node.OrgUnitTypeCode);
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "isActive");
-                writer.WriteString(node.IsActive ? "true" : "false");
-                writer.WriteEndElement();
-
-                writer.WriteEndElement();
-            }
-
-            foreach (var edge in graph.Edges)
-            {
-                writer.WriteStartElement("edge");
-                writer.WriteAttributeString("source", edge.FromId.ToString());
-                writer.WriteAttributeString("target", edge.ToId.ToString());
-                writer.WriteEndElement();
-            }
-
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-            writer.WriteEndDocument();
-        }
-
-        return stringWriter.ToString();
-    }
-
-    private static string BuildDot(OrgUnitGraphResponse graph)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine("digraph OrgUnits {");
-        builder.AppendLine("  rankdir=TB;");
-
-        foreach (var node in graph.Nodes)
-        {
-            var label = EscapeDot(node.Label);
-            var color = node.IsActive ? "black" : "gray";
-            builder.AppendLine($"  \"{node.Id}\" [label=\"{label}\", color=\"{color}\"];");
-        }
-
-        foreach (var edge in graph.Edges)
-        {
-            builder.AppendLine($"  \"{edge.FromId}\" -> \"{edge.ToId}\";");
-        }
-
-        builder.AppendLine("}");
-        return builder.ToString();
-    }
-
-    private static string EscapeDot(string? value) =>
-        string.IsNullOrEmpty(value)
-            ? string.Empty
-            : value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 
     public sealed record CreateOrgUnitRequest(
         string Code,

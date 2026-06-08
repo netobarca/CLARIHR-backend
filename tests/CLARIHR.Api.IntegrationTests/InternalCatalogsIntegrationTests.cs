@@ -687,7 +687,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, "Direccion");
 
         var listResponse = await client.GetAsync(
-            $"/api/v1/companies/{companyId}/org-units?page=1&pageSize=100&q={Uri.EscapeDataString(orgUnitCode)}");
+            $"/api/v1/companies/{companyId}/organization-units?page=1&pageSize=100&q={Uri.EscapeDataString(orgUnitCode)}");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgUnitItem>>(JsonOptions);
@@ -699,7 +699,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             return existing;
         }
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-units", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/organization-units", new
         {
             code = orgUnitCode,
             name = "Unidad Base",

@@ -9,9 +9,21 @@ public static partial class OrgUnitValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
     public const int MaxDepth = 15;
+    public const int MinSearchLength = 2;
+
+    // OU-004: single source of truth for the (TenantId, NormalizedCode) unique index name, shared by the
+    // EF configuration (OrgUnitConfiguration) and the OrgUnitConstraintViolations.IsCodeConflict guard
+    // that maps a concurrent duplicate-code race to a clean 409 instead of a 500 (mirrors CostCenters R2).
+    public const string CodeUniqueConstraintName = "uq_org_units__tenant_code";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
+
+    // OU-002 (§12.8 / Locations §LG5): free-text search must impose a minimum length (after Trim) so the
+    // non-sargable Normalized{Code,Name}.Contains(q) LIKE '%x%' scan over 6 columns + 4 joins cannot be
+    // triggered by a 1-char query. Empty/whitespace = "no filter" (valid). Mirrors LocationValidationRules.
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$", RegexOptions.CultureInvariant)]
     private static partial Regex CodeRegex();

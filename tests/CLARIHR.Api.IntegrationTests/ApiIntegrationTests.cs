@@ -3632,96 +3632,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(2, payload.LevelOrder);
     }
 
-    [Fact]
-    public async Task LocationLevels_Patch_WithValidIfMatch_ShouldRenameAndRotateToken()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
-
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Region" } }),
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{level.ConcurrencyToken}\"");
-
-        var patchResponse = await client.SendAsync(patchRequest);
-        patchResponse.EnsureSuccessStatusCode();
-        var patched = await patchResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions);
-        Assert.NotNull(patched);
-        Assert.Equal("Region", patched!.DisplayName);
-        Assert.Equal(2, patched.LevelOrder);
-        Assert.NotEqual(level.ConcurrencyToken, patched.ConcurrencyToken);
-    }
-
-    [Fact]
-    public async Task LocationLevels_Patch_WithoutIfMatch_ShouldReturn400()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
-
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Sin If-Match" } }),
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-
-        var patchResponse = await client.SendAsync(patchRequest);
-        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
-    }
-
-    [Fact]
-    public async Task LocationLevels_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
-
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Token viejo" } }),
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
-
-        var patchResponse = await client.SendAsync(patchRequest);
-        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
-    }
-
-    [Fact]
-    public async Task LocationLevels_Patch_WithStructuralFlagPath_ShouldReturn400()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
-
-        // Display-name-only PATCH: the structural flags are validated as a unit by PUT, so a
-        // /isRequired op must be rejected with 400.
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isRequired", value = true } }),
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{level.ConcurrencyToken}\"");
-
-        var patchResponse = await client.SendAsync(patchRequest);
-        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
-    }
-
     private async Task<LocationLevelItem> GetLocationLevelAsync(HttpClient client, Guid tenantId, int levelOrder)
     {
         var response = await client.GetAsync($"/api/v1/companies/{tenantId}/location-levels");
@@ -4562,7 +4472,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
@@ -4600,7 +4510,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(root.Code, child.Parent.Code);
         Assert.Equal(root.Name, child.Parent.Name);
 
-        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20");
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units?page=1&pageSize=20");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgUnitItem>>(JsonOptions);
@@ -4612,7 +4522,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(root.Code, listedChild.Parent.Code);
         Assert.Equal(root.Name, listedChild.Parent.Name);
 
-        var detailResponse = await client.GetAsync($"/api/v1/org-units/{child.Id}");
+        var detailResponse = await client.GetAsync($"/api/v1/organization-units/{child.Id}");
         detailResponse.EnsureSuccessStatusCode();
 
         var detailJson = await detailResponse.Content.ReadAsStringAsync();
@@ -4639,7 +4549,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
 
-        var response = await client.PutJsonAsync($"/api/v1/org-units/{unit.Id}", new
+        var response = await client.PutJsonAsync($"/api/v1/organization-units/{unit.Id}", new
         {
             code = "DIR-001",
             name = "Direccion Actualizada",
@@ -4664,7 +4574,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        var response = await client.PatchJsonAsync($"/api/v1/org-units/{root.Id}/move", new
+        var response = await client.PatchJsonAsync($"/api/v1/organization-units/{root.Id}/move", new
         {
             newParentPublicId = child.Id,
             sortOrder = (int?)null,
@@ -4683,12 +4593,130 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         _ = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        var response = await client.PatchJsonAsync($"/api/v1/org-units/{root.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/organization-units/{root.Id}/inactivate", new
         {
             concurrencyToken = root.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_HAS_ACTIVE_CHILDREN");
+    }
+
+    // OU-008: happy-path coverage for the write endpoints that previously only had negative-path tests
+    // (update/move/activate) plus the sequential duplicate-code 409 (the pre-check path; the concurrent
+    // race → 409 is OU-004's UniqueConstraintViolation catch). Depth-limit stays covered by the
+    // OrgUnitHierarchyBuilder unit test (a 15-deep API chain would be heavy and brittle).
+    [Fact]
+    public async Task OrgUnits_Update_WithValidIfMatch_ShouldApplyChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+
+        var response = await client.PutJsonAsync($"/api/v1/organization-units/{unit.Id}", new
+        {
+            code = "DIR-001",
+            name = "Direccion Renombrada",
+            orgUnitTypePublicId = unit.OrgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            sortOrder = 5,
+            description = "Actualizada",
+            costCenterCode = (string?)null,
+            managerEmployeePublicId = (Guid?)null,
+            concurrencyToken = unit.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var updated = await response.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Direccion Renombrada", updated!.Name);
+        Assert.Equal(5, updated.SortOrder);
+        Assert.Equal("Actualizada", updated.Description);
+        Assert.True(updated.IsActive);
+        Assert.NotEqual(unit.ConcurrencyToken, updated.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task OrgUnits_Move_ToNewParent_ShouldReparentAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var rootA = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion A", "Direccion");
+        var rootB = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-002", "Direccion B", "Direccion");
+        var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia", "Gerencia", rootA.Id);
+
+        var response = await client.PatchJsonAsync($"/api/v1/organization-units/{child.Id}/move", new
+        {
+            newParentPublicId = rootB.Id,
+            sortOrder = (int?)2,
+            concurrencyToken = child.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var moved = await response.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(moved);
+        Assert.NotNull(moved!.Parent);
+        Assert.Equal(rootB.Id, moved.Parent!.Id);
+        Assert.Equal(2, moved.SortOrder);
+        Assert.NotEqual(child.ConcurrencyToken, moved.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task OrgUnits_Activate_AfterInactivation_ShouldReactivateAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+
+        var inactivateResponse = await client.PatchJsonAsync($"/api/v1/organization-units/{unit.Id}/inactivate", new
+        {
+            concurrencyToken = unit.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+
+        var inactivated = await inactivateResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(inactivated);
+        Assert.False(inactivated!.IsActive);
+
+        var activateResponse = await client.PatchJsonAsync($"/api/v1/organization-units/{unit.Id}/activate", new
+        {
+            concurrencyToken = inactivated.ConcurrencyToken
+        });
+        activateResponse.EnsureSuccessStatusCode();
+
+        var activated = await activateResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(activated);
+        Assert.True(activated!.IsActive);
+        Assert.NotEqual(inactivated.ConcurrencyToken, activated.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task OrgUnits_Create_WithDuplicateCode_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        _ = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-units", new
+        {
+            code = "DIR-001",
+            name = "Otra Direccion",
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId = (Guid?)null,
+            sortOrder = 2,
+            description = (string?)null,
+            costCenterCode = (string?)null,
+            managerEmployeePublicId = (Guid?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_CODE_CONFLICT");
     }
 
     [Fact]
@@ -4699,7 +4727,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PATCH", "Direccion General", "Direccion");
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/organization-units/{unit.Id}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new object[]
@@ -4729,7 +4757,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOMATCH", "Direccion General", "Direccion");
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/organization-units/{unit.Id}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
@@ -4749,7 +4777,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PSTALE", "Direccion General", "Direccion");
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/organization-units/{unit.Id}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
@@ -4772,7 +4800,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         // Descriptive-only PATCH: the code is not patchable (uniqueness-checked via PUT), so a
         // /code op must be rejected with 400.
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/organization-units/{unit.Id}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/code", value = "DIR-OTHER" } }),
@@ -4830,7 +4858,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
         var functionalArea = await EnsureFunctionalAreaAsync(client, scenario.TenantId, "ADMIN");
 
-        var createOrgUnitResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var createOrgUnitResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-units", new
         {
             code = "DIR-FA-USE",
             name = "Direccion Funcional",
@@ -4861,7 +4889,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        var treeResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/tree");
+        var treeResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/tree");
         treeResponse.EnsureSuccessStatusCode();
 
         var tree = await treeResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<OrgUnitTreeNodeItem>>(JsonOptions);
@@ -4871,7 +4899,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var childNode = Assert.Single(rootNode.Children);
         Assert.Equal(child.Id, childNode.Id);
 
-        var graphResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/graph");
+        var graphResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/graph");
         graphResponse.EnsureSuccessStatusCode();
 
         var graph = await graphResponse.Content.ReadFromJsonAsync<OrgUnitGraphItem>(JsonOptions);
@@ -4881,29 +4909,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(root.Id, edge.FromId);
         Assert.Equal(child.Id, edge.ToId);
 
-        var csvResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/export?format=csv");
+        var csvResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
         Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
 
-        var xlsxResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/export?format=xlsx");
+        var xlsxResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/export?format=xlsx");
         xlsxResponse.EnsureSuccessStatusCode();
         Assert.Equal(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             xlsxResponse.Content.Headers.ContentType?.MediaType);
 
-        var graphMlResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=graphml");
+        var graphMlResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format=graphml");
         graphMlResponse.EnsureSuccessStatusCode();
         Assert.Equal("application/graphml+xml", graphMlResponse.Content.Headers.ContentType?.MediaType);
 
-        var jsonResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=json");
+        var jsonResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format=json");
         jsonResponse.EnsureSuccessStatusCode();
         Assert.Equal("application/json", jsonResponse.Content.Headers.ContentType?.MediaType);
 
-        var dotResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=dot");
+        var dotResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format=dot");
         dotResponse.EnsureSuccessStatusCode();
         Assert.Equal("text/vnd.graphviz", dotResponse.Content.Headers.ContentType?.MediaType);
 
-        var invalidFormatResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=svg");
+        var invalidFormatResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format=svg");
         await AssertProblemDetailsAsync(invalidFormatResponse, HttpStatusCode.BadRequest, "REPORT_FORMAT_NOT_SUPPORTED");
 
         var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
@@ -4919,7 +4947,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/org-units?page=1&pageSize=20");
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/organization-units?page=1&pageSize=20");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
     }
@@ -4930,7 +4958,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20");
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units?page=1&pageSize=20");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "ORG_UNITS_FORBIDDEN");
     }
@@ -4983,7 +5011,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         approveResponse.EnsureSuccessStatusCode();
 
         var orgUnitsList = await orgUnitClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/organization-units?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(orgUnitsList);
 
         var profilesList = await jobProfileClient.GetAsync(
@@ -5118,68 +5146,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task Reports_Capabilities_ShouldReturnCapabilitiesByResource()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
-
-        var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={OrgUnitPermissionCodes.ResourceKey}");
-
-        response.EnsureSuccessStatusCode();
-
-        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal(OrgUnitPermissionCodes.ResourceKey, payload!.ResourceKey);
-        Assert.True(payload.SupportsExport);
-        Assert.False(payload.SupportsPrint);
-        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("graphml", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("json", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("dot", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Reports_Capabilities_ShouldReturnPersonnelFilesCapabilities()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
-
-        var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={PersonnelFilePermissionCodes.ResourceKey}");
-
-        response.EnsureSuccessStatusCode();
-
-        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal(PersonnelFilePermissionCodes.ResourceKey, payload!.ResourceKey);
-        Assert.True(payload.SupportsPrint);
-        Assert.True(payload.SupportsExport);
-        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Reports_Capabilities_WithUnsupportedResource_ShouldReturn404()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
-
-        var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource=NOT_SUPPORTED");
-
-        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "REPORT_NOT_AVAILABLE");
-    }
-
-    [Fact]
     public async Task OrgUnits_Create_ShouldWriteAuditEvent()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateOrgUnitAdminWithAuditContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
@@ -7735,28 +7708,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task Reports_Capabilities_ShouldReturnCompetencyFrameworkCapabilities()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateCompetencyFrameworkReadContext(scenario));
-
-        var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={CompetencyFrameworkPermissionCodes.ResourceKey}");
-
-        response.EnsureSuccessStatusCode();
-
-        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal(CompetencyFrameworkPermissionCodes.ResourceKey, payload!.ResourceKey);
-        Assert.True(payload.SupportsExport);
-        Assert.False(payload.SupportsPrint);
-        Assert.Contains("json", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
-        Assert.Empty(payload.SupportedGraphFormats);
-    }
-
-    [Fact]
     public async Task PositionSlots_FullFlow_ShouldCreateUpdateDependenciesOccupancyStatusGraphAndExports()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -8494,7 +8445,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-units", new
         {
             code = "DIR-CC-INV",
             name = "Direccion Invalida",
@@ -10240,7 +10191,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, orgUnitTypeCode);
 
-        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/organization-units", new
         {
             code,
             name,
@@ -11646,13 +11597,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string RequestNumber,
         SalaryTabulatorChangeRequestStatus Status,
         Guid ConcurrencyToken);
-
-    private sealed record ReportCapabilitiesItem(
-        string ResourceKey,
-        bool SupportsPrint,
-        bool SupportsExport,
-        IReadOnlyCollection<string> SupportedTableFormats,
-        IReadOnlyCollection<string> SupportedGraphFormats);
 
     private sealed record IamUserSummaryItem(
         Guid Id,

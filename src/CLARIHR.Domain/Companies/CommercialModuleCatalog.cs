@@ -36,7 +36,7 @@ public static class CommercialModuleCatalog
         new(CommercialModuleKeys.CostCenters, "Cost Centers", "Centros de costo y su administracion."),
         new(CommercialModuleKeys.LegalRepresentatives, "Legal Representatives", "Representantes legales y su vigencia."),
         new(CommercialModuleKeys.CompetencyFramework, "Competency Framework", "Marco de competencias, conductas y expectativas."),
-        new(CommercialModuleKeys.OrgUnits, "Org Units", "Unidades organizativas, jerarquia y grafo."),
+        new(CommercialModuleKeys.OrgUnits, "Organization Units", "Unidades organizativas, jerarquia y grafo."),
         new(CommercialModuleKeys.Locations, "Locations", "Ubicaciones, grupos y centros de trabajo."),
         new(CommercialModuleKeys.PersonnelFiles, "Personnel Files", "Expedientes de personal y operacion asociada.")
     ];
