@@ -169,7 +169,6 @@ public static class DependencyInjection
         services.AddScoped<IPersonnelFileAuthorizationService, PersonnelFileAuthorizationService>();
         services.AddScoped<ISalaryTabulatorRepository, SalaryTabulatorRepository>();
         services.AddScoped<ISalaryTabulatorAuthorizationService, SalaryTabulatorAuthorizationService>();
-        services.AddSingleton<IReportCapabilityRegistry, ReportCapabilityRegistry>();
         services.AddScoped<IReportExportJobRepository, ReportExportJobRepository>();
         services.AddScoped<ReportExportRowWriter>();
         services.AddScoped<IReportExportHandler, PersonnelFilesExportHandler>();

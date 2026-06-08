@@ -28,7 +28,7 @@ public static class CommercialModuleCatalog
     [
         new(CommercialModuleKeys.Rbac, "RBAC", "Gobierno de roles, permisos y auditoria de acceso."),
         new(CommercialModuleKeys.Users, "Users", "Administracion de usuarios de empresa y membresias operativas."),
-        new(CommercialModuleKeys.OrgStructureCatalogs, "Org Structure Catalogs", "Catalogos base de estructura organizacional."),
+        new(CommercialModuleKeys.OrgStructureCatalogs, "Organization Structure Catalogs", "Catalogos base de estructura organizacional."),
         new(CommercialModuleKeys.PositionDescriptionCatalogs, "Position Description Catalogs", "Catalogos de descripcion y clasificacion de puestos."),
         new(CommercialModuleKeys.JobProfiles, "Job Profiles", "Perfiles y catalogos descriptivos de puestos."),
         new(CommercialModuleKeys.PositionSlots, "Position Slots", "Plazas, dependencias y ocupacion."),

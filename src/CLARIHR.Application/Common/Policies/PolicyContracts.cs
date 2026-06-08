@@ -42,17 +42,3 @@ public sealed record ResourceActionContext(
     bool SupportsInactivate = false,
     bool InactivateAllowed = true,
     IReadOnlyCollection<string>? NonEditableStates = null);
-
-public sealed record ReportCapabilitiesResponse(
-    string ResourceKey,
-    bool SupportsPrint,
-    bool SupportsExport,
-    IReadOnlyCollection<string> SupportedTableFormats,
-    IReadOnlyCollection<string> SupportedGraphFormats);
-
-public sealed record ReportCapabilityDefinition(
-    ReportCapabilitiesResponse Capabilities,
-    string ReadPermissionCode,
-    string AdminPermissionCode,
-    string? PrintPermissionCode,
-    string? ExportPermissionCode);

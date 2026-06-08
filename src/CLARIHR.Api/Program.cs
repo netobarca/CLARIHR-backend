@@ -15,6 +15,7 @@ using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
+using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -256,6 +257,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(OrgUnitRateLimitPolicies.Tree, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgUnits:Tree:PermitLimit", 60));
     options.AddPolicy(OrgUnitRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgUnits:Export:PermitLimit", 10));
 
+    // Organization Structure Catalogs: generous per-user+tenant limiter for the paged free-text
+    // unit-types / functional-areas search (same paged-search abuse class as OrgUnits, mirrors its 120).
+    options.AddPolicy(OrgStructureCatalogRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgStructureCatalogs:Search:PermitLimit", 120));
+
     // Files: per-user+tenant limiters for the direct-upload surface — upload-session reserves a row
     // and mints a write SAS, read-url mints a read SAS, and complete/delete mutate the stored object.
     // Same abuse class as personnel-files-create; mirrors its 20/120/30 defaults.
@@ -419,6 +424,28 @@ builder.Services.AddAuthorization(options =>
             context,
             OrgUnitPermissionCodes.Admin,
             OrgUnitPermissionCodes.ManageAdministration)));
+
+    // Organization Structure Catalogs — declarative policies kept a superset of the precise
+    // OrgStructureCatalogAuthorizationService handler gate (EnsureCanReadTenantAsync /
+    // EnsureCanManageTenantAsync), including the OrgUnits.* fallback (whoever administers org units
+    // administers their catalogs), so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(OrgStructureCatalogPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            OrgStructureCatalogPermissionCodes.Read,
+            OrgStructureCatalogPermissionCodes.Admin,
+            OrgStructureCatalogPermissionCodes.OrgUnitsRead,
+            OrgStructureCatalogPermissionCodes.OrgUnitsAdmin,
+            OrgStructureCatalogPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(OrgStructureCatalogPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            OrgStructureCatalogPermissionCodes.Admin,
+            OrgStructureCatalogPermissionCodes.OrgUnitsAdmin,
+            OrgStructureCatalogPermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer

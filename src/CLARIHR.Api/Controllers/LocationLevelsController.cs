@@ -3,11 +3,9 @@ using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
-using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.Locations.Hierarchy;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -126,40 +124,6 @@ public sealed class LocationLevelsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("location-levels/{id:guid}")]
-    [Consumes("application/json-patch+json")]
-    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
-    [ProducesResponseType<LocationLevelResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Command)]
-    [SwaggerOperation(
-        Summary = "Patch a location level",
-        Description = """
-            Applies a partial update using JSON Patch (RFC 6902), media type
-            `application/json-patch+json`. Only `/displayName` is patchable: the structural flags
-            (`isActive`/`isRequired`/`allowsWorkCenters`) are interdependent and validated as a unit
-            by PUT, the level order is immutable, and activation is handled by `/activate` and
-            `/inactivate`. Requires the current `concurrencyToken` in the `If-Match` header
-            (missing → `400`, stale → `409`). The refreshed token is returned in the body and the
-            `ETag` header.
-            """)]
-    public async Task<ActionResult<LocationLevelResponse>> Patch(
-        Guid id,
-        [FromIfMatch] Guid concurrencyToken,
-        [FromBody] JsonPatchDocument<PatchLocationLevelRequest> patchDoc,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new PatchLocationLevelCommand(
-                id,
-                concurrencyToken,
-                JsonPatchOperationMapper.Map(
-                    patchDoc,
-                    static (op, path, from, value) => new LocationLevelPatchOperation(op, path, from, value))),
-            cancellationToken);
-
-        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
-    }
-
     [HttpPatch("location-levels/{id:guid}/activate")]
     [ProducesResponseType<LocationLevelResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
@@ -218,9 +182,4 @@ public sealed class LocationLevelsController(
         bool IsActive,
         bool IsRequired,
         bool AllowsWorkCenters);
-
-    public sealed class PatchLocationLevelRequest
-    {
-        public string DisplayName { get; set; } = string.Empty;
-    }
 }

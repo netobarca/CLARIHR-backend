@@ -1,4 +1,8 @@
+using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -6,27 +10,39 @@ using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-public sealed class OrgStructureCatalogsController(
+[Route("api/v{version:apiVersion}")]
+[Tags("Organization Structure Catalogs")]
+[AuthorizationPolicySet(OrgStructureCatalogPolicies.Read, OrgStructureCatalogPolicies.Manage)]
+public sealed class OrganizationStructureCatalogsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)
     : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/org-structure-catalogs/unit-types")]
+    [HttpGet("companies/{companyId:guid}/organization-structure-catalogs/unit-types")]
+    [EnableRateLimiting(OrgStructureCatalogRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<OrgUnitTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List org unit types for a company",
+        Description = """
+            Returns a paginated list of organization unit-type catalog items for the company,
+            filterable by `isActive` and free-text `q`. The owning company is validated against the
+            authenticated tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
+            """)]
     public async Task<ActionResult<PagedResponse<OrgUnitTypeCatalogItemResponse>>> SearchOrgUnitTypes(
         Guid companyId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+        [FromQuery, Range(1, OrgStructureCatalogValidationRules.MaxPageSize)] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -37,11 +53,16 @@ public sealed class OrgStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/org-structure-catalogs/unit-types/{id:guid}")]
+    [HttpGet("organization-structure-catalogs/unit-types/{id:guid}")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an org unit type by id",
+        Description = """
+            Returns a single organization unit-type catalog item by its public id. The owning company is
+            resolved from the authenticated tenant; an item belonging to another tenant yields `404`. The
+            `concurrencyToken` is emitted as the `ETag` header on mutations.
+            """)]
     public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> GetOrgUnitTypeById(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -50,12 +71,16 @@ public sealed class OrgStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/org-structure-catalogs/unit-types")]
+    [HttpPost("companies/{companyId:guid}/organization-structure-catalogs/unit-types")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create an org unit type",
+        Description = """
+            Creates an organization unit-type catalog item under the company and returns `201 Created`
+            with the `Location` header pointing to the new resource and the `ETag` header carrying its
+            initial `concurrencyToken`. A duplicate code yields `409`.
+            """)]
     public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> CreateOrgUnitType(
         Guid companyId,
         [FromBody] UpsertCatalogItemRequest request,
@@ -65,85 +90,99 @@ public sealed class OrgStructureCatalogsController(
             new CreateOrgUnitTypeCommand(companyId, request.Code, request.Name, request.Description, request.SortOrder),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<OrgUnitTypeCatalogItemResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetOrgUnitTypeById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/org-structure-catalogs/unit-types/{id:guid}")]
+    [HttpPut("organization-structure-catalogs/unit-types/{id:guid}")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update an org unit type",
+        Description = """
+            Replaces the editable fields (code, name, description, sort order) of an organization
+            unit-type catalog item. Requires the current `concurrencyToken` in the `If-Match` header
+            (missing → `400`, stale → `409`). A duplicate code yields `409`. The refreshed token is
+            returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> UpdateOrgUnitType(
         Guid id,
-        [FromBody] UpdateCatalogItemRequest request,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] UpsertCatalogItemRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateOrgUnitTypeCommand(
-                id,
-                request.Code,
-                request.Name,
-                request.Description,
-                request.SortOrder,
-                request.ConcurrencyToken),
+            new UpdateOrgUnitTypeCommand(id, request.Code, request.Name, request.Description, request.SortOrder, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-structure-catalogs/unit-types/{id:guid}/activate")]
+    [HttpPatch("organization-structure-catalogs/unit-types/{id:guid}/activate")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Activate an org unit type",
+        Description = """
+            Reactivates an inactive organization unit-type catalog item. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed
+            token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> ActivateOrgUnitType(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateOrgUnitTypeCommand(id, request.ConcurrencyToken),
+            new ActivateOrgUnitTypeCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-structure-catalogs/unit-types/{id:guid}/inactivate")]
+    [HttpPatch("organization-structure-catalogs/unit-types/{id:guid}/inactivate")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Inactivate an org unit type",
+        Description = """
+            Deactivates (soft-delete) an organization unit-type catalog item. Fails with `409` if it is
+            still in use by org units or position-category classifications. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed
+            token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> InactivateOrgUnitType(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateOrgUnitTypeCommand(id, request.ConcurrencyToken),
+            new InactivateOrgUnitTypeCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/org-structure-catalogs/functional-areas")]
+    [HttpGet("companies/{companyId:guid}/organization-structure-catalogs/functional-areas")]
+    [EnableRateLimiting(OrgStructureCatalogRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<FunctionalAreaCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List functional areas for a company",
+        Description = """
+            Returns a paginated list of functional-area catalog items for the company, filterable by
+            `isActive` and free-text `q`. The owning company is validated against the authenticated
+            tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
+            """)]
     public async Task<ActionResult<PagedResponse<FunctionalAreaCatalogItemResponse>>> SearchFunctionalAreas(
         Guid companyId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+        [FromQuery, Range(1, OrgStructureCatalogValidationRules.MaxPageSize)] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -154,11 +193,16 @@ public sealed class OrgStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/org-structure-catalogs/functional-areas/{id:guid}")]
+    [HttpGet("organization-structure-catalogs/functional-areas/{id:guid}")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a functional area by id",
+        Description = """
+            Returns a single functional-area catalog item by its public id. The owning company is
+            resolved from the authenticated tenant; an item belonging to another tenant yields `404`. The
+            `concurrencyToken` is emitted as the `ETag` header on mutations.
+            """)]
     public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> GetFunctionalAreaById(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -167,12 +211,16 @@ public sealed class OrgStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/org-structure-catalogs/functional-areas")]
+    [HttpPost("companies/{companyId:guid}/organization-structure-catalogs/functional-areas")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create a functional area",
+        Description = """
+            Creates a functional-area catalog item under the company and returns `201 Created` with the
+            `Location` header pointing to the new resource and the `ETag` header carrying its initial
+            `concurrencyToken`. A duplicate code yields `409`.
+            """)]
     public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> CreateFunctionalArea(
         Guid companyId,
         [FromBody] UpsertCatalogItemRequest request,
@@ -182,72 +230,79 @@ public sealed class OrgStructureCatalogsController(
             new CreateFunctionalAreaCommand(companyId, request.Code, request.Name, request.Description, request.SortOrder),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<FunctionalAreaCatalogItemResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetFunctionalAreaById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/org-structure-catalogs/functional-areas/{id:guid}")]
+    [HttpPut("organization-structure-catalogs/functional-areas/{id:guid}")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update a functional area",
+        Description = """
+            Replaces the editable fields (code, name, description, sort order) of a functional-area
+            catalog item. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+            `400`, stale → `409`). A duplicate code yields `409`. The refreshed token is returned in the
+            body and the `ETag` header.
+            """)]
     public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> UpdateFunctionalArea(
         Guid id,
-        [FromBody] UpdateCatalogItemRequest request,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] UpsertCatalogItemRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateFunctionalAreaCommand(
-                id,
-                request.Code,
-                request.Name,
-                request.Description,
-                request.SortOrder,
-                request.ConcurrencyToken),
+            new UpdateFunctionalAreaCommand(id, request.Code, request.Name, request.Description, request.SortOrder, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-structure-catalogs/functional-areas/{id:guid}/activate")]
+    [HttpPatch("organization-structure-catalogs/functional-areas/{id:guid}/activate")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Activate a functional area",
+        Description = """
+            Reactivates an inactive functional-area catalog item. Requires the current `concurrencyToken`
+            in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in
+            the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> ActivateFunctionalArea(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateFunctionalAreaCommand(id, request.ConcurrencyToken),
+            new ActivateFunctionalAreaCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-structure-catalogs/functional-areas/{id:guid}/inactivate")]
+    [HttpPatch("organization-structure-catalogs/functional-areas/{id:guid}/inactivate")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Inactivate a functional area",
+        Description = """
+            Deactivates (soft-delete) a functional-area catalog item. Fails with `409` if it is still in
+            use by org units. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+            `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> InactivateFunctionalArea(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateFunctionalAreaCommand(id, request.ConcurrencyToken),
+            new InactivateFunctionalAreaCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     public sealed record UpsertCatalogItemRequest(
@@ -255,13 +310,4 @@ public sealed class OrgStructureCatalogsController(
         string Name,
         string? Description,
         int SortOrder);
-
-    public sealed record UpdateCatalogItemRequest(
-        string Code,
-        string Name,
-        string? Description,
-        int SortOrder,
-        Guid ConcurrencyToken);
-
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }
