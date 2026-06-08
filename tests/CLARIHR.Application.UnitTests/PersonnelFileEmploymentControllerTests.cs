@@ -2,7 +2,9 @@ using CLARIHR.Api.Controllers;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Contracts.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Domain.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
@@ -86,6 +88,8 @@ public sealed class PersonnelFileEmploymentControllerTests
             new ReportExportDeliveryService(
                 new NoOpAuditService(),
                 new NoOpUnitOfWork(),
+                new NoOpFileStorageProviderResolver(),
+                new NoOpFilePurposeRuleProvider(),
                 Options.Create(new ReportPerformanceOptions())));
 
     private sealed class CaptureFinalizeCommandDispatcher : ICommandDispatcher
@@ -139,5 +143,17 @@ public sealed class PersonnelFileEmploymentControllerTests
 
         public Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+    }
+
+    // These tests exercise ReportExportDeliveryService only for synchronous file delivery, never the
+    // REX-G artifact-download path, so the storage dependencies are inert stubs.
+    private sealed class NoOpFileStorageProviderResolver : IFileStorageProviderResolver
+    {
+        public IFileStorageProvider Resolve(StorageProvider provider) => throw new NotSupportedException();
+    }
+
+    private sealed class NoOpFilePurposeRuleProvider : IFilePurposeRuleProvider
+    {
+        public FilePurposeRule? GetRule(FilePurpose purpose) => null;
     }
 }

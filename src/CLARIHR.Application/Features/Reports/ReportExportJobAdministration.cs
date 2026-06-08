@@ -61,8 +61,6 @@ public sealed record GetReportExportJobQuery(Guid JobId)
 public sealed record GetReportExportJobDownloadQuery(Guid JobId)
     : IQuery<ReportExportJobDownloadResponse>;
 
-public sealed record CancelReportExportJobRequest(Guid ConcurrencyToken);
-
 public sealed record CancelReportExportJobCommand(Guid JobId, Guid ConcurrencyToken)
     : ICommand<ReportExportJobResponse>;
 
@@ -291,6 +289,7 @@ internal sealed class CreateReportExportJobCommandHandler(
 
 internal sealed class SearchReportExportJobsQueryHandler(
     IReportExportJobRepository repository,
+    IReportExportResourceAuthorizer resourceAuthorizer,
     ITenantContext tenantContext)
     : IQueryHandler<SearchReportExportJobsQuery, PagedResponse<ReportExportJobResponse>>
 {
@@ -309,9 +308,29 @@ internal sealed class SearchReportExportJobsQueryHandler(
                 AuthorizationErrors.TenantMismatch("REPORT_EXPORT_JOBS", RbacPermissionAction.Read));
         }
 
+        // REX-A: list only the jobs whose resource the caller may read — same per-resource gate as
+        // GetById/Download/Cancel (REX-1/2/3). Without this, any tenant user saw the metadata
+        // (resourceKey/fileName/rowCount/errors) of every export, including resources they cannot read.
+        var allowedResourceKeys = new List<string>(ReportExportResources.All.Count);
+        foreach (var resourceKey in ReportExportResources.All)
+        {
+            var authorizationResult = await resourceAuthorizer.EnsureCanReadResourceAsync(resourceKey, query.CompanyId, cancellationToken);
+            if (authorizationResult.IsSuccess)
+            {
+                allowedResourceKeys.Add(resourceKey);
+            }
+        }
+
+        if (allowedResourceKeys.Count == 0)
+        {
+            return Result<PagedResponse<ReportExportJobResponse>>.Success(
+                new PagedResponse<ReportExportJobResponse>(Array.Empty<ReportExportJobResponse>(), query.PageNumber, query.PageSize, 0));
+        }
+
         var response = await repository.SearchAsync(
             query.CompanyId,
             query.Status,
+            allowedResourceKeys,
             query.PageNumber,
             query.PageSize,
             cancellationToken);
@@ -431,6 +450,13 @@ internal sealed class CancelReportExportJobCommandHandler(
         if (job.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ConcurrencyConflict);
+        }
+
+        // REX-H: a job in a terminal state cannot be cancelled — return 409 instead of a silent no-op
+        // 200, so the caller knows nothing changed (mirrors the app-wide 409-on-business-rule convention).
+        if (!job.CanBeCancelled())
+        {
+            return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportJobNotCancellable);
         }
 
         job.Cancel(dateTimeProvider.UtcNow);

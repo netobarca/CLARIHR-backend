@@ -53,4 +53,11 @@ public static class ReportPolicyErrors
         "REPORT_CONCURRENCY_CONFLICT",
         "The requested resource was modified by another process. Please reload and try again.",
         ErrorType.Conflict);
+
+    // REX-H: cancelling a job that is already terminal (Succeeded/Failed/Cancelled/Expired) is a
+    // business-rule conflict, not a silent no-op — surface it as 409 so the caller knows nothing changed.
+    public static readonly Error ExportJobNotCancellable = new(
+        "REPORT_EXPORT_JOB_NOT_CANCELLABLE",
+        "The report export job is already in a terminal state and cannot be cancelled.",
+        ErrorType.Conflict);
 }

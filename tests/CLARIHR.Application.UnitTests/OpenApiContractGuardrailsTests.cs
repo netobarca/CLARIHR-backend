@@ -77,6 +77,11 @@ public sealed class OpenApiContractGuardrailsTests
         // see the GeneralCatalogs audit), so it stays out of GovernedFamilyRegex but is still a public
         // OpenAPI surface. `^GeneralCatalogs` matches only GeneralCatalogsController.
         ("GeneralCatalogs", new Regex(@"^GeneralCatalogs", RegexOptions.Compiled), "General Catalogs"),
+        // ReportExportJobsController is the async report-export queue — a technical/handler-gated
+        // controller (authz delegated per-resource via ReportExportResourceAuthorizer, kept out of
+        // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^ReportExportJobs` matches
+        // only ReportExportJobsController. Tagged "Reports" (REX-B).
+        ("ReportExportJobs", new Regex(@"^ReportExportJobs", RegexOptions.Compiled), "Reports"),
     ];
 
     public static TheoryData<string> FamilyLabels()

@@ -19,6 +19,7 @@ using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
@@ -220,6 +221,12 @@ builder.Services.AddRateLimiter(options =>
     // sensitive HR data — plus a generous limiter for the paged search/list.
     options.AddPolicy(PositionSlotRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Export:PermitLimit", 10));
     options.AddPolicy(PositionSlotRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Search:PermitLimit", 120));
+
+    // Report Export Jobs: tight limiter for the artifact download (streams a stored blob), plus a
+    // generous limiter for the paged export-jobs search/list. Same read abuse class as the other
+    // export surfaces; mirrors their 10/min + 120/min defaults.
+    options.AddPolicy(ReportExportJobRateLimitPolicies.Download, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:ReportExportJobs:Download:PermitLimit", 10));
+    options.AddPolicy(ReportExportJobRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:ReportExportJobs:Search:PermitLimit", 120));
 
     // Competency Framework: tight limiter for the unbounded-cost competency-matrix export,
     // plus a generous limiter for the paged occupational-pyramid-levels / competency-conducts search.

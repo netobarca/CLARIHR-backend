@@ -303,6 +303,7 @@ public sealed class ReportExportTelemetryTests
         public Task<PagedResponse<ReportExportJobResponse>> SearchAsync(
             Guid tenantId,
             ReportExportJobStatus? status,
+            IReadOnlyCollection<string> allowedResourceKeys,
             int pageNumber,
             int pageSize,
             CancellationToken cancellationToken) =>

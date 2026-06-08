@@ -1312,6 +1312,9 @@
   <data name="REPORT_EXPORT_JOB_NOT_READY" xml:space="preserve">
     <value>The report export job is not ready for download.</value>
   </data>
+  <data name="REPORT_EXPORT_JOB_NOT_CANCELLABLE" xml:space="preserve">
+    <value>The report export job is already in a terminal state and cannot be cancelled.</value>
+  </data>
   <data name="REPORT_EXPORT_JOB_EXPIRED" xml:space="preserve">
     <value>The report export artifact has expired.</value>
   </data>

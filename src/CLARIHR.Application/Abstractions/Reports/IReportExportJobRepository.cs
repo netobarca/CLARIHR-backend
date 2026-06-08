@@ -10,9 +10,12 @@ public interface IReportExportJobRepository
 
     Task<ReportExportJob?> GetByPublicIdAsync(Guid jobId, CancellationToken cancellationToken);
 
+    // REX-A: the list is filtered to the resource keys the caller may read (resolved by the handler),
+    // so a user cannot see export-job metadata for resources they have no read permission on.
     Task<PagedResponse<ReportExportJobResponse>> SearchAsync(
         Guid tenantId,
         ReportExportJobStatus? status,
+        IReadOnlyCollection<string> allowedResourceKeys,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);

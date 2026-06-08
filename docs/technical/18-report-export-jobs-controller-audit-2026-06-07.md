@@ -216,3 +216,24 @@ Compila; sin secretos hardcodeados. Worker con `IgnoreQueryFilters` documentado 
 - Seguridad/entrega: `IReportExportResourceAuthorizer.cs`, `IFileStorageProviderResolver`/`IFilePurposeRuleProvider` (download).
 - Pruebas: `ReportExportJobDomainTests.cs`, `CreateReportExportJobCommandValidatorTests.cs`, `ReportExportFileWriterTests.cs`, `ReportExportGovernanceTests.cs`, `ReportExportJobGeneratorDispatchTests.cs`, `ReportExportResourceFormatCompatibilityGuardrailsTests.cs`, `ReportExportTelemetryTests.cs`, `ReportExportJobsIntegrationTests.cs` (5 métodos, intruder→403).
 - Ejecución: `dotnet test --filter ~ReportExport|~ConcurrencyTokenMappingGuardrails` → **25/25 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-07, uncommitted)
+
+**Los 8 hallazgos cerrados** (REX-A…REX-H), con dos decisiones del usuario: **REX-A = filtrar el Search por los recursos que el usuario puede leer** (consistente con REX-1/2/3) y **REX-D = migrar el Cancel a `If-Match` (breaking)**. Verificación: build **0/0** · unit **1702/1702** · integración ReportExportJobs + guardrails de contrato (OpenAPI/Public) **10/10** · `openapi.yaml` editado (sección Reports) y validado. **Sin migración** · **resx**: 1 mensaje nuevo (en+es).
+
+> **Corrección de contexto:** `ReportsController` (el hermano que el doc proponía taggear "también") **ya fue eliminado** en una sesión previa, así que REX-B aplicó **solo** a `ReportExportJobsController`.
+>
+> ⚠️ **BREAKING (frontend debe actualizar):** `PATCH .../cancel` ahora recibe el `concurrencyToken` en el header **`If-Match`** (ya no en el body).
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **REX-A** | ✅ Cerrado | `SearchReportExportJobsQueryHandler` inyecta `IReportExportResourceAuthorizer`, resuelve los recursos legibles del usuario (`EnsureCanReadResourceAsync` sobre `ReportExportResources.All`) y pasa el set a `SearchAsync`, que filtra `WHERE ResourceKey IN (legibles)`; sin recursos legibles → lista vacía. Cierra el último read no-gateado de la consistencia REX-1/2/3. +test de integración negativo (intruso no ve la metadata del job). |
+| **REX-B** | ✅ Cerrado | `[Tags("Reports")]` a nivel de clase + enrolado `^ReportExportJobs`→"Reports" en `OpenApiContractGuardrailsTests.Families`. (Ruta `report-export-jobs` conservada — técnica/aceptable.) |
+| **REX-C** | ✅ Cerrado | `[SwaggerOperation(Summary, Description)]` en los 5 endpoints + `[ProducesStandardErrors]` (reemplaza los `[ProducesResponseType<ProblemDetails>]` inline). Rutas `api/v1` literales **sin** `[ApiVersion]` por diseño (precedente `SalaryTabulator` para controllers técnicos/handler-gated). |
+| **REX-D** | ✅ Cerrado | `Cancel` migrado a `[FromIfMatch] Guid concurrencyToken` + `ToActionResultWithETag`; `CancelReportExportJobRequest` eliminado (el body ya no lleva el token). Integración migrada (`PatchJsonAsync` espeja el token al header). |
+| **REX-E** | ✅ Cerrado | `ReportExportJobRateLimitPolicies` (search 120 / download 10) + `[EnableRateLimiting]` en Search y Download + registro en `Program.cs` + `ReportExportJobRateLimitingGovernanceTests` drift-proof (por `PagedResponse`/sufijo `/download`). |
+| **REX-F** | ✅ Cerrado | `[Range(1, 100)]` en `Search.pageSize` (coincide con el `InclusiveBetween(1,100)` del validator). |
+| **REX-G** | ✅ Cerrado | La resolución rule/provider/container + apertura del stream extraída del controller a `ReportExportDeliveryService.OpenArtifactStreamAsync` (devuelve 503/410 tipados); el controller solo mapea el resultado a `File(...)` y ya no inyecta `IFileStorageProviderResolver`/`IFilePurposeRuleProvider`. |
+| **REX-H** | ✅ Cerrado | `CancelReportExportJobCommandHandler` devuelve **409 `REPORT_EXPORT_JOB_NOT_CANCELLABLE`** si `!CanBeCancelled()` (antes no-op 200), alineado con la convención app-wide de 409 para reglas de negocio. |
+
+**Pendiente:** commit (lo maneja el usuario). El cambio de contrato del Cancel es **breaking** para el frontend (concurrencia por `If-Match`).

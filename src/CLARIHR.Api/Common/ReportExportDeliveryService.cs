@@ -1,9 +1,11 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Application.Features.Reports.Common;
+using CLARIHR.Domain.Files;
 using CLARIHR.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -13,6 +15,8 @@ namespace CLARIHR.Api.Common;
 public sealed class ReportExportDeliveryService(
     IAuditService auditService,
     IUnitOfWork unitOfWork,
+    IFileStorageProviderResolver providerResolver,
+    IFilePurposeRuleProvider ruleProvider,
     IOptions<ReportPerformanceOptions> options)
 {
     private readonly ReportPerformanceOptions _options = options.Value;
@@ -20,6 +24,27 @@ public sealed class ReportExportDeliveryService(
     public int SynchronousReadLimit => _options.NormalizedMaxSynchronousExportRows + 1;
 
     public int MaxDiagramNodes => _options.NormalizedMaxDiagramNodes;
+
+    // REX-G: opens the stored export artifact, encapsulating the storage rule/provider/container
+    // resolution previously inlined in ReportExportJobsController.Download. Returns
+    // ExportStorageNotConfigured (503) if the file-purpose rule is missing and ExportJobExpired (410)
+    // if the blob is gone, so the controller only maps the result to an HTTP response.
+    public async Task<Result<Stream>> OpenArtifactStreamAsync(string blobName, CancellationToken cancellationToken)
+    {
+        var rule = ruleProvider.GetRule(FilePurpose.ReportExport);
+        if (rule is null)
+        {
+            return Result<Stream>.Failure(ReportPolicyErrors.ExportStorageNotConfigured);
+        }
+
+        var provider = providerResolver.Resolve(rule.DefaultProvider);
+        var containerName = rule.ContainerOverride ?? "clarihr-files";
+        var stream = await provider.OpenReadStreamAsync(containerName, blobName, cancellationToken);
+
+        return stream is null
+            ? Result<Stream>.Failure(ReportPolicyErrors.ExportJobExpired)
+            : Result<Stream>.Success(stream);
+    }
 
     public async Task<IActionResult> CreateFileResultAsync<TRow>(
         ControllerBase controller,

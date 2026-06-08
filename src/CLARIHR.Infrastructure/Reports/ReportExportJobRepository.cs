@@ -17,13 +17,16 @@ internal sealed class ReportExportJobRepository(ApplicationDbContext dbContext) 
     public async Task<PagedResponse<ReportExportJobResponse>> SearchAsync(
         Guid tenantId,
         ReportExportJobStatus? status,
+        IReadOnlyCollection<string> allowedResourceKeys,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
     {
         var query = dbContext.ReportExportJobs
             .AsNoTracking()
-            .Where(job => job.TenantId == tenantId);
+            .Where(job => job.TenantId == tenantId)
+            // REX-A: only jobs whose resource the caller may read (the handler passes the resolved set).
+            .Where(job => allowedResourceKeys.Contains(job.ResourceKey));
 
         if (status.HasValue)
         {

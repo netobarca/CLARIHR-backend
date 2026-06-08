@@ -13,6 +13,22 @@ public static class ReportExportResources
     public const string JobProfileCompetencyMatrix = "JOB_PROFILE_COMPETENCY_MATRIX";
     public const string JobProfilePdf = "JOB_PROFILE_PDF";
 
+    // REX-A: the full set of normalized resource keys a job can carry, used by the Search handler to
+    // resolve which resources the current user may read before listing their export-job metadata.
+    public static readonly IReadOnlyList<string> All =
+    [
+        PersonnelFiles,
+        PersonnelFilePersonnelActions,
+        PersonnelFilePayrollTransactions,
+        OrgUnits,
+        PositionSlots,
+        SalaryTabulator,
+        CostCenters,
+        LegalRepresentatives,
+        JobProfileCompetencyMatrix,
+        JobProfilePdf,
+    ];
+
     public static bool IsSupported(string resourceKey) =>
         Normalize(resourceKey) is
             PersonnelFiles or

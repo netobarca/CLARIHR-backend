@@ -68,10 +68,9 @@ public sealed class ReportExportJobsIntegrationTests(ReportExportIntegrationTest
         Assert.Equal(created.Id, detail.Id);
         Assert.Equal(ReportExportJobStatus.Queued, detail.Status);
 
-        var cancelResponse = await client.PatchAsJsonAsync(
+        var cancelResponse = await client.PatchJsonAsync(
             $"/api/v1/report-export-jobs/{created.Id}/cancel",
-            new { concurrencyToken = detail.ConcurrencyToken },
-            JsonOptions);
+            new { concurrencyToken = detail.ConcurrencyToken });
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
         var cancelled = await cancelResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
         Assert.NotNull(cancelled);
@@ -205,11 +204,19 @@ public sealed class ReportExportJobsIntegrationTests(ReportExportIntegrationTest
         Assert.Equal(HttpStatusCode.Forbidden, intruderDetail.StatusCode);
 
         // REX-3: cancel is gated too — the concurrency token (visible to any tenant user) is not authorization.
-        var intruderCancel = await intruderClient.PatchAsJsonAsync(
+        var intruderCancel = await intruderClient.PatchJsonAsync(
             $"/api/v1/report-export-jobs/{created.Id}/cancel",
-            new { concurrencyToken = created.ConcurrencyToken },
-            JsonOptions);
+            new { concurrencyToken = created.ConcurrencyToken });
         Assert.Equal(HttpStatusCode.Forbidden, intruderCancel.StatusCode);
+
+        // REX-A: the list is gated per-resource too — the intruder (no LEGAL_REPRESENTATIVES read) must
+        // NOT see the job's metadata, closing the last non-gated read of the REX-1/2/3 consistency.
+        var intruderList = await intruderClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs?pageNumber=1&pageSize=20");
+        intruderList.EnsureSuccessStatusCode();
+        var intruderListPage = await intruderList.Content.ReadFromJsonAsync<PagedResponse<ReportExportJobResponse>>(JsonOptions);
+        Assert.NotNull(intruderListPage);
+        Assert.DoesNotContain(intruderListPage!.Items, item => item.Id == created.Id);
 
         // Sanity: the authorized owner still downloads successfully — the gate did not break the happy path.
         var ownerDownload = await ownerClient.GetAsync($"/api/v1/report-export-jobs/{created.Id}/download");

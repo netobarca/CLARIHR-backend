@@ -31454,7 +31454,7 @@ paths:
   /api/v1/companies/{companyPublicId}/report-export-jobs:
     post:
       tags:
-      - ReportExportJobs
+      - Reports
       parameters:
       - name: companyPublicId
         in: path
@@ -31548,7 +31548,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     get:
       tags:
-      - ReportExportJobs
+      - Reports
       parameters:
       - name: companyPublicId
         in: path
@@ -31569,6 +31569,8 @@ paths:
       - name: pageSize
         in: query
         schema:
+          maximum: 100
+          minimum: 1
           type: integer
           format: int32
           default: 20
@@ -31624,7 +31626,7 @@ paths:
   /api/v1/report-export-jobs/{publicId}:
     get:
       tags:
-      - ReportExportJobs
+      - Reports
       parameters:
       - name: publicId
         in: path
@@ -31684,7 +31686,7 @@ paths:
   /api/v1/report-export-jobs/{publicId}/download:
     get:
       tags:
-      - ReportExportJobs
+      - Reports
       parameters:
       - name: publicId
         in: path
@@ -31771,7 +31773,7 @@ paths:
   /api/v1/report-export-jobs/{publicId}/cancel:
     patch:
       tags:
-      - ReportExportJobs
+      - Reports
       parameters:
       - name: publicId
         in: path
@@ -31779,17 +31781,11 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CancelReportExportJobRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/CancelReportExportJobRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/CancelReportExportJobRequest'
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
           description: OK
@@ -44244,13 +44240,6 @@ components:
         url:
           type: string
           nullable: true
-      additionalProperties: false
-    CancelReportExportJobRequest:
-      type: object
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
       additionalProperties: false
     ReportExportJobResponse:
       type: object
