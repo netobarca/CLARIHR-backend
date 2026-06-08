@@ -15204,7 +15204,12 @@ paths:
   /api/v1/companies/{companyPublicId}/organization-structure-catalogs/unit-types:
     get:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: List org unit types for a company
+      description: |-
+        Returns a paginated list of organization unit-type catalog items for the company,
+        filterable by `isActive` and free-text `q`. The owning company is validated against the
+        authenticated tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
       parameters:
       - name: companyPublicId
         in: path
@@ -15229,6 +15234,8 @@ paths:
       - name: pageSize
         in: query
         schema:
+          maximum: 100
+          minimum: 1
           type: integer
           format: int32
           default: 20
@@ -15288,7 +15295,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Create an org unit type
+      description: |-
+        Creates an organization unit-type catalog item under the company and returns `201 Created`
+        with the `Location` header pointing to the new resource and the `ETag` header carrying its
+        initial `concurrencyToken`. A duplicate code yields `409`.
       parameters:
       - name: companyPublicId
         in: path
@@ -15356,8 +15368,32 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -15371,7 +15407,12 @@ paths:
   /api/v1/organization-structure-catalogs/unit-types/{publicId}:
     get:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Get an org unit type by id
+      description: |-
+        Returns a single organization unit-type catalog item by its public id. The owning company is
+        resolved from the authenticated tenant; an item belonging to another tenant yields `404`. The
+        `concurrencyToken` is emitted as the `ETag` header on mutations.
       parameters:
       - name: publicId
         in: path
@@ -15430,7 +15471,13 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Update an org unit type
+      description: |-
+        Replaces the editable fields (code, name, description, sort order) of an organization
+        unit-type catalog item. Requires the current `concurrencyToken` in the `If-Match` header
+        (missing → `400`, stale → `409`). A duplicate code yields `409`. The refreshed token is
+        returned in the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -15438,17 +15485,22 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
           text/json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
       responses:
         '200':
           description: OK
@@ -15512,6 +15564,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -15525,7 +15589,12 @@ paths:
   /api/v1/organization-structure-catalogs/unit-types/{publicId}/activate:
     patch:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Activate an org unit type
+      description: |-
+        Reactivates an inactive organization unit-type catalog item. Requires the current
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed
+        token is returned in the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -15533,17 +15602,11 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
           description: OK
@@ -15607,6 +15670,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -15620,7 +15695,13 @@ paths:
   /api/v1/organization-structure-catalogs/unit-types/{publicId}/inactivate:
     patch:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Inactivate an org unit type
+      description: |-
+        Deactivates (soft-delete) an organization unit-type catalog item. Fails with `409` if it is
+        still in use by org units or position-category classifications. Requires the current
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed
+        token is returned in the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -15628,17 +15709,11 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
           description: OK
@@ -15712,10 +15787,27 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/companies/{companyPublicId}/organization-structure-catalogs/functional-areas:
     get:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: List functional areas for a company
+      description: |-
+        Returns a paginated list of functional-area catalog items for the company, filterable by
+        `isActive` and free-text `q`. The owning company is validated against the authenticated
+        tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
       parameters:
       - name: companyPublicId
         in: path
@@ -15740,6 +15832,8 @@ paths:
       - name: pageSize
         in: query
         schema:
+          maximum: 100
+          minimum: 1
           type: integer
           format: int32
           default: 20
@@ -15799,7 +15893,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Create a functional area
+      description: |-
+        Creates a functional-area catalog item under the company and returns `201 Created` with the
+        `Location` header pointing to the new resource and the `ETag` header carrying its initial
+        `concurrencyToken`. A duplicate code yields `409`.
       parameters:
       - name: companyPublicId
         in: path
@@ -15867,8 +15966,32 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -15882,7 +16005,12 @@ paths:
   /api/v1/organization-structure-catalogs/functional-areas/{publicId}:
     get:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Get a functional area by id
+      description: |-
+        Returns a single functional-area catalog item by its public id. The owning company is
+        resolved from the authenticated tenant; an item belonging to another tenant yields `404`. The
+        `concurrencyToken` is emitted as the `ETag` header on mutations.
       parameters:
       - name: publicId
         in: path
@@ -15941,7 +16069,13 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Update a functional area
+      description: |-
+        Replaces the editable fields (code, name, description, sort order) of a functional-area
+        catalog item. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+        `400`, stale → `409`). A duplicate code yields `409`. The refreshed token is returned in the
+        body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -15949,17 +16083,22 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
           text/json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/UpdateCatalogItemRequest'
+              $ref: '#/components/schemas/UpsertCatalogItemRequest'
       responses:
         '200':
           description: OK
@@ -16023,6 +16162,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -16036,7 +16187,12 @@ paths:
   /api/v1/organization-structure-catalogs/functional-areas/{publicId}/activate:
     patch:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Activate a functional area
+      description: |-
+        Reactivates an inactive functional-area catalog item. Requires the current `concurrencyToken`
+        in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in
+        the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -16044,17 +16200,11 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
           description: OK
@@ -16118,6 +16268,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -16131,7 +16293,12 @@ paths:
   /api/v1/organization-structure-catalogs/functional-areas/{publicId}/inactivate:
     patch:
       tags:
-      - OrgStructureCatalogs
+      - Organization Structure Catalogs
+      summary: Inactivate a functional area
+      description: |-
+        Deactivates (soft-delete) a functional-area catalog item. Fails with `409` if it is still in
+        use by org units. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+        `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
       parameters:
       - name: publicId
         in: path
@@ -16139,17 +16306,11 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
           description: OK
@@ -16213,6 +16374,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -37820,35 +37993,6 @@ components:
         description:
           type: string
           nullable: true
-        normalizedCode:
-          type: string
-          readOnly: true
-      additionalProperties: false
-    ConcurrencyRequest:
-      type: object
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
-      additionalProperties: false
-    UpdateCatalogItemRequest:
-      type: object
-      properties:
-        code:
-          type: string
-          nullable: true
-        name:
-          type: string
-          nullable: true
-        description:
-          type: string
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-        concurrencyToken:
-          type: string
-          format: uuid
         normalizedCode:
           type: string
           readOnly: true
