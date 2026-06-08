@@ -231,4 +231,57 @@ Compila; sin secretos hardcodeados; localización completa (resx en+es, mapping 
 | **PS-F** | ✅ Cerrado | `[Range(1, PositionSlotValidationRules.MaxPageSize)]` en `Search.pageSize` + nuevo `PositionSlotPaginationGuardrailsTests` (estructural `^PositionSlot`). **Guardrails de familia ahora 5/5.** `openapi.yaml`: `minimum:1/maximum:100` en `pageSize`. |
 | **PS-G** | ✅ Cerrado | El cycle-check de `/dependencies` ya **no** carga el wide-join de 8 tablas (`GetGraphNodesAsync`): nuevo `IPositionSlotRepository.GetDependencyAdjacencyAsync` (proyección de 1 tabla, sólo ids de adyacencia) alimenta el analyzer. Resuelve PS-G y habilita PS-D en una sola carga ligera. |
 
-**Pendiente:** commit (lo maneja el usuario). El cambio de contrato es **breaking** para el frontend (concurrencia por `If-Match`).
+**Estado:** **commiteado en `c420434`** (2026-06-08). El cambio de contrato es **breaking** para el frontend (concurrencia por `If-Match`). Ver §14 (re-auditoría).
+
+## 14. Re-auditoría (2026-06-08)
+
+**Veredicto: APROBADO — la remediación PS-A…PS-G se confirma íntegra, correcta y commiteada (`c420434`).** Re-auditoría independiente con lente de seguridad/correctness (mismo patrón que CostCenters/GeneralCatalogs/Files el 2026-06-07). **No se hallaron vulnerabilidades críticas/altas/medias nuevas.**
+
+**Verificación de las 7 correcciones (en código commiteado):**
+
+| ID | Verificado |
+|---|---|
+| PS-A | `[FromIfMatch] Guid concurrencyToken` en las 4 mutaciones + `GetById`/`Update`/`UpdateStatus`/`UpdateDependencies`/`UpdateOccupancy` con `ToActionResultWithETag`; los request DTOs ya no llevan token; integ `PositionSlots_Update_WithoutIfMatch_ShouldReturn400` (línea 8349). |
+| PS-B | `Create` → `ToCreatedAtActionResult(nameof(GetById), {publicId}, ConcurrencyToken)` (201 + Location + ETag). |
+| PS-C | `catch UniqueConstraintViolationException when PositionSlotConstraintViolations.IsCodeConflict → 409`; nombre de índice single-sourced en `PositionSlotValidationRules.CodeUniqueConstraintName` (EF `HasDatabaseName` línea 99 == el guard; sin migración). |
+| PS-D | `WouldCreateFunctionalCycle` simétrico con el directo (analyzer generalizado sobre un selector `next`); error `DependencyCycle` type-agnostic; integ `PositionSlots_Dependencies_WhenFunctionalCycleDetected_ShouldReturn409Conflict` (línea 8317). |
+| PS-E | `PositionSlotDiagramWriter` extraído (`CLARIHR.Api.Common`, `AddSingleton`); `EscapeDot` escapa `\` **antes** que `"` (defecto real corregido); doble salto eliminado; +5 unit `PositionSlotDiagramWriterTests`. |
+| PS-F | `[Range(1, MaxPageSize)]` en `Search.pageSize` + `PositionSlotPaginationGuardrailsTests` (estructural `^PositionSlot`). **Guardrails de familia 5/5.** |
+| PS-G | `GetDependencyAdjacencyAsync` (proyección de 1 tabla, filtrada por `TenantId`, sólo ids internos) alimenta el cycle-check; el wide-join de 8 tablas queda sólo en la ruta de lectura (capada §PS4). |
+
+**Evidencia:** build **0/0**; unit PositionSlot + familia (rate-limit / OpenAPI / authz-convention / concurrency / pagination) **191/191 verdes**; integración presente (tenant-mismatch / without-permission / without-If-Match / functional-cycle), no ejecutada (sin DB → limitación).
+
+**Re-verificación de seguridad (ampliando la lente más allá de PS-A…G):**
+- **Aislamiento de tenant / anti-IDOR intacto:** `tenantContext.TenantId == companyId` en `EvaluateAccessAsync` y `EnsureAuthorizedAsync`; rutas id-only resuelven el tenant del JWT + filtro global fail-closed + `*ExistsOutsideTenant*` (404-vs-403).
+- **Confirmado (no detallado en la auditoría original):** no se puede adjuntar un **rol de otro tenant** a un slot — `IamAdministrationRepository.FindRoleByPublicIdAsync` consulta `dbContext.IamRoles` **sin** `IgnoreQueryFilters`, así que el filtro global de tenant aplica (work-center / job-profile / dependencias direct+funcional ya se resuelven tenant-scoped vía `Resolve*IdAsync`).
+- **Superficie adyacente limpia** (contraste con Files/REX-1): los únicos lectores cross-feature de `position_slots` son la finalización de PersonnelFiles (`FinalizePersonnelFile` — linkage validado in-tenant con manejo de `TenantMismatch`, gated por la autz de PersonnelFiles) y el export async (`PositionSlotsExportHandler`, gated por REX-1 / doc 18). **Ningún backdoor de exposición de datos sin autorización.**
+- **Anti-mass-assignment intacto:** DTOs cerrados; status/occupancy sólo por PATCH dedicados; cost-center inferido del org unit del job profile.
+
+**Hallazgos nuevos (todos Observación/nit — ninguno bloquea; ✅ AMBOS REMEDIADOS 2026-06-08 por decisión del usuario, ver §14.1):**
+
+### RA-1 — TOCTOU del cycle-check cross-slot (Observación · Baja · pre-existente)
+**Ubicación:** `UpdatePositionSlotDependenciesCommandHandler` línea 1060 (`GetDependencyAdjacencyAsync` se lee **fuera** de la transacción).
+**Condición:** el token de concurrencia protege un único slot, pero la invariante de aciclicidad abarca varios slots. Dos `/dependencies` concurrentes sobre slots distintos (A→B y B→A) pueden pasar ambos el chequeo contra una adyacencia obsoleta y persistir conjuntamente un ciclo (cada write toca una fila distinta → tokens distintos, sin colisión).
+**Impacto:** bajo. El builder del grafo es cycle-safe (`PositionSlotGraphBuilder.Select` usa `selected.TryAdd`) → sin loop infinito / DoS en la lectura; el ciclo persistido es una anomalía de datos benigna. **No es regresión** — el cycle-check directo ya tenía esta propiedad antes de PS-D; PS-D la extendió al funcional sin cambiar el perfil de carrera.
+**Recomendación:** documentar como limitación conocida y aceptada (un fix robusto exige aislamiento serializable en la mutación o un lock por-tenant — no justificado para esta severidad), o cerrar la ventana re-chequeando dentro de la transacción con isolation serializable.
+
+### RA-2 — `DiagramExport` computa el grafo antes de validar `format` (nit)
+**Ubicación:** `PositionSlotsController.DiagramExport` (la query `GetPositionSlotGraphQuery` corre antes del branch por formato).
+**Condición:** un `format` desconocido dispara `CountSlotsAsync` + cap §PS4 + wide-join antes de devolver `400 DIAGRAM_FORMAT_INVALID`.
+**Impacto:** trabajo desperdiciado en una petición inválida, acotado por el rate-limit Export (10/ventana).
+**Recomendación:** validar `format` contra el set conocido al inicio del endpoint (fix trivial). Marginal.
+
+### RA-3 — overflow de `page` (nota, no re-flagged)
+`(page - 1) * pageSize` en `SearchAsync` con `page` sin tope superior sigue siendo **deuda sistémica de plataforma aceptada** (PS-F la difirió explícitamente; candidato a `IPipelineBehavior` de clamp para toda la API). No es específico de PositionSlots.
+
+### 14.1 Remediación RA-1 / RA-2 (2026-06-08, uncommitted)
+
+El usuario optó por **arreglar ambos en código** (no sólo documentar). build **0/0** · unit **1703/1703** (incl. nuevo test del lock) · **sin migración** · **sin cambio de contrato → openapi.yaml intacto** (RA-2 sólo adelanta el `400` ya existente; RA-1 es un lock interno) · sin resx.
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **RA-1** | ✅ Cerrado | El cycle-check se movió **dentro de la transacción** de `UpdatePositionSlotDependenciesCommandHandler`, precedido por un **advisory lock por-tenant** transaction-scoped: nuevo `IPositionSlotRepository.AcquireDependencyMutationLockAsync` → `pg_advisory_xact_lock(classId, tenantKey)` vía `ExecuteSqlRawAsync` (se enlista en la transacción del `UnitOfWork` —mismo `ApplicationDbContext`— y se libera en commit/rollback). Serializa sólo las mutaciones de dependencias del mismo tenant; `Create` no lo toma (un slot nuevo no tiene aristas entrantes → no puede cerrar un ciclo). En ciclo → rollback + `409 POSITION_SLOT_DEPENDENCY_CYCLE`. Regresión cubierta por `Dependencies_WithValidDirectDependency_AcquiresTenantLockAndSucceeds` (afirma que el lock se adquiere 1×) + la integ de ciclo funcional ya existente. |
+| **RA-2** | ✅ Cerrado | `DiagramExport` valida `format` **antes** de computar el grafo vía `ResolveDiagramFormat` (single source del set soportado + content-type + filename + writer); un formato desconocido → `400` sin pagar `CountSlotsAsync`/cap/wide-join. De paso elimina la triplicación de `LogExportAsync`. |
+| **RA-3** | ➖ | Sin cambios — deuda sistémica de plataforma aceptada (clamp de `page` a nivel `IPipelineBehavior`). |
+
+**Pendiente:** commit (lo maneja el usuario; default [[user-handles-commits-and-merges]]).

@@ -1052,35 +1052,46 @@ internal sealed class UpdatePositionSlotDependenciesCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencySelfReference);
         }
 
-        if (directDependencyResult.Value.HasValue || functionalDependencyResult.Value.HasValue)
-        {
-            // PS-G: the cycle check walks only the dependency adjacency (internal ids) loaded via a
-            // lean single-table projection — NOT the wide 8-table graph join the read path uses — so a
-            // large tenant does not pay the full graph load on a dependency mutation.
-            var adjacency = await repository.GetDependencyAdjacencyAsync(slot.TenantId, cancellationToken);
-            var byInternalId = adjacency.ToDictionary(static node => node.InternalId);
-
-            if (directDependencyResult.Value.HasValue &&
-                PositionSlotDependencyAnalyzer.WouldCreateDirectCycle(slot.Id, directDependencyResult.Value.Value, byInternalId))
-            {
-                return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
-            }
-
-            // PS-D: validate the functional dependency against cycles symmetrically with the direct
-            // dependency (previously only self-reference was checked on the functional side).
-            if (functionalDependencyResult.Value.HasValue &&
-                PositionSlotDependencyAnalyzer.WouldCreateFunctionalCycle(slot.Id, functionalDependencyResult.Value.Value, byInternalId))
-            {
-                return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
-            }
-        }
-
         var before = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Position slot response could not be resolved before dependency update.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (directDependencyResult.Value.HasValue || functionalDependencyResult.Value.HasValue)
+            {
+                // RA-1: the acyclicity invariant spans MULTIPLE slots, so the per-slot concurrency token
+                // does not cover it — two concurrent /dependencies mutations on different slots (A→B and
+                // B→A) each touch a different row, both pass their token check, and together close a cycle.
+                // Serialize dependency mutations per tenant with a transaction-scoped advisory lock so the
+                // adjacency snapshot read below cannot be invalidated by a concurrent sibling mutation; the
+                // lock auto-releases on commit/rollback. (Create needs no lock — a brand-new slot has no
+                // inbound edges and so cannot close a cycle.)
+                await repository.AcquireDependencyMutationLockAsync(slot.TenantId, cancellationToken);
+
+                // PS-G: the cycle check walks only the dependency adjacency (internal ids) loaded via a
+                // lean single-table projection — NOT the wide 8-table graph join the read path uses — so a
+                // large tenant does not pay the full graph load on a dependency mutation.
+                var adjacency = await repository.GetDependencyAdjacencyAsync(slot.TenantId, cancellationToken);
+                var byInternalId = adjacency.ToDictionary(static node => node.InternalId);
+
+                if (directDependencyResult.Value.HasValue &&
+                    PositionSlotDependencyAnalyzer.WouldCreateDirectCycle(slot.Id, directDependencyResult.Value.Value, byInternalId))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
+                }
+
+                // PS-D: validate the functional dependency against cycles symmetrically with the direct
+                // dependency (previously only self-reference was checked on the functional side).
+                if (functionalDependencyResult.Value.HasValue &&
+                    PositionSlotDependencyAnalyzer.WouldCreateFunctionalCycle(slot.Id, functionalDependencyResult.Value.Value, byInternalId))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
+                }
+            }
+
             slot.UpdateDependencies(directDependencyResult.Value, functionalDependencyResult.Value);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 

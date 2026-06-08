@@ -458,6 +458,66 @@ public sealed class PositionSlotAdministrationTests
         Assert.Equal(role.PublicId, provisioningService.LastSyncRequest.Value.RoleId);
     }
 
+    [Fact]
+    public async Task Dependencies_WithValidDirectDependency_AcquiresTenantLockAndSucceeds()
+    {
+        // RA-1: the dependency-mutation path must serialize per tenant via a transaction-scoped advisory
+        // lock before the cross-slot cycle check (the per-slot concurrency token cannot guard a multi-slot
+        // invariant). Asserts the lock is acquired on the happy path and the change commits.
+        var companyId = Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1");
+        var jobProfileId = Guid.Parse("b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2");
+        var orgUnitId = Guid.Parse("c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3");
+        var repository = new TestPositionSlotRepository();
+
+        var target = PositionSlot.Create(
+            "PS-DEP-A", "Plaza A", jobProfileId: 60, roleId: null, workCenterId: null,
+            directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Vacant, maxEmployees: 1, occupiedEmployees: 0, isFixedTerm: false,
+            effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), effectiveToUtc: null, notes: null);
+        target.SetTenantId(companyId);
+
+        var dependency = PositionSlot.Create(
+            "PS-DEP-B", "Plaza B", jobProfileId: 60, roleId: null, workCenterId: null,
+            directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Vacant, maxEmployees: 1, occupiedEmployees: 0, isFixedTerm: false,
+            effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), effectiveToUtc: null, notes: null);
+        dependency.SetTenantId(companyId);
+
+        repository.AddExisting(target);
+        repository.AddExisting(dependency);
+        repository.RegisterLookup(new PositionSlotJobProfileLookup(
+            InternalJobProfileId: 60,
+            JobProfileId: jobProfileId,
+            OrgUnitId: orgUnitId,
+            OrgUnitName: "Unidad",
+            CostCenterCode: null,
+            PositionCategoryId: null,
+            PositionCategoryClassificationId: null,
+            ContractTypeId: null,
+            ContractTypeCode: null,
+            ContractTypeName: null));
+
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new UpdatePositionSlotDependenciesCommandHandler(
+            new AllowPositionSlotAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(companyId),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new UpdatePositionSlotDependenciesCommand(
+                target.PublicId,
+                DirectDependencyPositionSlotId: dependency.PublicId,
+                FunctionalDependencyPositionSlotId: null,
+                ConcurrencyToken: target.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, repository.DependencyMutationLockAcquisitions);
+        Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
     private sealed class AllowPositionSlotAuthorizationService : IPositionSlotAuthorizationService
     {
         public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -503,11 +563,20 @@ public sealed class PositionSlotAdministrationTests
         public void RegisterRole(long internalRoleId, Guid rolePublicId, string? roleName) =>
             _rolesByInternalId[internalRoleId] = (rolePublicId, roleName);
 
+        private long _nextSlotId = 1;
+
         public void AddExisting(PositionSlot slot)
         {
             if (slot.CreatedUtc == default)
             {
                 slot.MarkCreated(FixedUtcNow);
+            }
+
+            // Assign a distinct non-zero internal id (mirrors AddRole) so dependency resolution and the
+            // cross-slot cycle check operate on realistic ids instead of every slot colliding at 0.
+            if (slot.Id == 0)
+            {
+                SetEntityId(slot, _nextSlotId++);
             }
 
             _slots[slot.PublicId] = slot;
@@ -541,7 +610,7 @@ public sealed class PositionSlotAdministrationTests
             Task.FromResult(false);
 
         public Task<long?> ResolvePositionSlotIdAsync(Guid tenantId, Guid slotId, CancellationToken cancellationToken) =>
-            Task.FromResult<long?>(null);
+            Task.FromResult(_slots.TryGetValue(slotId, out var slot) && slot.TenantId == tenantId ? (long?)slot.Id : null);
 
         public Task<PagedResponse<PositionSlotListItemResponse>> SearchAsync(
             Guid tenantId,
@@ -626,6 +695,16 @@ public sealed class PositionSlotAdministrationTests
                         slot.DirectDependencyPositionSlotId,
                         slot.FunctionalDependencyPositionSlotId))
                     .ToArray());
+
+        // RA-1: count lock acquisitions so a handler test can assert the dependency-mutation path
+        // serializes per tenant before the cross-slot cycle check.
+        public int DependencyMutationLockAcquisitions { get; private set; }
+
+        public Task AcquireDependencyMutationLockAsync(Guid tenantId, CancellationToken cancellationToken)
+        {
+            DependencyMutationLockAcquisitions++;
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(
             Guid tenantId,

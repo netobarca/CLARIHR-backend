@@ -178,6 +178,21 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 slot.FunctionalDependencyPositionSlotId))
             .ToListAsync(cancellationToken);
 
+    // RA-1: a fixed class id namespaces this advisory lock against any other advisory-lock use; the
+    // object id is derived deterministically from the tenant id so every dependency mutation of one
+    // tenant contends on the same lock. Executed on the context's current transaction (the handler opens
+    // one before calling this), pg_advisory_xact_lock holds until that transaction commits/rolls back.
+    private const int DependencyMutationLockClassId = 0x50_53_44_50; // "PSDP" — position-slot dependency
+
+    public Task AcquireDependencyMutationLockAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var tenantKey = BitConverter.ToInt32(tenantId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { DependencyMutationLockClassId, tenantKey },
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var nodes = await BuildJoinedQuery()

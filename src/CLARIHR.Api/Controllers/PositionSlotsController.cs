@@ -149,6 +149,15 @@ public sealed class PositionSlotsController(
         [FromQuery] bool includeFunctional = true,
         CancellationToken cancellationToken = default)
     {
+        // RA-2: reject an unknown format BEFORE paying for the graph computation (CountSlotsAsync +
+        // §PS4 cap + the wide 8-table join). `descriptor` is the single source for the supported-format
+        // set, content type, file name and writer method — replacing the previously triplicated branches.
+        var descriptor = ResolveDiagramFormat(format);
+        if (descriptor is null)
+        {
+            return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(PositionSlotErrors.DiagramFormatInvalid)).Result!;
+        }
+
         var graphResult = await queryDispatcher.SendAsync(
             new GetPositionSlotGraphQuery(
                 companyId,
@@ -163,53 +172,30 @@ public sealed class PositionSlotsController(
             return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(graphResult.Error)).Result!;
         }
 
-        if (string.Equals(format, "graphml", StringComparison.OrdinalIgnoreCase))
-        {
-            await reportExportDeliveryService.LogExportAsync(
-                AuditEntityTypes.PositionSlot,
-                ReportExportResources.PositionSlots,
-                "Exported position slots diagram.",
-                "graphml",
-                new { rootId, depth, includeFunctional },
-                graphResult.Value.Nodes.Count,
-                cancellationToken);
+        await reportExportDeliveryService.LogExportAsync(
+            AuditEntityTypes.PositionSlot,
+            ReportExportResources.PositionSlots,
+            "Exported position slots diagram.",
+            descriptor.Value.AuditFormat,
+            new { rootId, depth, includeFunctional },
+            graphResult.Value.Nodes.Count,
+            cancellationToken);
 
-            var graphml = diagramWriter.WriteGraphMl(graphResult.Value);
-            return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "position-slots-diagram.graphml");
-        }
-
-        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
-        {
-            await reportExportDeliveryService.LogExportAsync(
-                AuditEntityTypes.PositionSlot,
-                ReportExportResources.PositionSlots,
-                "Exported position slots diagram.",
-                "json",
-                new { rootId, depth, includeFunctional },
-                graphResult.Value.Nodes.Count,
-                cancellationToken);
-
-            var json = diagramWriter.WriteJson(graphResult.Value);
-            return File(Encoding.UTF8.GetBytes(json), "application/json", "position-slots-diagram.json");
-        }
-
-        if (string.Equals(format, "dot", StringComparison.OrdinalIgnoreCase))
-        {
-            await reportExportDeliveryService.LogExportAsync(
-                AuditEntityTypes.PositionSlot,
-                ReportExportResources.PositionSlots,
-                "Exported position slots diagram.",
-                "dot",
-                new { rootId, depth, includeFunctional },
-                graphResult.Value.Nodes.Count,
-                cancellationToken);
-
-            var dot = diagramWriter.WriteDot(graphResult.Value);
-            return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "position-slots-diagram.dot");
-        }
-
-        return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(PositionSlotErrors.DiagramFormatInvalid)).Result!;
+        var content = descriptor.Value.Write(diagramWriter, graphResult.Value);
+        return File(Encoding.UTF8.GetBytes(content), descriptor.Value.ContentType, descriptor.Value.FileName);
     }
+
+    // RA-2: single source of truth for the supported diagram formats — validated up-front so an unknown
+    // format short-circuits to 400 before the graph is computed — and their content-type / file-name /
+    // writer mapping. Returns null for an unknown format.
+    private static (string AuditFormat, string ContentType, string FileName, Func<PositionSlotDiagramWriter, PositionSlotGraphResponse, string> Write)? ResolveDiagramFormat(string format) =>
+        format.ToLowerInvariant() switch
+        {
+            "graphml" => ("graphml", "application/graphml+xml", "position-slots-diagram.graphml", static (writer, graph) => writer.WriteGraphMl(graph)),
+            "json" => ("json", "application/json", "position-slots-diagram.json", static (writer, graph) => writer.WriteJson(graph)),
+            "dot" => ("dot", "text/vnd.graphviz", "position-slots-diagram.dot", static (writer, graph) => writer.WriteDot(graph)),
+            _ => null
+        };
 
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
     [HttpGet("companies/{companyId:guid}/position-slots/export")]

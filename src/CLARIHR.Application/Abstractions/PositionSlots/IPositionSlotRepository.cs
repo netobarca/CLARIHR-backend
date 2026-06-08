@@ -44,6 +44,12 @@ public interface IPositionSlotRepository
     // avoids the wide 8-table join that GetGraphNodesAsync performs for the read/diagram path.
     Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken);
 
+    // RA-1: acquire a transaction-scoped, per-tenant lock that serializes dependency mutations so the
+    // cross-slot acyclicity check reads a consistent adjacency snapshot (the per-slot concurrency token
+    // does not cover an invariant that spans two slots). MUST be called inside an open transaction; the
+    // lock releases automatically on commit/rollback.
+    Task AcquireDependencyMutationLockAsync(Guid tenantId, CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(
         Guid tenantId,
         PositionSlotStatus? status,
