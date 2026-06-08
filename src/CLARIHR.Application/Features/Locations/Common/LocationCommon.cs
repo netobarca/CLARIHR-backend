@@ -22,6 +22,11 @@ public static partial class LocationValidationRules
     // the create-handler's UniqueConstraintViolationException→409 mapping cannot drift (mirrors CostCenters R2).
     public const string LevelOrderUniqueConstraintName = "uq_location_levels__tenant_order";
 
+    // WCT-A: single-source the (TenantId, NormalizedCode) work-center-type unique-index name so the EF
+    // config (HasDatabaseName) and the Create/Update/Patch UniqueConstraintViolationException→409 mapping
+    // cannot drift apart (same pattern as LevelOrder above / CostCenters R2).
+    public const string WorkCenterTypeCodeUniqueConstraintName = "uq_work_center_types__tenant_code";
+
     public static string NormalizeCountryCode(string countryCode) =>
         countryCode.Trim().ToUpperInvariant();
 
@@ -214,4 +219,11 @@ public static class LocationConstraintViolations
     // of letting the 23505 escape as an HTTP 500 (mirrors CostCenters R2).
     public static bool IsLevelOrderConflict(string? constraintName) =>
         string.Equals(constraintName, LocationValidationRules.LevelOrderUniqueConstraintName, StringComparison.Ordinal);
+
+    // WCT-A: the (TenantId, NormalizedCode) unique index is the real guard against duplicate work-center-type
+    // codes; the up-front CodeExistsAsync probe only closes the sequential case. On a concurrent create/update/
+    // patch of the same code the second writer trips this index — map it to the same clean 409 as the probe
+    // instead of letting the 23505 escape as an HTTP 500 (mirrors CostCenters R2).
+    public static bool IsWorkCenterTypeCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, LocationValidationRules.WorkCenterTypeCodeUniqueConstraintName, StringComparison.Ordinal);
 }

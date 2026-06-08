@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -66,7 +67,7 @@ internal sealed class WorkCenterTypeConfiguration : IEntityTypeConfiguration<Wor
 
         builder.HasIndex(type => new { type.TenantId, type.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_work_center_types__tenant_code");
+            .HasDatabaseName(LocationValidationRules.WorkCenterTypeCodeUniqueConstraintName);
 
         builder.HasIndex(type => new { type.TenantId, type.IsActive })
             .HasDatabaseName("ix_work_center_types__tenant_active");

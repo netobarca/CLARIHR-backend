@@ -278,6 +278,14 @@ internal sealed class CreateWorkCenterTypeCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterTypeResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterTypeCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A: two concurrent creates with the same code both pass CodeExistsAsync; the second trips
+            // the (TenantId, NormalizedCode) unique index → the same clean 409 as the probe (mirror CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterTypeResponse>.Failure(LocationErrors.WorkCenterTypeCodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -357,6 +365,14 @@ internal sealed class UpdateWorkCenterTypeCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterTypeResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterTypeCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A: a concurrent rename to the same code trips the (TenantId, NormalizedCode) unique index
+            // after CodeExistsAsync passed → the same clean 409 as the probe (mirror CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterTypeResponse>.Failure(LocationErrors.WorkCenterTypeCodeConflict);
         }
         catch
         {
@@ -631,6 +647,14 @@ internal sealed class PatchWorkCenterTypeCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterTypeResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterTypeCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A: a concurrent patch to the same code trips the (TenantId, NormalizedCode) unique index
+            // after CodeExistsAsync passed → the same clean 409 as the probe (mirror CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterTypeResponse>.Failure(LocationErrors.WorkCenterTypeCodeConflict);
         }
         catch
         {

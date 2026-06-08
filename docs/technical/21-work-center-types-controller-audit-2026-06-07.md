@@ -160,3 +160,16 @@ Compila; sin secretos; localización completa (errores `LocationErrors` con resx
 - Seguridad: `LocationAuthorizationService.cs`, `ILocationDependencyPolicy` (check de inactivación), `Program.cs` (policies + rate-limit).
 - Pruebas: `WorkCenterTypePatchApplierTests.cs`, `ApiIntegrationTests.cs` (6 `WorkCenterType*` métodos); guardrails de familia.
 - Ejecución: `dotnet test --filter ~WorkCenterType|~LocationRateLimiting|~LocationPagination|~ConcurrencyTokenMappingGuardrails|~OpenApiContractGuardrails` → **67/67 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-08, uncommitted)
+
+**WCT-A y WCT-B cerrados.** Verificación: build **0/0** · suite unitaria completa **1732/1732** · **sin migración · sin resx · sin cambio de contrato** → `openapi.yaml` intacto (el `409` ya estaba declarado por el pre-check `CodeExistsAsync`; WCT-A solo enruta el race al mismo `409`).
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **WCT-A** | ✅ Cerrado | `Create`/`Update`/`Patch` capturan `UniqueConstraintViolationException` (catch tipado antes del genérico → rollback + `409 WORK_CENTER_TYPE_CODE_CONFLICT`), con el nombre de índice **single-sourced** en `LocationValidationRules.WorkCenterTypeCodeUniqueConstraintName` (== EF `HasDatabaseName`) + helper `LocationConstraintViolations.IsWorkCenterTypeCodeConflict` (mismo patrón que `LevelOrder` / CostCenters R2). `LocationErrors.WorkCenterTypeCodeConflict` ya existía → **sin resx**. |
+| **WCT-B** | ✅ Cerrado | Nuevo `WorkCenterTypeAdministrationTests` (handler-level): Create dup-code pre-check→409, **Create race unique-violation→409 (valida WCT-A vía `ThrowingUnitOfWork`)**, Inactivate in-use→409 (vía `ILocationDependencyPolicy`). El patch-applier ya tenía unit dedicado. |
+
+**Sistémico (anotado, fuera de scope del doc 21):** el resto de la familia Locations (`WorkCenters` / `LocationGroups` / `LocationLevels`) comparte el patrón Create/Update sin el catch de unique-violation → mismo race dup-code→500 latente; candidato a cierre per-controller en sus docs o a solución de plataforma transversal. **Solo se remedió WorkCenterTypes (el controlador del doc 21).**
+
+**Pendiente:** commit (lo maneja el usuario).
