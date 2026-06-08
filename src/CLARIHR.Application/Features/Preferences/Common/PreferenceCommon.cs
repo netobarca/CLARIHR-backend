@@ -41,3 +41,14 @@ public static class PreferenceErrors
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(CompanyPreferencePermissionCodes.ResourceKey, action);
 }
+
+public static class UserPreferenceConstraintViolations
+{
+    // UP-A: single-sourced with the EF index name (UserPreferenceConfiguration.HasDatabaseName) so the
+    // unique (user_id) constraint name cannot drift apart from the auto-provision race guard that maps a
+    // concurrent first-access insert collision to a clean re-read / 409 (mirrors PositionSlots PS-C).
+    public const string UserUniqueConstraintName = "uq_user_preferences__user_id";
+
+    public static bool IsUserConflict(string? constraintName) =>
+        string.Equals(constraintName, UserUniqueConstraintName, StringComparison.Ordinal);
+}

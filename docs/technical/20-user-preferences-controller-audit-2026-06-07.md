@@ -164,3 +164,17 @@ Compila; sin secretos; localización vía resx.
 - Dependencias: `ICurrentUserService`, `IUserRepository` (resolución del usuario actual).
 - Pruebas: `UserPreferencePatchApplierTests.cs`, `ApiIntegrationTests.cs` (~11 `UserPreferences_*` métodos, líneas ≈1534-1798).
 - Ejecución: `dotnet test --filter ~UserPreference|~ConcurrencyTokenMappingGuardrails|~OpenApiContractGuardrails` → **76/76 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-08, uncommitted)
+
+**UP-A y UP-C cerrados; UP-B diferido (plataforma, con justificación).** Verificación: build **0/0** · suite unitaria completa **1729/1729** · **sin migración · sin resx · sin cambio de contrato** → `openapi.yaml` intacto (UP-A devuelve códigos ya declarados — GET `200`, writes `409`; UP-C es solo el guardrail de test).
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **UP-A** | ✅ Cerrado | Los 4 handlers capturan `UniqueConstraintViolationException` de la rama de auto-provisión, con el nombre de índice **single-sourced** en `UserPreferenceConstraintViolations.UserUniqueConstraintName` (== EF `HasDatabaseName`; mirror PositionSlots PS-C). **GET re-lee** la fila que ganó la carrera → `200` (nunca `500`); **PUT / PUT social-links / PATCH** → `ConcurrencyConflict` (`409`) retryable — re-aplicar in-situ sería inseguro porque el insert fallido queda `Added` en el contexto y el `UnitOfWork` no expone detach. +4 unit tests con `ThrowingUnitOfWork` + `RaceUserPreferenceRepository` que simulan la violación (GET→re-read/200, los 3 writes→409). |
+| **UP-C** | ✅ Cerrado | Enrolado `^UserPreferences`→"User Preferences" en `OpenApiContractGuardrailsTests.Families`. El controller ya era canónico (`[Tags]`/`[SwaggerOperation]`×4/`[ProducesStandardErrors]`), así que el enrolamiento es gratuito y ahora CI detecta cualquier regresión de canonicidad. |
+| **UP-B** | ➖ Diferido (plataforma) | 2 queries/request (resolver `User` publicId→internal id + la preferencia). El audit ya lo cataloga como **cambio transversal de plataforma** (exponer el internal user id en `ICurrentUserService`): tocaría la interfaz y todos sus consumidores y **no hay fix local limpio** (la rama de provisión necesita el internal id para el FK `user_id`, así que aun leyendo la preferencia por public id seguiría haciendo el lookup del usuario). Aceptado como deuda de plataforma; coste negligible para un endpoint "me". |
+
+**By-design (confirmado, NO re-flaggear):** sin `[AuthorizationPolicySet]`/RBAC (recurso self-scoped, authn-only) + sin audit logs (preferencias self-service de bajo riesgo) — documentado en la cabecera del controller.
+
+**Pendiente:** commit (lo maneja el usuario).

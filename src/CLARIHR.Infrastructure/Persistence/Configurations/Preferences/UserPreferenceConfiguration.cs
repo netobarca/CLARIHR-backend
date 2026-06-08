@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.Preferences.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Preferences;
 using Microsoft.EntityFrameworkCore;
@@ -43,7 +44,7 @@ internal sealed class UserPreferenceConfiguration : IEntityTypeConfiguration<Use
 
         builder.HasIndex(preference => preference.UserId)
             .IsUnique()
-            .HasDatabaseName("uq_user_preferences__user_id");
+            .HasDatabaseName(UserPreferenceConstraintViolations.UserUniqueConstraintName);
 
         builder.HasOne<User>()
             .WithMany()

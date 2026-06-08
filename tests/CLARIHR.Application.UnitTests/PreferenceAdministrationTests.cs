@@ -276,6 +276,86 @@ public sealed class UserPreferenceAdministrationTests
         Assert.Equal(0, unitOfWork.SaveChangesCalls);
     }
 
+    [Fact]
+    public async Task GetCurrentUserPreferencesQueryHandler_WhenAutoProvisionRacesUniqueConflict_ShouldReReadAndSucceed()
+    {
+        // UP-A: a concurrent first access provisioned the singleton first; this insert trips the unique
+        // (user_id) index. The GET must re-read the winning row and return it (200), never a 500.
+        var user = SeededUser(31, Guid.NewGuid(), "noa@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var winner = UserPreference.Create(user.Id, "fr");
+        var preferenceRepository = new RaceUserPreferenceRepository(winner);
+        var unitOfWork = new ThrowingUnitOfWork(UserPreferenceConstraintViolations.UserUniqueConstraintName);
+
+        var handler = new GetCurrentUserPreferencesQueryHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(new GetCurrentUserPreferencesQuery(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("fr", result.Value.Language); // the winning row, re-read after the conflict
+        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserPreferencesCommandHandler_WhenAutoProvisionRacesUniqueConflict_ShouldReturnConflict()
+    {
+        // UP-A: first-write provision lost the race; surface a retryable 409 instead of a 500.
+        var user = SeededUser(32, Guid.NewGuid(), "omar@clarihr.test");
+        var handler = new UpdateCurrentUserPreferencesCommandHandler(
+            new TestCurrentUserService(user.PublicId.ToString()),
+            new TestUserRepository(user),
+            new TestUserPreferenceRepository(),
+            new ThrowingUnitOfWork(UserPreferenceConstraintViolations.UserUniqueConstraintName));
+
+        var result = await handler.Handle(new UpdateCurrentUserPreferencesCommand("pt", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task ReplaceCurrentUserSocialLinksCommandHandler_WhenAutoProvisionRacesUniqueConflict_ShouldReturnConflict()
+    {
+        var user = SeededUser(33, Guid.NewGuid(), "petra@clarihr.test");
+        var handler = new ReplaceCurrentUserSocialLinksCommandHandler(
+            new TestCurrentUserService(user.PublicId.ToString()),
+            new TestUserRepository(user),
+            new TestUserPreferenceRepository(),
+            new ThrowingUnitOfWork(UserPreferenceConstraintViolations.UserUniqueConstraintName));
+
+        var result = await handler.Handle(
+            new ReplaceCurrentUserSocialLinksCommand(
+                [new UpdateCurrentUserSocialLinkItem("github", "https://github.com/petra")],
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task PatchCurrentUserPreferencesCommandHandler_WhenAutoProvisionRacesUniqueConflict_ShouldReturnConflict()
+    {
+        var user = SeededUser(34, Guid.NewGuid(), "quim@clarihr.test");
+        var handler = new PatchCurrentUserPreferencesCommandHandler(
+            new TestCurrentUserService(user.PublicId.ToString()),
+            new TestUserRepository(user),
+            new TestUserPreferenceRepository(),
+            new ThrowingUnitOfWork(UserPreferenceConstraintViolations.UserUniqueConstraintName));
+
+        var result = await handler.Handle(
+            new PatchCurrentUserPreferencesCommand(Guid.NewGuid(), [PatchOp("replace", "/language", "es")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
     private static UserPreferencePatchOperation PatchOp(string op, string path, object? value) =>
         new(op, path, null, value is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(value));
 
@@ -551,4 +631,40 @@ file sealed class TestUnitOfWorkTransaction : IUnitOfWorkTransaction
     public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task RollbackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+// UP-A: simulates the auto-provision insert losing the race to a concurrent first access — SaveChanges
+// surfaces the (user_id) unique-index violation the way CLARIHR.Infrastructure.Persistence.UnitOfWork does.
+file sealed class ThrowingUnitOfWork(string constraintName) : IUnitOfWork
+{
+    public int SaveChangesCalls { get; private set; }
+
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SaveChangesCalls++;
+        throw new UniqueConstraintViolationException(constraintName, new InvalidOperationException("simulated 23505"));
+    }
+
+    public Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IUnitOfWorkTransaction>(new TestUnitOfWorkTransaction());
+}
+
+// UP-A: not provisioned on the first read (→ provision branch), then the winning concurrent request's row
+// is visible on the re-read that follows the unique-conflict catch. Add is a no-op (our insert lost).
+file sealed class RaceUserPreferenceRepository(UserPreference winner) : IUserPreferenceRepository
+{
+    private int _getCalls;
+
+    public void Add(UserPreference preference)
+    {
+    }
+
+    public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken)
+    {
+        _getCalls++;
+        return Task.FromResult<UserPreference?>(_getCalls == 1 ? null : winner);
+    }
+
+    public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(winner.Language);
 }

@@ -140,7 +140,22 @@ internal sealed class GetCurrentUserPreferencesQueryHandler(
         {
             preference = UserPreference.Create(currentUserResult.Value.Id);
             userPreferenceRepository.Add(preference);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (UniqueConstraintViolationException exception)
+                when (UserPreferenceConstraintViolations.IsUserConflict(exception.ConstraintName))
+            {
+                // UP-A: a concurrent first access provisioned the singleton first; the unique (user_id)
+                // index rejected this insert. Re-read the row the winning request committed and return it
+                // — a GET must not surface the first-access race as a 500.
+                preference = await userPreferenceRepository.GetByUserIdAsync(currentUserResult.Value.Id, cancellationToken);
+                if (preference is null)
+                {
+                    throw;
+                }
+            }
         }
 
         return Result<UserPreferenceResponse>.Success(UserPreferenceAdministrationHelpers.Map(preference));
@@ -179,7 +194,18 @@ internal sealed class ReplaceCurrentUserSocialLinksCommandHandler(
 
         preference.ReplaceSocialLinks(command.Items.Select(static item => new UserSocialLinkInput(item.ProviderCode, item.Url)));
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (UserPreferenceConstraintViolations.IsUserConflict(exception.ConstraintName))
+        {
+            // UP-A: a concurrent first write provisioned the singleton first (only the auto-provision
+            // INSERT can trip the unique (user_id) index — the existing-preference path is an UPDATE).
+            // Surface a retryable conflict; re-applying here is unsafe (the failed insert stays Added).
+            return Result<UserPreferenceResponse>.Failure(PreferenceErrors.ConcurrencyConflict);
+        }
 
         return Result<UserPreferenceResponse>.Success(UserPreferenceAdministrationHelpers.Map(preference));
     }
@@ -219,7 +245,18 @@ internal sealed class UpdateCurrentUserPreferencesCommandHandler(
             preference.UpdateLanguage(command.Language);
         }
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (UserPreferenceConstraintViolations.IsUserConflict(exception.ConstraintName))
+        {
+            // UP-A: a concurrent first write provisioned the singleton first (only the auto-provision
+            // INSERT can trip the unique (user_id) index — the existing-preference path is an UPDATE).
+            // Surface a retryable conflict; re-applying here is unsafe (the failed insert stays Added).
+            return Result<UserPreferenceResponse>.Failure(PreferenceErrors.ConcurrencyConflict);
+        }
 
         return Result<UserPreferenceResponse>.Success(UserPreferenceAdministrationHelpers.Map(preference));
     }
@@ -283,7 +320,18 @@ internal sealed class PatchCurrentUserPreferencesCommandHandler(
             preference.UpdateLanguage(state.Language);
         }
 
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (UserPreferenceConstraintViolations.IsUserConflict(exception.ConstraintName))
+        {
+            // UP-A: a concurrent first write provisioned the singleton first (only the auto-provision
+            // INSERT can trip the unique (user_id) index — the existing-preference path is an UPDATE).
+            // Surface a retryable conflict; re-applying here is unsafe (the failed insert stays Added).
+            return Result<UserPreferenceResponse>.Failure(PreferenceErrors.ConcurrencyConflict);
+        }
 
         return Result<UserPreferenceResponse>.Success(UserPreferenceAdministrationHelpers.Map(preference));
     }

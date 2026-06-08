@@ -88,6 +88,12 @@ public sealed class OpenApiContractGuardrailsTests
         // Enrolled for ST-C so a GET that drops [SwaggerOperation] or a class that drops [Tags] fails CI.
         // `^SalaryTabulator` matches only SalaryTabulatorController.
         ("SalaryTabulator", new Regex(@"^SalaryTabulator", RegexOptions.Compiled), "Salary Tabulator"),
+        // UserPreferencesController is the self-scoped "me" preferences resource (resolved from the JWT,
+        // authn-only — intentionally NO [AuthorizationPolicySet], OUT of GovernedFamilyRegex by design),
+        // but it is fully canonical ([Tags]/[SwaggerOperation]/[ProducesStandardErrors]) and a public
+        // OpenAPI surface. Enrolled for UP-C so a regression of that canonicity fails CI. `^UserPreferences`
+        // matches only UserPreferencesController (CompanyPreferences starts with "Company").
+        ("UserPreferences", new Regex(@"^UserPreferences", RegexOptions.Compiled), "User Preferences"),
     ];
 
     public static TheoryData<string> FamilyLabels()
