@@ -148,8 +148,8 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
              unit.ModifiedUtc))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<IReadOnlyList<OrgUnitHierarchyNodeData>> GetHierarchyAsync(Guid tenantId, CancellationToken cancellationToken) =>
-        (from unit in dbContext.OrgUnits.AsNoTracking()
+    public async Task<IReadOnlyList<OrgUnitHierarchyNodeData>> GetHierarchyAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        await (from unit in dbContext.OrgUnits.AsNoTracking()
          join parent in dbContext.OrgUnits.AsNoTracking() on unit.ParentId equals parent.Id into parentGroup
          from parent in parentGroup.DefaultIfEmpty()
          join unitType in dbContext.OrgUnitTypeCatalogItems.AsNoTracking() on unit.OrgUnitTypeCatalogItemId equals unitType.Id
@@ -179,8 +179,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
              unit.ConcurrencyToken,
              unit.CreatedUtc,
              unit.ModifiedUtc))
-        .ToListAsync(cancellationToken)
-        .ContinueWith(static task => (IReadOnlyList<OrgUnitHierarchyNodeData>)task.Result, cancellationToken);
+        .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<OrgUnitExportRow>> GetExportRowsAsync(
         Guid tenantId,
@@ -264,4 +263,11 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
 
     public Task<bool> HasActiveChildrenAsync(long orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.AnyAsync(unit => unit.ParentId == orgUnitId && unit.IsActive, cancellationToken);
+
+    public Task<bool> HasActiveChildrenByPublicIdAsync(Guid orgUnitPublicId, CancellationToken cancellationToken) =>
+        (from child in dbContext.OrgUnits.AsNoTracking()
+         join parent in dbContext.OrgUnits.AsNoTracking() on child.ParentId equals parent.Id
+         where parent.PublicId == orgUnitPublicId && child.IsActive
+         select child.Id)
+        .AnyAsync(cancellationToken);
 }

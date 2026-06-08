@@ -49,7 +49,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     // former CompetencyFrameworkController) and stays [Authorize]-only — requiring
     // [AuthorizationPolicySet(JobProfilePolicies...)] would be the wrong policy pair.
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrgUnits)", RegexOptions.Compiled);
+        new(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrganizationUnits)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {

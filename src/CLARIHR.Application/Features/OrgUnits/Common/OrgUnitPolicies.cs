@@ -3,7 +3,7 @@ namespace CLARIHR.Application.Features.OrgUnits.Common;
 /// <summary>
 /// Authorization policy names for the Org Units domain, referenced by
 /// <c>[AuthorizationPolicySet(OrgUnitPolicies.Read, OrgUnitPolicies.Manage)]</c> on
-/// <c>OrgUnitsController</c>. These are policy identifiers, not RBAC permission strings — the
+/// <c>OrganizationUnitsController</c>. These are policy identifiers, not RBAC permission strings — the
 /// permission codes they assert live in <see cref="OrgUnitPermissionCodes"/> and are wired to these
 /// policies in <c>Program.cs</c>. Kept a superset of the precise <c>OrgUnitAuthorizationService</c>
 /// handler gate (Read ⊇ EnsureCanReadAsync, Manage ⊇ EnsureCanManageAsync) so a legitimate caller is

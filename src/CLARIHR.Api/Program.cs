@@ -92,6 +92,7 @@ builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
 builder.Services.AddScoped<ConditionalRequestResultFilter>();
 builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
 builder.Services.AddScoped<ReportExportDeliveryService>();
+builder.Services.AddSingleton<OrgUnitDiagramWriter>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.EnableAnnotations();
@@ -246,6 +247,14 @@ builder.Services.AddRateLimiter(options =>
     // as legal-representatives-export/search; mirrors its 10/min + 120/min defaults.
     options.AddPolicy(CostCenterRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Export:PermitLimit", 10));
     options.AddPolicy(CostCenterRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CostCenters:Search:PermitLimit", 120));
+
+    // Org Units: same read abuse class as Locations — a generous limiter for the paged free-text
+    // search/list, a tighter one for the unpaginated full-hierarchy projections (/tree + /graph load
+    // the whole company hierarchy in one shot), and the tightest for the downloadable export artifacts
+    // (tabular /export + /diagram-export GraphML/DOT/JSON). Mirrors the 120/60/10 family defaults.
+    options.AddPolicy(OrgUnitRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgUnits:Search:PermitLimit", 120));
+    options.AddPolicy(OrgUnitRateLimitPolicies.Tree, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgUnits:Tree:PermitLimit", 60));
+    options.AddPolicy(OrgUnitRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:OrgUnits:Export:PermitLimit", 10));
 
     // Files: per-user+tenant limiters for the direct-upload surface — upload-session reserves a row
     // and mints a write SAS, read-url mints a read SAS, and complete/delete mutate the stored object.

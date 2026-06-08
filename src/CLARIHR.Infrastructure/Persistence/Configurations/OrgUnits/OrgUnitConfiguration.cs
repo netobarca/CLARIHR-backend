@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using Microsoft.EntityFrameworkCore;
@@ -81,7 +82,7 @@ internal sealed class OrgUnitConfiguration : IEntityTypeConfiguration<OrgUnit>
 
         builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_org_units__tenant_code");
+            .HasDatabaseName(OrgUnitValidationRules.CodeUniqueConstraintName);
 
         builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.ParentId })
             .HasDatabaseName("ix_org_units__tenant_parent");

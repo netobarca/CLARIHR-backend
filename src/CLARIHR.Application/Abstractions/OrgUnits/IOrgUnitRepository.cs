@@ -40,4 +40,9 @@ public interface IOrgUnitRepository
         CancellationToken cancellationToken);
 
     Task<bool> HasActiveChildrenAsync(long orgUnitId, CancellationToken cancellationToken);
+
+    // OU-007: read-path variant that resolves the active-child flag from the public id in a single query,
+    // so GetById no longer needs a separate GetByIdAsync just to obtain the internal id. The internal-id
+    // overload above stays for write handlers (Inactivate) that already hold the loaded entity.
+    Task<bool> HasActiveChildrenByPublicIdAsync(Guid orgUnitPublicId, CancellationToken cancellationToken);
 }
