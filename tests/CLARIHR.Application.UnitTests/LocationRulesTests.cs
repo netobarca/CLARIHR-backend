@@ -1,10 +1,17 @@
+using System.Reflection;
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.Locations.Groups;
 using CLARIHR.Application.Features.Locations.Hierarchy;
 using CLARIHR.Application.Features.Locations.WorkCenters;
 using CLARIHR.Application.Features.Locations.WorkCenterTypes;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Infrastructure.Locations;
 
@@ -121,6 +128,69 @@ public sealed class LocationRulesTests
         Assert.Equal("WORK_CENTER_TYPE_IN_USE", result.Error.Code);
     }
 
+    [Fact]
+    public async Task CreateWorkCenterCommandHandler_WhenCodeAlreadyExists_ShouldReturnConflict()
+    {
+        // WC-C: the dup-code pre-check short-circuits to 409 before any assignment resolution runs.
+        var unitOfWork = new CountingUnitOfWork();
+        var handler = new CreateWorkCenterCommandHandler(
+            new AllowLocationAuthorizationService(),
+            new TestWorkCenterRepository { CodeExists = true },
+            new TestWorkCenterTypeRepository(),
+            new TestLocationGroupRepository(),
+            new TestLocationHierarchyRepository(),
+            new NoOpAuditService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new CreateWorkCenterCommand(TenantId, "WC-001", "Centro", Guid.NewGuid(), Guid.NewGuid(), "Calle 1", null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LocationErrors.WorkCenterCodeConflict.Code, result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task CreateWorkCenterCommandHandler_WhenConcurrentInsertTripsUniqueIndex_ShouldReturnConflictNot500()
+    {
+        // WC-A end-to-end for WorkCenters: CodeExistsAsync passes and the assignment resolves, but a
+        // concurrent create committed the same code first → the (TenantId, NormalizedCode) unique index
+        // rejects this insert. The handler must map the UniqueConstraintViolationException to a clean 409.
+        var workCenterType = WorkCenterType.Create(
+            code: "AGENCY",
+            name: "Agency",
+            requiresAddress: false,
+            requiresGeo: false,
+            allowsBiometric: false);
+        workCenterType.SetTenantId(TenantId);
+        SetEntityId(workCenterType, 10);
+        var group = CreateGroup(levelOrder: 1, code: "GENERAL", isDefault: true);
+        SetEntityId(group, 20);
+
+        var handler = new CreateWorkCenterCommandHandler(
+            new AllowLocationAuthorizationService(),
+            new TestWorkCenterRepository { CodeExists = false },
+            new TestWorkCenterTypeRepository(workCenterType),
+            new TestLocationGroupRepository(group),
+            new TestLocationHierarchyRepository([CreateLevel(1, allowsWorkCenters: true)]),
+            new NoOpAuditService(),
+            new ThrowingUnitOfWork(LocationValidationRules.WorkCenterCodeUniqueConstraintName));
+
+        var result = await handler.Handle(
+            new CreateWorkCenterCommand(TenantId, "WC-001", "Centro", workCenterType.PublicId, group.PublicId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LocationErrors.WorkCenterCodeConflict.Code, result.Error.Code);
+    }
+
+    private static void SetEntityId(Entity entity, long id) =>
+        typeof(Entity)
+            .GetProperty(nameof(Entity.Id), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetSetMethod(nonPublic: true)!
+            .Invoke(entity, [id]);
+
     private static LocationLevel CreateLevel(int levelOrder, bool allowsWorkCenters)
     {
         var level = LocationLevel.Create(
@@ -199,5 +269,66 @@ public sealed class LocationRulesTests
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterTypeId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<PagedResponse<WorkCenterTypeResponse>> SearchAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> HasActiveWorkCentersAsync(long workCenterTypeId, CancellationToken cancellationToken) => Task.FromResult(HasActiveWorkCentersValue);
+    }
+
+    // WC-C handler-test fakes (the 3 repos above are reused for the assignment resolution).
+    private sealed class AllowLocationAuthorizationService : ILocationAuthorizationService
+    {
+        public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+        public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+        public Error TenantMismatch(RbacPermissionAction action) => LocationErrors.TenantMismatch(action);
+    }
+
+    private sealed class TestWorkCenterRepository : IWorkCenterRepository
+    {
+        public bool CodeExists { get; init; }
+
+        public void Add(WorkCenter workCenter)
+        {
+        }
+
+        public Task<WorkCenter?> GetByIdAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) => Task.FromResult(false);
+        public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterId, CancellationToken cancellationToken) => Task.FromResult(CodeExists);
+        public Task<PagedResponse<WorkCenterResponse>> SearchAsync(Guid tenantId, Guid? groupId, Guid? typeId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<WorkCenterResponse?> GetResponseByIdAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> HasActiveWorkCentersInGroupAsync(long locationGroupId, long? excludingWorkCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> HasActiveWorkCentersForTypeAsync(long workCenterTypeId, long? excludingWorkCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class NoOpAuditService : IAuditService
+    {
+        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class CountingUnitOfWork : IUnitOfWork
+    {
+        public int SaveChangesCalls { get; private set; }
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            SaveChangesCalls++;
+            return Task.FromResult(1);
+        }
+
+        public Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IUnitOfWorkTransaction>(new NoOpUnitOfWorkTransaction());
+    }
+
+    private sealed class ThrowingUnitOfWork(string constraintName) : IUnitOfWork
+    {
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+            throw new UniqueConstraintViolationException(constraintName, new InvalidOperationException("simulated 23505"));
+
+        public Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IUnitOfWorkTransaction>(new NoOpUnitOfWorkTransaction());
+    }
+
+    private sealed class NoOpUnitOfWorkTransaction : IUnitOfWorkTransaction
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RollbackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

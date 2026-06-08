@@ -1334,18 +1334,12 @@ internal static class WorkCenterRules
 
         if (workCenterType.RequiresAddress && string.IsNullOrWhiteSpace(address))
         {
-            return Result.Failure(new Error(
-                "WORK_CENTER_ADDRESS_REQUIRED",
-                "Address is required for the selected work center type.",
-                ErrorType.Validation));
+            return Result.Failure(LocationErrors.WorkCenterAddressRequired);
         }
 
         if (workCenterType.RequiresGeo && (!geoLat.HasValue || !geoLong.HasValue))
         {
-            return Result.Failure(new Error(
-                "WORK_CENTER_GEO_REQUIRED",
-                "Latitude and longitude are required for the selected work center type.",
-                ErrorType.Validation));
+            return Result.Failure(LocationErrors.WorkCenterGeoRequired);
         }
 
         if ((geoLat.HasValue && (geoLat.Value < -90m || geoLat.Value > 90m)) ||

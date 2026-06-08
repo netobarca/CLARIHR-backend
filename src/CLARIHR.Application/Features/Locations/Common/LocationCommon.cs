@@ -213,6 +213,19 @@ public static class LocationErrors
         "The provided latitude or longitude is outside the supported range.",
         ErrorType.Validation);
 
+    // WC-B: hoisted out of the inline `new Error(...)` in WorkCenterRules.ValidateAssignmentAsync into the
+    // catalog (next to InvalidCoordinates) so every WorkCenter assignment error lives in one place
+    // (mirror of LocationHierarchy H-003). Codes/messages unchanged → existing resx entries still apply.
+    public static readonly Error WorkCenterAddressRequired = new(
+        "WORK_CENTER_ADDRESS_REQUIRED",
+        "Address is required for the selected work center type.",
+        ErrorType.Validation);
+
+    public static readonly Error WorkCenterGeoRequired = new(
+        "WORK_CENTER_GEO_REQUIRED",
+        "Latitude and longitude are required for the selected work center type.",
+        ErrorType.Validation);
+
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(LocationPermissionCodes.ResourceKey, action);
 }
