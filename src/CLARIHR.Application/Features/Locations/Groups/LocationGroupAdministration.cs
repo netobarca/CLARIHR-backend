@@ -433,6 +433,14 @@ internal sealed class CreateLocationGroupCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsGroupCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): two concurrent creates with the same code both pass CodeExistsAsync;
+            // the second trips uq_location_groups__tenant_code → the same clean 409 as the probe (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<LocationGroupResponse>.Failure(LocationErrors.GroupCodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -516,6 +524,14 @@ internal sealed class UpdateLocationGroupCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsGroupCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): a concurrent rename to the same code trips
+            // uq_location_groups__tenant_code after CodeExistsAsync passed → 409 (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<LocationGroupResponse>.Failure(LocationErrors.GroupCodeConflict);
         }
         catch (InvalidOperationException)
         {
@@ -1038,6 +1054,14 @@ internal sealed class PatchLocationGroupCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationGroupResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsGroupCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): a concurrent patch to the same code trips
+            // uq_location_groups__tenant_code after CodeExistsAsync passed → 409 (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<LocationGroupResponse>.Failure(LocationErrors.GroupCodeConflict);
         }
         catch (InvalidOperationException)
         {

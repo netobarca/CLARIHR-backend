@@ -27,6 +27,12 @@ public static partial class LocationValidationRules
     // cannot drift apart (same pattern as LevelOrder above / CostCenters R2).
     public const string WorkCenterTypeCodeUniqueConstraintName = "uq_work_center_types__tenant_code";
 
+    // WCT-A (family alignment): same dup-code race guard for the remaining Locations catalogs that mutate a
+    // (TenantId, NormalizedCode) unique index — location groups and work centers — single-sourced so the EF
+    // config and the Create/Update/Patch 409 mapping stay in lock-step.
+    public const string GroupCodeUniqueConstraintName = "uq_location_groups__tenant_code";
+    public const string WorkCenterCodeUniqueConstraintName = "uq_work_centers__tenant_code";
+
     public static string NormalizeCountryCode(string countryCode) =>
         countryCode.Trim().ToUpperInvariant();
 
@@ -226,4 +232,13 @@ public static class LocationConstraintViolations
     // instead of letting the 23505 escape as an HTTP 500 (mirrors CostCenters R2).
     public static bool IsWorkCenterTypeCodeConflict(string? constraintName) =>
         string.Equals(constraintName, LocationValidationRules.WorkCenterTypeCodeUniqueConstraintName, StringComparison.Ordinal);
+
+    // WCT-A (family alignment): the (TenantId, NormalizedCode) unique index is the real guard against
+    // duplicate location-group codes; the up-front CodeExistsAsync probe only closes the sequential case.
+    public static bool IsGroupCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, LocationValidationRules.GroupCodeUniqueConstraintName, StringComparison.Ordinal);
+
+    // WCT-A (family alignment): same for work-center codes.
+    public static bool IsWorkCenterCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, LocationValidationRules.WorkCenterCodeUniqueConstraintName, StringComparison.Ordinal);
 }

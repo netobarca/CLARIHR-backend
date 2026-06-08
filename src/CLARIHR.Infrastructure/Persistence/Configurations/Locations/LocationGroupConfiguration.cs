@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -70,7 +71,7 @@ internal sealed class LocationGroupConfiguration : IEntityTypeConfiguration<Loca
 
         builder.HasIndex(group => new { group.TenantId, group.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_location_groups__tenant_code");
+            .HasDatabaseName(LocationValidationRules.GroupCodeUniqueConstraintName);
 
         builder.HasIndex(group => new { group.TenantId, group.ParentId, group.NormalizedName })
             .HasDatabaseName("ix_location_groups__tenant_parent_name");

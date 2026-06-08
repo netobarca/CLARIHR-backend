@@ -415,6 +415,14 @@ internal sealed class CreateWorkCenterCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): two concurrent creates with the same code both pass CodeExistsAsync;
+            // the second trips uq_work_centers__tenant_code → the same clean 409 as the probe (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterResponse>.Failure(LocationErrors.WorkCenterCodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -540,6 +548,14 @@ internal sealed class UpdateWorkCenterCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): a concurrent rename to the same code trips
+            // uq_work_centers__tenant_code after CodeExistsAsync passed → 409 (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterResponse>.Failure(LocationErrors.WorkCenterCodeConflict);
         }
         catch
         {
@@ -935,6 +951,14 @@ internal sealed class PatchWorkCenterCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<WorkCenterResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException exception)
+            when (LocationConstraintViolations.IsWorkCenterCodeConflict(exception.ConstraintName))
+        {
+            // WCT-A (family alignment): a concurrent patch to the same code trips
+            // uq_work_centers__tenant_code after CodeExistsAsync passed → 409 (CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<WorkCenterResponse>.Failure(LocationErrors.WorkCenterCodeConflict);
         }
         catch
         {
