@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.PositionSlots;
@@ -95,7 +96,7 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
 
         builder.HasIndex(slot => new { slot.TenantId, slot.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_position_slots__tenant_code");
+            .HasDatabaseName(PositionSlotValidationRules.CodeUniqueConstraintName);
 
         builder.HasIndex(slot => new { slot.TenantId, slot.Status })
             .HasDatabaseName("ix_position_slots__tenant_status");

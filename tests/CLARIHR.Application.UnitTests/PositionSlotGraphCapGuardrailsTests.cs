@@ -114,6 +114,9 @@ public sealed class PositionSlotGraphCapGuardrailsTests
             return Task.FromResult<IReadOnlyCollection<PositionSlotGraphNodeData>>(Array.Empty<PositionSlotGraphNodeData>());
         }
 
+        public Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<PositionSlotDependencyAdjacency>>(Array.Empty<PositionSlotDependencyAdjacency>());
+
         public Task<bool> ExistsOutsideTenantAsync(Guid slotId, CancellationToken cancellationToken) => Task.FromResult(false);
 
         // ----- rest of the interface — not exercised in these tests -----

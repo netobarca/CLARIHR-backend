@@ -10,6 +10,10 @@ public static partial class PositionSlotValidationRules
     public const int MaxPageSize = 100;
     public const int MaxGraphDepth = 15;
 
+    // PS-C: single-sourced so the EF index name (PositionSlotConfiguration.HasDatabaseName) and the
+    // UniqueConstraintViolationException guard (PositionSlotConstraintViolations) cannot drift apart.
+    public const string CodeUniqueConstraintName = "uq_position_slots__tenant_code";
+
     // Free-text search guardrail (§PS2): the repository fans a non-sargable LIKE '%x%'
     // across 7+ Normalized* columns on a 6-table join, in both Search and Export.
     // Aligned with the PDC §P2 precedent (MinSearchLength: 2) — see
@@ -90,9 +94,11 @@ public static class PositionSlotErrors
         "Another position slot already uses the requested code.",
         ErrorType.Conflict);
 
+    // PS-D: covers both the direct and the functional dependency (the functional side previously
+    // validated only self-reference); the message is dependency-type-agnostic.
     public static readonly Error DependencyCycle = new(
         "POSITION_SLOT_DEPENDENCY_CYCLE",
-        "The requested direct dependency would create a cycle.",
+        "The requested dependency would create a cycle.",
         ErrorType.Conflict);
 
     public static readonly Error DependencySelfReference = new(
@@ -144,6 +150,15 @@ public static class PositionSlotErrors
 
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(PositionSlotPermissionCodes.ResourceKey, action);
+}
+
+public static class PositionSlotConstraintViolations
+{
+    // PS-C: a concurrent create that loses the race to the (TenantId, NormalizedCode) unique index
+    // surfaces as this Postgres constraint; mapping it to a clean 409 mirrors CostCenters R2 /
+    // OrgUnits OU-004 / OrgStructureCatalogs OSC-005.
+    public static bool IsCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, PositionSlotValidationRules.CodeUniqueConstraintName, StringComparison.Ordinal);
 }
 
 public static class PositionSlotContractTypeRules

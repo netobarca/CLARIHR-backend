@@ -94,6 +94,7 @@ builder.Services.AddScoped<ConditionalRequestResultFilter>();
 builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
 builder.Services.AddScoped<ReportExportDeliveryService>();
 builder.Services.AddSingleton<OrgUnitDiagramWriter>();
+builder.Services.AddSingleton<PositionSlotDiagramWriter>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.EnableAnnotations();

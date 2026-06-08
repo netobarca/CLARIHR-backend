@@ -202,3 +202,19 @@ Auditoría persistida (dentro de la transacción) en los 4 commands de escritura
 - Provisión/i18n: `LocationSeedService.cs`, `BackendMessages(.es).resx`.
 - Pruebas: `LocationLevelPatchApplierTests.cs` (11), `LocationDomainTests.cs`, `LocationRulesTests.cs`, `LocationPaginationGuardrailsTests.cs`, `LocationRateLimitingGovernanceTests.cs`, `AuthorizationPolicyConventionGovernanceTests.cs`, `ConcurrencyTokenMappingGuardrailsTests.cs`, `OpenApiContractGuardrailsTests.cs`, `ApiIntegrationTests.cs` (≈3577-3732).
 - Ejecución: `dotnet build -c Release` → 0/0; `dotnet test --filter ~Location|~ConcurrencyTokenMappingGuardrails|~AuthorizationPolicyConventionGovernance` → **45/45 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-07)
+
+**Los 5 hallazgos cerrados** (4 vía la remediación del doc 13 —comparten vertical— + OBS-1 cerrado en esta sesión; OBS-3 aceptado por diseño). Verificación: build **0/0** · unit Location **35/35** · integración Locations (Levels+Hierarchy) **35/35**.
+
+> **Nota de inventario:** el PATCH `/location-levels/{id}` (JSON Patch de `/displayName`) fue **eliminado** por separado (era un PATCH degenerado de un solo campo). El controlador expone hoy **6 endpoints** (List, GetById, Create, Update, Activate, Inactivate); por tanto las referencias de §4/§6/§12 al `LocationLevelPatchApplier` y a los "11 casos de patch applier" quedan **obsoletas** (esa superficie ya no existe).
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **LV-001** | ✅ Cerrado | Cubierto por la remediación H-001 del doc 13: 9 tests de integración para los handlers de escritura de niveles (Create incl. 201, duplicate-order→409, allows-work-centers→409, Read→403; Update con If-Match/rotación de token; Activate/Inactivate; Inactivate-required→409 e Inactivate-has-active-groups→409) + el invariante single-level. Ejercitan las reglas work-centers-only-on-last-level, level-order-conflict, required-active, has-active-groups y el camino negativo de autz de función. |
+| **LV-002** | ✅ Cerrado | Idéntico a H-002 (doc 13): `CreateLocationLevelCommandHandler` atrapa `UniqueConstraintViolationException` (`when LocationConstraintViolations.IsLevelOrderConflict(ex.ConstraintName)`) → `409 LOCATION_LEVEL_ORDER_CONFLICT`; nombre de índice single-sourced en `LocationValidationRules.LevelOrderUniqueConstraintName`. |
+| **OBS-1** | ✅ Cerrado | Eliminados los re-checks inalcanzables `command.IsRequired && !command.IsActive` de `CreateLocationLevelCommandHandler` y `UpdateLocationLevelCommandHandler` (el validator los rechaza antes con **400** y el dominio `LocationLevel.Create/Update` lanza como backstop final → el re-check era código muerto que devolvía un **409** engañoso). Sustituidos por un comentario que documenta la decisión. Las reglas del handler que **sí** requieren DB (work-centers-last-level, last-active-level, has-active-groups, allows-WC-in-use) se conservan, igual que los usos **alcanzables** del mismo error en Activate/Inactivate. |
+| **OBS-2** | ✅ Cerrado | Idéntico a H-004 + H-005 (doc 13): `GetLevelsAsync` reescrito a `async`/`await` (`ToListAsync`, covarianza implícita), sin `ContinueWith`; eliminado el `OrderBy(LevelOrder)` redundante en memoria del list handler (la query SQL ya ordena). |
+| **OBS-3** | ➖ Aceptado | List sin paginación es **por diseño** (cardinalidad acotada ≈3/tenant); excluido de los guardrails de rate-limit/paginación. No se modifica. |
+
+**Pendiente:** commit (lo maneja el usuario). Sin migración ni cambios de resx (la eliminación del código muerto no altera el contrato HTTP: la combinación required-must-stay-active sigue devolviendo 400 vía validator).

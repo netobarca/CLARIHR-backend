@@ -8059,7 +8059,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(updated);
         Assert.Equal("Plaza Principal Actualizada", updated!.Title);
 
-        var dependenciesResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/dependencies", new
+        var dependenciesResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{primary.Id}/dependencies", new
         {
             directDependencyPositionSlotPublicId = dependency.Id,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
@@ -8070,7 +8070,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(withDependencies);
         Assert.Equal(dependency.Id, withDependencies!.DirectDependencyPositionSlotId);
 
-        var occupancyResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/occupancy", new
+        var occupancyResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{primary.Id}/occupancy", new
         {
             occupiedEmployees = 1,
             concurrencyToken = withDependencies.ConcurrencyToken
@@ -8081,7 +8081,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(PositionSlotStatus.Occupied, withOccupancy!.Status);
         Assert.Equal(1, withOccupancy.OccupiedEmployees);
 
-        var statusResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/status", new
+        var statusResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{primary.Id}/status", new
         {
             status = "Suspended",
             concurrencyToken = withOccupancy.ConcurrencyToken
@@ -8294,7 +8294,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var parent = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-A", "A", profile.Id, 1);
         var child = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-B", "B", profile.Id, 1);
 
-        var parentUpdateResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
+        var parentUpdateResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
         {
             directDependencyPositionSlotPublicId = child.Id,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
@@ -8302,7 +8302,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         parentUpdateResponse.EnsureSuccessStatusCode();
 
-        var cycleResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{child.Id}/dependencies", new
+        var cycleResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{child.Id}/dependencies", new
         {
             directDependencyPositionSlotPublicId = parent.Id,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
@@ -8310,6 +8310,64 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(cycleResponse, HttpStatusCode.Conflict, "POSITION_SLOT_DEPENDENCY_CYCLE");
+    }
+
+    // PS-D: the functional dependency is now validated against cycles symmetrically with the direct one.
+    [Fact]
+    public async Task PositionSlots_Dependencies_WhenFunctionalCycleDetected_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-FCYCLE", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-FCYCLE", "Perfil", orgUnit.Id);
+
+        var parent = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-FA", "A", profile.Id, 1);
+        var child = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-FB", "B", profile.Id, 1);
+
+        var parentUpdateResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
+        {
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = child.Id,
+            concurrencyToken = parent.ConcurrencyToken
+        });
+        parentUpdateResponse.EnsureSuccessStatusCode();
+
+        var cycleResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{child.Id}/dependencies", new
+        {
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = parent.Id,
+            concurrencyToken = child.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(cycleResponse, HttpStatusCode.Conflict, "POSITION_SLOT_DEPENDENCY_CYCLE");
+    }
+
+    // PS-A: the concurrency token is required in the If-Match header; omitting it (no body token for the
+    // helper to mirror) must be rejected with 400 before the handler runs.
+    [Fact]
+    public async Task PositionSlots_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOMATCH", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-NOMATCH", "Perfil", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-NOMATCH", "Plaza", profile.Id, 1);
+
+        var response = await client.PutJsonAsync($"/api/v1/position-slots/{slot.Id}", new
+        {
+            code = slot.Code,
+            title = "Plaza sin If-Match",
+            jobProfilePublicId = profile.Id,
+            workCenterPublicId = (Guid?)null,
+            maxEmployees = 1,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -8322,7 +8380,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CAP", "Perfil", orgUnit.Id);
         var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-CAP", "Capacidad", profile.Id, 1);
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/position-slots/{slot.Id}/occupancy", new
+        var response = await client.PatchJsonAsync($"/api/v1/position-slots/{slot.Id}/occupancy", new
         {
             occupiedEmployees = 2,
             concurrencyToken = slot.ConcurrencyToken

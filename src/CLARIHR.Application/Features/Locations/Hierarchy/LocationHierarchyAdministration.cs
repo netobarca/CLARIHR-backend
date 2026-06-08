@@ -283,11 +283,9 @@ internal sealed class CreateLocationLevelCommandHandler(
             return Result<LocationLevelResponse>.Failure(LocationErrors.LevelOrderConflict);
         }
 
-        if (command.IsRequired && !command.IsActive)
-        {
-            return Result<LocationLevelResponse>.Failure(LocationErrors.RequiredLevelMustRemainActive);
-        }
-
+        // The required-must-stay-active flag combination is rejected with 400 by CreateLocationLevelCommandValidator
+        // (RequestDispatcher runs validators first), and LocationLevel.Create throws as a final domain backstop — so
+        // a handler re-check here would be dead code returning a misleading 409. Kept out deliberately (OBS-1, doc 14).
         var highestActiveLevelOrder = await repository.GetHighestActiveLevelOrderAsync(command.CompanyId, excludingLevelId: null, cancellationToken);
         if (command.AllowsWorkCenters)
         {
@@ -384,11 +382,9 @@ internal sealed class UpdateLocationLevelCommandHandler(
         var levels = await repository.GetLevelsAsync(level.TenantId, cancellationToken);
         var otherActiveLevels = levels.Where(other => other.Id != level.Id && other.IsActive).ToArray();
 
-        if (command.IsRequired && !command.IsActive)
-        {
-            return Result<LocationLevelResponse>.Failure(LocationErrors.RequiredLevelMustRemainActive);
-        }
-
+        // The required-must-stay-active flag combination is rejected with 400 by UpdateLocationLevelCommandValidator
+        // (RequestDispatcher runs validators first), and LocationLevel.Update throws as a final domain backstop — so
+        // a handler re-check here would be dead code returning a misleading 409. Kept out deliberately (OBS-1, doc 14).
         if (!command.IsActive && otherActiveLevels.Length == 0)
         {
             return Result<LocationLevelResponse>.Failure(LocationErrors.LastActiveLevelRequired);

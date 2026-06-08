@@ -164,64 +164,57 @@ public sealed class PositionSlotDomainTests
     [Fact]
     public void PositionSlotDependencyAnalyzer_WouldCreateDirectCycle_ShouldReturnTrue()
     {
-        var a = new PositionSlotGraphNodeData(
-            1,
-            Guid.NewGuid(),
-            "PS-A",
-            "A",
-            PositionSlotStatus.Vacant,
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            true);
-
-        var b = new PositionSlotGraphNodeData(
-            2,
-            Guid.NewGuid(),
-            "PS-B",
-            "B",
-            PositionSlotStatus.Vacant,
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            null,
-            1,
-            a.Id,
-            null,
-            null,
-            null,
-            null,
-            true);
-
-        var c = new PositionSlotGraphNodeData(
-            3,
-            Guid.NewGuid(),
-            "PS-C",
-            "C",
-            PositionSlotStatus.Vacant,
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            null,
-            2,
-            b.Id,
-            null,
-            null,
-            null,
-            null,
-            true);
-
-        var graph = new[] { a, b, c }.ToDictionary(static node => node.InternalId);
+        // Direct chain c(3) -> b(2) -> a(1). Making a(1) depend on c(3) would close an a->c->b->a cycle.
+        var adjacency = new[]
+        {
+            new PositionSlotDependencyAdjacency(1, DirectDependencyInternalId: null, FunctionalDependencyInternalId: null),
+            new PositionSlotDependencyAdjacency(2, DirectDependencyInternalId: 1, FunctionalDependencyInternalId: null),
+            new PositionSlotDependencyAdjacency(3, DirectDependencyInternalId: 2, FunctionalDependencyInternalId: null),
+        }.ToDictionary(static node => node.InternalId);
 
         var createsCycle = PositionSlotDependencyAnalyzer.WouldCreateDirectCycle(
             sourceInternalId: 1,
-            candidateDirectDependencyInternalId: 3,
-            graph);
+            candidateInternalId: 3,
+            adjacency);
 
         Assert.True(createsCycle);
+    }
+
+    [Fact]
+    public void PositionSlotDependencyAnalyzer_WouldCreateFunctionalCycle_ShouldReturnTrue()
+    {
+        // PS-D: the functional chain is validated symmetrically with the direct chain.
+        var adjacency = new[]
+        {
+            new PositionSlotDependencyAdjacency(1, DirectDependencyInternalId: null, FunctionalDependencyInternalId: null),
+            new PositionSlotDependencyAdjacency(2, DirectDependencyInternalId: null, FunctionalDependencyInternalId: 1),
+            new PositionSlotDependencyAdjacency(3, DirectDependencyInternalId: null, FunctionalDependencyInternalId: 2),
+        }.ToDictionary(static node => node.InternalId);
+
+        var createsCycle = PositionSlotDependencyAnalyzer.WouldCreateFunctionalCycle(
+            sourceInternalId: 1,
+            candidateInternalId: 3,
+            adjacency);
+
+        Assert.True(createsCycle);
+    }
+
+    [Fact]
+    public void PositionSlotDependencyAnalyzer_WouldCreateFunctionalCycle_WhenOnlyDirectChain_ShouldReturnFalse()
+    {
+        // Relation types are independent: a direct-dependency chain must NOT trip the functional check.
+        var adjacency = new[]
+        {
+            new PositionSlotDependencyAdjacency(1, DirectDependencyInternalId: null, FunctionalDependencyInternalId: null),
+            new PositionSlotDependencyAdjacency(2, DirectDependencyInternalId: 1, FunctionalDependencyInternalId: null),
+            new PositionSlotDependencyAdjacency(3, DirectDependencyInternalId: 2, FunctionalDependencyInternalId: null),
+        }.ToDictionary(static node => node.InternalId);
+
+        var createsCycle = PositionSlotDependencyAnalyzer.WouldCreateFunctionalCycle(
+            sourceInternalId: 1,
+            candidateInternalId: 3,
+            adjacency);
+
+        Assert.False(createsCycle);
     }
 }

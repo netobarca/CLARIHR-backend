@@ -168,6 +168,16 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             .Where(slot => slot.TenantId == tenantId)
             .CountAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        await dbContext.Set<PositionSlot>()
+            .AsNoTracking()
+            .Where(slot => slot.TenantId == tenantId)
+            .Select(slot => new PositionSlotDependencyAdjacency(
+                slot.Id,
+                slot.DirectDependencyPositionSlotId,
+                slot.FunctionalDependencyPositionSlotId))
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var nodes = await BuildJoinedQuery()

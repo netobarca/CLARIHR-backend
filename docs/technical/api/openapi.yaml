@@ -30362,6 +30362,8 @@ paths:
       - name: pageSize
         in: query
         schema:
+          maximum: 100
+          minimum: 1
           type: integer
           format: int32
           default: 20
@@ -30436,10 +30438,12 @@ paths:
       - Position Slots
       summary: Create a position slot
       description: |-
-        Creates a position slot under the company and returns `201 Created`. The slot
-        references a job profile and optionally a role, work center and direct/functional
-        dependency slots (by public id). Business-rule violations (e.g. duplicate code,
-        dependency cycle) yield `409`/`422`. Domain capacity/date rules are validated.
+        Creates a position slot under the company and returns `201 Created` with the
+        `Location` header pointing to the new resource and the `ETag` header carrying its
+        initial `concurrencyToken`. The slot references a job profile and optionally a role,
+        work center and direct/functional dependency slots (by public id). Business-rule
+        violations (e.g. duplicate code, dependency cycle) yield `409`/`422`. Domain
+        capacity/date rules are validated.
 
         **Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
@@ -30553,7 +30557,8 @@ paths:
       description: |-
         Returns a single position slot by its public id. The owning company is
         resolved from the authenticated tenant; a slot belonging to another tenant
-        yields `404`. The `concurrencyToken` is emitted as the `ETag` header.
+        yields `404`. The current `concurrencyToken` is emitted as the `ETag` header
+        for use in the `If-Match` header of subsequent updates.
 
         **Requires permission:** one of `PositionSlots.Read`, `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
@@ -30619,14 +30624,20 @@ paths:
       description: |-
         Replaces the editable fields of a position slot (code, title, job profile,
         role, work center, capacity, effective dates, notes). Requires the current
-        `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`. Domain
-        capacity/date violations yield `422`.
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409
+        CONCURRENCY_CONFLICT`). Domain capacity/date violations yield `422`. The
+        refreshed token is returned in the body and the `ETag` header.
 
         **Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
       - name: publicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -31110,14 +31121,20 @@ paths:
       summary: Change a position slot's status
       description: |-
         Transitions the slot status (e.g. Vacant/Occupied/Suspended). Requires the
-        current `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
-        Occupancy is reconciled with the target status by the domain.
+        current `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+        `409 CONCURRENCY_CONFLICT`). Occupancy is reconciled with the target status by
+        the domain. The refreshed token is returned in the body and the `ETag` header.
 
         **Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
       - name: publicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -31212,14 +31229,21 @@ paths:
       summary: Update a position slot's dependencies
       description: |-
         Sets the direct and/or functional dependency slots (by public id). A change
-        that would introduce a dependency cycle yields `409`. Requires the current
-        `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
+        that would introduce a dependency cycle (direct or functional) yields `409`.
+        Requires the current `concurrencyToken` in the `If-Match` header (missing →
+        `400`, stale → `409 CONCURRENCY_CONFLICT`). The refreshed token is returned in
+        the body and the `ETag` header.
 
         **Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
       - name: publicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -31314,14 +31338,20 @@ paths:
       summary: Update a position slot's occupancy
       description: |-
         Sets the number of occupied employees for the slot. A value exceeding the
-        slot's capacity yields `422`. Requires the current `concurrencyToken`; a
-        stale token yields `409 CONCURRENCY_CONFLICT`.
+        slot's capacity yields `422`. Requires the current `concurrencyToken` in the
+        `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). The
+        refreshed token is returned in the body and the `ETag` header.
 
         **Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`.
       parameters:
       - name: publicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -38060,9 +38090,6 @@ components:
           type: string
           format: uuid
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
       additionalProperties: false
     UpdatePositionSlotOccupancyRequest:
       type: object
@@ -38070,9 +38097,6 @@ components:
         occupiedEmployees:
           type: integer
           format: int32
-        concurrencyToken:
-          type: string
-          format: uuid
       additionalProperties: false
     UpdatePositionSlotRequest:
       type: object
@@ -38107,9 +38131,6 @@ components:
         notes:
           type: string
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
         normalizedCode:
           type: string
           readOnly: true
@@ -38119,9 +38140,6 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/PositionSlotStatus'
-        concurrencyToken:
-          type: string
-          format: uuid
       additionalProperties: false
     ApprovalRequest:
       type: object

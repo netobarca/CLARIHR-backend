@@ -1,9 +1,8 @@
 using Asp.Versioning;
-using System.Globalization;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.Json;
-using System.Xml;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -29,7 +28,8 @@ namespace CLARIHR.Api.Controllers;
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService,
+    PositionSlotDiagramWriter diagramWriter) : ControllerBase
 {
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Search)]
     [HttpGet("companies/{companyId:guid}/position-slots")]
@@ -54,7 +54,7 @@ public sealed class PositionSlotsController(
         [FromQuery] Guid? contractTypeId,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PositionSlotValidationRules.DefaultPageSize,
+        [FromQuery, Range(1, PositionSlotValidationRules.MaxPageSize)] int pageSize = PositionSlotValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -83,12 +83,13 @@ public sealed class PositionSlotsController(
         Description = """
             Returns a single position slot by its public id. The owning company is
             resolved from the authenticated tenant; a slot belonging to another tenant
-            yields `404`. The `concurrencyToken` is emitted as the `ETag` header.
+            yields `404`. The current `concurrencyToken` is emitted as the `ETag` header
+            for use in the `If-Match` header of subsequent updates.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetPositionSlotByIdQuery(id), cancellationToken);
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
 
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
@@ -173,7 +174,7 @@ public sealed class PositionSlotsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var graphml = BuildGraphMl(graphResult.Value);
+            var graphml = diagramWriter.WriteGraphMl(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "position-slots-diagram.graphml");
         }
 
@@ -188,7 +189,7 @@ public sealed class PositionSlotsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var json = JsonSerializer.Serialize(graphResult.Value);
+            var json = diagramWriter.WriteJson(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(json), "application/json", "position-slots-diagram.json");
         }
 
@@ -203,7 +204,7 @@ public sealed class PositionSlotsController(
                 graphResult.Value.Nodes.Count,
                 cancellationToken);
 
-            var dot = BuildDot(graphResult.Value);
+            var dot = diagramWriter.WriteDot(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "position-slots-diagram.dot");
         }
 
@@ -286,10 +287,12 @@ public sealed class PositionSlotsController(
     [SwaggerOperation(
         Summary = "Create a position slot",
         Description = """
-            Creates a position slot under the company and returns `201 Created`. The slot
-            references a job profile and optionally a role, work center and direct/functional
-            dependency slots (by public id). Business-rule violations (e.g. duplicate code,
-            dependency cycle) yield `409`/`422`. Domain capacity/date rules are validated.
+            Creates a position slot under the company and returns `201 Created` with the
+            `Location` header pointing to the new resource and the `ETag` header carrying its
+            initial `concurrencyToken`. The slot references a job profile and optionally a role,
+            work center and direct/functional dependency slots (by public id). Business-rule
+            violations (e.g. duplicate code, dependency cycle) yield `409`/`422`. Domain
+            capacity/date rules are validated.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> Create(
         Guid companyId,
@@ -314,9 +317,13 @@ public sealed class PositionSlotsController(
                 request.Notes),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<PositionSlotResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
+        // `{publicId}`, so the Location route value MUST be keyed `publicId` (not `id`).
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("position-slots/{id:guid}")]
@@ -327,11 +334,13 @@ public sealed class PositionSlotsController(
         Description = """
             Replaces the editable fields of a position slot (code, title, job profile,
             role, work center, capacity, effective dates, notes). Requires the current
-            `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`. Domain
-            capacity/date violations yield `422`.
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409
+            CONCURRENCY_CONFLICT`). Domain capacity/date violations yield `422`. The refreshed
+            token is returned in the body and the `ETag` header.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> Update(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdatePositionSlotRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -347,10 +356,10 @@ public sealed class PositionSlotsController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.Notes,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
 
     [HttpPatch("position-slots/{id:guid}/status")]
@@ -360,19 +369,21 @@ public sealed class PositionSlotsController(
         Summary = "Change a position slot's status",
         Description = """
             Transitions the slot status (e.g. Vacant/Occupied/Suspended). Requires the
-            current `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
-            Occupancy is reconciled with the target status by the domain.
+            current `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+            `409 CONCURRENCY_CONFLICT`). Occupancy is reconciled with the target status by the
+            domain. The refreshed token is returned in the body and the `ETag` header.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateStatus(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdatePositionSlotStatusRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdatePositionSlotStatusCommand(id, request.Status, request.ConcurrencyToken),
+            new UpdatePositionSlotStatusCommand(id, request.Status, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
 
     [HttpPatch("position-slots/{id:guid}/dependencies")]
@@ -382,11 +393,14 @@ public sealed class PositionSlotsController(
         Summary = "Update a position slot's dependencies",
         Description = """
             Sets the direct and/or functional dependency slots (by public id). A change
-            that would introduce a dependency cycle yields `409`. Requires the current
-            `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
+            that would introduce a dependency cycle (direct or functional) yields `409`.
+            Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`,
+            stale → `409 CONCURRENCY_CONFLICT`). The refreshed token is returned in the body
+            and the `ETag` header.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateDependencies(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdatePositionSlotDependenciesRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -395,10 +409,10 @@ public sealed class PositionSlotsController(
                 id,
                 request.DirectDependencyPositionSlotPublicId,
                 request.FunctionalDependencyPositionSlotPublicId,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
 
     [HttpPatch("position-slots/{id:guid}/occupancy")]
@@ -408,124 +422,22 @@ public sealed class PositionSlotsController(
         Summary = "Update a position slot's occupancy",
         Description = """
             Sets the number of occupied employees for the slot. A value exceeding the
-            slot's capacity yields `422`. Requires the current `concurrencyToken`; a
-            stale token yields `409 CONCURRENCY_CONFLICT`.
+            slot's capacity yields `422`. Requires the current `concurrencyToken` in the
+            `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). The
+            refreshed token is returned in the body and the `ETag` header.
             """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateOccupancy(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdatePositionSlotOccupancyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdatePositionSlotOccupancyCommand(id, request.OccupiedEmployees, request.ConcurrencyToken),
+            new UpdatePositionSlotOccupancyCommand(id, request.OccupiedEmployees, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
-
-    private static string BuildDot(PositionSlotGraphResponse graph)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine("digraph PositionSlots {");
-
-        foreach (var node in graph.Nodes.OrderBy(static node => node.Code))
-        {
-            var label = EscapeDot($"{node.Code} - {node.Label}");
-            builder.AppendLine($"  \"{node.Id:D}\" [label=\"{label}\"];\n");
-        }
-
-        foreach (var edge in graph.Edges)
-        {
-            builder.AppendLine(
-                $"  \"{edge.FromId:D}\" -> \"{edge.ToId:D}\" [label=\"{edge.RelationType}\"];\n");
-        }
-
-        builder.AppendLine("}");
-        return builder.ToString();
-    }
-
-    private static string BuildGraphMl(PositionSlotGraphResponse graph)
-    {
-        var settings = new XmlWriterSettings
-        {
-            OmitXmlDeclaration = false,
-            Encoding = Encoding.UTF8,
-            Indent = true
-        };
-
-        using var stream = new MemoryStream();
-        using (var writer = XmlWriter.Create(stream, settings))
-        {
-            writer.WriteStartDocument();
-            writer.WriteStartElement("graphml", "http://graphml.graphdrawing.org/xmlns");
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "d0");
-            writer.WriteAttributeString("for", "node");
-            writer.WriteAttributeString("attr.name", "label");
-            writer.WriteAttributeString("attr.type", "string");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "d1");
-            writer.WriteAttributeString("for", "node");
-            writer.WriteAttributeString("attr.name", "status");
-            writer.WriteAttributeString("attr.type", "string");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("key");
-            writer.WriteAttributeString("id", "d2");
-            writer.WriteAttributeString("for", "edge");
-            writer.WriteAttributeString("attr.name", "relationType");
-            writer.WriteAttributeString("attr.type", "string");
-            writer.WriteEndElement();
-
-            writer.WriteStartElement("graph");
-            writer.WriteAttributeString("id", "G");
-            writer.WriteAttributeString("edgedefault", "directed");
-
-            foreach (var node in graph.Nodes)
-            {
-                writer.WriteStartElement("node");
-                writer.WriteAttributeString("id", node.Id.ToString("D", CultureInfo.InvariantCulture));
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "d0");
-                writer.WriteString($"{node.Code} - {node.Label}");
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "d1");
-                writer.WriteString(node.Status.ToString());
-                writer.WriteEndElement();
-
-                writer.WriteEndElement();
-            }
-
-            var index = 0;
-            foreach (var edge in graph.Edges)
-            {
-                writer.WriteStartElement("edge");
-                writer.WriteAttributeString("id", $"e{index++}");
-                writer.WriteAttributeString("source", edge.FromId.ToString("D", CultureInfo.InvariantCulture));
-                writer.WriteAttributeString("target", edge.ToId.ToString("D", CultureInfo.InvariantCulture));
-
-                writer.WriteStartElement("data");
-                writer.WriteAttributeString("key", "d2");
-                writer.WriteString(edge.RelationType.ToString());
-                writer.WriteEndElement();
-
-                writer.WriteEndElement();
-            }
-
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-            writer.WriteEndDocument();
-        }
-
-        return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    private static string EscapeDot(string value) => value.Replace("\"", "\\\"");
 
     public sealed record CreatePositionSlotRequest(
         string Code,
@@ -542,6 +454,8 @@ public sealed class PositionSlotsController(
         DateTime? EffectiveToUtc,
         string? Notes);
 
+    // PS-A: the concurrency token now travels in the `If-Match` header (not the body), so these
+    // request DTOs no longer carry it.
     public sealed record UpdatePositionSlotRequest(
         string Code,
         string? Title,
@@ -551,15 +465,13 @@ public sealed class PositionSlotsController(
         int MaxEmployees,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
-        string? Notes,
-        Guid ConcurrencyToken);
+        string? Notes);
 
-    public sealed record UpdatePositionSlotStatusRequest(PositionSlotStatus Status, Guid ConcurrencyToken);
+    public sealed record UpdatePositionSlotStatusRequest(PositionSlotStatus Status);
 
     public sealed record UpdatePositionSlotDependenciesRequest(
         Guid? DirectDependencyPositionSlotPublicId,
-        Guid? FunctionalDependencyPositionSlotPublicId,
-        Guid ConcurrencyToken);
+        Guid? FunctionalDependencyPositionSlotPublicId);
 
-    public sealed record UpdatePositionSlotOccupancyRequest(int OccupiedEmployees, Guid ConcurrencyToken);
+    public sealed record UpdatePositionSlotOccupancyRequest(int OccupiedEmployees);
 }

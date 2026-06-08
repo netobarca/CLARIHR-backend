@@ -728,6 +728,14 @@ internal sealed class CreatePositionSlotCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<PositionSlotResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException exception) when (PositionSlotConstraintViolations.IsCodeConflict(exception.ConstraintName))
+        {
+            // PS-C: two concurrent creates with the same code both pass CodeExistsAsync; the second
+            // trips the (TenantId, NormalizedCode) unique index → the same clean 409 as the probe
+            // (mirrors CostCenters R2 / OrgUnits OU-004).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -1044,11 +1052,24 @@ internal sealed class UpdatePositionSlotDependenciesCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencySelfReference);
         }
 
-        if (directDependencyResult.Value.HasValue)
+        if (directDependencyResult.Value.HasValue || functionalDependencyResult.Value.HasValue)
         {
-            var graph = await repository.GetGraphNodesAsync(slot.TenantId, cancellationToken);
-            var byInternalId = graph.ToDictionary(static node => node.InternalId);
-            if (PositionSlotDependencyAnalyzer.WouldCreateDirectCycle(slot.Id, directDependencyResult.Value.Value, byInternalId))
+            // PS-G: the cycle check walks only the dependency adjacency (internal ids) loaded via a
+            // lean single-table projection — NOT the wide 8-table graph join the read path uses — so a
+            // large tenant does not pay the full graph load on a dependency mutation.
+            var adjacency = await repository.GetDependencyAdjacencyAsync(slot.TenantId, cancellationToken);
+            var byInternalId = adjacency.ToDictionary(static node => node.InternalId);
+
+            if (directDependencyResult.Value.HasValue &&
+                PositionSlotDependencyAnalyzer.WouldCreateDirectCycle(slot.Id, directDependencyResult.Value.Value, byInternalId))
+            {
+                return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
+            }
+
+            // PS-D: validate the functional dependency against cycles symmetrically with the direct
+            // dependency (previously only self-reference was checked on the functional side).
+            if (functionalDependencyResult.Value.HasValue &&
+                PositionSlotDependencyAnalyzer.WouldCreateFunctionalCycle(slot.Id, functionalDependencyResult.Value.Value, byInternalId))
             {
                 return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencyCycle);
             }
@@ -1218,15 +1239,38 @@ internal static class PositionSlotPolicyAdapter
     }
 }
 
+// PS-G: a lean per-tenant dependency adjacency row (internal ids only), projected from the
+// position_slots table alone — no wide join. Used by the cycle check on dependency mutations.
+public sealed record PositionSlotDependencyAdjacency(
+    long InternalId,
+    long? DirectDependencyInternalId,
+    long? FunctionalDependencyInternalId);
+
 internal static class PositionSlotDependencyAnalyzer
 {
     public static bool WouldCreateDirectCycle(
         long sourceInternalId,
-        long candidateDirectDependencyInternalId,
-        IReadOnlyDictionary<long, PositionSlotGraphNodeData> byInternalId)
+        long candidateInternalId,
+        IReadOnlyDictionary<long, PositionSlotDependencyAdjacency> byInternalId) =>
+        WouldCreateCycle(sourceInternalId, candidateInternalId, byInternalId, static node => node.DirectDependencyInternalId);
+
+    public static bool WouldCreateFunctionalCycle(
+        long sourceInternalId,
+        long candidateInternalId,
+        IReadOnlyDictionary<long, PositionSlotDependencyAdjacency> byInternalId) =>
+        WouldCreateCycle(sourceInternalId, candidateInternalId, byInternalId, static node => node.FunctionalDependencyInternalId);
+
+    // Walks the dependency chain of the same relation type starting from the candidate. If it loops
+    // back to the source (or revisits a node — a pre-existing cycle), adding source→candidate would
+    // close a cycle. The visited set bounds the walk to the number of distinct nodes in the chain.
+    private static bool WouldCreateCycle(
+        long sourceInternalId,
+        long candidateInternalId,
+        IReadOnlyDictionary<long, PositionSlotDependencyAdjacency> byInternalId,
+        Func<PositionSlotDependencyAdjacency, long?> next)
     {
         var visited = new HashSet<long>();
-        long? cursor = candidateDirectDependencyInternalId;
+        long? cursor = candidateInternalId;
 
         while (cursor.HasValue)
         {
@@ -1245,7 +1289,7 @@ internal static class PositionSlotDependencyAnalyzer
                 break;
             }
 
-            cursor = node.DirectDependencyInternalId;
+            cursor = next(node);
         }
 
         return false;

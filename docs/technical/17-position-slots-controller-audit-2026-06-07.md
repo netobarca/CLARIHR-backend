@@ -214,3 +214,21 @@ Compila; sin secretos hardcodeados; localización completa (resx en+es, mapping 
 - Seguridad/reportes: `PositionSlotAuthorizationService.cs` (`EvaluateAccessAsync`), `Program.cs` (policies + rate-limit), `PositionSlotsExportHandler.cs`, `ReportExportResourceAuthorizer.cs`.
 - Pruebas: `PositionSlotDomainTests.cs`, `PositionSlotAuthorizationServiceTests.cs`, `PositionSlotAdministrationTests.cs`, `PositionSlotDomainErrorMappingGuardrailsTests.cs`, `PositionSlotGraphCapGuardrailsTests.cs`, `PositionSlotSearchValidatorTests.cs`, `ApiIntegrationTests.cs` (11 PositionSlots_* métodos).
 - Ejecución: `dotnet test --filter ~PositionSlot|~RateLimitingGovernance|~OpenApiContractGuardrails|~AuthorizationPolicyConventionGovernance|~ConcurrencyTokenMappingGuardrails` → **167/167 passed** (sesión 2026-06-07).
+
+## 13. Estado de remediación (2026-06-07, uncommitted)
+
+**Los 7 hallazgos cerrados** (PS-A…PS-G), decididos por el usuario: **PS-A/PS-B = alineación canónica completa incl. el breaking `If-Match`** (coherente con OrgStructureCatalogs doc 16) y **PS-D = ciclos funcionales tratados como inválidos** (extender el cycle-check). Verificación: build **0/0** · unit **1696/1696** (incl. nuevos) · integración PositionSlots **14/14** · guardrails de contrato (OpenAPI/Public) **7/7** · `openapi.yaml` editado (sección PositionSlots) y validado. **Sin migración** (el nombre del índice no cambia, sólo se single-sourcea) · **resx**: 1 mensaje generalizado (en+es).
+
+> ⚠️ **BREAKING (frontend debe actualizar):** las 4 mutaciones (`PUT` + `PATCH /status·/dependencies·/occupancy`) ahora reciben el `concurrencyToken` en el header **`If-Match`** (ya no en el body). `Create` devuelve `201 + Location + ETag`; `GET by id` emite el `ETag`.
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **PS-A** | ✅ Cerrado | Las 4 mutaciones migradas a `[FromIfMatch] Guid concurrencyToken` + `ToActionResultWithETag`; `GetById` → `ToActionResultWithETag` (emite el `ETag` real, el Swagger ya es veraz); `ConcurrencyToken` eliminado de los 4 request DTOs. Integración: las 12 pruebas migradas (`PutJsonAsync`/`PatchJsonAsync` espejan el token al header) + nueva `PositionSlots_Update_WithoutIfMatch_ShouldReturn400`. |
+| **PS-B** | ✅ Cerrado | `Create` usa `ToCreatedAtActionResult(nameof(GetById), publicId, ConcurrencyToken)` → `201 + Location + ETag` (antes `StatusCode(201, value)` plano). |
+| **PS-C** | ✅ Cerrado | `CreatePositionSlotCommandHandler` atrapa `UniqueConstraintViolationException when PositionSlotConstraintViolations.IsCodeConflict(...)` → `409 POSITION_SLOT_CODE_CONFLICT`; nombre de índice **single-sourced** en `PositionSlotValidationRules.CodeUniqueConstraintName` (usado por `PositionSlotConfiguration.HasDatabaseName` + el helper; valor idéntico → **sin migración**). |
+| **PS-D** | ✅ Cerrado | La dependencia **funcional** ahora se valida contra ciclos simétricamente con la directa: `PositionSlotDependencyAnalyzer` generalizado (`WouldCreateDirectCycle`/`WouldCreateFunctionalCycle` sobre un selector); el handler evalúa ambas → `409 POSITION_SLOT_DEPENDENCY_CYCLE`. Mensaje del error generalizado (en+es) a "dependency" (ya no "direct"). +3 unit del analyzer + integración `PositionSlots_Dependencies_WhenFunctionalCycleDetected_ShouldReturn409Conflict`. |
+| **PS-E** | ✅ Cerrado | Serialización GraphML/DOT/JSON extraída a `PositionSlotDiagramWriter` (stateless, `CLARIHR.Api.Common`, `AddSingleton`); el controller sólo despacha formato + audit. `EscapeDot` ahora escapa `\` **antes** que `"` (defecto real corregido) y se eliminó el doble salto de línea. +5 unit `PositionSlotDiagramWriterTests`. |
+| **PS-F** | ✅ Cerrado | `[Range(1, PositionSlotValidationRules.MaxPageSize)]` en `Search.pageSize` + nuevo `PositionSlotPaginationGuardrailsTests` (estructural `^PositionSlot`). **Guardrails de familia ahora 5/5.** `openapi.yaml`: `minimum:1/maximum:100` en `pageSize`. |
+| **PS-G** | ✅ Cerrado | El cycle-check de `/dependencies` ya **no** carga el wide-join de 8 tablas (`GetGraphNodesAsync`): nuevo `IPositionSlotRepository.GetDependencyAdjacencyAsync` (proyección de 1 tabla, sólo ids de adyacencia) alimenta el analyzer. Resuelve PS-G y habilita PS-D en una sola carga ligera. |
+
+**Pendiente:** commit (lo maneja el usuario). El cambio de contrato es **breaking** para el frontend (concurrencia por `If-Match`).

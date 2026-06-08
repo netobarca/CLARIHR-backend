@@ -461,6 +461,8 @@ public sealed class FinalizePersonnelFileTests
 
         public Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();

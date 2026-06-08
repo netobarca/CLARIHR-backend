@@ -617,6 +617,16 @@ public sealed class PositionSlotAdministrationTests
         public Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<PositionSlotDependencyAdjacency>>(
+                _slots.Values
+                    .Where(slot => slot.TenantId == tenantId)
+                    .Select(slot => new PositionSlotDependencyAdjacency(
+                        slot.Id,
+                        slot.DirectDependencyPositionSlotId,
+                        slot.FunctionalDependencyPositionSlotId))
+                    .ToArray());
+
         public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(
             Guid tenantId,
             PositionSlotStatus? status,

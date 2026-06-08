@@ -683,7 +683,7 @@
     <value>The cost center inferred from the job profile organization unit does not exist or is inactive for the company.</value>
   </data>
   <data name="POSITION_SLOT_DEPENDENCY_CYCLE" xml:space="preserve">
-    <value>The requested direct dependency would create a cycle.</value>
+    <value>The requested dependency would create a cycle.</value>
   </data>
   <data name="POSITION_SLOT_DEPENDENCY_NOT_FOUND" xml:space="preserve">
     <value>The selected dependency position slot could not be found.</value>

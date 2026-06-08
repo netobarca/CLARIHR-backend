@@ -40,6 +40,10 @@ public interface IPositionSlotRepository
 
     Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken);
 
+    // PS-G: lean dependency adjacency (internal ids only) for the dependency-mutation cycle check —
+    // avoids the wide 8-table join that GetGraphNodesAsync performs for the read/diagram path.
+    Task<IReadOnlyCollection<PositionSlotDependencyAdjacency>> GetDependencyAdjacencyAsync(Guid tenantId, CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(
         Guid tenantId,
         PositionSlotStatus? status,
