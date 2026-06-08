@@ -5,6 +5,7 @@ using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
@@ -14,6 +15,7 @@ using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
+using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -49,7 +51,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     // former CompetencyFrameworkController) and stays [Authorize]-only — requiring
     // [AuthorizationPolicySet(JobProfilePolicies...)] would be the wrong policy pair.
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrganizationUnits)", RegexOptions.Compiled);
+        new(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrganizationUnits|OrganizationStructureCatalogs)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {
@@ -101,6 +103,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         OrgUnitPolicies.Read,
         OrgUnitPolicies.Manage,
+    };
+
+    private static readonly HashSet<string> OrgStructureCatalogPolicyNames = new(StringComparer.Ordinal)
+    {
+        OrgStructureCatalogPolicies.Read,
+        OrgStructureCatalogPolicies.Manage,
     };
 
     private static IReadOnlyList<(Type Controller, AuthorizationPolicySetAttribute? Marker)> Controllers() =>
@@ -193,6 +201,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 OrgUnitPolicyNames.Contains(entry.Marker.ReadPolicy) &&
                 OrgUnitPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
+
+        if (AnyHandlerInjects(typeof(IOrgStructureCatalogAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                OrgStructureCatalogPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                OrgStructureCatalogPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
     }
 
     /// <summary>
@@ -239,6 +254,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(LocationPolicyNames);
         valid.UnionWith(LegalRepresentativePolicyNames);
         valid.UnionWith(OrgUnitPolicyNames);
+        valid.UnionWith(OrgStructureCatalogPolicyNames);
 
         var invalid = Controllers()
             .Where(static entry => entry.Marker is not null)

@@ -60,6 +60,13 @@ public interface IOrgStructureCatalogRepository
 
     Task<bool> HasOrgUnitsUsingFunctionalAreaAsync(long functionalAreaCatalogItemId, CancellationToken cancellationToken);
 
+    // OSC-002: set-based batch "which of these catalog public ids are in use" — replaces the per-item
+    // GetXByIdAsync + dependency probes (~3 queries/item) in the includeAllowedActions list enrichment
+    // with a single round trip. Returns the subset of the input public ids that are in use.
+    Task<IReadOnlySet<Guid>> GetOrgUnitTypePublicIdsInUseAsync(IReadOnlyCollection<Guid> publicIds, CancellationToken cancellationToken);
+
+    Task<IReadOnlySet<Guid>> GetFunctionalAreaPublicIdsInUseAsync(IReadOnlyCollection<Guid> publicIds, CancellationToken cancellationToken);
+
     Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(
         long countryCatalogItemId,
         Guid companyTypeId,

@@ -4822,7 +4822,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         _ = await EnsureOrgUnitTypeAsync(adminClient, scenario.TenantId, "Direccion");
 
         using var readClient = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
-        var response = await readClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/unit-types?page=1&pageSize=20");
+        var response = await readClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-structure-catalogs/unit-types?page=1&pageSize=20");
 
         response.EnsureSuccessStatusCode();
 
@@ -4872,12 +4872,114 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         createOrgUnitResponse.EnsureSuccessStatusCode();
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/org-structure-catalogs/functional-areas/{functionalArea.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/organization-structure-catalogs/functional-areas/{functionalArea.Id}/inactivate", new
         {
             concurrencyToken = functionalArea.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_STRUCTURE_CATALOG_IN_USE");
+    }
+
+    // OSC-006: canonical coverage for the post-alignment contract (201+Location+ETag, If-Match update,
+    // duplicate-code 409, tenant-mismatch 403) — the catalog controller is now canonical like OrgUnits.
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_Create_ShouldReturn201WithLocationAndETag()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-structure-catalogs/unit-types", new
+        {
+            code = "CANON-1",
+            name = "Canonical Type",
+            description = (string?)null,
+            sortOrder = 1
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+        Assert.NotNull(response.Headers.ETag);
+
+        var payload = await response.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("CANON-1", payload!.Code);
+        Assert.True(payload.IsActive);
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_Update_WithValidIfMatch_ShouldApplyAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var created = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "DIR");
+
+        var response = await client.PutJsonAsync($"/api/v1/organization-structure-catalogs/unit-types/{created.Id}", new
+        {
+            code = created.Code,
+            name = "Renamed Type",
+            description = "Updated",
+            sortOrder = 9,
+            concurrencyToken = created.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var updated = await response.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Renamed Type", updated!.Name);
+        Assert.Equal(9, updated.SortOrder);
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_Update_WithStaleIfMatch_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var created = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "DIR");
+
+        var response = await client.PutJsonAsync($"/api/v1/organization-structure-catalogs/unit-types/{created.Id}", new
+        {
+            code = created.Code,
+            name = "Stale Update",
+            description = (string?)null,
+            sortOrder = 1,
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_Create_WithDuplicateCode_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        _ = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "DUP");
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/organization-structure-catalogs/unit-types", new
+        {
+            code = "DUP",
+            name = "Other Type",
+            description = (string?)null,
+            sortOrder = 2
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_STRUCTURE_CATALOG_CODE_CONFLICT");
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_List_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/organization-structure-catalogs/unit-types?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
     }
 
     [Fact]
@@ -5102,11 +5204,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         _ = await CreateJobCatalogItemAsync(catalogClient, scenario.TenantId, JobCatalogCategory.EducationLevel, "EDU-AA", "Educacion AllowedActions");
 
         var orgUnitTypesList = await catalogClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/unit-types?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/organization-structure-catalogs/unit-types?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(orgUnitTypesList);
 
         var functionalAreasList = await catalogClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/functional-areas?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/organization-structure-catalogs/functional-areas?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(functionalAreasList);
 
         var positionFunctionTypesList = await catalogClient.GetAsync(
@@ -10216,7 +10318,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private async Task<OrgStructureCatalogItem> EnsureOrgUnitTypeAsync(HttpClient client, Guid companyId, string code)
     {
-        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/organization-structure-catalogs/unit-types?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
@@ -10228,7 +10330,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/organization-structure-catalogs/unit-types", new
         {
             code,
             name = code,
@@ -10244,7 +10346,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private async Task<OrgStructureCatalogItem> EnsureFunctionalAreaAsync(HttpClient client, Guid companyId, string code)
     {
-        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/organization-structure-catalogs/functional-areas?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
@@ -10256,7 +10358,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/organization-structure-catalogs/functional-areas", new
         {
             code,
             name = code,

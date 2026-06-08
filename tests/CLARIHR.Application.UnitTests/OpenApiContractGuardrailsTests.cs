@@ -51,6 +51,7 @@ public sealed class OpenApiContractGuardrailsTests
         ("LocationHierarchy", new Regex(@"^LocationHierarchy", RegexOptions.Compiled), "Location Hierarchy"),
         ("LegalRepresentatives", new Regex(@"^LegalRepresentatives", RegexOptions.Compiled), "Legal Representatives"),
         ("OrganizationUnits", new Regex(@"^OrganizationUnits", RegexOptions.Compiled), "Organization Units"),
+        ("OrganizationStructureCatalogs", new Regex(@"^OrganizationStructureCatalogs", RegexOptions.Compiled), "Organization Structure Catalogs"),
         // PersonnelFileBackground, PersonnelFileInterests, PersonnelFilePersonalInfo, PersonnelFileTalent,
         // PersonnelFileCompensation, PersonnelFileEmployment, PersonnelFileDocuments and
         // PersonnelFileReporting are the canonicalised PersonnelFiles sub-resource / reporting controllers.

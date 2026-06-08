@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Infrastructure.Persistence;
@@ -158,7 +159,7 @@ internal sealed class OrgUnitTypeCatalogItemConfiguration : IEntityTypeConfigura
 
         builder.HasIndex(item => new { item.TenantId, item.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_org_unit_type_catalog_items__tenant_code");
+            .HasDatabaseName(OrgStructureCatalogValidationRules.UnitTypeCodeUniqueConstraintName);
 
         builder.HasIndex(item => new { item.TenantId, item.NormalizedName })
             .HasDatabaseName("ix_org_unit_type_catalog_items__tenant_name");
@@ -228,7 +229,7 @@ internal sealed class FunctionalAreaCatalogItemConfiguration : IEntityTypeConfig
 
         builder.HasIndex(item => new { item.TenantId, item.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_functional_area_catalog_items__tenant_code");
+            .HasDatabaseName(OrgStructureCatalogValidationRules.FunctionalAreaCodeUniqueConstraintName);
 
         builder.HasIndex(item => new { item.TenantId, item.NormalizedName })
             .HasDatabaseName("ix_functional_area_catalog_items__tenant_name");

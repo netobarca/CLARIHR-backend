@@ -140,7 +140,10 @@ internal sealed class SearchOrgUnitTypesQueryValidator : AbstractValidator<Searc
     public SearchOrgUnitTypesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(OrgStructureCatalogValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {OrgStructureCatalogValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgStructureCatalogValidationRules.MaxPageSize);
     }
@@ -210,7 +213,10 @@ internal sealed class SearchFunctionalAreasQueryValidator : AbstractValidator<Se
     public SearchFunctionalAreasQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(150)
+            .Must(OrgStructureCatalogValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {OrgStructureCatalogValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgStructureCatalogValidationRules.MaxPageSize);
     }
@@ -302,26 +308,19 @@ internal sealed class SearchOrgUnitTypesQueryHandler(
         if (query.IncludeAllowedActions)
         {
             var canManage = (await authorizationService.EnsureCanManageTenantAsync(query.CompanyId, cancellationToken)).IsSuccess;
-            var enrichedItems = new List<OrgUnitTypeCatalogItemResponse>(response.Items.Count);
 
-            foreach (var item in response.Items)
-            {
-                var hasDependencies = false;
-                if (item.IsActive)
-                {
-                    var entity = await repository.GetOrgUnitTypeByIdAsync(item.Id, cancellationToken);
-                    hasDependencies = entity is not null &&
-                        (await repository.HasOrgUnitsUsingOrgUnitTypeAsync(entity.Id, cancellationToken) ||
-                         await repository.HasPositionCategoryClassificationsUsingOrgUnitTypeAsync(entity.Id, cancellationToken));
-                }
+            // OSC-002: batch the in-use check for the active items of the page in a single set-based query
+            // instead of ~3 probes per item.
+            var activeIds = response.Items.Where(item => item.IsActive).Select(item => item.Id).ToArray();
+            var inUse = await repository.GetOrgUnitTypePublicIdsInUseAsync(activeIds, cancellationToken);
 
-                enrichedItems.Add(
-                    OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
-                        item,
-                        resourceActionPolicyService,
-                        canManage,
-                        hasDependencies));
-            }
+            var enrichedItems = response.Items
+                .Select(item => OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
+                    item,
+                    resourceActionPolicyService,
+                    canManage,
+                    item.IsActive && inUse.Contains(item.Id)))
+                .ToList();
 
             response = new PagedResponse<OrgUnitTypeCatalogItemResponse>(
                 enrichedItems,
@@ -418,6 +417,11 @@ internal sealed class CreateOrgUnitTypeCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitTypeCatalogItemResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException ex) when (OrgStructureCatalogConstraintViolations.IsUnitTypeCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogCodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -496,6 +500,11 @@ internal sealed class UpdateOrgUnitTypeCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitTypeCatalogItemResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException ex) when (OrgStructureCatalogConstraintViolations.IsUnitTypeCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogCodeConflict);
         }
         catch
         {
@@ -684,25 +693,19 @@ internal sealed class SearchFunctionalAreasQueryHandler(
         if (query.IncludeAllowedActions)
         {
             var canManage = (await authorizationService.EnsureCanManageTenantAsync(query.CompanyId, cancellationToken)).IsSuccess;
-            var enrichedItems = new List<FunctionalAreaCatalogItemResponse>(response.Items.Count);
 
-            foreach (var item in response.Items)
-            {
-                var hasDependencies = false;
-                if (item.IsActive)
-                {
-                    var entity = await repository.GetFunctionalAreaByIdAsync(item.Id, cancellationToken);
-                    hasDependencies = entity is not null &&
-                        await repository.HasOrgUnitsUsingFunctionalAreaAsync(entity.Id, cancellationToken);
-                }
+            // OSC-002: batch the in-use check for the active items of the page in a single set-based query
+            // instead of ~2 probes per item.
+            var activeIds = response.Items.Where(item => item.IsActive).Select(item => item.Id).ToArray();
+            var inUse = await repository.GetFunctionalAreaPublicIdsInUseAsync(activeIds, cancellationToken);
 
-                enrichedItems.Add(
-                    OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
-                        item,
-                        resourceActionPolicyService,
-                        canManage,
-                        hasDependencies));
-            }
+            var enrichedItems = response.Items
+                .Select(item => OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
+                    item,
+                    resourceActionPolicyService,
+                    canManage,
+                    item.IsActive && inUse.Contains(item.Id)))
+                .ToList();
 
             response = new PagedResponse<FunctionalAreaCatalogItemResponse>(
                 enrichedItems,
@@ -755,6 +758,19 @@ internal static class OrgStructureCatalogPolicyAdapter
                 ActivateAllowed: canManage,
                 SupportsInactivate: true,
                 InactivateAllowed: canManage));
+}
+
+internal static class OrgStructureCatalogConstraintViolations
+{
+    // OSC-005: the (TenantId, NormalizedCode) unique indexes are the real guard against duplicate codes;
+    // the up-front CodeExistsAsync probe only closes the common (sequential) case. On a concurrent
+    // create/update of the same code, the second writer trips the index — map it to the same clean 409 as
+    // the probe instead of letting the 23505 escape as an HTTP 500 (mirrors OrgUnits OU-004).
+    public static bool IsUnitTypeCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, OrgStructureCatalogValidationRules.UnitTypeCodeUniqueConstraintName, StringComparison.Ordinal);
+
+    public static bool IsFunctionalAreaCodeConflict(string? constraintName) =>
+        string.Equals(constraintName, OrgStructureCatalogValidationRules.FunctionalAreaCodeUniqueConstraintName, StringComparison.Ordinal);
 }
 
 internal sealed class GetFunctionalAreaByIdQueryHandler(
@@ -841,6 +857,11 @@ internal sealed class CreateFunctionalAreaCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<FunctionalAreaCatalogItemResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException ex) when (OrgStructureCatalogConstraintViolations.IsFunctionalAreaCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogCodeConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -919,6 +940,11 @@ internal sealed class UpdateFunctionalAreaCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<FunctionalAreaCatalogItemResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException ex) when (OrgStructureCatalogConstraintViolations.IsFunctionalAreaCodeConflict(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogCodeConflict);
         }
         catch
         {

@@ -1227,6 +1227,12 @@ public sealed class AccountCompanyAdministrationTests
         public Task<bool> HasOrgUnitsUsingFunctionalAreaAsync(long functionalAreaCatalogItemId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<IReadOnlySet<Guid>> GetOrgUnitTypePublicIdsInUseAsync(IReadOnlyCollection<Guid> publicIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
+        public Task<IReadOnlySet<Guid>> GetFunctionalAreaPublicIdsInUseAsync(IReadOnlyCollection<Guid> publicIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
         public Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(long countryCatalogItemId, Guid companyTypeId, CancellationToken cancellationToken) =>
             Task.FromResult<CatalogReferenceLookup?>(null);
 

@@ -227,6 +227,46 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
             orgUnit => orgUnit.FunctionalAreaCatalogItemId == functionalAreaCatalogItemId && orgUnit.IsActive,
             cancellationToken);
 
+    public async Task<IReadOnlySet<Guid>> GetOrgUnitTypePublicIdsInUseAsync(
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken)
+    {
+        if (publicIds.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var inUse = await dbContext.OrgUnitTypeCatalogItems.AsNoTracking()
+            .Where(item => publicIds.Contains(item.PublicId))
+            .Where(item =>
+                dbContext.OrgUnits.Any(orgUnit => orgUnit.OrgUnitTypeCatalogItemId == item.Id && orgUnit.IsActive) ||
+                dbContext.PositionCategoryClassifications.Any(classification =>
+                    classification.OrgUnitTypeCatalogItemId == item.Id && classification.IsActive))
+            .Select(item => item.PublicId)
+            .ToListAsync(cancellationToken);
+
+        return inUse.ToHashSet();
+    }
+
+    public async Task<IReadOnlySet<Guid>> GetFunctionalAreaPublicIdsInUseAsync(
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken)
+    {
+        if (publicIds.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var inUse = await dbContext.FunctionalAreaCatalogItems.AsNoTracking()
+            .Where(item => publicIds.Contains(item.PublicId))
+            .Where(item =>
+                dbContext.OrgUnits.Any(orgUnit => orgUnit.FunctionalAreaCatalogItemId == item.Id && orgUnit.IsActive))
+            .Select(item => item.PublicId)
+            .ToListAsync(cancellationToken);
+
+        return inUse.ToHashSet();
+    }
+
     public Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(
         long countryCatalogItemId,
         Guid companyTypeId,
