@@ -149,6 +149,11 @@ public static class AuditEventTypes
     public const string LocationLevelActivated = "LOCATION_LEVEL_ACTIVATED";
     public const string LocationLevelInactivated = "LOCATION_LEVEL_INACTIVATED";
 
+    // CP-C: company-level configuration change (currency / time zone). Audited like the other
+    // tenant-scoped admin controllers. UserPreferences stays un-audited by design — it is self-scoped
+    // and the audit log is tenant-scoped (see audit doc 23).
+    public const string CompanyPreferencesUpdated = "COMPANY_PREFERENCES_UPDATED";
+
     public static readonly IReadOnlyCollection<string> All =
     [
         UserCreated,
@@ -296,7 +301,8 @@ public static class AuditEventTypes
         LocationLevelCreated,
         LocationLevelUpdated,
         LocationLevelActivated,
-        LocationLevelInactivated
+        LocationLevelInactivated,
+        CompanyPreferencesUpdated
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -351,6 +357,7 @@ public static class AuditEntityTypes
     public const string WorkCenterType = "WorkCenterType";
     public const string LocationHierarchy = "LocationHierarchy";
     public const string LocationLevel = "LocationLevel";
+    public const string CompanyPreference = "CompanyPreference";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -390,7 +397,8 @@ public static class AuditEntityTypes
         WorkCenter,
         WorkCenterType,
         LocationHierarchy,
-        LocationLevel
+        LocationLevel,
+        CompanyPreference
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

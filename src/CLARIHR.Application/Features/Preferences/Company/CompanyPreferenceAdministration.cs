@@ -1,9 +1,11 @@
 using System.Text.Json;
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Preferences.Common;
 using CLARIHR.Domain.Preferences;
 using FluentValidation;
@@ -106,6 +108,7 @@ internal sealed class GetCompanyPreferencesQueryHandler(
 internal sealed class UpdateCompanyPreferencesCommandHandler(
     ICompanyPreferenceAuthorizationService authorizationService,
     ICompanyPreferenceRepository companyPreferenceRepository,
+    IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<UpdateCompanyPreferencesCommand, CompanyPreferenceResponse>
 {
@@ -130,16 +133,24 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
             return Result<CompanyPreferenceResponse>.Failure(PreferenceErrors.ConcurrencyConflict);
         }
 
-        preference.Update(command.CurrencyCode, command.TimeZone);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        var before = CompanyPreferenceAdministrationHelpers.Map(preference);
 
-        return Result<CompanyPreferenceResponse>.Success(CompanyPreferenceAdministrationHelpers.Map(preference));
+        return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
+            preference,
+            command.CompanyId,
+            command.CurrencyCode,
+            command.TimeZone,
+            before,
+            auditService,
+            unitOfWork,
+            cancellationToken);
     }
 }
 
 internal sealed class PatchCompanyPreferencesCommandHandler(
     ICompanyPreferenceAuthorizationService authorizationService,
     ICompanyPreferenceRepository companyPreferenceRepository,
+    IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<PatchCompanyPreferencesCommand, CompanyPreferenceResponse>
 {
@@ -180,16 +191,24 @@ internal sealed class PatchCompanyPreferencesCommandHandler(
 
         if (!state.HasMutation)
         {
+            // No effective change → nothing to persist or audit; return the current state unchanged.
             return Result<CompanyPreferenceResponse>.Success(CompanyPreferenceAdministrationHelpers.Map(preference));
         }
+
+        var before = CompanyPreferenceAdministrationHelpers.Map(preference);
 
         // Scalar-only patch: currencyCode/timeZone are the entity's only mutable fields and are
         // re-normalized + re-validated by Update exactly as the PUT path does. The applier already
         // enforced the same length rules (currencyCode == 3, timeZone <= 100) before we get here.
-        preference.Update(state.CurrencyCode, state.TimeZone);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result<CompanyPreferenceResponse>.Success(CompanyPreferenceAdministrationHelpers.Map(preference));
+        return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
+            preference,
+            command.CompanyId,
+            state.CurrencyCode,
+            state.TimeZone,
+            before,
+            auditService,
+            unitOfWork,
+            cancellationToken);
     }
 }
 
@@ -375,4 +394,51 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);
+
+    // CP-C: shared mutate-and-audit path for PUT and PATCH (both reduce to "set currency + time zone").
+    // Mirrors the tenant-scoped admin handlers (CostCenters/WorkCenterTypes/LocationGroups/OrgUnits): the
+    // mutation and the audit row are written in one transaction with a SaveChanges after the log entry
+    // (§LG1), so EF's optimistic concurrency token still surfaces a stale write as a 409 and the audit row
+    // never orphans. Uses LogForTenantAsync(companyId) because the authorization step already proved
+    // companyId == the JWT tenant (so no ITenantContext dependency is needed here).
+    public static async Task<Result<CompanyPreferenceResponse>> ApplyUpdateAndAuditAsync(
+        CompanyPreference preference,
+        Guid companyId,
+        string currencyCode,
+        string timeZone,
+        CompanyPreferenceResponse before,
+        IAuditService auditService,
+        IUnitOfWork unitOfWork,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            preference.Update(currencyCode, timeZone);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = Map(preference);
+            await auditService.LogForTenantAsync(
+                companyId,
+                new AuditLogEntry(
+                    AuditEventTypes.CompanyPreferencesUpdated,
+                    AuditEntityTypes.CompanyPreference,
+                    preference.PublicId,
+                    after.CurrencyCode,
+                    AuditActions.Update,
+                    $"Updated company preferences (currency {after.CurrencyCode}, time zone {after.TimeZone}).",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<CompanyPreferenceResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 }

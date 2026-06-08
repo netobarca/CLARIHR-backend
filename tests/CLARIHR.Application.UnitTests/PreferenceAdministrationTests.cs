@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Preferences.Common;
 using CLARIHR.Application.Features.Preferences.Company;
 using CLARIHR.Application.Features.Preferences.User;
@@ -413,8 +414,9 @@ public sealed class CompanyPreferenceAdministrationTests
 
         var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
         var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
             new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", Guid.NewGuid()),
@@ -423,6 +425,7 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.True(result.IsFailure);
         Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
         Assert.Equal(0, unitOfWork.SaveChangesCalls);
+        Assert.Empty(auditService.TenantEntries); // a rejected write is never audited
     }
 
     [Fact]
@@ -435,8 +438,9 @@ public sealed class CompanyPreferenceAdministrationTests
 
         var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
         var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
             new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", expectedToken),
@@ -445,7 +449,19 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.True(result.IsSuccess);
         Assert.Equal("EUR", result.Value.CurrencyCode);
         Assert.Equal("Europe/Madrid", result.Value.TimeZone);
-        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+        Assert.Equal(2, unitOfWork.SaveChangesCalls); // CP-C: 1 for the mutation + 1 for the audit row
+
+        // CP-C: the change is audited under the company tenant with a before/after snapshot.
+        var audited = Assert.Single(auditService.TenantEntries);
+        Assert.Equal(tenantId, audited.TenantId);
+        Assert.Equal(AuditEventTypes.CompanyPreferencesUpdated, audited.Entry.EventType);
+        Assert.Equal(AuditEntityTypes.CompanyPreference, audited.Entry.EntityType);
+        Assert.Equal(preference.PublicId, audited.Entry.EntityId);
+        Assert.Equal(AuditActions.Update, audited.Entry.Action);
+        var auditedBefore = Assert.IsType<CompanyPreferenceResponse>(audited.Entry.Before);
+        Assert.Equal("USD", auditedBefore.CurrencyCode);
+        var auditedAfter = Assert.IsType<CompanyPreferenceResponse>(audited.Entry.After);
+        Assert.Equal("EUR", auditedAfter.CurrencyCode);
     }
 
     [Fact]
@@ -457,8 +473,9 @@ public sealed class CompanyPreferenceAdministrationTests
 
         var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
         var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
             new PatchCompanyPreferencesCommand(
@@ -470,6 +487,7 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.True(result.IsFailure);
         Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
         Assert.Equal(0, unitOfWork.SaveChangesCalls);
+        Assert.Empty(auditService.TenantEntries); // a rejected patch is never audited
     }
 
     [Fact]
@@ -482,8 +500,9 @@ public sealed class CompanyPreferenceAdministrationTests
 
         var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
         var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
             new PatchCompanyPreferencesCommand(
@@ -499,7 +518,14 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.Equal("EUR", result.Value.CurrencyCode);
         Assert.Equal("Europe/Madrid", result.Value.TimeZone);
         Assert.NotEqual(expectedToken, result.Value.ConcurrencyToken);
-        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+        Assert.Equal(2, unitOfWork.SaveChangesCalls); // CP-C: 1 for the mutation + 1 for the audit row
+
+        // CP-C: the patch is audited under the company tenant.
+        var audited = Assert.Single(auditService.TenantEntries);
+        Assert.Equal(tenantId, audited.TenantId);
+        Assert.Equal(AuditEventTypes.CompanyPreferencesUpdated, audited.Entry.EventType);
+        Assert.Equal(AuditEntityTypes.CompanyPreference, audited.Entry.EntityType);
+        Assert.Equal(preference.PublicId, audited.Entry.EntityId);
     }
 
     [Fact]
@@ -512,8 +538,9 @@ public sealed class CompanyPreferenceAdministrationTests
 
         var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
         var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
             new PatchCompanyPreferencesCommand(
@@ -524,6 +551,7 @@ public sealed class CompanyPreferenceAdministrationTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(0, unitOfWork.SaveChangesCalls);
+        Assert.Empty(auditService.TenantEntries); // a rejected patch is never audited
     }
 
     private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>

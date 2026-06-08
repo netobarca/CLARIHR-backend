@@ -1522,6 +1522,99 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task CompanyPreferences_Get_WhenTenantMismatch_ShouldReturnForbidden()
+    {
+        // CP-B (anti-IDOR): a user authenticated for tenant A cannot read tenant B's preferences by
+        // swapping the {companyId} in the path. The handler-gated authorization service fails closed on
+        // the tenant mismatch (403 TENANT_MISMATCH) before the singleton is ever read — even though the
+        // caller carries CompanyPreferences.Admin in its own tenant.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/preferences");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_WhenTenantMismatch_ShouldReturnForbidden()
+    {
+        // CP-B (anti-IDOR): the manage path is gated identically. A syntactically valid If-Match is
+        // supplied so the request reaches the handler; authorization still rejects the cross-tenant
+        // write (403 TENANT_MISMATCH) before any concurrency check or persistence.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.OtherTenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = "EUR", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Get_WhenMissingPermission_ShouldReturnForbidden()
+    {
+        // CP-B: a user in the correct tenant but with no CompanyPreferences permission (and no matching
+        // IAM grant) is denied. Exercises the REAL authorization service's RBAC fallback — claims miss →
+        // TenantPermissionGrantEvaluator finds no grant → 403 COMPANY_PREFERENCES_FORBIDDEN. The seeded
+        // actor's role only grants Users/AuditLogs, never CompanyPreferences.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/preferences");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_PREFERENCES_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_ShouldPersistAuditLog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = "EUR", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = (await updateResponse.Content.ReadFromJsonAsync<CompanyPreferenceItem>(JsonOptions))!;
+
+        // CP-C: the mutation handler must SaveChanges the audit entry before committing the transaction
+        // (§LG1) — assert the COMPANY_PREFERENCES_UPDATED row actually reached the database under the
+        // company tenant (AuditService.LogForTenantAsync only Adds; without the second SaveChanges the
+        // audit trail would be silently lost).
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var auditLog = await dbContext.AuditLogs
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(log => log.EntityId == updated.Id && log.EventType == "COMPANY_PREFERENCES_UPDATED");
+
+        Assert.NotNull(auditLog);
+        Assert.Equal("CompanyPreference", auditLog!.EntityType);
+        Assert.Equal(scenario.TenantId, auditLog.TenantId);
+    }
+
     private async Task<CompanyPreferenceItem> GetCompanyPreferenceAsync(HttpClient client, Guid tenantId)
     {
         var response = await client.GetAsync($"/api/v1/companies/{tenantId}/preferences");

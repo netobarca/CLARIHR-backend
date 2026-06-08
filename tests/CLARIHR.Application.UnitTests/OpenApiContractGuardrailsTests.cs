@@ -68,6 +68,15 @@ public sealed class OpenApiContractGuardrailsTests
         // handler-gated authz keeps it out of GovernedFamilyRegex by design, but it is still a public
         // contract family. `^CompanyUsers` matches only CompanyUsersController (not CompanyPreferences).
         ("CompanyUsers", new Regex(@"^CompanyUsers", RegexOptions.Compiled), "Company Users"),
+        // CompanyPreferencesController is the per-tenant singleton (currency + time zone) under
+        // /companies/{companyId}/preferences. Its authz is handler-gated via
+        // ICompanyPreferenceAuthorizationService (Read/Manage RBAC + tenant-match anti-IDOR), so it stays
+        // out of GovernedFamilyRegex by design (the Preferences family is handler-gated — the team's
+        // documented choice, NO [AuthorizationPolicySet]), but it is fully canonical
+        // ([Tags]/[SwaggerOperation]/[ProducesStandardErrors]) and a public OpenAPI surface. Enrolled for
+        // CP-A so a regression of that canonicity fails CI. `^CompanyPreferences` matches only
+        // CompanyPreferencesController (CompanyUsers starts with "CompanyUsers", a disjoint prefix).
+        ("CompanyPreferences", new Regex(@"^CompanyPreferences", RegexOptions.Compiled), "Company Preferences"),
         // FilesController is an infrastructure controller (handler-gated authz, kept out of
         // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^Files` matches only
         // FilesController (PersonnelFile* controllers start with "PersonnelFile", not "Files").
