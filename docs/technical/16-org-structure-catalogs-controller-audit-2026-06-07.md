@@ -16,6 +16,7 @@ Veredicto: **APROBADO CON OBSERVACIONES**. 0 críticos / 0 altos. La **seguridad
 | Unit tests (OrgStructureCatalog + guardrails, **ejecutados**) | ✅ 53/53 passed |
 | Integration tests dedicados (revisados, no ejecutados) | **2** (cobertura delgada) |
 | Hallazgos | 0 Crít · 0 Alto · **2 Media · 4 Baja · 2 Observación** |
+| **Estado de remediación (2026-06-07, uncommitted)** | ✅ **LOS 8 HALLAZGOS RESUELTOS** (OSC-001…OSC-008). Alineación canónica completa (incl. ambos breaking: If-Match + rename de ruta). build 0/0 (solución) · unit 1687/1687 · integración compila (tests requieren DB) · **sin migraciones · sin resx**. ⚠️ Breaking: ruta `org-structure-catalogs`→`organization-structure-catalogs` + concurrencia body-token→`If-Match` (frontend debe actualizar). `openapi.yaml`: paths renombrados mecánicamente; **la sección requiere regen completa** por el cambio de contrato (Tag/If-Match/ETag/Swagger). |
 
 > **Nota de build (fuera de alcance):** durante la sesión se observó una edición **en curso, sin commitear**, en la vertical de **Locations** (`LocationHierarchyAdministration.cs`, `LocationLevelsController.cs`) que **elimina el endpoint JSON-Patch de LocationLevels** (acción, `PatchLocationLevelCommand`, `LocationLevelPatchOperation`, `LocationLevelPatchApplier`/`State` y sus tests). Provocó un break de compilación transitorio; al finalizar la edición el build y los 53 tests relevantes quedaron verdes. **No forma parte de OrgStructureCatalogs**; se reporta por transparencia.
 
@@ -187,14 +188,14 @@ Compila (ver nota de build §1 sobre la edición en curso de Locations). Sin sec
 
 | ID | Severidad | Categoría | Hallazgo | Esfuerzo | Prioridad | Acción |
 |---|---|---|---|---|---|---|
-| OSC-001 | Media | Contrato | Pre-canónico (7 desviaciones) | Medio | Alta | Alineación canónica (§11) |
-| OSC-002 | Media | Rendimiento | N+1 en includeAllowedActions | Medio | Media | Batch set-based de dependencias |
-| OSC-003 | Baja | Gobernanza | No enrolado en guardrails | Bajo | Media | Enrolar Families + GovernedFamilyRegex |
-| OSC-004 | Baja | Rendimiento | Sin MinSearchLength | Bajo | Baja | `MinSearchLength=2` |
-| OSC-005 | Baja | Concurrencia | Race dup-code → 500 | Bajo | Baja | Catch UniqueConstraintViolationException→409 |
-| OSC-006 | Baja | Pruebas | Integración mínima (2/10) | Medio | Baja | Completar set canónico |
-| OSC-007 | Obs | Rendimiento | Search sin rate-limit | Bajo | Baja | Evaluar al alinear |
-| OSC-008 | Obs | Naming | "Org" + sin Tag | Bajo/Medio | Baja | Tag "Organization Structure Catalogs" (ruta breaking) |
+| OSC-001 | Media | Contrato | Pre-canónico (7 desviaciones) | Medio | Alta | ✅ **RESUELTO**: controller canónico (ApiVersion/Tags/AuthorizationPolicySet/SwaggerOperation/ProducesStandardErrors + If-Match + 201/Location/ETag) + `OrgStructureCatalogPolicies` wireadas |
+| OSC-002 | Media | Rendimiento | N+1 en includeAllowedActions | Medio | Media | ✅ **RESUELTO**: `GetXPublicIdsInUseAsync` batch set-based (1 query) en ambos Search |
+| OSC-003 | Baja | Gobernanza | No enrolado en guardrails | Bajo | Media | ✅ **RESUELTO**: Families + GovernedFamilyRegex + pagination + rate-limit governance tests |
+| OSC-004 | Baja | Rendimiento | Sin MinSearchLength | Bajo | Baja | ✅ **RESUELTO**: `MinSearchLength=2` ambos validators + `OrgStructureCatalogSearchValidatorTests` |
+| OSC-005 | Baja | Concurrencia | Race dup-code → 500 | Bajo | Baja | ✅ **RESUELTO**: catch `UniqueConstraintViolationException`→409 (Create+Update ×2 catálogos, índices single-sourced) |
+| OSC-006 | Baja | Pruebas | Integración mínima (2/10) | Medio | Baja | ✅ **RESUELTO**: +5 integ tests (201/Location/ETag, If-Match update happy/stale, dup-code 409, tenant 403) + 2 existentes migrados |
+| OSC-007 | Obs | Rendimiento | Search sin rate-limit | Bajo | Baja | ✅ **RESUELTO**: `org-structure-catalogs-search` 120 + `[EnableRateLimiting]` + governance test |
+| OSC-008 | Obs | Naming | "Org" + sin Tag | Bajo/Medio | Baja | ✅ **RESUELTO**: Tag/clase/ruta→"Organization Structure Catalogs"/`organization-structure-catalogs` (breaking) + module label |
 
 ## 10. Veredicto del controlador
 
