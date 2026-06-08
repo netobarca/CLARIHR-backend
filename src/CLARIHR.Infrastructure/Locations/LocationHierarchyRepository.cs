@@ -23,13 +23,12 @@ internal sealed class LocationHierarchyRepository(ApplicationDbContext dbContext
             .IgnoreQueryFilters()
             .AnyAsync(config => config.PublicId == configId, cancellationToken);
 
-    public Task<IReadOnlyList<LocationLevel>> GetLevelsAsync(Guid tenantId, CancellationToken cancellationToken) =>
-        dbContext.LocationLevels
+    public async Task<IReadOnlyList<LocationLevel>> GetLevelsAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        await dbContext.LocationLevels
             .AsNoTracking()
             .Where(level => level.TenantId == tenantId)
             .OrderBy(level => level.LevelOrder)
-            .ToListAsync(cancellationToken)
-            .ContinueWith(static task => (IReadOnlyList<LocationLevel>)task.Result, cancellationToken);
+            .ToListAsync(cancellationToken);
 
     public Task<LocationLevel?> GetLevelByIdAsync(Guid levelId, CancellationToken cancellationToken) =>
         dbContext.LocationLevels.SingleOrDefaultAsync(level => level.PublicId == levelId, cancellationToken);

@@ -212,3 +212,17 @@ Auditoría persistida (`LogAsync` + `SaveChanges` dentro de la transacción) en 
 - Provisión/i18n: `LocationSeedService.cs`, `BackendMessages(.es).resx`.
 - Pruebas: `LocationRulesTests.cs`, `LocationDomainTests.cs`, `LocationLevelPatchApplierTests.cs`, `LocationPaginationGuardrailsTests.cs`, `LocationRateLimitingGovernanceTests.cs`, `AuthorizationPolicyConventionGovernanceTests.cs`, `ConcurrencyTokenMappingGuardrailsTests.cs`, `OpenApiContractGuardrailsTests.cs`, `ApiIntegrationTests.cs` (líneas ≈3494-3732).
 - Ejecución: `dotnet build -c Release` → 0/0; `dotnet test --filter ~Location|~ConcurrencyTokenMappingGuardrails|~AuthorizationPolicyConventionGovernance` → **45/45 passed**.
+
+## 13. Estado de remediación (2026-06-07, uncommitted)
+
+**Los 5 hallazgos cerrados.** Verificación global: build **0/0** · unit **1687/0** · integración Locations (Levels+Hierarchy) **16/16**. (Nota: el PATCH de niveles que figuraba en el inventario §4 fue **eliminado** por separado en esta sesión —era un PATCH degenerado de un solo campo `/displayName`—; ya no forma parte de la superficie.)
+
+| ID | Estado | Remediación |
+|---|---|---|
+| **H-001** | ✅ Cerrado | 9 tests de integración nuevos para los handlers de escritura de niveles + la regla single-level + el negativo de autz de función: `LocationLevels_Create_ShouldReturnCreatedLevel`, `_Create_WithDuplicateLevelOrder_ShouldReturn409`, `_Create_WhenAllowsWorkCentersButAnotherLevelAlreadyDoes_ShouldReturn409`, `_Create_WhenReadOnlyUser_ShouldReturn403`, `_Update_WithValidIfMatch_ShouldReconfigureAndRotateToken`, `_ActivateAndInactivate_ShouldToggleActiveState`, `_Inactivate_WhenLevelIsRequired_ShouldReturn409`, `_Inactivate_WhenLevelHasActiveGroups_ShouldReturn409`, `LocationHierarchy_UpdateToSingleLevel_WithMultipleActiveLevels_ShouldReturn409`. Cubren las reglas work-centers-only-on-last-level, level-order-conflict, required-active, has-active-groups, single-level=1-activo, y el camino Read→403 en Manage. |
+| **H-002** | ✅ Cerrado | `CreateLocationLevelCommandHandler` ahora atrapa `UniqueConstraintViolationException` (vía `when LocationConstraintViolations.IsLevelOrderConflict(ex.ConstraintName)`) y devuelve `409 LOCATION_LEVEL_ORDER_CONFLICT`, mirror de CostCenters R2. Nombre del índice **single-sourced** en `LocationValidationRules.LevelOrderUniqueConstraintName`, usado tanto por `LocationLevelConfiguration.HasDatabaseName(...)` como por el helper de comparación. |
+| **H-003** | ✅ Cerrado | El error inline `LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL` se movió a `LocationErrors.SingleLevelRequiresOneActiveLevel` (mensaje sin cambios → resx en/es existentes intactas). |
+| **H-004** | ✅ Cerrado | `LocationHierarchyRepository.GetLevelsAsync` reescrito a `async`/`await` (`ToListAsync`, covarianza implícita `List<T>`→`IReadOnlyList<T>`); eliminado el `.ContinueWith(...)`. |
+| **H-005** | ✅ Cerrado | Eliminado el `.OrderBy(level => level.LevelOrder)` redundante en `GetLocationLevelsQueryHandler` (la query SQL ya ordena por `LevelOrder`); comentario que documenta el orden garantizado por SQL. |
+
+**Pendiente:** commit (lo maneja el usuario). Sin migración (los cambios son de aplicación/infra-config + tests; el nombre del índice no cambia, sólo se single-sourcea).

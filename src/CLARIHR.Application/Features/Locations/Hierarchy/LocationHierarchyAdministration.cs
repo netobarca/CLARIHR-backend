@@ -195,10 +195,7 @@ internal sealed class UpdateLocationHierarchyConfigCommandHandler(
         var levels = await repository.GetLevelsAsync(command.CompanyId, cancellationToken);
         if (!command.IsMultiLevel && levels.Count(static level => level.IsActive) != 1)
         {
-            return Result<LocationHierarchyConfigResponse>.Failure(new Error(
-                "LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL",
-                "Single-level hierarchies require exactly one active level.",
-                ErrorType.Conflict));
+            return Result<LocationHierarchyConfigResponse>.Failure(LocationErrors.SingleLevelRequiresOneActiveLevel);
         }
 
         var before = LocationHierarchyMapper.Map(config);
@@ -249,9 +246,9 @@ internal sealed class GetLocationLevelsQueryHandler(
             return Result<IReadOnlyCollection<LocationLevelResponse>>.Failure(authorizationResult.Error);
         }
 
+        // GetLevelsAsync already orders by LevelOrder in SQL (uq/ix on tenant+order); no in-memory re-sort.
         var levels = await repository.GetLevelsAsync(query.CompanyId, cancellationToken);
         var response = levels
-            .OrderBy(level => level.LevelOrder)
             .Select(LocationHierarchyMapper.Map)
             .ToArray();
 
@@ -330,6 +327,13 @@ internal sealed class CreateLocationLevelCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<LocationLevelResponse>.Success(response);
+        }
+        catch (UniqueConstraintViolationException ex) when (LocationConstraintViolations.IsLevelOrderConflict(ex.ConstraintName))
+        {
+            // Concurrent creates with the same level order both pass LevelOrderExistsAsync; the second trips
+            // the (TenantId, LevelOrder) unique index → same clean 409 as the probe (mirrors CostCenters R2).
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<LocationLevelResponse>.Failure(LocationErrors.LevelOrderConflict);
         }
         catch
         {

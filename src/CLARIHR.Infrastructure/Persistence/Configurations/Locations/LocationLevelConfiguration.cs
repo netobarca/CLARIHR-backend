@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -54,7 +55,7 @@ internal sealed class LocationLevelConfiguration : IEntityTypeConfiguration<Loca
 
         builder.HasIndex(level => new { level.TenantId, level.LevelOrder })
             .IsUnique()
-            .HasDatabaseName("uq_location_levels__tenant_order");
+            .HasDatabaseName(LocationValidationRules.LevelOrderUniqueConstraintName);
 
         builder.HasIndex(level => new { level.TenantId, level.IsActive, level.LevelOrder })
             .HasDatabaseName("ix_location_levels__tenant_active_order");

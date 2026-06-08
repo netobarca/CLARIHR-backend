@@ -18,6 +18,10 @@ public static partial class LocationValidationRules
     public const string ElSalvadorCountryCode = "SV";
     public const string ElSalvadorCountryName = "El Salvador";
 
+    // Single-source the (TenantId, LevelOrder) unique-index name so the EF config (HasDatabaseName) and
+    // the create-handler's UniqueConstraintViolationException→409 mapping cannot drift (mirrors CostCenters R2).
+    public const string LevelOrderUniqueConstraintName = "uq_location_levels__tenant_order";
+
     public static string NormalizeCountryCode(string countryCode) =>
         countryCode.Trim().ToUpperInvariant();
 
@@ -143,6 +147,11 @@ public static class LocationErrors
         "At least one active location level must remain available.",
         ErrorType.Conflict);
 
+    public static readonly Error SingleLevelRequiresOneActiveLevel = new(
+        "LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL",
+        "Single-level hierarchies require exactly one active level.",
+        ErrorType.Conflict);
+
     public static readonly Error WorkCentersAllowedOnlyOnLastLevel = new(
         "WORK_CENTERS_ALLOWED_ONLY_ON_LAST_LEVEL",
         "Only the last active location level can allow work centers.",
@@ -195,4 +204,14 @@ public static class LocationErrors
 
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(LocationPermissionCodes.ResourceKey, action);
+}
+
+public static class LocationConstraintViolations
+{
+    // The (TenantId, LevelOrder) unique index is the real guard against duplicate level orders; the
+    // up-front LevelOrderExistsAsync probe only closes the sequential case. On a concurrent create of the
+    // same order, the second writer trips this index — map it to the same clean 409 as the probe instead
+    // of letting the 23505 escape as an HTTP 500 (mirrors CostCenters R2).
+    public static bool IsLevelOrderConflict(string? constraintName) =>
+        string.Equals(constraintName, LocationValidationRules.LevelOrderUniqueConstraintName, StringComparison.Ordinal);
 }

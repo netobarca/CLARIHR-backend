@@ -15201,7 +15201,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyPublicId}/org-structure-catalogs/unit-types:
+  /api/v1/companies/{companyPublicId}/organization-structure-catalogs/unit-types:
     get:
       tags:
       - OrgStructureCatalogs
@@ -15368,7 +15368,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/unit-types/{publicId}:
+  /api/v1/organization-structure-catalogs/unit-types/{publicId}:
     get:
       tags:
       - OrgStructureCatalogs
@@ -15522,7 +15522,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/unit-types/{publicId}/activate:
+  /api/v1/organization-structure-catalogs/unit-types/{publicId}/activate:
     patch:
       tags:
       - OrgStructureCatalogs
@@ -15617,7 +15617,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/unit-types/{publicId}/inactivate:
+  /api/v1/organization-structure-catalogs/unit-types/{publicId}/inactivate:
     patch:
       tags:
       - OrgStructureCatalogs
@@ -15712,7 +15712,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyPublicId}/org-structure-catalogs/functional-areas:
+  /api/v1/companies/{companyPublicId}/organization-structure-catalogs/functional-areas:
     get:
       tags:
       - OrgStructureCatalogs
@@ -15879,7 +15879,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/functional-areas/{publicId}:
+  /api/v1/organization-structure-catalogs/functional-areas/{publicId}:
     get:
       tags:
       - OrgStructureCatalogs
@@ -16033,7 +16033,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/functional-areas/{publicId}/activate:
+  /api/v1/organization-structure-catalogs/functional-areas/{publicId}/activate:
     patch:
       tags:
       - OrgStructureCatalogs
@@ -16128,7 +16128,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/org-structure-catalogs/functional-areas/{publicId}/inactivate:
+  /api/v1/organization-structure-catalogs/functional-areas/{publicId}/inactivate:
     patch:
       tags:
       - OrgStructureCatalogs

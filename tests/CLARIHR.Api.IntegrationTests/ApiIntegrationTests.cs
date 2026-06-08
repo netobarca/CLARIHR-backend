@@ -3632,6 +3632,199 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(2, payload.LevelOrder);
     }
 
+    // H-001 (audit doc 13): coverage for the level write handlers + the single-level config rule + a
+    // negative function-level authorization path, which previously had zero unit/integration coverage.
+
+    [Fact]
+    public async Task LocationLevels_Create_ShouldReturnCreatedLevel()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-levels", new
+        {
+            levelOrder = 4,
+            displayName = "Zona",
+            isActive = true,
+            isRequired = false,
+            allowsWorkCenters = false
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(4, payload!.LevelOrder);
+        Assert.Equal("Zona", payload.DisplayName);
+        Assert.True(payload.IsActive);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Create_WithDuplicateLevelOrder_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // Level order 2 (Departamento) already exists in the seed → the up-front probe returns 409.
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-levels", new
+        {
+            levelOrder = 2,
+            displayName = "Duplicado",
+            isActive = true,
+            isRequired = false,
+            allowsWorkCenters = false
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_LEVEL_ORDER_CONFLICT");
+    }
+
+    [Fact]
+    public async Task LocationLevels_Create_WhenAllowsWorkCentersButAnotherLevelAlreadyDoes_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // Seed level 3 already allows work centers → only the last active level may, so a second is rejected.
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-levels", new
+        {
+            levelOrder = 4,
+            displayName = "Otro con centros",
+            isActive = true,
+            isRequired = false,
+            allowsWorkCenters = true
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "WORK_CENTERS_ALLOWED_ONLY_ON_LAST_LEVEL");
+    }
+
+    [Fact]
+    public async Task LocationLevels_Create_WhenReadOnlyUser_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationReadContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-levels", new
+        {
+            levelOrder = 4,
+            displayName = "Sin permiso",
+            isActive = true,
+            isRequired = false,
+            allowsWorkCenters = false
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Update_WithValidIfMatch_ShouldReconfigureAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        var response = await client.PutJsonAsync($"/api/v1/location-levels/{level.Id}", new
+        {
+            displayName = "Provincia",
+            isActive = true,
+            isRequired = false,
+            allowsWorkCenters = false,
+            concurrencyToken = level.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Provincia", payload!.DisplayName);
+        Assert.NotEqual(level.ConcurrencyToken, payload.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task LocationLevels_ActivateAndInactivate_ShouldToggleActiveState()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // A fresh inactive level 4 (no groups, not required, not the last active) is a clean toggle subject.
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-levels", new
+        {
+            levelOrder = 4,
+            displayName = "Sector",
+            isActive = false,
+            isRequired = false,
+            allowsWorkCenters = false
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = (await createResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions))!;
+        Assert.False(created.IsActive);
+
+        var activateResponse = await client.PatchJsonAsync($"/api/v1/location-levels/{created.Id}/activate", new
+        {
+            concurrencyToken = created.ConcurrencyToken
+        });
+        activateResponse.EnsureSuccessStatusCode();
+        var activated = (await activateResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions))!;
+        Assert.True(activated.IsActive);
+
+        var inactivateResponse = await client.PatchJsonAsync($"/api/v1/location-levels/{activated.Id}/inactivate", new
+        {
+            concurrencyToken = activated.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+        var inactivated = (await inactivateResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions))!;
+        Assert.False(inactivated.IsActive);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Inactivate_WhenLevelIsRequired_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 1); // seeded as required
+
+        var response = await client.PatchJsonAsync($"/api/v1/location-levels/{level.Id}/inactivate", new
+        {
+            concurrencyToken = level.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_LEVEL_REQUIRED_ACTIVE");
+    }
+
+    [Fact]
+    public async Task LocationLevels_Inactivate_WhenLevelHasActiveGroups_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // Level 2 (Departamento) hosts the seeded department group → cannot be inactivated while in use.
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        var response = await client.PatchJsonAsync($"/api/v1/location-levels/{level.Id}/inactivate", new
+        {
+            concurrencyToken = level.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_LEVEL_HAS_ACTIVE_GROUPS");
+    }
+
+    [Fact]
+    public async Task LocationHierarchy_UpdateToSingleLevel_WithMultipleActiveLevels_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // The seed has 3 active levels → switching to single-level requires exactly one active level.
+        var current = await GetLocationHierarchyAsync(client, scenario.TenantId);
+
+        var response = await client.PutJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
+        {
+            isMultiLevel = false,
+            concurrencyToken = current.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL");
+    }
+
     private async Task<LocationLevelItem> GetLocationLevelAsync(HttpClient client, Guid tenantId, int levelOrder)
     {
         var response = await client.GetAsync($"/api/v1/companies/{tenantId}/location-levels");
