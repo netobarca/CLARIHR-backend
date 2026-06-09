@@ -83,9 +83,13 @@ internal sealed class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLog
             .WithMessage("Unknown event type.");
 
         RuleFor(query => query.Search)
-            .MinimumLength(2)
             .MaximumLength(200)
-            .When(static query => !string.IsNullOrWhiteSpace(query.Search));
+            // Validate the TRIMMED length (mirrors Locations/LegalRep/OrgUnit MinSearchLength): a raw
+            // MinimumLength(2) is bypassed by whitespace padding (" a" trims to a 1-char LIKE '%a%').
+            // Interpolated message (like the sibling search validators) so it stays out of the resx
+            // localization catalog.
+            .Must(static search => AuditValidationRules.HasValidSearchLength(search))
+            .WithMessage($"Search must be at least {AuditValidationRules.MinSearchLength} characters when provided.");
 
         RuleFor(query => query)
             .Must(static query => !query.FromUtc.HasValue || !query.ToUtc.HasValue || query.FromUtc.Value <= query.ToUtc.Value)

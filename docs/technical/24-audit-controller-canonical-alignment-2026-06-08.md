@@ -15,7 +15,7 @@ Veredicto: **APROBADO — alineado a canónico.** De los 15 criterios: **4 ya cu
 | Indicador | Resultado |
 |---|---|
 | Build | ✅ 0/0 |
-| Unit tests (suite completa, **ejecutada**) | ✅ 1743/1743 |
+| Unit tests (suite completa, **ejecutada**) | ✅ 1748/1748 |
 | Integration tests (`AuditLog*`, **ejecutados**) | ✅ 6/6 (RBAC 403, tenant-mismatch 403, detail, **filtro `entityPublicId` canónico**, + 2 cross-controller audit-persistence) |
 | Guardrails | ✅ OpenAPI `^Audit`→"Audit Logs" + `AuditRateLimitingGovernanceTests` 3/3 |
 | Migración | ⛔ No aplica (sin cambios de esquema) |
@@ -56,7 +56,7 @@ La única deuda del #5 era el `NormalizeListQuery` del controlador: ~45 líneas 
 
 **Contrato del controlador (`AuditController.cs`)** — `[Route("api/v1/audit/logs")]`; `[Tags("Audit Logs")]`; comentario que documenta el patrón handler-gated (`[AuthorizeResource]`) + append-only; `[SwaggerOperation]` en ambos endpoints; `[ProducesStandardErrors(Query)]` (List) y `(Read)` (GetById); `[EnableRateLimiting(AuditRateLimitPolicies.Search)]` + `[ProducesResponseType(429)]` en List; eliminado `NormalizeListQuery`/`ResolveGuidFilter`/`ILogger`.
 
-**Application (`AuditLogAdministration.cs`)** — `GetAuditLogsQueryValidator`: `Search` ahora exige `MinimumLength(2)` (además de `MaximumLength(200)`), mirror §LG5/§LR3.
+**Application (`AuditLogAdministration.cs` + `AuditValidationRules.cs`)** — `GetAuditLogsQueryValidator`: `Search` valida la **longitud trimeada** vía `AuditValidationRules.HasValidSearchLength` (nueva `AuditValidationRules.MinSearchLength = 2` + helper, mirror exacto de Locations/LegalRep/OrgUnit) con mensaje interpolado; `MaximumLength(200)` se mantiene. Ver **AV-1** (§9).
 
 **Rate-limiting** — nuevo `AuditRateLimitPolicies.Search` (`"audit-logs-search"`); registro en `Program.cs` (`CreateUserTenantPartitionedLimiter`, 120/min por user+tenant); `AuditRateLimitingGovernanceTests` drift-proof (detecta acciones por presencia de `Http*Attribute`, no por template — porque `List` rutea sobre el `[Route]` de clase y su `[HttpGet]` no lleva template).
 
@@ -71,9 +71,17 @@ La única deuda del #5 era el `NormalizeListQuery` del controlador: ~45 líneas 
 
 ## 7. Verificación
 
-`build 0/0` · suite unitaria **1743/1743** · integración `AuditLog*` **6/6** (incl. filtro `entityPublicId` canónico, RBAC 403, tenant-mismatch 403, detail contract) · `AuditRateLimitingGovernanceTests` 3/3 · OpenAPI guardrail verde. **Sin migración · sin resx.**
+`build 0/0` · suite unitaria **1748/1748** · integración `AuditLog*` **6/6** (incl. filtro `entityPublicId` canónico, RBAC 403, tenant-mismatch 403, detail contract) · `AuditRateLimitingGovernanceTests` 3/3 · `GetAuditLogsQueryValidator_EnforcesTrimmedMinSearchLength` 5/5 · `BackendMessageLocalizationTests` verde · OpenAPI guardrail verde. **Sin migración · sin resx.**
 
 > Nota: un test de integración de **Backoffice** (capturado por el filtro `~Audit` por referenciar `AuditEventTypes`) falla en `BackofficeIntegrationTestWebApplicationFactory.InitializeAsync` por inicialización de su **BD de test** — ambiental, ajeno a este trabajo (no se toca Backoffice).
+
+## 9. Auditoría de validación (2026-06-08, post-implementación)
+
+Revisión adversarial de la alineación. Infraestructura confirmada **sólida**: rate-limiter activo (`app.UseRateLimiter()`); filtro global de tenant (`HasQueryFilter` sobre `ITenantScopedEntity`, y `AuditLog : TenantEntity`) → aislamiento anti-IDOR real en `List` y `GetById` (sin `IgnoreQueryFilters` en las lecturas); two-layer authz (`[AuthorizeResource]` + re-check en handler); sanitización PII/secrets en before/after/diff. **1 hallazgo:**
+
+**AV-1 (corregido) — MinSearchLength no-canónico.** La primera implementación usó `MinimumLength(2)` sobre la cadena **cruda**, que un `search=" a "` evade (el repo lo trimea a un `LIKE '%a%'` de 1 carácter). Corregido al patrón canónico de la familia: `AuditValidationRules.MinSearchLength`(=2) + `HasValidSearchLength` (valida `Trim().Length`) + mensaje interpolado (exento del catálogo resx, como los validators hermanos). Anclado por `GetAuditLogsQueryValidator_EnforcesTrimmedMinSearchLength` (incl. el caso de bypass `" a "`→inválido).
+
+**Sin hallazgos adicionales.** El patrón 404-vs-403 `TENANT_MISMATCH` de `GetById` es la convención establecida del proyecto (no enumera más de lo que ya hacen los siblings). Veredicto de validación: **alineación correcta y completa.**
 
 ## 8. Pendiente
 

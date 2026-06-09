@@ -55,6 +55,21 @@ public sealed class AuditAdministrationTests
         Assert.DoesNotContain("RawToken", json, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(null, true)]    // no search → valid (filter omitted)
+    [InlineData("ab", true)]    // 2 chars → valid
+    [InlineData("abc", true)]   // 3 chars → valid
+    [InlineData("a", false)]    // 1 char → invalid
+    [InlineData(" a ", false)]  // whitespace-padded 1 real char → invalid (no trim bypass)
+    public void GetAuditLogsQueryValidator_EnforcesTrimmedMinSearchLength(string? search, bool expectedValid)
+    {
+        var validator = new GetAuditLogsQueryValidator();
+
+        var result = validator.Validate(new GetAuditLogsQuery(Search: search, Page: 1, PageSize: 20));
+
+        Assert.Equal(expectedValid, result.IsValid);
+    }
+
     [Fact]
     public async Task GetAuditLogsQuery_WhenRepositoryContainsMultipleTenants_ShouldReturnCurrentTenantOnly()
     {
