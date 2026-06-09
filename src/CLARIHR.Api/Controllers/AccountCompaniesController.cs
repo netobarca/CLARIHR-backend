@@ -1,14 +1,12 @@
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
-using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
-using CLARIHR.Application.Features.Locations.Countries;
-using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.AspNetCore.Authorization;
@@ -34,8 +32,15 @@ public sealed class AccountCompaniesController(
 {
     [HttpGet]
     [ProducesResponseType<PagedResponse<AccountCompanySummaryResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesStandardErrors(StandardErrorSet.BadRequest | StandardErrorSet.Unauthorized)]
+    [SwaggerOperation(
+        Summary = "List the caller's companies",
+        Description = """
+            Returns the paged set of companies owned by the authenticated user (optionally filtered by
+            `status`). Set `includeAllowedActions=true` to enrich each row with the caller's allowed
+            actions (edit/archive/reactivate) for client affordances. This is the only endpoint that
+            returns the full company collection.
+            """)]
     public async Task<ActionResult<PagedResponse<AccountCompanySummaryResponse>>> List(
         [FromQuery] CompanyStatus? status,
         [FromQuery] int page = 1,
@@ -52,9 +57,15 @@ public sealed class AccountCompaniesController(
 
     [HttpGet("{companyPublicId:guid}")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an owned company",
+        Description = """
+            Returns a single owned company with its detail (active legal representatives and the company
+            type). The current `concurrencyToken` is included in the body and the `ETag` header for use in
+            the `If-Match` header of a subsequent update/patch. Requires ownership: a company owned by
+            another user yields `403`, an unknown id `404`.
+            """)]
     public async Task<ActionResult<AccountCompanyDetailResponse>> GetById(
         Guid companyPublicId,
         CancellationToken cancellationToken = default)
@@ -63,94 +74,9 @@ public sealed class AccountCompaniesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("{companyPublicId:guid}/access-context")]
-    [ProducesResponseType<AccountCompanyAccessContextResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AccountCompanyAccessContextResponse>> GetAccessContext(
-        Guid companyPublicId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyAccessContextQuery(companyPublicId), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("{companyPublicId:guid}/authorization/role-builder-catalog")]
-    [ProducesResponseType<AccountCompanyRoleBuilderCatalogResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AccountCompanyRoleBuilderCatalogResponse>> GetRoleBuilderCatalog(
-        Guid companyPublicId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyRoleBuilderCatalogQuery(companyPublicId), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("{companyPublicId:guid}/authorization/resource-policies/{resourceKey}")]
-    [ProducesResponseType<AccountCompanyResourcePolicyResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AccountCompanyResourcePolicyResponse>> GetResourcePolicy(
-        Guid companyPublicId,
-        string resourceKey,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyResourcePolicyQuery(companyPublicId, resourceKey), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("countries")]
-    [ProducesResponseType<IReadOnlyCollection<CountryCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IReadOnlyCollection<CountryCatalogItemResponse>>> GetCountries(
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetCountryCatalogItemsQuery(), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("company-types")]
-    [ProducesResponseType<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>> GetCompanyTypes(
-        [FromQuery] string countryCode,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetAvailableCompanyTypesQuery(countryCode), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("legal-representative-position-titles")]
-    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>> GetLegalRepresentativePositionTitles(
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativePositionTitlesQuery(), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("legal-representative-representation-types")]
-    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>> GetLegalRepresentativeRepresentationTypes(
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativeRepresentationTypesQuery(), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
     [HttpPost]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.BadRequest | StandardErrorSet.Unauthorized | StandardErrorSet.Conflict)]
     [SwaggerOperation(
         Summary = "Create a company",
         Description = """
@@ -193,11 +119,7 @@ public sealed class AccountCompaniesController(
 
     [HttpPut("{companyPublicId:guid}")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Update a company",
         Description = """
@@ -222,11 +144,7 @@ public sealed class AccountCompaniesController(
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Patch a company (RFC 6902 JSON Patch)",
         Description = """
@@ -258,11 +176,7 @@ public sealed class AccountCompaniesController(
 
     [HttpPatch("{companyPublicId:guid}/archive")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Archive a company",
         Description = """
@@ -281,11 +195,7 @@ public sealed class AccountCompaniesController(
 
     [HttpPatch("{companyPublicId:guid}/reactivate")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Reactivate a company",
         Description = """
@@ -304,10 +214,15 @@ public sealed class AccountCompaniesController(
 
     [HttpPost("{companyPublicId:guid}/switch")]
     [ProducesResponseType<SwitchActiveCompanyResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Read | StandardErrorSet.Conflict)]
+    [SwaggerOperation(
+        Summary = "Switch the active company",
+        Description = """
+            Sets the given owned company as the caller's active company and re-issues the session: returns a
+            fresh access token (and refresh token), the active-company summary, and the full access context.
+            The company must be active and the caller must have an active membership, otherwise `403`. This
+            action mutates membership and re-issues the JWT, so it does not take an `If-Match` token.
+            """)]
     public async Task<ActionResult<SwitchActiveCompanyResponse>> Switch(
         Guid companyPublicId,
         CancellationToken cancellationToken = default)

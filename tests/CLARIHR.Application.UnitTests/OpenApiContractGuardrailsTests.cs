@@ -124,6 +124,29 @@ public sealed class OpenApiContractGuardrailsTests
         // [Tags] fails CI. `^AccountCompanyAuthorization` matches only AccountCompanyAuthorizationController
         // (AccountCompanies / AccountCompanySubscriptions have disjoint prefixes).
         ("AccountAuthorization", new Regex(@"^AccountCompanyAuthorization", RegexOptions.Compiled), "Account Authorization"),
+        // AccountCompanyAccessController is the read-only access/authorization context for an owned company
+        // (effective access context, role-builder catalog, per-resource policy). Extracted from
+        // AccountCompaniesController (canonical points 1/6/13) with its routes preserved verbatim. Its authz is
+        // bespoke ownership (mirror AccountCompanies), so it stays OUT of GovernedFamilyRegex by design, but it
+        // is a public OpenAPI surface. Enrolled so a GET that drops [SwaggerOperation] or a class that drops
+        // [Tags] fails CI. `^AccountCompanyAccess` matches only AccountCompanyAccessController (AccountCompanies
+        // is plural; Authorization/Subscriptions have disjoint singular prefixes).
+        ("AccountAccess", new Regex(@"^AccountCompanyAccess", RegexOptions.Compiled), "Account Access Context"),
+        // AccountCompanyCatalogsController exposes the read-only onboarding catalogs (countries, company types,
+        // legal-representative position-titles/representation-types) consumed by the company-creation form.
+        // Extracted from AccountCompaniesController (canonical points 1/6/13) with its routes preserved. These
+        // are pre-company authn-only lookups (no ownership/RBAC), so the family stays OUT of GovernedFamilyRegex
+        // by design, but it is a public OpenAPI surface. Enrolled so a GET that drops [SwaggerOperation] or a
+        // class that drops [Tags] fails CI. `^AccountCompanyCatalogs` matches only AccountCompanyCatalogsController
+        // (disjoint from the plural "AccountCompanies" and the other AccountCompany* singular prefixes).
+        ("AccountCatalogs", new Regex(@"^AccountCompanyCatalogs", RegexOptions.Compiled), "Account Companies Catalogs"),
+        // AccountCompaniesController is the owner's self-service company CRUD + lifecycle (list/get/create/
+        // update/patch/archive/reactivate/switch) — the Company aggregate root. Its authz is bespoke ownership
+        // (CreatedByUserPublicId == JWT subject), so it stays OUT of GovernedFamilyRegex by design, but it is a
+        // public OpenAPI surface. Enrolled (canonical point 15 + drift-proofing) so a GET that drops
+        // [SwaggerOperation] or a class that drops [Tags] fails CI. `^AccountCompanies` (plural) matches only
+        // AccountCompaniesController — the AccountCompany* (singular) siblings have disjoint prefixes.
+        ("AccountCompanies", new Regex(@"^AccountCompanies", RegexOptions.Compiled), "Account Companies"),
     ];
 
     public static TheoryData<string> FamilyLabels()

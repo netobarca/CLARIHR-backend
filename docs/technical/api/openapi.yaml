@@ -404,7 +404,7 @@ paths:
   /api/v1/account/companies/{companyPublicId}/access-context:
     get:
       tags:
-      - Account Companies
+      - Account Access Context
       parameters:
       - name: companyPublicId
         in: path
@@ -464,7 +464,7 @@ paths:
   /api/v1/account/companies/{companyPublicId}/authorization/role-builder-catalog:
     get:
       tags:
-      - Account Companies
+      - Account Access Context
       parameters:
       - name: companyPublicId
         in: path
@@ -524,7 +524,7 @@ paths:
   /api/v1/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}:
     get:
       tags:
-      - Account Companies
+      - Account Access Context
       parameters:
       - name: companyPublicId
         in: path
@@ -601,7 +601,7 @@ paths:
   /api/v1/account/companies/countries:
     get:
       tags:
-      - Account Companies
+      - Account Companies Catalogs
       responses:
         '200':
           description: OK
@@ -636,7 +636,7 @@ paths:
   /api/v1/account/companies/company-types:
     get:
       tags:
-      - Account Companies
+      - Account Companies Catalogs
       parameters:
       - name: countryCode
         in: query
@@ -688,7 +688,7 @@ paths:
   /api/v1/account/companies/legal-representative-position-titles:
     get:
       tags:
-      - Account Companies
+      - Account Companies Catalogs
       responses:
         '200':
           description: OK
@@ -723,7 +723,7 @@ paths:
   /api/v1/account/companies/legal-representative-representation-types:
     get:
       tags:
-      - Account Companies
+      - Account Companies Catalogs
       responses:
         '200':
           description: OK
