@@ -135,7 +135,7 @@ public static class JobProfileCatalogBindingMap
         CatalogFamilies.JobCatalog =>
             $"/api/v1/companies/{{companyId}}/job-catalogs/{slug}",
         CatalogFamilies.Internal =>
-            $"/api/account/internal-catalogs/{slug}/values",
+            $"/api/v1/job-profiles/internal-catalogs/{slug}/values",
         _ => string.Empty,
     };
 }

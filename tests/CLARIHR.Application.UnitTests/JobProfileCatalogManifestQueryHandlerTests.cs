@@ -79,7 +79,7 @@ public class JobProfileCatalogManifestQueryHandlerTests
             .Fields.Single(f => f.Slug == "job-profile.requirements.education");
         Assert.Equal(CatalogFamilies.Internal, internalEducation.Family);
         Assert.Equal(
-            "/api/account/internal-catalogs/job-profile.requirements.education/values",
+            "/api/v1/job-profiles/internal-catalogs/job-profile.requirements.education/values",
             internalEducation.ApiEndpointTemplate);
     }
 
@@ -122,7 +122,7 @@ public class JobProfileCatalogManifestQueryHandlerTests
             .Single(g => g.SubResource == "requirement")
             .Fields.Single(f => f.Slug == "job-profile.requirements.education");
         Assert.Equal(
-            "/api/account/internal-catalogs/job-profile.requirements.education/values",
+            "/api/v1/job-profiles/internal-catalogs/job-profile.requirements.education/values",
             internalEducation.ApiEndpointTemplate);
         Assert.DoesNotContain("{companyId}", strategic.ApiEndpointTemplate);
     }

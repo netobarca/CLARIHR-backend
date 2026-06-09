@@ -50,8 +50,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     // CompetencyFramework domain (handler-gated via ICompetencyFrameworkAuthorizationService, like the
     // former CompetencyFrameworkController) and stays [Authorize]-only — requiring
     // [AuthorizationPolicySet(JobProfilePolicies...)] would be the wrong policy pair.
+    // JobProfileInternalCatalogsController is carved out via (?!...|InternalCatalogs) for the same reason:
+    // it is the JobProfiles "Internal" catalog family but PLATFORM-GLOBAL (cross-tenant, authn-only,
+    // platform-audited), so a tenant-scoped [AuthorizationPolicySet(JobProfilePolicies...)] would be wrong.
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrganizationUnits|OrganizationStructureCatalogs)", RegexOptions.Compiled);
+        new(@"^(JobProfile(?!CompetencyMatrix|InternalCatalogs)|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy|LegalRepresentatives|OrganizationUnits|OrganizationStructureCatalogs)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {

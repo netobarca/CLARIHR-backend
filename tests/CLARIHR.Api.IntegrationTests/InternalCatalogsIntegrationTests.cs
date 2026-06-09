@@ -28,7 +28,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(scenario.ActorUserId));
 
-        var response = await client.GetAsync($"/api/account/internal-catalogs?context={RequirementCatalogContext}");
+        var response = await client.GetAsync($"/api/v1/job-profiles/internal-catalogs?context={RequirementCatalogContext}");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<InternalCatalogDefinitionItem>>(JsonOptions);
@@ -57,7 +57,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.OtherTenantId));
 
         var response = await client.GetAsync(
-            $"/api/account/internal-catalogs/{CertificationCatalogKey}/values?q={Uri.EscapeDataString("Azure AI Fundamentals")}");
+            $"/api/v1/job-profiles/internal-catalogs/{CertificationCatalogKey}/values?q={Uri.EscapeDataString("Azure AI Fundamentals")}");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<InternalCatalogValueSuggestionItem>>(JsonOptions);
@@ -78,7 +78,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(scenario.ActorUserId));
 
         var response = await client.PostJsonAsync(
-            $"/api/account/internal-catalogs/{CertificationCatalogKey}/values",
+            $"/api/v1/job-profiles/internal-catalogs/{CertificationCatalogKey}/values",
             new { value = "Azure AI Fundamentals" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
