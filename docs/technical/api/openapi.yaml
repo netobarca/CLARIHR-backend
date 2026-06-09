@@ -4,7 +4,7 @@ info:
   description: Development-time API documentation for CLARIHR.
   version: v1
 paths:
-  /api/account/companies:
+  /api/v1/account/companies:
     get:
       tags:
       - Account Companies
@@ -135,7 +135,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}:
+  /api/v1/account/companies/{companyPublicId}:
     get:
       tags:
       - Account Companies
@@ -401,7 +401,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/access-context:
+  /api/v1/account/companies/{companyPublicId}/access-context:
     get:
       tags:
       - Account Companies
@@ -461,7 +461,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/role-builder-catalog:
+  /api/v1/account/companies/{companyPublicId}/authorization/role-builder-catalog:
     get:
       tags:
       - Account Companies
@@ -521,7 +521,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}:
+  /api/v1/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}:
     get:
       tags:
       - Account Companies
@@ -598,7 +598,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/countries:
+  /api/v1/account/companies/countries:
     get:
       tags:
       - Account Companies
@@ -633,7 +633,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/company-types:
+  /api/v1/account/companies/company-types:
     get:
       tags:
       - Account Companies
@@ -685,7 +685,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/legal-representative-position-titles:
+  /api/v1/account/companies/legal-representative-position-titles:
     get:
       tags:
       - Account Companies
@@ -720,7 +720,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/legal-representative-representation-types:
+  /api/v1/account/companies/legal-representative-representation-types:
     get:
       tags:
       - Account Companies
@@ -755,7 +755,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/archive:
+  /api/v1/account/companies/{companyPublicId}/archive:
     patch:
       tags:
       - Account Companies
@@ -849,7 +849,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/reactivate:
+  /api/v1/account/companies/{companyPublicId}/reactivate:
     patch:
       tags:
       - Account Companies
@@ -943,7 +943,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/switch:
+  /api/v1/account/companies/{companyPublicId}/switch:
     post:
       tags:
       - Account Companies
@@ -1015,7 +1015,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/roles:
+  /api/v1/account/companies/{companyPublicId}/authorization/roles:
     get:
       tags:
       - AccountCompanyAuthorization
@@ -1154,7 +1154,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}:
+  /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}:
     get:
       tags:
       - AccountCompanyAuthorization
@@ -1339,7 +1339,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants:
+  /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants:
     get:
       tags:
       - AccountCompanyAuthorization
@@ -1481,7 +1481,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles:
+  /api/v1/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles:
     put:
       tags:
       - AccountCompanyAuthorization
@@ -1558,12 +1558,20 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription:
+  /api/v1/account/companies/{companyPublicId}/subscription:
     get:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: Get the owned company's subscription overview
+      description: |-
+        Returns the self-service subscription overview for a company owned by the authenticated
+        user: current plan, active add-ons and the effective module grants (plan + add-ons). Only
+        the company owner (`CreatedByUserPublicId == JWT subject`) may read it — a non-owner yields
+        `403` and an unknown company `404`. The overview reflects the company's **active**
+        subscription and carries its `concurrencyToken` (also returned in the `ETag` header) for use
+        in the `If-Match` header of plan/add-on changes.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -1620,11 +1628,24 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: Change the owned company's subscription plan
+      description: |-
+        Applies an immediate plan change for the owned company: the current subscription is
+        cancelled and a new active subscription is created in a single transaction, returning the
+        resulting overview (so the client need not re-fetch) with the new `concurrencyToken` in the
+        `ETag` header. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+        `400`, stale → `409 CONCURRENCY_CONFLICT`). Downgrading to FREE deactivates active add-ons.
+        Switching to MASTER requires platform-operator access (`403`).
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -1712,12 +1733,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription/plans:
+  /api/v1/account/companies/{companyPublicId}/subscription/plans:
     get:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: List subscription plans available to the owned company
+      description: |-
+        Returns the commercial plans the owner can switch to, flagging the current one
+        (`isCurrent`). The reserved MASTER plan is hidden unless the caller is a platform operator.
+        Requires company ownership.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -1778,12 +1804,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription/preview:
+  /api/v1/account/companies/{companyPublicId}/subscription/preview:
     post:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: Preview a plan change for the owned company
+      description: |-
+        Computes the impact of switching the owned company to the target plan (added/removed
+        modules, add-on compatibility warnings, eligibility) **without applying it**. This is a
+        read-style query exposed over POST because it carries a request body. Switching to the
+        MASTER plan requires platform-operator access (`403`).
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -1873,12 +1905,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription/addons:
+  /api/v1/account/companies/{companyPublicId}/subscription/addons:
     get:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: List the owned company's active add-ons
+      description: |-
+        Returns the add-ons currently active on the owned company's subscription, enriched with
+        their catalog modules. Requires company ownership.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -1941,11 +1977,24 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: Apply an add-on change to the owned company
+      description: |-
+        Applies a **reversible** add-on change to the owned company's subscription. `action` selects
+        Activate or Deactivate; both are commands (not a resource creation) and return the resulting
+        subscription overview, so the response carries the new state and the client need not re-fetch
+        (HTTP `200`, not `201`). Requires the current subscription `concurrencyToken` in the
+        `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). A concurrent submit
+        for the same add-on also collides on the unique company-add-on constraint and yields `409`.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -2033,12 +2082,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription/addons/marketplace:
+  /api/v1/account/companies/{companyPublicId}/subscription/addons/marketplace:
     get:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: List add-ons available to acquire for the owned company
+      description: |-
+        Returns the commercial add-on marketplace for the owned company, flagging which add-ons are
+        already owned (`isOwned`) and which can be acquired (`canAcquire` — a FREE subscription must
+        upgrade first, surfaced in `blockedReason`). Requires company ownership.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -2099,12 +2153,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/{publicId}/subscription/addons/preview:
+  /api/v1/account/companies/{companyPublicId}/subscription/addons/preview:
     post:
       tags:
-      - AccountCompanySubscriptions
+      - Account Subscription
+      summary: Preview an add-on change for the owned company
+      description: |-
+        Computes the impact of activating or deactivating an add-on (added/removed modules,
+        eligibility, warnings) **without applying it**. Read-style query exposed over POST because
+        it carries a request body.
       parameters:
-      - name: publicId
+      - name: companyPublicId
         in: path
         required: true
         schema:
@@ -2160,238 +2219,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
           description: Forbidden
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Conflict
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/account/internal-catalogs:
-    get:
-      tags:
-      - AccountInternalCatalogs
-      parameters:
-      - name: context
-        in: query
-        schema:
-          type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
-            text/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/account/internal-catalogs/{catalogKey}/values:
-    get:
-      tags:
-      - AccountInternalCatalogs
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: q
-        in: query
-        schema:
-          type: string
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          format: int32
-          default: 10
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            text/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    post:
-      tags:
-      - AccountInternalCatalogs
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
           content:
             text/plain:
               schema:
@@ -4600,6 +4427,259 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
           description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/internal-catalogs:
+    get:
+      tags:
+      - Job Profiles
+      summary: List internal catalog definitions for a context
+      description: |-
+        Returns the internal-catalog field definitions for the given `context` (e.g.
+        `job-profile.requirements`): for each field, its render type (search / select / free-text),
+        the backing `catalogKey`, whether new values can be created, and the minimum query length.
+        The frontend uses this manifest to drive the requirement autocomplete inputs. An unknown
+        context yields `404`. These catalogs are platform-global (shared across companies).
+      parameters:
+      - name: context
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/internal-catalogs/{catalogKey}/values:
+    get:
+      tags:
+      - Job Profiles
+      summary: Search internal catalog value suggestions
+      description: |-
+        Returns up to `limit` (1–20, default 10) value suggestions for the catalog identified by
+        `catalogKey`, fuzzy-matched against the free-text query `q` and ranked by similarity score.
+        Below the catalog's minimum query length the result is empty. An unsupported or
+        non-searchable `catalogKey` yields `404`. The suggestion pool is platform-global
+        (crowd-sourced across companies).
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - Job Profiles
+      summary: Create an internal catalog value
+      description: |-
+        Adds a free-text value to the catalog identified by `catalogKey` (only catalogs that allow
+        creation). Returns `201` with the new value, or `200` reusing an existing exact match. If the
+        value is too similar to existing ones it is rejected with `409` and the response carries the
+        closest `suggestions`. The value joins the platform-global pool and its popularity is tracked
+        by usage.
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
           content:
             text/plain:
               schema:
@@ -39799,6 +39879,9 @@ components:
           items:
             $ref: '#/components/schemas/AccountCompanyEffectiveModuleResponse'
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
       additionalProperties: false
     AccountCompanySubscriptionPlanPreviewResponse:
       type: object

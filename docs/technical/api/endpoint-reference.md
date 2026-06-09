@@ -62,8 +62,8 @@ Swagger runtime es la referencia canonica del contrato. Las secciones narrativas
 La secuencia actual de onboarding es:
 
 1. `POST /api/auth/register`
-2. `POST /api/account/companies`
-3. `PATCH /api/account/companies/{companyPublicId}/switch`
+2. `POST /api/v1/account/companies`
+3. `POST /api/v1/account/companies/{companyPublicId}/switch`
 
 Despues del `switch`, el `access token` devuelto incluye contexto tenant y habilita los modulos `api/v1`.
 
@@ -108,9 +108,9 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 |---|---|---|---|
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh, recuperacion de contrasena y logout |
-| Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, actualizar (PUT/PATCH con `If-Match`/`ETag`), archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
-| Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/account/companies/{publicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
-| Account internal catalogs | `AccountInternalCatalogsController` | `/api/account/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
+| Account companies | `AccountCompaniesController` | `/api/v1/account/companies*` | crear, listar, actualizar (PUT/PATCH con `If-Match`/`ETag`), archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
+| Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/v1/account/companies/{companyPublicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
+| Job Profile internal catalogs | `JobProfileInternalCatalogsController` | `/api/v1/job-profiles/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
 | Platform commercial modules | `CommercialModulesController` | `/api/platform/commercial-modules` | exponer el catalogo canonico de modulos comerciales asignables a planes y add-ons |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado; canonico con `If-Match`/`ETag` (sin PATCH RFC-6902 por invariantes cross-field — el PUT cubre la edicion completa) |
@@ -119,10 +119,10 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Platform job profile catalog types | `JobProfileCatalogTypesController` | `/api/platform/job-profile-catalog-types*` | administrar el registro global de tipos de catalogo de Job Profile (code inmutable); canonico con `If-Match`/`ETag` + PATCH RFC-6902 (`/name`,`/sortOrder`) |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables; canonico con `If-Match`/`ETag` (sin PATCH RFC-6902 por invariantes cross-field — el PUT cubre la edicion completa) |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
-| **Education catalogs** | `EducationCatalogsController` (Core), `EducationCatalogsController` (Backoffice) | `/api/v1/education-catalogs/{catalogKey}` (Core lectura), `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD) | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core; Backoffice canonico con `If-Match`/`ETag` + PATCH RFC-6902 (`/code`,`/name`,`/sortOrder`), scoped por `catalogKey` |
+| **Education catalogs** | `EducationCatalogsController` (Backoffice) | `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD); lectura en Core via `general-catalogs` | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core via catalogos generales; Backoffice canonico con `If-Match`/`ETag` + PATCH RFC-6902 (`/code`,`/name`,`/sortOrder`), scoped por `catalogKey` |
 | Company users | `CompanyUsersController` | `/api/v1/company/users*` | invitar y administrar usuarios del tenant; concurrencia con **ETag debil computado** (`W/"hash"`) + `If-Match` (sin token persistido — proyeccion de 3 aggregates); authz handler-gated RBAC field-level |
 | Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/v1/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
-| Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
+| Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/v1/account/companies/{companyPublicId}/access-context`, `/api/v1/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
 | Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyPublicId}/location-*`, `/api/v1/companies/{companyPublicId}/work-*` | modelo geografico del tenant, grupos y work centers |
@@ -165,14 +165,14 @@ Comportamiento observable:
 ### 4.2 Onboarding de compania
 
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`
-- `GET /api/account/companies`
-- `GET /api/account/companies/{companyPublicId}`: detalle de compania propia; el body incluye el `concurrencyToken` actual
-- `POST /api/account/companies`: crea la compania; devuelve `201` con el `concurrencyToken` en el body y el header `ETag`
-- `PUT /api/account/companies/{companyPublicId}`: reemplaza `name` y `companyTypePublicId`; requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
-- `PATCH /api/account/companies/{companyPublicId}`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); paths patcheables `/name` y `/companyTypePublicId` (transiciones de estado via `/archive` y `/reactivate`); mismo contrato de `If-Match`/`ETag` que el PUT
-- `PATCH /api/account/companies/{companyPublicId}/archive`: archiva la compania (no la activa/primary); mismo contrato de `If-Match`/`ETag`
-- `PATCH /api/account/companies/{companyPublicId}/reactivate`: reactiva la compania archivada (sujeto al limite de companias activas); mismo contrato de `If-Match`/`ETag`
-- `PATCH /api/account/companies/{companyPublicId}/switch`: cambia la compania activa; NO usa `If-Match` (muta la membresia y re-emite el JWT, no la fila de la compania)
+- `GET /api/v1/account/companies`
+- `GET /api/v1/account/companies/{companyPublicId}`: detalle de compania propia; el body incluye el `concurrencyToken` actual
+- `POST /api/v1/account/companies`: crea la compania; devuelve `201` con el `concurrencyToken` en el body y el header `ETag`
+- `PUT /api/v1/account/companies/{companyPublicId}`: reemplaza `name` y `companyTypePublicId`; requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
+- `PATCH /api/v1/account/companies/{companyPublicId}`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); paths patcheables `/name` y `/companyTypePublicId` (transiciones de estado via `/archive` y `/reactivate`); mismo contrato de `If-Match`/`ETag` que el PUT
+- `PATCH /api/v1/account/companies/{companyPublicId}/archive`: archiva la compania (no la activa/primary); mismo contrato de `If-Match`/`ETag`
+- `PATCH /api/v1/account/companies/{companyPublicId}/reactivate`: reactiva la compania archivada (sujeto al limite de companias activas); mismo contrato de `If-Match`/`ETag`
+- `POST /api/v1/account/companies/{companyPublicId}/switch`: cambia la compania activa; NO usa `If-Match` (muta la membresia y re-emite el JWT, no la fila de la compania)
 
 Comportamiento observable:
 
@@ -245,16 +245,16 @@ Endpoints representativos de escritura:
 
 Endpoints representativos:
 
-- `GET /api/account/companies/{companyPublicId}/access-context`
-- `GET /api/account/companies/{companyPublicId}/authorization/role-builder-catalog`
-- `GET /api/account/companies/{companyPublicId}/authorization/roles`
-- `POST /api/account/companies/{companyPublicId}/authorization/roles`
-- `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
-- `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
-- `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
-- `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
-- `PUT /api/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
-- `GET /api/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
+- `GET /api/v1/account/companies/{companyPublicId}/access-context`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/role-builder-catalog`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/roles`
+- `POST /api/v1/account/companies/{companyPublicId}/authorization/roles`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+- `PUT /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+- `PUT /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+- `PUT /api/v1/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
 
 Comportamiento observable:
 
@@ -520,19 +520,16 @@ Comportamiento observable:
 
 ### 4.8 Education Catalogs
 
-Core (solo lectura, usuarios autenticados):
-
-- `GET /api/v1/education-catalogs/{catalogKey}` — lista paginada de items activos del catalogo indicado
-- `GET /api/v1/education-catalogs/{catalogKey}/{id}` — item activo individual por `publicId`
+Core (solo lectura): los valores activos se consumen via catalogos generales (`GET /api/v1/companies/{companyPublicId}/general-catalogs/{catalogKey}`), no por una ruta dedicada de education-catalogs.
 
 Platform Backoffice (CRUD completo, `PlatformOperator`):
 
 - `GET /api/platform/education-catalogs/{catalogKey}` — lista paginada con filtros `isActive`, `search`
-- `GET /api/platform/education-catalogs/{catalogKey}/{id}` — detalle completo del item
+- `GET /api/platform/education-catalogs/{catalogKey}/{publicId}` — detalle completo del item
 - `POST /api/platform/education-catalogs/{catalogKey}` — crea item nuevo
-- `PUT /api/platform/education-catalogs/{catalogKey}/{id}` — actualiza item existente
-- `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/activate` — activa item
-- `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/inactivate` — inactiva item
+- `PUT /api/platform/education-catalogs/{catalogKey}/{publicId}` — actualiza item existente
+- `PATCH /api/platform/education-catalogs/{catalogKey}/{publicId}/activate` — activa item
+- `PATCH /api/platform/education-catalogs/{catalogKey}/{publicId}/inactivate` — inactiva item
 
 Catalog keys validas: `education-statuses`, `study-types`, `careers`, `shifts`, `modalities`.
 
@@ -610,7 +607,7 @@ Este bloque cubre la administracion de acceso del tenant activo e incluye:
 
 - `CompanyUsersController` con base `/api/v1/company/users`
 - `AccountCompaniesController` para `access-context`, `role-builder-catalog` y `resource-policies`
-- `AccountCompanyAuthorizationController` con base `/api/account/companies/{companyPublicId}/authorization`
+- `AccountCompanyAuthorizationController` con base `/api/v1/account/companies/{companyPublicId}/authorization`
 
 `CompanyUsersController` sigue resolviendo el lifecycle operativo del usuario del tenant. La administracion de roles, grants y policies ya no se publica como `IAM/RBAC` legacy, sino como superficie company-scoped de `authorization`.
 
@@ -625,7 +622,7 @@ El modulo de autorizacion sirve para:
 - resolver `resource-policies` para recursos sensibles
 - separar claramente lifecycle de usuarios de la administracion de autorizacion
 
-En la practica, `api/v1/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `/api/account/companies/{companyPublicId}/authorization/*` resuelve el plano tecnico de roles, grants y policies.
+En la practica, `api/v1/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `/api/v1/account/companies/{companyPublicId}/authorization/*` resuelve el plano tecnico de roles, grants y policies.
 
 #### 5.1.3 Modelo operativo y reglas transversales del modulo
 
@@ -678,7 +675,7 @@ Reglas comunes:
 - Response: `PagedResponse<CompanyUserSummaryResponse>`.
 - Observaciones: la lista ya sale filtrada por permisos de campo del usuario autenticado.
 
-##### `GET /api/v1/company/users/{userPublicId}`
+##### `GET /api/v1/company/users/{publicId}`
 
 - Proposito: obtener un usuario operativo puntual de la compania activa por `userPublicId`.
 - Autorizacion: `RBAC_USERS:Read`.
@@ -694,7 +691,7 @@ Reglas comunes:
 - Errores relevantes: `company_users.role.not_found`, `company_users.user_already_in_company`, `company_users.user_in_another_company`, `FIELD_EDIT_FORBIDDEN`.
 - Observaciones: si el email ya existe como usuario local reutiliza el usuario; si no existe, crea un usuario invitado local, crea membresia, sincroniza `IamUser`, genera token de invitacion, revoca invitaciones activas previas para esa combinacion usuario/compania y envia correo.
 
-##### `PUT /api/v1/company/users/{userId}`
+##### `PUT /api/v1/company/users/{publicId}`
 
 - Proposito: actualizar nombre/apellido del usuario y cambiar su rol dentro de la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -704,7 +701,7 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.role.not_found`, `company_users.last_admin_required`, `FIELD_EDIT_FORBIDDEN`, `TENANT_MISMATCH`.
 - Observaciones: la autorizacion por campo se evalua solo para los campos realmente cambiados; tambien sincroniza el `IamUser` asociado para que el rol efectivo del tenant quede consistente. El chequeo de `If-Match` corre antes de la autorizacion por campo.
 
-##### `PATCH /api/v1/company/users/{userPublicId}`
+##### `PATCH /api/v1/company/users/{publicId}`
 
 - Proposito: actualizacion parcial de los campos editables del usuario via JSON Patch (RFC 6902).
 - Autorizacion: `RBAC_USERS:Update`.
@@ -724,7 +721,7 @@ Reglas comunes:
 
 - Observaciones: resuelve el cambio parcial sobre el estado actual y reutiliza exactamente la ruta de mutacion del `PUT` (misma validacion, autorizacion por campo solo sobre los campos cambiados, sincronizacion de `IamUser`, auditoria y rotacion del ETag debil). El `PUT` sigue disponible para reemplazo total.
 
-##### `PATCH /api/v1/company/users/{userId}/deactivate`
+##### `PATCH /api/v1/company/users/{publicId}/deactivate`
 
 - Proposito: desactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -733,7 +730,7 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.last_admin_required`, `TENANT_MISMATCH`.
 - Observaciones: desactiva el usuario funcional, la membresia y el `IamUser` vinculado; ademas revoca refresh tokens con razon `company-user-deactivated`.
 
-##### `PATCH /api/v1/company/users/{userId}/reactivate`
+##### `PATCH /api/v1/company/users/{publicId}/reactivate`
 
 - Proposito: reactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -742,7 +739,7 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `TENANT_MISMATCH`, `company_users.user.not_found`.
 - Observaciones: reactiva membresia y vuelve a marcar activo el `IamUser` si el estado funcional del usuario queda `Active`.
 
-##### `POST /api/v1/company/users/{userId}/reset-invitation`
+##### `POST /api/v1/company/users/{publicId}/reset-invitation`
 
 - Proposito: emitir una nueva invitacion para un usuario pendiente o reenviable.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -753,7 +750,7 @@ Reglas comunes:
 
 #### 5.1.6 `AccountCompanyAuthorizationController` - roles y grants del tenant
 
-Base route: `/api/account/companies/{companyPublicId}/authorization`
+Base route: `/api/v1/account/companies/{companyPublicId}/authorization`
 
 Este controlador administra el catalogo operativo de roles del tenant, sus grants y la asignacion de roles a usuarios, siempre en el contexto de una compania explicita.
 
@@ -772,14 +769,14 @@ Reglas comunes:
 - Los roles de sistema no pueden modificarse ni borrarse.
 - El sistema no permite dejar al tenant sin administrador activo.
 
-##### `GET /api/account/companies/{companyPublicId}/authorization/roles`
+##### `GET /api/v1/account/companies/{companyPublicId}/authorization/roles`
 
 - Proposito: listar roles del tenant para la compania indicada.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Query: `pageNumber`, `pageSize`, `search`, `includeAllowedActions`.
 - Response: `PagedResponse<AuthorizationRoleSummaryResponse>`.
 
-##### `POST /api/account/companies/{companyPublicId}/authorization/roles`
+##### `POST /api/v1/account/companies/{companyPublicId}/authorization/roles`
 
 - Proposito: crear un rol nuevo con permisos iniciales opcionales.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
@@ -788,14 +785,14 @@ Reglas comunes:
 - Response: `201 Created` con `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.name_conflict`, `iam.permissions.collection_not_found`.
 
-##### `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+##### `GET /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: obtener el detalle de un rol.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Response: `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.not_found`, `TENANT_MISMATCH`.
 
-##### `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+##### `PUT /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: actualizar nombre y descripcion del rol.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
@@ -803,7 +800,7 @@ Reglas comunes:
 - Response: `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.name_conflict`, `iam.roles.protected_role.forbidden`, `TENANT_MISMATCH`.
 
-##### `DELETE /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+##### `DELETE /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: eliminar un rol.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
@@ -811,13 +808,13 @@ Reglas comunes:
 - Errores relevantes: `iam.roles.protected_role.delete_forbidden`, `iam.roles.in_use`, `TENANT_MISMATCH`.
 - Observaciones: no se puede borrar un rol que aun tenga usuarios asignados.
 
-##### `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+##### `GET /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
 
 - Proposito: obtener el set actual de grants asignados al rol.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Response: `AuthorizationRoleGrantsResponse`.
 
-##### `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+##### `PUT /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
 
 - Proposito: sincronizar el set de grants asignados al rol por `permissionPublicId`.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
@@ -826,7 +823,7 @@ Reglas comunes:
 - Response: `AuthorizationRoleGrantsResponse`.
 - Errores relevantes: `iam.permissions.collection_not_found`, `iam.roles.protected_role.forbidden`, `iam.roles.last_administrator_required`.
 
-##### `PUT /api/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
+##### `PUT /api/v1/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
 
 - Proposito: sincronizar el conjunto completo de roles asignados a un usuario dentro de la compania activa.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
@@ -839,9 +836,9 @@ Reglas comunes:
 
 Rutas relevantes:
 
-- `GET /api/account/companies/{companyPublicId}/access-context`
-- `GET /api/account/companies/{companyPublicId}/authorization/role-builder-catalog`
-- `GET /api/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
+- `GET /api/v1/account/companies/{companyPublicId}/access-context`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/role-builder-catalog`
+- `GET /api/v1/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
 
 Comportamiento observable:
 
@@ -1031,19 +1028,19 @@ Contratos principales:
 
 #### 5.3.1 Alcance
 
-Este bloque cubre la administracion de companias propias del usuario autenticado mediante `AccountCompaniesController`, con base `/api/account/companies`.
+Este bloque cubre la administracion de companias propias del usuario autenticado mediante `AccountCompaniesController`, con base `/api/v1/account/companies`.
 
 Incluye:
 
-- `GET /api/account/companies/company-types`
-- `GET /api/account/companies/legal-representative-representation-types`
-- `GET /api/account/companies`
-- `GET /api/account/companies/{companyId}`
-- `POST /api/account/companies`
-- `PUT /api/account/companies/{companyId}`
-- `PATCH /api/account/companies/{companyId}/archive`
-- `PATCH /api/account/companies/{companyId}/reactivate`
-- `POST /api/account/companies/{companyId}/switch`
+- `GET /api/v1/account/companies/company-types`
+- `GET /api/v1/account/companies/legal-representative-representation-types`
+- `GET /api/v1/account/companies`
+- `GET /api/v1/account/companies/{companyId}`
+- `POST /api/v1/account/companies`
+- `PUT /api/v1/account/companies/{companyId}`
+- `PATCH /api/v1/account/companies/{companyId}/archive`
+- `PATCH /api/v1/account/companies/{companyId}/reactivate`
+- `POST /api/v1/account/companies/{companyId}/switch`
 
 #### 5.3.2 Proposito funcional en CLARIHR
 
@@ -1089,7 +1086,7 @@ Este modulo es el puente entre `Auth` y `api/v1`. Primero autentica la cuenta, l
 
 #### 5.3.5 `AccountCompaniesController`
 
-Base route: `/api/account/companies`
+Base route: `/api/v1/account/companies`
 
 Contratos principales:
 
@@ -1102,37 +1099,37 @@ Contratos principales:
 - `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `CreateAccountCompanyRequest`: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`
 
-##### `GET /api/account/companies/countries`
+##### `GET /api/v1/account/companies/countries`
 
 - Proposito: obtener el catalogo global activo de paises para el onboarding de companias.
 - Autenticacion: `Bearer` requerido.
 - Response: `IReadOnlyCollection<CountryCatalogItemResponse>`.
 - Observaciones: devuelve items globales, ordenados por `sortOrder`; el frontend debe usar `code` como valor estable para `countryCode` al crear la compania y puede usar `name` solo para display.
 
-##### `GET /api/account/companies/company-types`
+##### `GET /api/v1/account/companies/company-types`
 
 - Proposito: obtener el catalogo global activo de tipos de compania permitido para el pais seleccionado durante el onboarding o la edicion basica de companias.
 - Autenticacion: `Bearer` requerido.
 - Query: `countryCode`.
 - Validaciones: `countryCode` obligatorio, de `2` o `3` letras.
 - Response: `IReadOnlyCollection<CompanyTypeCatalogItemResponse>`.
-- Observaciones: devuelve solo items activos del pais solicitado; el catalogo es global por pais, no por tenant ni por owner. El frontend debe obtener primero `countryCode` desde `GET /api/account/companies/countries` y luego usar el `id` de este endpoint como `companyTypePublicId`.
+- Observaciones: devuelve solo items activos del pais solicitado; el catalogo es global por pais, no por tenant ni por owner. El frontend debe obtener primero `countryCode` desde `GET /api/v1/account/companies/countries` y luego usar el `id` de este endpoint como `companyTypePublicId`.
 
-##### `GET /api/account/companies/legal-representative-position-titles`
+##### `GET /api/v1/account/companies/legal-representative-position-titles`
 
 - Proposito: obtener el catalogo activo de cargos iniciales permitido para el representante legal durante la creacion de compania.
 - Autenticacion: `Bearer` requerido.
 - Response: `IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>`.
 - Observaciones: devuelve items globales, ordenados por `sortOrder`; `code` es una clave estable de frontend y `name` es el valor string que debe enviarse en `initialLegalRepresentative.positionTitle` al crear la compania.
 
-##### `GET /api/account/companies/legal-representative-representation-types`
+##### `GET /api/v1/account/companies/legal-representative-representation-types`
 
 - Proposito: obtener el catalogo activo de tipos de representacion permitido para el representante legal inicial durante la creacion de compania.
 - Autenticacion: `Bearer` requerido.
 - Response: `IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>`.
 - Observaciones: devuelve items globales, ordenados por `sortOrder`; `code` coincide con el valor string que debe enviarse en `initialLegalRepresentative.representationType` al crear la compania.
 
-##### `GET /api/account/companies`
+##### `GET /api/v1/account/companies`
 
 - Proposito: listar las companias propias del usuario autenticado.
 - Autenticacion: `Bearer` requerido.
@@ -1141,7 +1138,7 @@ Contratos principales:
 - Response: `PagedResponse<AccountCompanySummaryResponse>`.
 - Observaciones: no tiene busqueda libre; la lista se ordena por `name` y luego `companyPublicId`, y marca con `isActiveContext` la compania alineada al tenant del token actual.
 
-##### `GET /api/account/companies/{companyPublicId}`
+##### `GET /api/v1/account/companies/{companyPublicId}`
 
 - Proposito: obtener el detalle de una compania propia.
 - Autenticacion: `Bearer` requerido.
@@ -1149,7 +1146,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 - Observaciones: devuelve solo representantes legales activos, ordenados con los marcados como primarios primero, mas metadata del tipo de compania si existe. `activeLegalRepresentatives[].isPrimary` puede venir en `true`, `false` o `null`; `null` indica que el registro fue creado sin marcar prioridad inicial.
 
-##### `POST /api/account/companies`
+##### `POST /api/v1/account/companies`
 
 - Proposito: crear una nueva compania para la cuenta autenticada.
 - Autenticacion: `Bearer` requerido.
@@ -1158,9 +1155,9 @@ Contratos principales:
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
-- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, sincroniza ese rol admin contra todos los permisos tenant-scoped existentes, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType`, el frontend debe usar el `code` devuelto por `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`. Para `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/legal-representative-representation-types`. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
+- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, sincroniza ese rol admin contra todos los permisos tenant-scoped existentes, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/countries`. Para `initialLegalRepresentative.documentType`, el frontend debe usar el `code` devuelto por `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`. Para `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/legal-representative-representation-types`. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
-##### `PUT /api/account/companies/{companyPublicId}`
+##### `PUT /api/v1/account/companies/{companyPublicId}`
 
 - Proposito: actualizar nombre y tipo de compania de una compania propia.
 - Autenticacion: `Bearer` requerido.
@@ -1169,9 +1166,34 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_TYPE_NOT_FOUND`.
 - Observaciones: no cambia pais, plan ni representantes legales; solo metadata basica. Si se envia `companyTypePublicId`, debe pertenecer al catalogo global activo del pais ya asociado a la compania.
 
+##### `PATCH /api/v1/account/companies/{companyPublicId}/archive`
+
+- Proposito: archivar una compania propia.
+- Autenticacion: `Bearer` requerido.
+- Response: `AccountCompanyDetailResponse`.
+- Errores relevantes: `COMPANY_ALREADY_ARCHIVED`, `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`.
+- Observaciones: no puede archivarse si la compania coincide con el `tenantId` actual del token o con la compania primaria actual del usuario.
+
+##### `PATCH /api/v1/account/companies/{companyPublicId}/reactivate`
+
+- Proposito: reactivar una compania propia archivada.
+- Autenticacion: `Bearer` requerido.
+- Response: `AccountCompanyDetailResponse`.
+- Errores relevantes: `COMPANY_ALREADY_ACTIVE`, `COMPANY_REACTIVATION_LIMIT_REACHED`, `COMPANY_OWNERSHIP_FORBIDDEN`.
+- Observaciones: la reactivacion vuelve a estado `Active`, pero no cambia automaticamente el tenant activo del usuario.
+
+##### `POST /api/v1/account/companies/{companyPublicId}/switch`
+
+- Proposito: cambiar la compania activa del usuario autenticado.
+- Autenticacion: `Bearer` requerido.
+- Request body: ninguno.
+- Response: `200 OK` con `SwitchActiveCompanyResponse`.
+- Errores relevantes: `ACTIVE_COMPANY_SWITCH_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_NOT_FOUND`.
+- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y el claim `role` correspondiente a esa membresia, y devuelve `activeCompany` con `companyPublicId`, `name`, `slug`, `countryCode` y `status`.
+
 #### 5.3.6 `AccountCompanySubscriptionsController`
 
-Base route: `/api/account/companies/{publicId}/subscription`
+Base route: `/api/v1/account/companies/{companyPublicId}/subscription`
 
 Contratos principales:
 
@@ -1183,7 +1205,7 @@ Contratos principales:
 - `AccountCompanyMarketplaceAddonResponse`: `commercialAddonPublicId`, `code`, `normalizedCode`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `moduleCount`, `moduleKeys`, `isOwned`, `canAcquire`, `blockedReason`
 - `AccountCompanyAddonChangePreviewResponse`: `companyPublicId`, `commercialAddonPublicId`, `addonCode`, `addonName`, `action`, `addedModuleKeys`, `removedModuleKeys`, `isEligible`, `ineligibilityReasons`, `warnings`
 
-##### `GET /api/account/companies/{publicId}/subscription`
+##### `GET /api/v1/account/companies/{companyPublicId}/subscription`
 
 - Proposito: obtener la vista comercial efectiva de una compania owned por el usuario autenticado.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1191,7 +1213,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`.
 - Observaciones: `effectiveModules` es la union viva entre modulos del plan activo y modulos de add-ons activos; `source` puede ser `plan`, `addon` o `plan+addon`.
 
-##### `GET /api/account/companies/{publicId}/subscription/plans`
+##### `GET /api/v1/account/companies/{companyPublicId}/subscription/plans`
 
 - Proposito: listar los planes comerciales activos visibles para el owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1199,7 +1221,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`.
 - Observaciones: incluye `FREE` para downgrade controlado, expone `moduleKeys` resueltos para UI y oculta `MASTER` salvo que el owner autenticado tambien tenga un `PlatformOperator` activo.
 
-##### `POST /api/account/companies/{publicId}/subscription/preview`
+##### `POST /api/v1/account/companies/{companyPublicId}/subscription/preview`
 
 - Proposito: previsualizar un cambio inmediato de plan iniciado por el owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1208,7 +1230,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN`.
 - Observaciones: devuelve diffs de modulos agregados/removidos, advierte si un downgrade a `FREE` desactivaria add-ons activos y rechaza `MASTER` para owners que no sean operadores activos de CLARI.
 
-##### `PUT /api/account/companies/{publicId}/subscription`
+##### `PUT /api/v1/account/companies/{companyPublicId}/subscription`
 
 - Proposito: aplicar de inmediato un cambio de plan iniciado por el owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1217,14 +1239,14 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`, `ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN`.
 - Observaciones: un downgrade a `FREE` desactiva en la misma transaccion todos los add-ons activos de la empresa; `MASTER` solo puede aplicarse desde owner cuando el actor tambien es `PlatformOperator` activo.
 
-##### `GET /api/account/companies/{publicId}/subscription/addons`
+##### `GET /api/v1/account/companies/{companyPublicId}/subscription/addons`
 
 - Proposito: listar los add-ons activos que el owner ya tiene adquiridos para su compania.
 - Autenticacion: `Bearer` requerido con token `core`.
 - Response: `IReadOnlyCollection<AccountCompanySubscriptionAddonResponse>`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 
-##### `GET /api/account/companies/{publicId}/subscription/addons/marketplace`
+##### `GET /api/v1/account/companies/{companyPublicId}/subscription/addons/marketplace`
 
 - Proposito: listar el marketplace de add-ons disponible para la compania del owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1232,7 +1254,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 - Observaciones: cuando el plan activo es `FREE`, `canAcquire=false` y `blockedReason` explica el bloqueo comercial.
 
-##### `POST /api/account/companies/{publicId}/subscription/addons/preview`
+##### `POST /api/v1/account/companies/{companyPublicId}/subscription/addons/preview`
 
 - Proposito: previsualizar la activacion o desactivacion inmediata de un add-on desde el marketplace owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1241,7 +1263,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN`.
 - Observaciones: expone diffs de modulos y las razones de inelegibilidad antes de aplicar el cambio.
 
-##### `POST /api/account/companies/{publicId}/subscription/addons`
+##### `POST /api/v1/account/companies/{companyPublicId}/subscription/addons`
 
 - Proposito: aplicar de inmediato una activacion o desactivacion de add-on iniciada por el owner.
 - Autenticacion: `Bearer` requerido con token `core`.
@@ -1250,75 +1272,15 @@ Contratos principales:
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN`.
 - Observaciones: si la activacion procede, los modulos del add-on aparecen inmediatamente dentro de `effectiveModules`.
 
-#### 5.3.7 `AccountInternalCatalogsController`
-
-Base route: `/api/account/internal-catalogs`
-
-Contratos principales:
-
-- `InternalCatalogDefinitionResponse`: `context`, `identifier`, `label`, `renderType`, `catalogKey`, `allowCreate`, `minQueryLength`
-- `InternalCatalogValueSuggestionResponse`: `id`, `value`, `score`
-- `CreateInternalCatalogValueRequest`: `value`
-
-##### `GET /api/account/internal-catalogs?context=job-profile.requirements`
-
-- Proposito: devolver el manifest de catalogos internos globales que el frontend puede usar para renderizar campos `search`, `select` o `freeText`.
-- Autenticacion: `Bearer` requerido con token `core`.
-- Response: `IReadOnlyCollection<InternalCatalogDefinitionResponse>`.
-- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.context_not_found`.
-- Observaciones: esta superficie no requiere `tenantId` activo ni ownership de compania; hoy publica el contexto `job-profile.requirements` con `Education`, `Knowledge` y `Certification` como `search`, mientras `Experience` y `Other` siguen en `freeText`.
-
-##### `GET /api/account/internal-catalogs/{catalogKey}/values?q=...&limit=...`
-
-- Proposito: buscar sugerencias globales por similitud dentro de un catalogo interno puntual.
-- Autenticacion: `Bearer` requerido con token `core`.
-- Response: `IReadOnlyCollection<InternalCatalogValueSuggestionResponse>`.
-- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`.
-- Observaciones: la busqueda usa `normalized_value`, threshold minimo `0.70`, ordena por exact match, prefijo, similitud, uso y nombre, y no separa resultados por tenant o compania.
-
-##### `POST /api/account/internal-catalogs/{catalogKey}/values`
-
-- Proposito: crear un nuevo valor global dentro de un catalogo `search` cuando el usuario autenticado no encuentra una opcion util.
-- Autenticacion: `Bearer` requerido con token `core`.
-- Request body: `value`.
-- Response: `InternalCatalogValueSuggestionResponse`.
-- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`, `internal_catalogs.create_not_allowed`, `internal_catalogs.similar_value_conflict`.
-- Observaciones: si el valor ya existe por coincidencia exacta se reutiliza y responde `200`; si es nuevo responde `201`; si existe otra fila con similitud `>= 0.90`, la API responde `409` y adjunta `suggestions` en el `ProblemDetails` para evitar duplicados casi identicos.
-
-##### `PATCH /api/account/companies/{companyPublicId}/archive`
-
-- Proposito: archivar una compania propia.
-- Autenticacion: `Bearer` requerido.
-- Response: `AccountCompanyDetailResponse`.
-- Errores relevantes: `COMPANY_ALREADY_ARCHIVED`, `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`.
-- Observaciones: no puede archivarse si la compania coincide con el `tenantId` actual del token o con la compania primaria actual del usuario.
-
-##### `PATCH /api/account/companies/{companyPublicId}/reactivate`
-
-- Proposito: reactivar una compania propia archivada.
-- Autenticacion: `Bearer` requerido.
-- Response: `AccountCompanyDetailResponse`.
-- Errores relevantes: `COMPANY_ALREADY_ACTIVE`, `COMPANY_REACTIVATION_LIMIT_REACHED`, `COMPANY_OWNERSHIP_FORBIDDEN`.
-- Observaciones: la reactivacion vuelve a estado `Active`, pero no cambia automaticamente el tenant activo del usuario.
-
-##### `PATCH /api/account/companies/{companyPublicId}/switch`
-
-- Proposito: cambiar la compania activa del usuario autenticado.
-- Autenticacion: `Bearer` requerido.
-- Request body: ninguno.
-- Response: `200 OK` con `SwitchActiveCompanyResponse`.
-- Errores relevantes: `ACTIVE_COMPANY_SWITCH_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_NOT_FOUND`.
-- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y el claim `role` correspondiente a esa membresia, y devuelve `activeCompany` con `companyPublicId`, `name`, `slug`, `countryCode` y `status`.
-
-#### 5.3.6 Relacion con `Auth` y onboarding
+#### 5.3.7 Relacion con `Auth` y onboarding
 
 - `POST /api/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
-- `GET /api/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
-- `GET /api/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
+- `GET /api/v1/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
+- `GET /api/v1/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types` resuelve el catalogo de tipos documentales desde la fuente unificada por pais de compania.
-- `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
-- `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
-- `PATCH /api/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
+- `GET /api/v1/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
+- `POST /api/v1/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
+- `POST /api/v1/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
 
 Esa secuencia explica por que `Account companies` no usa `/api/v1`: todavia esta resolviendo el paso previo al contexto tenant estable del resto del sistema.
 
@@ -2407,7 +2369,7 @@ Observaciones funcionales:
 
 #### 5.7.10 Relacion con otros modulos
 
-- `Account companies` expone el catalogo auxiliar de `representation type` en `/api/account/companies/legal-representative-representation-types`.
+- `Account companies` expone el catalogo auxiliar de `representation type` en `/api/v1/account/companies/legal-representative-representation-types`.
 - los tipos documentales de representantes legales y personal se unifican en `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`.
 - `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania, donde `isPrimary` ahora es opcional.
 - Los detalles de compania reutilizan resumenes de representantes activos para mostrar la representacion vigente del tenant.
@@ -3170,7 +3132,42 @@ Observaciones funcionales:
 - `export` reutiliza los filtros del listado sin paginacion y soporta `csv|xlsx`.
 - este controller no tiene `activate/inactivate`; el estado operativo de la plaza se controla con `PATCH /status`.
 
-#### 5.9.11 Relacion con otros modulos
+#### 5.9.11 `JobProfileInternalCatalogsController`
+
+Base route: `/api/v1/job-profiles/internal-catalogs`
+
+Contratos principales:
+
+- `InternalCatalogDefinitionResponse`: `context`, `identifier`, `label`, `renderType`, `catalogKey`, `allowCreate`, `minQueryLength`
+- `InternalCatalogValueSuggestionResponse`: `id`, `value`, `score`
+- `CreateInternalCatalogValueRequest`: `value`
+
+##### `GET /api/v1/job-profiles/internal-catalogs?context=job-profile.requirements`
+
+- Proposito: devolver el manifest de catalogos internos globales que el frontend puede usar para renderizar campos `search`, `select` o `freeText`.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<InternalCatalogDefinitionResponse>`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.context_not_found`.
+- Observaciones: esta superficie no requiere `tenantId` activo ni ownership de compania; hoy publica el contexto `job-profile.requirements` con `Education`, `Knowledge` y `Certification` como `search`, mientras `Experience` y `Other` siguen en `freeText`.
+
+##### `GET /api/v1/job-profiles/internal-catalogs/{catalogKey}/values?q=...&limit=...`
+
+- Proposito: buscar sugerencias globales por similitud dentro de un catalogo interno puntual.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<InternalCatalogValueSuggestionResponse>`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`.
+- Observaciones: la busqueda usa `normalized_value`, threshold minimo `0.70`, ordena por exact match, prefijo, similitud, uso y nombre, y no separa resultados por tenant o compania.
+
+##### `POST /api/v1/job-profiles/internal-catalogs/{catalogKey}/values`
+
+- Proposito: crear un nuevo valor global dentro de un catalogo `search` cuando el usuario autenticado no encuentra una opcion util.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `value`.
+- Response: `InternalCatalogValueSuggestionResponse`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`, `internal_catalogs.create_not_allowed`, `internal_catalogs.similar_value_conflict`.
+- Observaciones: si el valor ya existe por coincidencia exacta se reutiliza y responde `200`; si es nuevo responde `201`; si existe otra fila con similitud `>= 0.90`, la API responde `409` y adjunta `suggestions` en el `ProblemDetails` para evitar duplicados casi identicos.
+
+#### 5.9.12 Relacion con otros modulos
 
 - `OrgUnits` aporta la estructura organizacional sobre la que se ubican `JobProfiles`; `PositionSlots` la hereda desde el perfil.
 - `Locations` aporta `WorkCenters`, que `PositionSlots` puede usar como ubicacion operativa concreta.
@@ -3836,10 +3833,11 @@ Observaciones funcionales:
 
 #### 5.11.1 Alcance
 
-Este bloque cubre los catalogos de educacion gestionados como catalogos de sistema global, sin dependencia de pais o tenant. Incluye dos superficies diferenciadas:
+Este bloque cubre los catalogos de educacion gestionados como catalogos de sistema global, sin dependencia de pais o tenant. La administracion vive en una unica superficie:
 
-- `EducationCatalogsController` en la Core API con base `/api/v1/education-catalogs` — solo lectura
-- `EducationCatalogsController` en la Backoffice API con base `/api/platform/education-catalogs` — administracion completa
+- `EducationCatalogsController` en la Backoffice API con base `/api/platform/education-catalogs` — administracion completa (`PlatformOperator`)
+
+En la Core API no existe una ruta dedicada de education-catalogs: los valores activos se consumen a traves de la superficie de catalogos generales (`GeneralCatalogsController`, `GET /api/v1/companies/{companyPublicId}/general-catalogs/{catalogKey}`), segun el mapeo de `GeneralCatalogKeyMap`.
 
 #### 5.11.2 Proposito funcional en CLARIHR
 
@@ -3863,11 +3861,11 @@ Catalogos disponibles:
 - las mutations en Backoffice requieren `concurrencyToken` para evitar escrituras en conflicto
 - el `code` de cada item se normaliza a `UPPERCASE` y es unico por tipo de catalogo
 - el route segment `{catalogKey}` actua como discriminador de tipo y es case-insensitive
-- un `catalogKey` no reconocido devuelve `404` en ambas APIs
+- un `catalogKey` no reconocido devuelve `404`
 
 #### 5.11.4 Contratos principales
 
-**Core — `EducationCatalogLookup`**
+**Core (lectura via `general-catalogs`) — `EducationCatalogLookup`**
 
 ```json
 {
@@ -3905,28 +3903,7 @@ Catalogos disponibles:
 { "code": "BACHELOR", "name": "Bachelor", "sortOrder": 10, "concurrencyToken": "<uuid>" }
 ```
 
-#### 5.11.5 Core API — lectura publica (usuario autenticado)
-
-Base route: `/api/v1/education-catalogs`
-
-Autorizacion: `Bearer` con `client_type=core`. No requiere permisos RBAC adicionales.
-
-##### `GET /api/v1/education-catalogs/{catalogKey}`
-
-- Proposito: listar items activos del catalogo para uso en formularios.
-- Autorizacion: usuario autenticado core.
-- Query: `isActive` (opcional, por defecto retorna solo activos), `search`, `pageNumber`, `pageSize`.
-- Response: `PagedResponse<EducationCatalogLookup>`.
-- Errores relevantes: `404` si `catalogKey` no es reconocido.
-
-##### `GET /api/v1/education-catalogs/{catalogKey}/{id}`
-
-- Proposito: obtener un item activo individual por `publicId`.
-- Autorizacion: usuario autenticado core.
-- Response: `EducationCatalogLookup`.
-- Errores relevantes: `404` si `catalogKey` no existe o el item no esta activo.
-
-#### 5.11.6 Backoffice API — administracion completa (`PlatformOperator`)
+#### 5.11.5 Backoffice API — administracion completa (`PlatformOperator`)
 
 Base route: `/api/platform/education-catalogs`
 
@@ -3938,7 +3915,7 @@ Autorizacion: `Bearer` con `client_type=platform` y politica `PlatformOperator`.
 - Query: `isActive`, `search`, `pageNumber`, `pageSize`.
 - Response: `PagedResponse<EducationCatalogItemResponse>`.
 
-##### `GET /api/platform/education-catalogs/{catalogKey}/{id}`
+##### `GET /api/platform/education-catalogs/{catalogKey}/{publicId}`
 
 - Proposito: obtener un item completo por `publicId` independientemente de su estado.
 - Response: `EducationCatalogItemResponse`.
@@ -3951,26 +3928,26 @@ Autorizacion: `Bearer` con `client_type=platform` y politica `PlatformOperator`.
 - Response: `201 Created` con `EducationCatalogItemResponse`.
 - Errores relevantes: `404` si `catalogKey` no es valido, `409` si `code` ya existe en ese catalogo.
 
-##### `PUT /api/platform/education-catalogs/{catalogKey}/{id}`
+##### `PUT /api/platform/education-catalogs/{catalogKey}/{publicId}`
 
 - Proposito: actualizar un item existente.
 - Request body: `code`, `name`, `sortOrder`, `concurrencyToken`.
 - Response: `200 OK` con `EducationCatalogItemResponse`.
 - Errores relevantes: `404` si no existe, `409` si `code` ya existe o hay conflicto de concurrencia.
 
-##### `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/activate`
+##### `PATCH /api/platform/education-catalogs/{catalogKey}/{publicId}/activate`
 
 - Proposito: activar un item inactivo.
 - Request body: `{ "concurrencyToken": "<uuid>" }`.
 - Response: `200 OK` con `EducationCatalogItemResponse`.
 
-##### `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/inactivate`
+##### `PATCH /api/platform/education-catalogs/{catalogKey}/{publicId}/inactivate`
 
 - Proposito: inactivar un item activo.
 - Request body: `{ "concurrencyToken": "<uuid>" }`.
 - Response: `200 OK` con `EducationCatalogItemResponse`.
 
-#### 5.11.7 Errores observables relevantes
+#### 5.11.6 Errores observables relevantes
 
 - `404 Not Found`: `catalogKey` invalido o item no encontrado.
 - `409 Conflict`: codigo duplicado en el catalogo o conflicto de concurrencia en la escritura.
