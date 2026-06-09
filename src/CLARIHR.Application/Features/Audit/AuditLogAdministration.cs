@@ -83,6 +83,7 @@ internal sealed class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLog
             .WithMessage("Unknown event type.");
 
         RuleFor(query => query.Search)
+            .MinimumLength(2)
             .MaximumLength(200)
             .When(static query => !string.IsNullOrWhiteSpace(query.Search));
 

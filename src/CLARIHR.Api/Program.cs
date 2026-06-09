@@ -11,6 +11,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -283,6 +284,11 @@ builder.Services.AddRateLimiter(options =>
     // cost-centers-export/search; mirrors its 10/min + 120/min defaults.
     options.AddPolicy(SalaryTabulatorRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:SalaryTabulator:Export:PermitLimit", 10));
     options.AddPolicy(SalaryTabulatorRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:SalaryTabulator:Search:PermitLimit", 120));
+
+    // Audit Logs: generous per-user+tenant limiter for the paged free-text audit-log search/list
+    // (scan + LIKE '%x%' over the append-only audit trail). Same paged-search abuse class as the
+    // other read surfaces; mirrors the 120/min family default.
+    options.AddPolicy(AuditRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Audit:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

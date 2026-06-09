@@ -103,6 +103,11 @@ public sealed class OpenApiContractGuardrailsTests
         // OpenAPI surface. Enrolled for UP-C so a regression of that canonicity fails CI. `^UserPreferences`
         // matches only UserPreferencesController (CompanyPreferences starts with "Company").
         ("UserPreferences", new Regex(@"^UserPreferences", RegexOptions.Compiled), "User Preferences"),
+        // AuditController is the tenant-scoped audit-trail read surface (append-only, read-only). Its authz
+        // is handler-gated via [AuthorizeResource]("AUDIT_LOGS", Read) + a handler re-check, so it stays out
+        // of GovernedFamilyRegex by design, but it is a public OpenAPI surface. Enrolled so a GET that drops
+        // [SwaggerOperation] or a class that drops [Tags] fails CI. `^Audit` matches only AuditController.
+        ("Audit", new Regex(@"^Audit", RegexOptions.Compiled), "Audit Logs"),
     ];
 
     public static TheoryData<string> FamilyLabels()

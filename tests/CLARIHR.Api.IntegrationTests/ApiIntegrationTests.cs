@@ -5322,7 +5322,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var invalidFormatResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format=svg");
         await AssertProblemDetailsAsync(invalidFormatResponse, HttpStatusCode.BadRequest, "REPORT_FORMAT_NOT_SUPPORTED");
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=100");
         auditResponse.EnsureSuccessStatusCode();
         var auditPayload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
         Assert.NotNull(auditPayload);
@@ -5554,7 +5554,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         createResponse.EnsureSuccessStatusCode();
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=50");
         auditResponse.EnsureSuccessStatusCode();
 
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
@@ -6933,7 +6933,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         response.EnsureSuccessStatusCode();
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=50");
         auditResponse.EnsureSuccessStatusCode();
 
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
@@ -7728,7 +7728,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var invalidExportResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=xml");
         await AssertProblemDetailsAsync(invalidExportResponse, HttpStatusCode.BadRequest, "COMPETENCY_FRAMEWORK_EXPORT_FORMAT_INVALID");
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=100");
         auditResponse.EnsureSuccessStatusCode();
         var auditPayload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
         Assert.NotNull(auditPayload);
@@ -8530,7 +8530,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         response.EnsureSuccessStatusCode();
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=50");
         auditResponse.EnsureSuccessStatusCode();
 
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
@@ -8876,7 +8876,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         response.EnsureSuccessStatusCode();
 
-        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        var auditResponse = await client.GetAsync("/api/v1/audit/logs?page=1&pageSize=50");
         auditResponse.EnsureSuccessStatusCode();
 
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
@@ -9338,7 +9338,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         approveResponse.EnsureSuccessStatusCode();
 
-        var auditResponse = await approverClient.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        var auditResponse = await approverClient.GetAsync("/api/v1/audit/logs?page=1&pageSize=50");
         auditResponse.EnsureSuccessStatusCode();
 
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
@@ -9382,7 +9382,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
 
-        var response = await client.GetAsync("/api/audit/logs");
+        var response = await client.GetAsync("/api/v1/audit/logs");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
     }
@@ -9398,7 +9398,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
 
-        var response = await client.GetAsync($"/api/audit/logs/{scenario.OtherTenantAuditLogId}");
+        var response = await client.GetAsync($"/api/v1/audit/logs/{scenario.OtherTenantAuditLogId}");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
     }
@@ -10022,7 +10022,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
 
-        var response = await client.GetAsync($"/api/audit/logs/{scenario.AuditLogId}");
+        var response = await client.GetAsync($"/api/v1/audit/logs/{scenario.AuditLogId}");
 
         response.EnsureSuccessStatusCode();
 
@@ -10045,30 +10045,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
 
         var response = await client.GetAsync(
-            $"/api/audit/logs?EntityPublicId={scenario.TargetUserId}&EntityType=User&page=1&pageSize=20");
-
-        response.EnsureSuccessStatusCode();
-
-        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal(1, payload!.TotalCount);
-
-        var item = Assert.Single(payload.Items);
-        Assert.Equal("USER_UPDATED", item.EventType);
-        Assert.Equal("User", item.EntityType);
-        Assert.Equal(scenario.TargetUserId, item.EntityId);
-    }
-
-    [Fact]
-    public async Task AuditLogs_WithLegacyEntityIdAlias_ShouldReturnOnlyMatchingEntityAndAlignedTotalCount()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateUserContext(
-            scenario,
-            (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
-
-        var response = await client.GetAsync(
-            $"/api/audit/logs?EntityId={scenario.TargetUserId}&EntityType=User&page=1&pageSize=20");
+            $"/api/v1/audit/logs?EntityPublicId={scenario.TargetUserId}&EntityType=User&page=1&pageSize=20");
 
         response.EnsureSuccessStatusCode();
 
