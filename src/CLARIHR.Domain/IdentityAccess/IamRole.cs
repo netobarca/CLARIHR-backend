@@ -28,6 +28,8 @@ public sealed class IamRole : TenantEntity
 
     public bool IsSystemRole { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+
     public IReadOnlyCollection<IamRolePermissionAssignment> PermissionAssignments => _permissionAssignments;
 
     public IReadOnlyCollection<IamUserRoleAssignment> UserAssignments => _userAssignments;
@@ -43,6 +45,7 @@ public sealed class IamRole : TenantEntity
         Name = IdentityNormalization.Clean(name, nameof(name));
         NormalizedName = IdentityNormalization.Normalize(name);
         Description = IdentityNormalization.CleanOptional(description);
+        RefreshConcurrencyToken();
     }
 
     public void SyncPermissions(IEnumerable<IamPermission> permissions)
@@ -62,5 +65,11 @@ public sealed class IamRole : TenantEntity
 
             _permissionAssignments.Add(IamRolePermissionAssignment.Create(permissionId));
         }
+
+        // Grants live in a child table (iam_role_permission_assignments); rotate the parent token so a
+        // grants-only change still bumps the role's ETag and trips the SaveChanges concurrency guard.
+        RefreshConcurrencyToken();
     }
+
+    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

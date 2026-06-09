@@ -116,6 +116,14 @@ public sealed class OpenApiContractGuardrailsTests
         // matches only AccountCompanySubscriptionsController (AccountCompanies / AccountCompanyAuthorization have
         // disjoint prefixes: "AccountCompanies" / "AccountCompanyAuthorization").
         ("AccountSubscription", new Regex(@"^AccountCompanySubscriptions", RegexOptions.Compiled), "Account Subscription"),
+        // AccountCompanyAuthorizationController is the single front-door to IAM Roles administration plus
+        // the IamUser role-assignment sub-resource. Its authz is RBAC handler-gated via
+        // IIamAdministrationAuthorizationService (no single Read/Manage policy pair), so it stays OUT of
+        // GovernedFamilyRegex by design (mirror AccountCompanies / AccountCompanySubscriptions), but it is a
+        // public OpenAPI surface. Enrolled so a write that drops [SwaggerOperation] or a class that drops
+        // [Tags] fails CI. `^AccountCompanyAuthorization` matches only AccountCompanyAuthorizationController
+        // (AccountCompanies / AccountCompanySubscriptions have disjoint prefixes).
+        ("AccountAuthorization", new Regex(@"^AccountCompanyAuthorization", RegexOptions.Compiled), "Account Authorization"),
     ];
 
     public static TheoryData<string> FamilyLabels()

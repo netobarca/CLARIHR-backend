@@ -385,6 +385,7 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
                 role.Description,
                 role.IsSystemRole,
                 role.UserAssignments.Count,
+                role.ConcurrencyToken,
                 role.PermissionAssignments
                     .OrderBy(assignment => assignment.Permission.Code)
                     .Select(assignment => new IamPermissionReferenceResponse(

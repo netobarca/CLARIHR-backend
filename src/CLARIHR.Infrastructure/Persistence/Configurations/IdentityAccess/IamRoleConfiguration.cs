@@ -37,6 +37,10 @@ internal sealed class IamRoleConfiguration : IEntityTypeConfiguration<IamRole>
         builder.Property(role => role.IsSystemRole)
             .HasColumnName("is_system_role");
 
+        builder.Property(role => role.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
         builder.Property(role => role.CreatedUtc)
             .HasColumnName("created_utc");
 

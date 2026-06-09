@@ -42,7 +42,10 @@ public sealed record IamUserResponse(
     string FirstName,
     string LastName,
     bool IsActive,
-    IReadOnlyCollection<IamUserRoleResponse> Roles);
+    IReadOnlyCollection<IamUserRoleResponse> Roles,
+    // Weak computed ETag (W/"hash") for the user-roles write concurrency guard. Null on read
+    // projections; populated by SyncIamUserRolesCommandHandler after a successful sync.
+    string? WeakETag = null);
 
 public sealed record IamRoleSummaryResponse(
     Guid Id,
@@ -59,4 +62,5 @@ public sealed record IamRoleResponse(
     string? Description,
     bool IsSystemRole,
     int UserCount,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<IamPermissionReferenceResponse> Permissions);

@@ -88,4 +88,12 @@ public static class IdentityAccessErrors
         "iam.roles.last_administrator_required",
         "The tenant must keep at least one active administrator.",
         ErrorType.Conflict);
+
+    // A stale If-Match on a role write (strong token on IamRole) or a user-roles write (weak computed
+    // ETag over the IamUser projection) maps to 409 CONCURRENCY_CONFLICT, consistent with the app-wide
+    // convention (no 412/428). The "CONCURRENCY_CONFLICT" code is shared and already localized.
+    public static readonly Error ConcurrencyConflict = new(
+        "CONCURRENCY_CONFLICT",
+        "The resource was modified by another request. Refresh and try again.",
+        ErrorType.Conflict);
 }

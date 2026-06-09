@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -8,6 +9,8 @@ namespace CLARIHR.Api.IntegrationTests;
 public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestWebApplicationFactory factory)
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+
     [Fact]
     public async Task AccountCompanyAuthorization_RoleCreationFlow_ShouldAcceptLegacyPermissionIdsPayload()
     {
@@ -15,7 +18,7 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
 
         var createRoleResponse = await client.PostAsync(
-            $"/api/v1/account/companies/{scenario.TenantId}/authorization/roles",
+            RolesUrl(scenario),
             CreateJsonContent($$"""
             {
               "name": "Administrador de Empleados",
@@ -29,22 +32,26 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         var createRoleBody = await createRoleResponse.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.Created, createRoleResponse.StatusCode);
 
+        // POST → 201 with a Location header and the rotated strong token in both body and ETag header.
+        Assert.NotNull(createRoleResponse.Headers.Location);
+        Assert.NotNull(createRoleResponse.Headers.ETag);
+
         using var createdRoleDocument = JsonDocument.Parse(createRoleBody);
         var createdRole = createdRoleDocument.RootElement;
         var createdRolePublicId = createdRole.GetProperty("publicId").GetGuid();
+        var roleToken = createdRole.GetProperty("concurrencyToken").GetGuid();
+        Assert.NotEqual(Guid.Empty, roleToken);
         var createdRoleGrants = createdRole.GetProperty("grants");
         Assert.Equal(1, createdRoleGrants.GetArrayLength());
         Assert.Equal(scenario.ActorPermissionId, createdRoleGrants[0].GetProperty("publicId").GetGuid());
 
-        var updateGrantsResponse = await client.PutAsync(
-            $"/api/v1/account/companies/{scenario.TenantId}/authorization/roles/{createdRolePublicId}/grants",
-            CreateJsonContent($$"""
-            {
-              "permissionIds": [
-                "{{scenario.ActorPermissionId}}"
-              ]
-            }
-            """));
+        // PUT grants now requires the role's strong token in the If-Match header.
+        var updateGrantsResponse = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            GrantsUrl(scenario, createdRolePublicId),
+            new { permissionIds = new[] { scenario.ActorPermissionId } },
+            roleToken);
 
         var updateGrantsBody = await updateGrantsResponse.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, updateGrantsResponse.StatusCode);
@@ -55,6 +62,174 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         var grants = updatedGrants.GetProperty("grants");
         Assert.Equal(1, grants.GetArrayLength());
         Assert.Equal(scenario.ActorPermissionId, grants[0].GetProperty("publicId").GetGuid());
+
+        // The grants write rotates the role's token (grants live in a child table).
+        Assert.NotEqual(roleToken, updatedGrants.GetProperty("concurrencyToken").GetGuid());
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_UpdateRoleWithoutIfMatch_ShouldReturnBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var rolePublicId = await CreateRoleAsync(client, scenario, "Rol Sin Token");
+
+        // No If-Match header → the strong-token binder rejects the write with 400.
+        var response = await client.PutAsync(
+            RoleUrl(scenario, rolePublicId),
+            CreateJsonContent("""{ "name": "Rol Renombrado", "description": null }"""));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_UpdateGrantsWithStaleToken_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var (rolePublicId, staleToken) = await CreateRoleWithTokenAsync(client, scenario, "Rol Concurrente");
+
+        // First grants write consumes the token and rotates it.
+        var firstUpdate = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            GrantsUrl(scenario, rolePublicId),
+            new { permissionIds = new[] { scenario.ActorPermissionId } },
+            staleToken);
+        Assert.Equal(HttpStatusCode.OK, firstUpdate.StatusCode);
+
+        // Re-using the now-stale token must be rejected with 409 CONCURRENCY_CONFLICT.
+        var staleUpdate = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            GrantsUrl(scenario, rolePublicId),
+            new { permissionIds = Array.Empty<Guid>() },
+            staleToken);
+
+        await AssertProblemDetailsAsync(staleUpdate, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_PatchRole_ShouldUpdateDescriptionAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var (rolePublicId, token) = await CreateRoleWithTokenAsync(client, scenario, "Rol Parcheable");
+
+        var patchResponse = await SendPatchWithIfMatchAsync(
+            client,
+            RoleUrl(scenario, rolePublicId),
+            """[ { "op": "replace", "path": "/description", "value": "Descripción actualizada" } ]""",
+            token);
+
+        var patchBody = await patchResponse.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+        using var patchedDocument = JsonDocument.Parse(patchBody);
+        var patched = patchedDocument.RootElement;
+        Assert.Equal("Descripción actualizada", patched.GetProperty("description").GetString());
+        // Name was untouched by the patch and must round-trip rather than being wiped.
+        Assert.Equal("Rol Parcheable", patched.GetProperty("name").GetString());
+        Assert.NotEqual(token, patched.GetProperty("concurrencyToken").GetGuid());
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_PatchRoleWithStaleToken_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var (rolePublicId, staleToken) = await CreateRoleWithTokenAsync(client, scenario, "Rol Parche Conflicto");
+
+        // Consume + rotate the token with a first patch.
+        var firstPatch = await SendPatchWithIfMatchAsync(
+            client,
+            RoleUrl(scenario, rolePublicId),
+            """[ { "op": "replace", "path": "/description", "value": "Primera" } ]""",
+            staleToken);
+        Assert.Equal(HttpStatusCode.OK, firstPatch.StatusCode);
+
+        var stalePatch = await SendPatchWithIfMatchAsync(
+            client,
+            RoleUrl(scenario, rolePublicId),
+            """[ { "op": "replace", "path": "/description", "value": "Segunda" } ]""",
+            staleToken);
+
+        await AssertProblemDetailsAsync(stalePatch, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    private static async Task<Guid> CreateRoleAsync(HttpClient client, IntegrationTestScenario scenario, string name)
+    {
+        var (rolePublicId, _) = await CreateRoleWithTokenAsync(client, scenario, name);
+        return rolePublicId;
+    }
+
+    private static async Task<(Guid RolePublicId, Guid ConcurrencyToken)> CreateRoleWithTokenAsync(
+        HttpClient client,
+        IntegrationTestScenario scenario,
+        string name)
+    {
+        var response = await client.PostAsync(
+            RolesUrl(scenario),
+            CreateJsonContent($$"""{ "name": "{{name}}", "description": "", "permissionIds": [] }"""));
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        return (root.GetProperty("publicId").GetGuid(), root.GetProperty("concurrencyToken").GetGuid());
+    }
+
+    private static string RolesUrl(IntegrationTestScenario scenario) =>
+        $"/api/v1/account/companies/{scenario.TenantId}/authorization/roles";
+
+    private static string RoleUrl(IntegrationTestScenario scenario, Guid rolePublicId) =>
+        $"{RolesUrl(scenario)}/{rolePublicId}";
+
+    private static string GrantsUrl(IntegrationTestScenario scenario, Guid rolePublicId) =>
+        $"{RoleUrl(scenario, rolePublicId)}/grants";
+
+    private static Task<HttpResponseMessage> SendWithIfMatchAsync(
+        HttpClient client,
+        HttpMethod method,
+        string requestUri,
+        object body,
+        Guid concurrencyToken)
+    {
+        var request = new HttpRequestMessage(method, requestUri)
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        return client.SendAsync(request);
+    }
+
+    private static Task<HttpResponseMessage> SendPatchWithIfMatchAsync(
+        HttpClient client,
+        string requestUri,
+        string jsonPatch,
+        Guid concurrencyToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, requestUri)
+        {
+            Content = new StringContent(jsonPatch, Encoding.UTF8, "application/json-patch+json")
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        return client.SendAsync(request);
+    }
+
+    private static async Task AssertProblemDetailsAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatusCode,
+        string expectedCode)
+    {
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal((int)expectedStatusCode, document.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
     }
 
     private static StringContent CreateJsonContent(string json) =>
@@ -66,6 +241,7 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
             scenario.TenantId,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Create),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Update),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Permissions, RbacPermissionAction.Update));
 }

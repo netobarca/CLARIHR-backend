@@ -32,7 +32,8 @@ public sealed record ListIamUsersQuery(
 
 public sealed record SyncIamUserRolesCommand(
     Guid UserId,
-    IReadOnlyCollection<Guid> RoleIds) : ICommand<IamUserResponse>;
+    IReadOnlyCollection<Guid> RoleIds,
+    string? ExpectedETag = null) : ICommand<IamUserResponse>;
 
 internal sealed class CreateIamUserCommandValidator : AbstractValidator<CreateIamUserCommand>
 {
@@ -270,6 +271,17 @@ internal sealed class SyncIamUserRolesCommandHandler(
             return Result<IamUserResponse>.Failure(await UserAdministrationErrors.ResolveUserLookupErrorAsync(repository, command.UserId, RbacPermissionAction.Update, cancellationToken));
         }
 
+        // Weak-ETag concurrency check (iam_users has no persisted token — see IamUserRolesETag). The API
+        // layer rejects a missing If-Match with 400 before dispatch, so ExpectedETag is non-null on the
+        // request path; it is null only for direct (non-HTTP) callers, which skip the check.
+        var currentProjection = await repository.GetUserAsync(user.PublicId, cancellationToken);
+        if (command.ExpectedETag is not null &&
+            currentProjection is not null &&
+            !IamUserRolesETag.Matches(command.ExpectedETag, currentProjection))
+        {
+            return Result<IamUserResponse>.Failure(IdentityAccessErrors.ConcurrencyConflict);
+        }
+
         var roleIds = command.RoleIds.Distinct().ToArray();
         var roles = roleIds.Length == 0
             ? Array.Empty<IamRole>()
@@ -311,7 +323,7 @@ internal sealed class SyncIamUserRolesCommandHandler(
         var updatedUser = await repository.GetUserAsync(user.PublicId, cancellationToken);
         return updatedUser is null
             ? Result<IamUserResponse>.Failure(IdentityAccessErrors.UserNotFound)
-            : Result<IamUserResponse>.Success(updatedUser);
+            : Result<IamUserResponse>.Success(updatedUser with { WeakETag = IamUserRolesETag.Compute(updatedUser) });
     }
 
 }

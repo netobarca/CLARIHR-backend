@@ -1018,7 +1018,13 @@ paths:
   /api/v1/account/companies/{companyPublicId}/authorization/roles:
     get:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: List authorization roles
+      description: |-
+        Returns the tenant's IAM roles (paged, optionally filtered by `search`). Set
+        `includeAllowedActions=true` to enrich each row with the caller's allowed actions
+        (edit/delete) for client affordances. Requires `Roles:Read` (handler-gated RBAC);
+        an unauthorized caller yields `403`.
       parameters:
       - name: companyPublicId
         in: path
@@ -1060,6 +1066,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/PagedResponseOfAuthorizationRoleSummaryResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
           content:
@@ -1086,7 +1104,13 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Create an authorization role
+      description: |-
+        Creates a custom IAM role with an optional initial grant set (`permissionIds`). Returns
+        `201` with the created role; the current `concurrencyToken` is included in the body and the
+        `ETag` header for use in a subsequent update. A duplicate name yields `409`. Requires
+        `Roles:Create` (handler-gated RBAC).
       parameters:
       - name: companyPublicId
         in: path
@@ -1154,10 +1178,40 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}:
     get:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Get an authorization role
+      description: |-
+        Returns a single IAM role with its full grant set. The current `concurrencyToken` is
+        included in the body and the `ETag` header for use in the `If-Match` header of a subsequent
+        update/patch/grants change. Requires `Roles:Read` (handler-gated RBAC); a cross-tenant id
+        yields `404`.
       parameters:
       - name: companyPublicId
         in: path
@@ -1222,7 +1276,14 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Update an authorization role
+      description: |-
+        Replaces the role's editable fields (name, description). Requires the current
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+        `409 CONCURRENCY_CONFLICT`); the refreshed token is returned in the body and the `ETag`
+        header. System roles cannot be modified (`403`); a duplicate name yields `409`. Requires
+        `Roles:Update` (handler-gated RBAC).
       parameters:
       - name: companyPublicId
         in: path
@@ -1233,6 +1294,11 @@ paths:
       - name: rolePublicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -1296,9 +1362,147 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - Account Authorization
+      summary: Patch an authorization role (RFC 6902 JSON Patch)
+      description: |-
+        Applies a partial update using JSON Patch (RFC 6902, media type
+        `application/json-patch+json`; the wire body is a bare array of operations). Patchable
+        paths: `/name` (required, cannot be removed) and `/description` (or `null`/remove to clear
+        it). Grant changes use the dedicated `/grants` endpoint, not this patch; system roles cannot
+        be modified (`403`). Requires the current `concurrencyToken` in the `If-Match` header
+        (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`); the refreshed token is returned in
+        the body and the `ETag` header. Requires `Roles:Update` (handler-gated RBAC).
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: rolePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/JsonPatchDocumentOfPatchAuthorizationRoleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRoleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRoleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRoleResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Delete an authorization role
+      description: |-
+        Permanently deletes a custom IAM role (hard delete — there is no soft-delete state). The
+        delete is guarded: system roles cannot be deleted (`403`) and a role still assigned to users
+        yields `409` (`iam.roles.in_use`). Returns `204`. Requires `Roles:Delete` (handler-gated
+        RBAC).
       parameters:
       - name: companyPublicId
         in: path
@@ -1315,6 +1519,18 @@ paths:
       responses:
         '204':
           description: No Content
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
           content:
@@ -1339,10 +1555,40 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants:
     get:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Get an authorization role's grants
+      description: |-
+        Returns the grant (permission) set of a single IAM role. The role's current
+        `concurrencyToken` is included in the body and the `ETag` header for use in the `If-Match`
+        header of a subsequent grants change. Requires `Roles:Read` (handler-gated RBAC); a
+        cross-tenant id yields `404`.
       parameters:
       - name: companyPublicId
         in: path
@@ -1407,7 +1653,15 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Replace an authorization role's grants
+      description: |-
+        Replaces the role's full grant (permission) set in one call. Enforces the
+        "keep at least one RBAC security administrator" invariant (`409` if the change would remove
+        the last one) and protects system roles (`403`). Requires the role's current
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+        `409 CONCURRENCY_CONFLICT`); the refreshed token is returned in the body and the `ETag`
+        header. Requires `Permissions:Update` (handler-gated RBAC).
       parameters:
       - name: companyPublicId
         in: path
@@ -1418,6 +1672,11 @@ paths:
       - name: rolePublicId
         in: path
         required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         schema:
           type: string
           format: uuid
@@ -1481,10 +1740,43 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles:
     put:
       tags:
-      - AccountCompanyAuthorization
+      - Account Authorization
+      summary: Replace a user's role assignments
+      description: |-
+        Replaces the IAM user's full role set (a second door to role assignment; overlaps
+        CompanyUsers `PATCH /rolePublicIds` with a different authz model — accepted by design).
+        Enforces the "keep at least one active administrator" invariant (`409`). Concurrency uses a
+        WEAK computed ETag: send the current `W/"<hash>"` in the `If-Match` header (missing → `400`,
+        stale → `409 CONCURRENCY_CONFLICT`), or `*` for an unconditional write; the rotated weak
+        token is returned in the body (`weakETag`) and the `ETag` header. Requires `Users:Update`
+        (handler-gated RBAC).
       parameters:
       - name: companyPublicId
         in: path
@@ -1548,6 +1840,30 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
           description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
           content:
             text/plain:
               schema:
@@ -37212,6 +37528,9 @@ components:
           nullable: true
         isSystemRole:
           type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
         grants:
           type: array
           items:
@@ -37250,6 +37569,9 @@ components:
         userCount:
           type: integer
           format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
         grants:
           type: array
           items:
@@ -37294,11 +37616,39 @@ components:
           nullable: true
         isActive:
           type: boolean
+        weakETag:
+          type: string
+          nullable: true
         roles:
           type: array
           items:
             $ref: '#/components/schemas/AuthorizationRoleReferenceResponse'
           nullable: true
+      additionalProperties: false
+    OperationOfPatchAuthorizationRoleRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          nullable: true
+        op:
+          type: string
+          nullable: true
+        from:
+          type: string
+          nullable: true
+        value:
+          nullable: true
+      additionalProperties: false
+    JsonPatchDocumentOfPatchAuthorizationRoleRequest:
+      type: object
+      properties:
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationOfPatchAuthorizationRoleRequest'
+          nullable: true
+          readOnly: true
       additionalProperties: false
     CreateAuthorizationRoleRequest:
       type: object

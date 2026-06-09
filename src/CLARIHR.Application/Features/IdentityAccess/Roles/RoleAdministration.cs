@@ -32,7 +32,8 @@ public sealed record ListIamRolesQuery(
 public sealed record UpdateIamRoleCommand(
     Guid RoleId,
     string Name,
-    string? Description) : ICommand<IamRoleResponse>;
+    string? Description,
+    Guid ConcurrencyToken) : ICommand<IamRoleResponse>;
 
 public sealed record CloneIamRoleCommand(
     Guid RoleId,
@@ -43,7 +44,8 @@ public sealed record DeleteIamRoleCommand(Guid RoleId) : ICommand<bool>;
 
 public sealed record SyncIamRolePermissionsCommand(
     Guid RoleId,
-    IReadOnlyCollection<Guid> PermissionIds) : ICommand<IamRoleResponse>;
+    IReadOnlyCollection<Guid> PermissionIds,
+    Guid ConcurrencyToken) : ICommand<IamRoleResponse>;
 
 public sealed record SyncIamRoleUsersCommand(
     Guid RoleId,
@@ -89,6 +91,9 @@ internal sealed class UpdateIamRoleCommandValidator : AbstractValidator<UpdateIa
         RuleFor(command => command.Description)
             .MaximumLength(500)
             .When(static command => !string.IsNullOrWhiteSpace(command.Description));
+
+        RuleFor(command => command.ConcurrencyToken)
+            .NotEmpty();
     }
 }
 
@@ -146,6 +151,9 @@ internal sealed class SyncIamRolePermissionsCommandValidator : AbstractValidator
 
         RuleForEach(command => command.PermissionIds)
             .NotEqual(Guid.Empty);
+
+        RuleFor(command => command.ConcurrencyToken)
+            .NotEmpty();
     }
 }
 
@@ -256,6 +264,13 @@ internal sealed class UpdateIamRoleCommandHandler(
         if (role.IsSystemRole)
         {
             return Result<IamRoleResponse>.Failure(IdentityAccessErrors.ProtectedRoleModificationForbidden);
+        }
+
+        // Optimistic concurrency: the strong token travels in the If-Match header (validator enforces
+        // NotEmpty, so a stale/blank token never silently bypasses this guard).
+        if (role.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<IamRoleResponse>.Failure(IdentityAccessErrors.ConcurrencyConflict);
         }
 
         var normalizedName = Normalize(command.Name);
@@ -554,6 +569,13 @@ internal sealed class SyncIamRolePermissionsCommandHandler(
         if (role.IsSystemRole)
         {
             return Result<IamRoleResponse>.Failure(IdentityAccessErrors.ProtectedRoleModificationForbidden);
+        }
+
+        // Optimistic concurrency: the role's strong token travels in the If-Match header. The grants
+        // sync rotates the token (IamRole.SyncPermissions), so concurrent grant edits collide here.
+        if (role.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<IamRoleResponse>.Failure(IdentityAccessErrors.ConcurrencyConflict);
         }
 
         var permissionIds = command.PermissionIds.Distinct().ToArray();

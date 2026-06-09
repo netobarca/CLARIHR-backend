@@ -90,3 +90,22 @@ No es un CRUD sobre entidad propia: es una **fachada IAM** sobre el dominio `Ide
 - **Nit de mantenibilidad (no es criterio):** el controller redefine DTOs (`AuthorizationRoleResponse`, etc.) que **duplican** `IamRoleResponse` del Application + mapea a mano. Opcional: colapsar al response del Application (reduce superficie). No bloqueante.
 - **`IsCompanyScopeMismatch`** (path `companyPublicId` == JWT tenant → `Forbid()`) es defendible (valida que el segmento de ruta no cruce tenant); se conserva.
 - **Orden sugerido:** PR-A → PR-B → PR-C → PR-D. PR-A es seguro e inmediato; PR-B/D son breaking (coordinar FE); PR-C es aditivo.
+
+## 9. Estado de implementación (2026-06-09) — **TODOS LOS PR IMPLEMENTADOS (uncommitted)**
+
+Las 4 PR se implementaron en una sola entrega. `build 0/0 · unit 1763/0 · integ AccountCompanyAuthorization 5/5 + adyacentes verdes (ApiIntegrationTests 308/0/23-skip, AccountCompanySubscriptions 5/5, CompanyUser* 2/2, guardrails authz+openapi verdes)`. **1 migración pendiente de aplicar por el usuario.**
+
+**PR-A (contrato/Swagger) ✅** — `[Tags("Account Authorization")]` + `[SwaggerOperation]` en los 9 endpoints; `[ProducesStandardErrors(Query/Read/SubResourceWrite)]` reemplaza las listas verbosas; comentario de exclusión authz (handler-gated RBAC, **NO** `[AuthorizationPolicySet]`); enrolado en `OpenApiContractGuardrailsTests.Families` (`^AccountCompanyAuthorization` → "Account Authorization"). `openapi.yaml` **regenerado** (4 paths + schemas) desde swagger en vivo (per-sección; el resto del archivo intacto).
+
+**PR-B (token fuerte `IamRole` + If-Match) ✅** — `IamRole.ConcurrencyToken` (Guid, seed en ctor) + `RefreshConcurrencyToken()` en `UpdateDetails` **y** `SyncPermissions` (los grants son tabla hija); EF `concurrency_token` `.IsConcurrencyToken()` (sin default en snapshot); guardrail `ConcurrencyTokenMappingGuardrailsTests` extendido con `typeof(IamRole)`. Migración **`20260609164018_AddConcurrencyTokenToIamRoles`** (backfill `gen_random_uuid()` en el `Up()`, snapshot sin default). Contrato: `ConcurrencyToken` expuesto en `IamRoleResponse`/`AuthorizationRoleResponse`/`AuthorizationRoleGrantsResponse`; GET/POST/PUT/PATCH/grants emiten `ETag`; `PUT roles/{id}` y `PUT roles/{id}/grants` exigen `[FromIfMatch] Guid` (ausente→400, stale→409 `CONCURRENCY_CONFLICT`). `IdentityAccessErrors.ConcurrencyConflict` (código `CONCURRENCY_CONFLICT` compartido → **sin resx nuevo**). ⚠️ **Breaking FE.**
+
+**PR-C (PATCH RFC-6902) ✅** — nuevo `PATCH roles/{rolePublicId}` (`application/json-patch+json`, `[RequestSizeLimit]`), paths escalares `/name`,`/description`; `PatchIamRoleCommand` + `IamRolePatchApplier` (archivo `PatchIamRole.cs`, espeja `AccountCompanyPatch`): revalida unicidad de nombre→409, protege system-role→403, If-Match+ETag, no-op no rota el token. `effectiveName/effectiveDescription` resuelven el setter combinado `UpdateDetails`. PUT conservado; grants/user-roles **no** se pliegan.
+
+**PR-D (weak-ETag `users/{id}/roles`) ✅** — nuevo `IamUserRolesETag` (espeja `CompanyUserETag`, hash SHA-256 de perfil+estado+set de roles ordenado sobre `IamUserResponse`); `SyncIamUserRolesCommand.ExpectedETag` (string?, null para callers no-HTTP); el handler compara el ETag de la proyección **antes** de mutar→409 y devuelve el ETag rotado en `IamUserResponse.WeakETag`. Controller usa `TryGetWeakIfMatch` (ausente→400) + emite `W/"hash"`; `*` permite escritura incondicional (no hay GET de user-roles en este controller para sembrar el ETag — el cliente lo toma de la respuesta de la escritura previa o usa `*`). Solape con `CompanyUsers PATCH /rolePublicIds` documentado como aceptado. ⚠️ **Breaking FE.**
+
+**Tests añadidos/migrados (integración):** `RoleCreationFlow` migrado a If-Match (lee `concurrencyToken` del create); +`UpdateRoleWithoutIfMatch→400`, +`UpdateGrantsWithStaleToken→409`, +`PatchRole→200` (descripción + name round-trip + token rotado), +`PatchRoleWithStaleToken→409`.
+
+**Pendiente para el usuario:**
+1. **Aplicar la migración** (no se ejecutó `database update`): `dotnet ef database update --project src/CLARIHR.Infrastructure --startup-project src/CLARIHR.Api`.
+2. **Avisar al FE** los 3 breaking: `If-Match` obligatorio en `PUT roles/{id}`, `PUT roles/{id}/grants` (token fuerte) y `PUT users/{id}/roles` (weak `W/"hash"`), más el nuevo `PATCH roles/{id}`.
+3. Commit (trabajo uncommitted).
