@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.PlatformSubscriptions.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -96,19 +97,23 @@ internal sealed class CompanySubscriptionConfiguration : IEntityTypeConfiguratio
         builder.Property(subscription => subscription.ModifiedUtc)
             .HasColumnName("modified_utc");
 
+        builder.Property(subscription => subscription.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
         builder.HasIndex(
                 [nameof(CompanySubscription.CompanyId), nameof(CompanySubscription.Status)],
                 "company_subscription_live_status_idx")
             .IsUnique()
             .HasFilter("status IN ('Draft', 'Trial', 'Active', 'Suspended')")
-            .HasDatabaseName("uq_company_subscriptions__company_live");
+            .HasDatabaseName(CompanySubscriptionConstraintViolations.LiveSubscriptionConstraintName);
 
         builder.HasIndex(
                 [nameof(CompanySubscription.CompanyId), nameof(CompanySubscription.Status)],
                 "company_subscription_scheduled_status_idx")
             .IsUnique()
             .HasFilter("status = 'Scheduled'")
-            .HasDatabaseName("uq_company_subscriptions__company_scheduled");
+            .HasDatabaseName(CompanySubscriptionConstraintViolations.ScheduledSubscriptionConstraintName);
 
         builder.HasIndex(subscription => subscription.CommercialPlanId)
             .HasDatabaseName("ix_company_subscriptions__commercial_plan_id");
@@ -480,7 +485,7 @@ internal sealed class CompanySubscriptionPlanChangeConfiguration : IEntityTypeCo
                 "company_subscription_plan_changes_pending_status_idx")
             .IsUnique()
             .HasFilter("status = 'Scheduled'")
-            .HasDatabaseName("uq_company_subscription_plan_changes__company_scheduled");
+            .HasDatabaseName(CompanySubscriptionConstraintViolations.ScheduledPlanChangeConstraintName);
 
         builder.HasOne<Company>()
             .WithMany()
@@ -594,7 +599,7 @@ internal sealed class CompanyCommercialAddonConfiguration : IEntityTypeConfigura
 
         builder.HasIndex(companyAddon => new { companyAddon.CompanyId, companyAddon.CommercialAddonId })
             .IsUnique()
-            .HasDatabaseName("uq_company_commercial_addons__company_addon");
+            .HasDatabaseName(CompanySubscriptionConstraintViolations.CompanyAddonConstraintName);
 
         builder.HasIndex(companyAddon => new { companyAddon.CompanyId, companyAddon.Status })
             .HasDatabaseName("ix_company_commercial_addons__company_status");
@@ -783,7 +788,7 @@ internal sealed class CompanyCommercialAddonChangeConfiguration : IEntityTypeCon
                 "company_commercial_addon_changes_pending_status_idx")
             .IsUnique()
             .HasFilter("status = 'Scheduled'")
-            .HasDatabaseName("uq_company_commercial_addon_changes__company_addon_scheduled");
+            .HasDatabaseName(CompanySubscriptionConstraintViolations.ScheduledAddonChangeConstraintName);
 
         builder.HasOne<Company>()
             .WithMany()

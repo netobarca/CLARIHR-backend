@@ -142,6 +142,8 @@ public sealed class CompanySubscription : AuditableEntity
 
     public SubscriptionStatusChangeOrigin CurrentStatusOrigin { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+
     public IReadOnlyCollection<CompanySubscriptionStatusTransition> StatusTransitions => _statusTransitions;
 
     public static CompanySubscription Activate(long companyId, CommercialPlan commercialPlan, DateTime startDateUtc) =>
@@ -359,6 +361,7 @@ public sealed class CompanySubscription : AuditableEntity
         CurrentStatusObservations = CompanyNormalization.CleanOptional(observations);
 
         AddTransition(previousStatus, nextStatus, reasonCode, changedAtUtc, origin, actorUserPublicId, observations);
+        RefreshConcurrencyToken();
     }
 
     private void AddTransition(
@@ -389,6 +392,8 @@ public sealed class CompanySubscription : AuditableEntity
 
     private static Guid? NormalizeActorId(Guid actorUserPublicId) =>
         actorUserPublicId == Guid.Empty ? null : actorUserPublicId;
+
+    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 
     private static DateTime MaxDate(DateTime firstDateUtc, DateTime secondDateUtc) =>
         firstDateUtc.Date >= secondDateUtc.Date ? firstDateUtc.Date : secondDateUtc.Date;

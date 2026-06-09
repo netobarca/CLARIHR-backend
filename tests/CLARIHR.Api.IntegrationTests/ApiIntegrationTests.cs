@@ -113,7 +113,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
 
-        var createCompanyResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        var createCompanyResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "First Access Company",
             countryCode = "SV",
@@ -125,7 +125,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(companyPayload);
 
         var switchResponse = await accountClient.PostAsync(
-            $"/api/account/companies/{companyPayload!.PublicId}/switch",
+            $"/api/v1/account/companies/{companyPayload!.PublicId}/switch",
             content: null);
         Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
 
@@ -163,7 +163,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
 
-        var createCompanyResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        var createCompanyResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Onboarding Locations Company",
             countryCode = "SV",
@@ -302,7 +302,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync("/api/account/companies?page=1&pageSize=20");
+        var response = await client.GetAsync("/api/v1/account/companies?page=1&pageSize=20");
 
         response.EnsureSuccessStatusCode();
 
@@ -319,7 +319,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync($"/api/account/companies/{scenario.TenantId}");
+        var response = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}");
 
         response.EnsureSuccessStatusCode();
 
@@ -334,7 +334,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     [Fact]
     public async Task AccountCompanies_GetCountries_ShouldRequireAuthentication()
     {
-        var response = await factory.CreateClient().GetAsync("/api/account/companies/countries");
+        var response = await factory.CreateClient().GetAsync("/api/v1/account/companies/countries");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -345,7 +345,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync("/api/account/companies/countries");
+        var response = await client.GetAsync("/api/v1/account/companies/countries");
 
         response.EnsureSuccessStatusCode();
 
@@ -359,7 +359,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     [Fact]
     public async Task AccountCompanies_GetCompanyTypes_ShouldRequireAuthentication()
     {
-        var response = await factory.CreateClient().GetAsync("/api/account/companies/company-types?countryCode=SV");
+        var response = await factory.CreateClient().GetAsync("/api/v1/account/companies/company-types?countryCode=SV");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -407,7 +407,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync("/api/account/companies/legal-representative-position-titles");
+        var response = await client.GetAsync("/api/v1/account/companies/legal-representative-position-titles");
 
         response.EnsureSuccessStatusCode();
 
@@ -473,7 +473,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync("/api/account/companies/legal-representative-representation-types");
+        var response = await client.GetAsync("/api/v1/account/companies/legal-representative-representation-types");
 
         response.EnsureSuccessStatusCode();
 
@@ -517,7 +517,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme DevOps",
             countryCode = "SV",
@@ -550,7 +550,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -579,7 +579,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Nullable Primary",
             countryCode = "SV",
@@ -628,7 +628,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV"
@@ -649,7 +649,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var accountClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var createResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        var createResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -687,7 +687,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var accountClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var createResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        var createResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Guatemala",
             countryCode = "GT",
@@ -726,7 +726,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -744,7 +744,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
         };
@@ -767,7 +767,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        var response = await client.PutJsonAsync($"/api/v1/account/companies/{scenario.OtherTenantId}", new
         {
             name = "Acme Two Updated"
         });
@@ -781,7 +781,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
         };
@@ -801,7 +801,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             .Single(item => item.Code == "SA_DE_CV");
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = companyType.Id }),
@@ -830,7 +830,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             .Single(item => item.Code == "LLC");
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = usCompanyType.Id }),
@@ -851,7 +851,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
@@ -879,7 +879,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
         // Status transitions go through /archive and /reactivate; a /status patch op must be rejected (400).
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/status", value = "Archived" } }),
@@ -898,7 +898,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
@@ -919,7 +919,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var current = await GetAccountCompanyAsync(client, scenario.TenantId);
 
-        using var archiveRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.TenantId}/archive");
+        using var archiveRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.TenantId}/archive");
         archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
 
         var response = await client.SendAsync(archiveRequest);
@@ -933,7 +933,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PatchAsync($"/api/account/companies/{scenario.OtherTenantId}/archive", content: null);
+        var response = await client.PatchAsync($"/api/v1/account/companies/{scenario.OtherTenantId}/archive", content: null);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -952,7 +952,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        using var reactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}/reactivate");
+        using var reactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}/reactivate");
         reactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
 
         var response = await client.SendAsync(reactivateRequest);
@@ -968,7 +968,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private async Task<AccountCompanyDetailItem> GetAccountCompanyAsync(HttpClient client, Guid companyPublicId)
     {
-        var response = await client.GetAsync($"/api/account/companies/{companyPublicId}");
+        var response = await client.GetAsync($"/api/v1/account/companies/{companyPublicId}");
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions))!;
     }
@@ -997,7 +997,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync($"/api/account/companies/{foreignCompanyId}");
+        var response = await client.GetAsync($"/api/v1/account/companies/{foreignCompanyId}");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_OWNERSHIP_FORBIDDEN");
     }
@@ -1024,7 +1024,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsync($"/api/account/companies/{scenario.OtherTenantId}/switch", content: null);
+        var response = await client.PostAsync($"/api/v1/account/companies/{scenario.OtherTenantId}/switch", content: null);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync();
@@ -5529,7 +5529,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await AssertFirstItemHasAllowedActionsAsync(iamRolesList);
 
         using var accountCompaniesClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
-        var accountCompaniesList = await accountCompaniesClient.GetAsync("/api/account/companies?page=1&pageSize=20&includeAllowedActions=true");
+        var accountCompaniesList = await accountCompaniesClient.GetAsync("/api/v1/account/companies?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(accountCompaniesList);
     }
 
@@ -10695,7 +10695,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private async Task<List<OrgStructureCatalogItem>> GetAccountCompanyTypesAsync(HttpClient client, string countryCode)
     {
-        var response = await client.GetAsync($"/api/account/companies/company-types?countryCode={countryCode}");
+        var response = await client.GetAsync($"/api/v1/account/companies/company-types?countryCode={countryCode}");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<List<OrgStructureCatalogItem>>(JsonOptions);

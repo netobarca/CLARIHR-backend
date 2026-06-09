@@ -21,12 +21,12 @@ namespace CLARIHR.Api.Controllers;
 // Authorization is bespoke per-resource ownership (the company's CreatedByUserPublicId must match the
 // JWT subject), enforced in the handlers via AccountCompanyActorResolver — NOT RBAC. This family is
 // intentionally excluded from [AuthorizationPolicySet]/GovernedFamilyRegex (like PersonnelFileReporting):
-// there is no permission/policy to declare, so a declarative attribute would be misleading. The literal
-// route (`api/account/companies` + `{companyPublicId}` + `/switch`) is locked by
-// PublicContractGuardrailsIntegrationTests and must not be versioned or renamed.
+// there is no permission/policy to declare, so a declarative attribute would be misleading. The route is
+// canonically versioned under `api/v1/account/companies` (+ `{companyPublicId}` + `/switch`), pinned by
+// PublicContractGuardrailsIntegrationTests; the whole `api/account/*` family migrated to `api/v1` together.
 [ApiController]
 [Authorize]
-[Route("api/account/companies")]
+[Route("api/v1/account/companies")]
 [Tags("Account Companies")]
 public sealed class AccountCompaniesController(
     ICommandDispatcher commandDispatcher,

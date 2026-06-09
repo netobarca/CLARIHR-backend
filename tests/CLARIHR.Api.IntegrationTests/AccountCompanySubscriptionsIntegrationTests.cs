@@ -77,7 +77,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var initialOverviewResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription");
+        var initialOverviewResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription");
         initialOverviewResponse.EnsureSuccessStatusCode();
 
         var initialOverview = await initialOverviewResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
@@ -86,7 +86,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.DoesNotContain(initialOverview.EffectiveModules, static module => module.ModuleKey == CommercialModuleKeys.JobProfiles);
         Assert.DoesNotContain(initialOverview.EffectiveModules, static module => module.ModuleKey == CommercialModuleKeys.SalaryTabulator);
 
-        var plansResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/plans");
+        var plansResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription/plans");
         Assert.True(plansResponse.IsSuccessStatusCode, await plansResponse.Content.ReadAsStringAsync());
 
         var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
@@ -100,7 +100,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
                 plan.ModuleKeys.Contains(CommercialModuleKeys.JobProfiles) &&
                 plan.ModuleKeys.Contains(CommercialModuleKeys.OrgUnits));
 
-        var freeMarketplaceResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/addons/marketplace");
+        var freeMarketplaceResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription/addons/marketplace");
         freeMarketplaceResponse.EnsureSuccessStatusCode();
 
         var freeMarketplace = await freeMarketplaceResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanyMarketplaceAddonEnvelope>>(JsonOptions);
@@ -111,7 +111,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.Contains("FREE", blockedAddon.BlockedReason, StringComparison.OrdinalIgnoreCase);
 
         var planPreviewResponse = await client.PostJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription/preview",
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription/preview",
             new { commercialPlanId = proPlanPublicId });
         planPreviewResponse.EnsureSuccessStatusCode();
 
@@ -123,13 +123,16 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.Contains(CommercialModuleKeys.JobProfiles, planPreview.AddedModuleKeys);
         Assert.Contains(CommercialModuleKeys.OrgUnits, planPreview.AddedModuleKeys);
 
-        var upgradeResponse = await client.PutJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription",
+        var upgradeResponse = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription",
             new
             {
                 commercialPlanId = proPlanPublicId,
                 observations = "Upgrade owner"
-            });
+            },
+            initialOverview!.ConcurrencyToken);
         upgradeResponse.EnsureSuccessStatusCode();
 
         var upgradedOverview = await upgradeResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
@@ -139,7 +142,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
             upgradedOverview.EffectiveModules,
             static module => module.ModuleKey == CommercialModuleKeys.JobProfiles && module.GrantedByPlan && !module.GrantedByAddon);
 
-        var paidMarketplaceResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/addons/marketplace");
+        var paidMarketplaceResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription/addons/marketplace");
         paidMarketplaceResponse.EnsureSuccessStatusCode();
 
         var paidMarketplace = await paidMarketplaceResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanyMarketplaceAddonEnvelope>>(JsonOptions);
@@ -149,7 +152,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.Null(acquirableAddon.BlockedReason);
 
         var addonPreviewResponse = await client.PostJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription/addons/preview",
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription/addons/preview",
             new
             {
                 commercialAddonId = addonPublicId,
@@ -162,14 +165,17 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.True(addonPreview!.IsEligible);
         Assert.Contains(CommercialModuleKeys.SalaryTabulator, addonPreview.AddedModuleKeys);
 
-        var addonApplyResponse = await client.PostJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription/addons",
+        var addonApplyResponse = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription/addons",
             new
             {
                 commercialAddonId = addonPublicId,
                 action = SubscriptionAddonChangeAction.Activate,
                 observations = "Owner addon activation"
-            });
+            },
+            upgradedOverview!.ConcurrencyToken);
         addonApplyResponse.EnsureSuccessStatusCode();
 
         var withAddonOverview = await addonApplyResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
@@ -179,13 +185,16 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
             withAddonOverview.EffectiveModules,
             static module => module.ModuleKey == CommercialModuleKeys.SalaryTabulator && module.GrantedByAddon);
 
-        var downgradeResponse = await client.PutJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription",
+        var downgradeResponse = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription",
             new
             {
                 commercialPlanId = freePlanPublicId,
                 observations = "Downgrade owner"
-            });
+            },
+            withAddonOverview!.ConcurrencyToken);
         Assert.True(downgradeResponse.IsSuccessStatusCode, await downgradeResponse.Content.ReadAsStringAsync());
 
         var downgradedOverview = await downgradeResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
@@ -202,7 +211,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.TargetUserId, scenario.TenantId));
 
-        var response = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription");
+        var response = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -222,7 +231,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var plansResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/plans");
+        var plansResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription/plans");
         plansResponse.EnsureSuccessStatusCode();
 
         var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
@@ -230,20 +239,29 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.DoesNotContain(plans!, static plan => plan.Code == "MASTER");
 
         var previewResponse = await client.PostJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription/preview",
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription/preview",
             new { commercialPlanId = masterPlanPublicId });
         await AssertProblemDetailsAsync(
             previewResponse,
             HttpStatusCode.Forbidden,
             "ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN");
 
-        var changeResponse = await client.PutJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription",
+        var masterOverviewResponse = await client.GetAsync(
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription");
+        masterOverviewResponse.EnsureSuccessStatusCode();
+        var masterOverview = await masterOverviewResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
+        Assert.NotNull(masterOverview);
+
+        var changeResponse = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription",
             new
             {
                 commercialPlanId = masterPlanPublicId,
                 observations = "Attempt MASTER without platform operator"
-            });
+            },
+            masterOverview!.ConcurrencyToken);
         await AssertProblemDetailsAsync(
             changeResponse,
             HttpStatusCode.Forbidden,
@@ -269,7 +287,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var plansResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/plans");
+        var plansResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription/plans");
         plansResponse.EnsureSuccessStatusCode();
 
         var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
@@ -281,7 +299,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
             masterPlan.ModuleKeys.OrderBy(static key => key, StringComparer.Ordinal));
 
         var previewResponse = await client.PostJsonAsync(
-            $"/api/account/companies/{scenario.TenantId}/subscription/preview",
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription/preview",
             new { commercialPlanId = masterPlanPublicId });
         previewResponse.EnsureSuccessStatusCode();
 
@@ -289,6 +307,77 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         Assert.NotNull(preview);
         Assert.Equal("MASTER", preview!.TargetPlan.Code);
         Assert.True(preview.IsEligible);
+    }
+
+    [Fact]
+    public async Task AccountCompanySubscription_StalePlanChange_ShouldReturnConflict()
+    {
+        Guid freePlanPublicId = Guid.Empty;
+        Guid proPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            freePlanPublicId = await dbContext.CommercialPlans
+                .Where(plan => plan.NormalizedCode == "FREE")
+                .Select(plan => plan.PublicId)
+                .SingleAsync();
+
+            var proPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                [CommercialModuleKeys.JobProfiles, CommercialModuleKeys.OrgUnits],
+                []);
+            dbContext.CommercialPlans.Add(proPlan);
+
+            await dbContext.SaveChangesAsync();
+            proPlanPublicId = proPlan.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var overviewResponse = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/subscription");
+        overviewResponse.EnsureSuccessStatusCode();
+        var overview = await overviewResponse.Content.ReadFromJsonAsync<AccountCompanySubscriptionOverviewEnvelope>(JsonOptions);
+        Assert.NotNull(overview);
+        var staleToken = overview!.ConcurrencyToken;
+
+        // The first change consumes the token (FREE → PRO replaces the active subscription, rotating it).
+        var firstChange = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription",
+            new { commercialPlanId = proPlanPublicId, observations = "Upgrade" },
+            staleToken);
+        Assert.True(firstChange.IsSuccessStatusCode, await firstChange.Content.ReadAsStringAsync());
+
+        // Re-using the now-stale token (PRO → FREE) must be rejected with 409 CONCURRENCY_CONFLICT.
+        var staleChange = await SendWithIfMatchAsync(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/account/companies/{scenario.TenantId}/subscription",
+            new { commercialPlanId = freePlanPublicId, observations = "Stale retry" },
+            staleToken);
+        await AssertProblemDetailsAsync(staleChange, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    private static Task<HttpResponseMessage> SendWithIfMatchAsync(
+        HttpClient client,
+        HttpMethod method,
+        string requestUri,
+        object body,
+        Guid concurrencyToken)
+    {
+        var request = new HttpRequestMessage(method, requestUri)
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        return client.SendAsync(request);
     }
 
     private static async Task AssertProblemDetailsAsync(
@@ -310,7 +399,8 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         string PlanCode,
         AccountCompanySubscriptionPlanEnvelope CurrentPlan,
         IReadOnlyCollection<AccountCompanySubscriptionAddonEnvelope> ActiveAddons,
-        IReadOnlyCollection<AccountCompanyEffectiveModuleEnvelope> EffectiveModules);
+        IReadOnlyCollection<AccountCompanyEffectiveModuleEnvelope> EffectiveModules,
+        Guid ConcurrencyToken);
 
     private sealed record AccountCompanySubscriptionPlanEnvelope(
         Guid CommercialPlanId,

@@ -14,7 +14,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/account/companies/{companyPublicId:guid}/authorization")]
+[Route("api/v1/account/companies/{companyPublicId:guid}/authorization")]
 public sealed class AccountCompanyAuthorizationController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,

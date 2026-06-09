@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
+using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.LegalRepresentatives;
@@ -57,6 +58,7 @@ public sealed class ConcurrencyTokenMappingGuardrailsTests
         Assert.Contains(typeof(JobProfileCompetencyExpectation), observed);
         Assert.Contains(typeof(LegalRepresentative), observed);
         Assert.Contains(typeof(LocationGroup), observed);
+        Assert.Contains(typeof(CompanySubscription), observed);
     }
 
     private static ApplicationDbContext CreateContext()

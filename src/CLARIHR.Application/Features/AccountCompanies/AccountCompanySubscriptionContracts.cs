@@ -49,7 +49,8 @@ public sealed record AccountCompanySubscriptionOverviewResponse(
     string PlanCode,
     AccountCompanySubscriptionPlanResponse CurrentPlan,
     IReadOnlyCollection<AccountCompanySubscriptionAddonResponse> ActiveAddons,
-    IReadOnlyCollection<AccountCompanyEffectiveModuleResponse> EffectiveModules);
+    IReadOnlyCollection<AccountCompanyEffectiveModuleResponse> EffectiveModules,
+    Guid ConcurrencyToken);
 
 public sealed record AccountCompanySubscriptionPlanPreviewResponse(
     Guid CompanyId,
@@ -100,7 +101,7 @@ public sealed record GetOwnedCompanySubscriptionPlansQuery(Guid CompanyId)
 public sealed record PreviewOwnedCompanySubscriptionPlanChangeQuery(Guid CompanyId, Guid CommercialPlanId)
     : IQuery<AccountCompanySubscriptionPlanPreviewResponse>;
 
-public sealed record ChangeOwnedCompanySubscriptionCommand(Guid CompanyId, Guid CommercialPlanId, string? Observations)
+public sealed record ChangeOwnedCompanySubscriptionCommand(Guid CompanyId, Guid CommercialPlanId, string? Observations, Guid ConcurrencyToken)
     : ICommand<AccountCompanySubscriptionOverviewResponse>;
 
 public sealed record GetOwnedCompanySubscriptionAddonsQuery(Guid CompanyId)
@@ -119,7 +120,8 @@ public sealed record CreateOwnedCompanyAddonChangeCommand(
     Guid CompanyId,
     Guid CommercialAddonId,
     SubscriptionAddonChangeAction Action,
-    string? Observations)
+    string? Observations,
+    Guid ConcurrencyToken)
     : ICommand<AccountCompanySubscriptionOverviewResponse>;
 
 internal sealed class GetOwnedCompanySubscriptionQueryValidator : AbstractValidator<GetOwnedCompanySubscriptionQuery>
@@ -154,6 +156,7 @@ internal sealed class ChangeOwnedCompanySubscriptionCommandValidator : AbstractV
         RuleFor(command => command.CompanyId).NotEmpty();
         RuleFor(command => command.CommercialPlanId).NotEmpty();
         RuleFor(command => command.Observations).MaximumLength(2000);
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -191,5 +194,6 @@ internal sealed class CreateOwnedCompanyAddonChangeCommandValidator : AbstractVa
         RuleFor(command => command.CommercialAddonId).NotEmpty();
         RuleFor(command => command.Action).IsInEnum();
         RuleFor(command => command.Observations).MaximumLength(2000);
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }

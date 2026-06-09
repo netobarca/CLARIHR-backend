@@ -164,7 +164,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
 
         using var coreProtectedClient = coreFactory.CreateClient();
         coreProtectedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", platformAuth!.AccessToken);
-        var platformTokenAgainstCore = await coreProtectedClient.GetAsync("/api/account/companies/countries");
+        var platformTokenAgainstCore = await coreProtectedClient.GetAsync("/api/v1/account/companies/countries");
         Assert.Equal(HttpStatusCode.Unauthorized, platformTokenAgainstCore.StatusCode);
     }
 
@@ -194,7 +194,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         using var companyProvisioningClient = coreFactory.CreateClient();
         companyProvisioningClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", registerPayload!.AccessToken);
 
-        var createCompanyResponse = await companyProvisioningClient.PostJsonAsync("/api/account/companies", new
+        var createCompanyResponse = await companyProvisioningClient.PostJsonAsync("/api/v1/account/companies", new
         {
             name = "JWT Regression Company",
             countryCode = "SV",
@@ -206,7 +206,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         var companyPublicId = createCompanyDocument.RootElement.GetProperty("publicId").GetGuid();
 
         var switchResponse = await companyProvisioningClient.PostAsync(
-            $"/api/account/companies/{companyPublicId}/switch",
+            $"/api/v1/account/companies/{companyPublicId}/switch",
             content: null);
         Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
 
@@ -228,7 +228,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         using var companiesClient = coreFactory.CreateClient();
         companiesClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginPayload.AccessToken);
 
-        var companiesResponse = await companiesClient.GetAsync("/api/account/companies?page=1&pageSize=20");
+        var companiesResponse = await companiesClient.GetAsync("/api/v1/account/companies?page=1&pageSize=20");
         Assert.Equal(HttpStatusCode.OK, companiesResponse.StatusCode);
         await AssertContainsCompanyAsync(companiesResponse, "JWT Regression Company");
 
@@ -244,7 +244,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         using var refreshedCompaniesClient = coreFactory.CreateClient();
         refreshedCompaniesClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", refreshPayload!.AccessToken);
 
-        var refreshedCompaniesResponse = await refreshedCompaniesClient.GetAsync("/api/account/companies?page=1&pageSize=20");
+        var refreshedCompaniesResponse = await refreshedCompaniesClient.GetAsync("/api/v1/account/companies?page=1&pageSize=20");
         Assert.Equal(HttpStatusCode.OK, refreshedCompaniesResponse.StatusCode);
         await AssertContainsCompanyAsync(refreshedCompaniesResponse, "JWT Regression Company");
     }

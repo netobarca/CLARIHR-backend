@@ -108,6 +108,14 @@ public sealed class OpenApiContractGuardrailsTests
         // of GovernedFamilyRegex by design, but it is a public OpenAPI surface. Enrolled so a GET that drops
         // [SwaggerOperation] or a class that drops [Tags] fails CI. `^Audit` matches only AuditController.
         ("Audit", new Regex(@"^Audit", RegexOptions.Compiled), "Audit Logs"),
+        // AccountCompanySubscriptionsController is the company owner's self-service subscription facade
+        // (overview / plans / preview / change-plan / add-ons / marketplace). Its authz is handler-gated
+        // ownership (the company's CreatedByUserPublicId must match the JWT subject, mirror AccountCompanies),
+        // so it stays OUT of GovernedFamilyRegex by design, but it is a public OpenAPI surface. Enrolled so a
+        // GET that drops [SwaggerOperation] or a class that drops [Tags] fails CI. `^AccountCompanySubscriptions`
+        // matches only AccountCompanySubscriptionsController (AccountCompanies / AccountCompanyAuthorization have
+        // disjoint prefixes: "AccountCompanies" / "AccountCompanyAuthorization").
+        ("AccountSubscription", new Regex(@"^AccountCompanySubscriptions", RegexOptions.Compiled), "Account Subscription"),
     ];
 
     public static TheoryData<string> FamilyLabels()

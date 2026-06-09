@@ -140,8 +140,8 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
             .Select(static path => path.Name)
             .ToArray();
 
-        Assert.Contains("/api/account/companies/{companyPublicId}", pathNames);
-        Assert.Contains("/api/account/companies/{companyPublicId}/switch", pathNames);
+        Assert.Contains("/api/v1/account/companies/{companyPublicId}", pathNames);
+        Assert.Contains("/api/v1/account/companies/{companyPublicId}/switch", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/cost-centers", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/job-profiles", pathNames);
         Assert.Contains("/api/v1/personnel-files/{publicId}/identifications", pathNames);
@@ -153,8 +153,8 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
         Assert.Contains("/api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}", pathNames);
         Assert.Contains("/api/v1/personnel-files/{publicId}/documents", pathNames);
 
-        Assert.DoesNotContain("/api/account/companies/{publicId}", pathNames);
-        Assert.DoesNotContain("/api/account/companies/{publicId}/switch", pathNames);
+        Assert.DoesNotContain("/api/v1/account/companies/{publicId}", pathNames);
+        Assert.DoesNotContain("/api/v1/account/companies/{publicId}/switch", pathNames);
         Assert.DoesNotContain("/api/v1/job-profiles/{id}", pathNames);
         Assert.DoesNotContain(pathNames, static path => path.Contains("{companyId}", StringComparison.Ordinal));
         Assert.DoesNotContain("/api/v1/personnel-file-documents/{publicId}/file", pathNames);

@@ -250,6 +250,13 @@ internal sealed class ChangeOwnedCompanySubscriptionCommandHandler(
             return Result<AccountCompanySubscriptionOverviewResponse>.Failure(accessResult.Error);
         }
 
+        if (context.CurrentSubscription.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            // PR-B: optimistic concurrency — reject a plan change applied on a stale overview (the
+            // active subscription was replaced/mutated since the owner loaded it).
+            return Result<AccountCompanySubscriptionOverviewResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
+
         if (!context.IsEligible)
         {
             return Result<AccountCompanySubscriptionOverviewResponse>.Failure(context.PrimaryError);
@@ -356,6 +363,14 @@ internal sealed class ChangeOwnedCompanySubscriptionCommandHandler(
             return after is null
                 ? Result<AccountCompanySubscriptionOverviewResponse>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound)
                 : Result<AccountCompanySubscriptionOverviewResponse>.Success(after);
+        }
+        catch (UniqueConstraintViolationException ex) when (CompanySubscriptionConstraintViolations.IsConcurrencyConflict(ex.ConstraintName))
+        {
+            // ACS-A: a concurrent double-submit collides on a filtered unique index (one live / one
+            // scheduled subscription, one scheduled plan-change, one company-add-on, one scheduled
+            // add-on-change) → surface the race as 409 CONCURRENCY_CONFLICT instead of an opaque 500.
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<AccountCompanySubscriptionOverviewResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
         }
         catch
         {
@@ -593,6 +608,12 @@ internal sealed class CreateOwnedCompanyAddonChangeCommandHandler(
         }
 
         var context = resolution.Value;
+        if (context.CurrentSubscription.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            // PR-B: optimistic concurrency — reject an add-on change applied on a stale overview.
+            return Result<AccountCompanySubscriptionOverviewResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
+
         if (!context.IsEligible)
         {
             return Result<AccountCompanySubscriptionOverviewResponse>.Failure(context.PrimaryError);
@@ -691,6 +712,14 @@ internal sealed class CreateOwnedCompanyAddonChangeCommandHandler(
                 ? Result<AccountCompanySubscriptionOverviewResponse>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound)
                 : Result<AccountCompanySubscriptionOverviewResponse>.Success(after);
         }
+        catch (UniqueConstraintViolationException ex) when (CompanySubscriptionConstraintViolations.IsConcurrencyConflict(ex.ConstraintName))
+        {
+            // ACS-A: a concurrent double-submit collides on a filtered unique index (one live / one
+            // scheduled subscription, one scheduled plan-change, one company-add-on, one scheduled
+            // add-on-change) → surface the race as 409 CONCURRENCY_CONFLICT instead of an opaque 500.
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<AccountCompanySubscriptionOverviewResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
@@ -770,7 +799,8 @@ internal static class AccountCompanySubscriptionHelper
             activeAddons,
             effectiveModules
                 .Select(MapEffectiveModule)
-                .ToArray());
+                .ToArray(),
+            currentSubscription.ConcurrencyToken);
     }
 
     public static async Task<IReadOnlyCollection<AccountCompanySubscriptionAddonResponse>> GetActiveAddonsAsync(

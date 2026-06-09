@@ -15,7 +15,7 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
 
         var createRoleResponse = await client.PostAsync(
-            $"/api/account/companies/{scenario.TenantId}/authorization/roles",
+            $"/api/v1/account/companies/{scenario.TenantId}/authorization/roles",
             CreateJsonContent($$"""
             {
               "name": "Administrador de Empleados",
@@ -37,7 +37,7 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         Assert.Equal(scenario.ActorPermissionId, createdRoleGrants[0].GetProperty("publicId").GetGuid());
 
         var updateGrantsResponse = await client.PutAsync(
-            $"/api/account/companies/{scenario.TenantId}/authorization/roles/{createdRolePublicId}/grants",
+            $"/api/v1/account/companies/{scenario.TenantId}/authorization/roles/{createdRolePublicId}/grants",
             CreateJsonContent($$"""
             {
               "permissionIds": [
