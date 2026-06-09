@@ -35,21 +35,12 @@ public sealed record UpdateIamRoleCommand(
     string? Description,
     Guid ConcurrencyToken) : ICommand<IamRoleResponse>;
 
-public sealed record CloneIamRoleCommand(
-    Guid RoleId,
-    string? Name = null,
-    string? Description = null) : ICommand<IamRoleResponse>;
-
 public sealed record DeleteIamRoleCommand(Guid RoleId) : ICommand<bool>;
 
 public sealed record SyncIamRolePermissionsCommand(
     Guid RoleId,
     IReadOnlyCollection<Guid> PermissionIds,
     Guid ConcurrencyToken) : ICommand<IamRoleResponse>;
-
-public sealed record SyncIamRoleUsersCommand(
-    Guid RoleId,
-    IReadOnlyCollection<Guid> UserIds) : ICommand<IamRoleResponse>;
 
 internal sealed class CreateIamRoleCommandValidator : AbstractValidator<CreateIamRoleCommand>
 {
@@ -62,6 +53,10 @@ internal sealed class CreateIamRoleCommandValidator : AbstractValidator<CreateIa
         RuleFor(command => command.Description)
             .MaximumLength(500)
             .When(static command => !string.IsNullOrWhiteSpace(command.Description));
+
+        RuleFor(command => command.PermissionIds)
+            .Must(static permissionIds => permissionIds is null || permissionIds.Count <= IdentityAccessValidationRules.MaxPermissionIdsPerRole)
+            .WithMessage("A maximum of 1000 permissions per role is allowed.");
 
         RuleForEach(command => command.PermissionIds)
             .NotEqual(Guid.Empty);
@@ -94,23 +89,6 @@ internal sealed class UpdateIamRoleCommandValidator : AbstractValidator<UpdateIa
 
         RuleFor(command => command.ConcurrencyToken)
             .NotEmpty();
-    }
-}
-
-internal sealed class CloneIamRoleCommandValidator : AbstractValidator<CloneIamRoleCommand>
-{
-    public CloneIamRoleCommandValidator()
-    {
-        RuleFor(command => command.RoleId)
-            .NotEmpty();
-
-        RuleFor(command => command.Name)
-            .MaximumLength(100)
-            .When(static command => !string.IsNullOrWhiteSpace(command.Name));
-
-        RuleFor(command => command.Description)
-            .MaximumLength(500)
-            .When(static command => !string.IsNullOrWhiteSpace(command.Description));
     }
 }
 
@@ -149,26 +127,15 @@ internal sealed class SyncIamRolePermissionsCommandValidator : AbstractValidator
         RuleFor(command => command.PermissionIds)
             .NotNull();
 
+        RuleFor(command => command.PermissionIds)
+            .Must(static permissionIds => permissionIds is null || permissionIds.Count <= IdentityAccessValidationRules.MaxPermissionIdsPerRole)
+            .WithMessage("A maximum of 1000 permissions per role is allowed.");
+
         RuleForEach(command => command.PermissionIds)
             .NotEqual(Guid.Empty);
 
         RuleFor(command => command.ConcurrencyToken)
             .NotEmpty();
-    }
-}
-
-internal sealed class SyncIamRoleUsersCommandValidator : AbstractValidator<SyncIamRoleUsersCommand>
-{
-    public SyncIamRoleUsersCommandValidator()
-    {
-        RuleFor(command => command.RoleId)
-            .NotEmpty();
-
-        RuleFor(command => command.UserIds)
-            .NotNull();
-
-        RuleForEach(command => command.UserIds)
-            .NotEqual(Guid.Empty);
     }
 }
 
@@ -313,100 +280,6 @@ internal sealed class UpdateIamRoleCommandHandler(
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }
 
-internal sealed class CloneIamRoleCommandHandler(
-    IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService,
-    IAuditService auditService)
-    : ICommandHandler<CloneIamRoleCommand, IamRoleResponse>
-{
-    public async Task<Result<IamRoleResponse>> Handle(CloneIamRoleCommand command, CancellationToken cancellationToken)
-    {
-        var authorizationResult = await authorizationService.EnsureAuthorizedAsync(
-            RbacPermissionScreen.Roles,
-            RbacPermissionAction.Create,
-            cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<IamRoleResponse>.Failure(authorizationResult.Error);
-        }
-
-        var sourceRole = await repository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: true, cancellationToken);
-        if (sourceRole is null)
-        {
-            return Result<IamRoleResponse>.Failure(await RoleAdministrationErrors.ResolveRoleLookupErrorAsync(
-                repository,
-                command.RoleId,
-                RbacPermissionAction.Create,
-                cancellationToken));
-        }
-
-        if (!string.IsNullOrWhiteSpace(command.Name) &&
-            await repository.RoleNameExistsAsync(Normalize(command.Name), cancellationToken))
-        {
-            return Result<IamRoleResponse>.Failure(IdentityAccessErrors.RoleAlreadyExists);
-        }
-
-        var targetName = await ResolveCloneNameAsync(sourceRole.Name, command.Name, cancellationToken);
-        var clone = sourceRole.Clone(targetName, command.Description);
-        clone.SyncPermissions(sourceRole.PermissionAssignments.Select(static assignment => assignment.Permission));
-
-        repository.AddRole(clone);
-        await auditService.LogAsync(
-            new AuditLogEntry(
-                AuditEventTypes.RoleCloned,
-                AuditEntityTypes.Role,
-                clone.PublicId,
-                EntityKey: clone.Name,
-                AuditActions.Clone,
-                $"Cloned role {sourceRole.Name} into {clone.Name}.",
-                IdentityAccessAuditMapper.CreateRoleSnapshot(
-                    sourceRole,
-                    sourceRole.PermissionAssignments.Select(static assignment => assignment.Permission)),
-                IdentityAccessAuditMapper.CreateRoleSnapshot(
-                    clone,
-                    sourceRole.PermissionAssignments.Select(static assignment => assignment.Permission)),
-                new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["sourceRoleId"] = AuditPayloads.Change(sourceRole.PublicId, clone.PublicId),
-                    ["sourceRoleName"] = AuditPayloads.Change(sourceRole.Name, clone.Name)
-                }),
-            cancellationToken);
-        _ = await repository.SaveChangesAsync(cancellationToken);
-
-        var createdRole = await repository.GetRoleAsync(clone.PublicId, cancellationToken);
-        return createdRole is null
-            ? Result<IamRoleResponse>.Failure(IdentityAccessErrors.RoleNotFound)
-            : Result<IamRoleResponse>.Success(createdRole);
-    }
-
-    private async Task<string> ResolveCloneNameAsync(string sourceName, string? requestedName, CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(requestedName))
-        {
-            return requestedName.Trim();
-        }
-
-        var baseName = $"{sourceName.Trim()} Copy";
-        if (!await repository.RoleNameExistsAsync(Normalize(baseName), cancellationToken))
-        {
-            return baseName;
-        }
-
-        for (var suffix = 2; suffix <= 100; suffix++)
-        {
-            var candidate = $"{baseName} {suffix}";
-            if (!await repository.RoleNameExistsAsync(Normalize(candidate), cancellationToken))
-            {
-                return candidate;
-            }
-        }
-
-        return $"{baseName} {Guid.NewGuid():N}"[..Math.Min(100, baseName.Length + 9)];
-    }
-
-    private static string Normalize(string value) => value.Trim().ToUpperInvariant();
-}
-
 internal sealed class GetIamRoleByIdQueryHandler(
     IIamAdministrationRepository repository,
     IIamAdministrationAuthorizationService authorizationService)
@@ -436,7 +309,8 @@ internal sealed class GetIamRoleByIdQueryHandler(
 
 internal sealed class DeleteIamRoleCommandHandler(
     IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService)
+    IIamAdministrationAuthorizationService authorizationService,
+    IAuditService auditService)
     : ICommandHandler<DeleteIamRoleCommand, bool>
 {
     public async Task<Result<bool>> Handle(DeleteIamRoleCommand command, CancellationToken cancellationToken)
@@ -450,7 +324,9 @@ internal sealed class DeleteIamRoleCommandHandler(
             return Result<bool>.Failure(authorizationResult.Error);
         }
 
-        var role = await repository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: false, cancellationToken);
+        // includePermissions:true so the deletion audit snapshot captures the role's grant set before
+        // the cascade removes it (the delete cascades to iam_role_permission_assignments).
+        var role = await repository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: true, cancellationToken);
         if (role is null)
         {
             return Result<bool>.Failure(await RoleAdministrationErrors.ResolveRoleLookupErrorAsync(
@@ -470,6 +346,19 @@ internal sealed class DeleteIamRoleCommandHandler(
         {
             return Result<bool>.Failure(IdentityAccessErrors.RoleAssignedToUsers);
         }
+
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.RoleDeleted,
+                AuditEntityTypes.Role,
+                role.PublicId,
+                EntityKey: role.Name,
+                AuditActions.Delete,
+                $"Deleted role {role.Name}.",
+                Before: IdentityAccessAuditMapper.CreateRoleSnapshot(
+                    role,
+                    role.PermissionAssignments.Select(static assignment => assignment.Permission))),
+            cancellationToken);
 
         repository.RemoveRole(role);
         _ = await repository.SaveChangesAsync(cancellationToken);
@@ -667,123 +556,8 @@ internal sealed class SyncIamRolePermissionsCommandHandler(
         };
 }
 
-internal sealed class SyncIamRoleUsersCommandHandler(
-    IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService)
-    : ICommandHandler<SyncIamRoleUsersCommand, IamRoleResponse>
-{
-    public async Task<Result<IamRoleResponse>> Handle(SyncIamRoleUsersCommand command, CancellationToken cancellationToken)
-    {
-        var authorizationResult = await authorizationService.EnsureAuthorizedAsync(
-            RbacPermissionScreen.Roles,
-            RbacPermissionAction.Update,
-            cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<IamRoleResponse>.Failure(authorizationResult.Error);
-        }
-
-        var role = await repository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: true, cancellationToken);
-        if (role is null)
-        {
-            return Result<IamRoleResponse>.Failure(await RoleAdministrationErrors.ResolveRoleLookupErrorAsync(
-                repository,
-                command.RoleId,
-                RbacPermissionAction.Update,
-                cancellationToken));
-        }
-
-        var userIds = command.UserIds.Distinct().ToArray();
-        var requestedUsers = userIds.Length == 0
-            ? Array.Empty<IamUser>()
-            : await repository.GetUsersByPublicIdsAsync(userIds, includeRoles: true, cancellationToken);
-
-        if (requestedUsers.Count != userIds.Length)
-        {
-            return Result<IamRoleResponse>.Failure(IdentityAccessErrors.UsersNotFound);
-        }
-
-        var currentUsers = await repository.GetUsersAssignedToRoleAsync(role.PublicId, includeRoles: true, cancellationToken);
-        if (RoleAdministrationGuards.WouldRemoveLastAdministrator(role, currentUsers, requestedUsers, await repository.GetActiveAdministratorUserIdsAsync(cancellationToken)))
-        {
-            return Result<IamRoleResponse>.Failure(IdentityAccessErrors.LastAdministratorRequired);
-        }
-
-        var requestedUserIds = requestedUsers
-            .Select(static user => user.PublicId)
-            .ToHashSet();
-
-        foreach (var user in currentUsers.Where(user => !requestedUserIds.Contains(user.PublicId)))
-        {
-            var remainingRoles = user.RoleAssignments
-                .Select(static assignment => assignment.Role)
-                .Where(assignedRole => assignedRole.PublicId != role.PublicId)
-                .ToArray();
-
-            user.SyncRoles(remainingRoles);
-        }
-
-        foreach (var user in requestedUsers)
-        {
-            var desiredRoles = user.RoleAssignments
-                .Select(static assignment => assignment.Role)
-                .Concat([role])
-                .GroupBy(static assignedRole => assignedRole.Id)
-                .Select(static group => group.First())
-                .ToArray();
-
-            user.SyncRoles(desiredRoles);
-        }
-
-        _ = await repository.SaveChangesAsync(cancellationToken);
-
-        var updatedRole = await repository.GetRoleAsync(role.PublicId, cancellationToken);
-        return updatedRole is null
-            ? Result<IamRoleResponse>.Failure(IdentityAccessErrors.RoleNotFound)
-            : Result<IamRoleResponse>.Success(updatedRole);
-    }
-}
-
 internal static class RoleAdministrationGuards
 {
-    public static bool WouldRemoveLastAdministrator(
-        IamRole role,
-        IReadOnlyCollection<IamUser> currentUsers,
-        IReadOnlyCollection<IamUser> requestedUsers,
-        IReadOnlyCollection<Guid> currentAdministratorUserIds)
-    {
-        if (!IsAdministrativeRole(role))
-        {
-            return false;
-        }
-
-        var resultingAdministratorIds = currentAdministratorUserIds.ToHashSet();
-        var requestedUserIds = requestedUsers
-            .Where(static user => user.IsActive)
-            .Select(static user => user.PublicId)
-            .ToHashSet();
-
-        foreach (var user in currentUsers.Where(user => user.IsActive && !requestedUserIds.Contains(user.PublicId)))
-        {
-            var keepsAdministrativeAccess = user.RoleAssignments
-                .Select(static assignment => assignment.Role)
-                .Where(assignedRole => assignedRole.PublicId != role.PublicId)
-                .Any(IsAdministrativeRole);
-
-            if (!keepsAdministrativeAccess)
-            {
-                _ = resultingAdministratorIds.Remove(user.PublicId);
-            }
-        }
-
-        foreach (var userPublicId in requestedUserIds)
-        {
-            _ = resultingAdministratorIds.Add(userPublicId);
-        }
-
-        return resultingAdministratorIds.Count == 0;
-    }
-
     public static bool IsAdministrativeRole(IamRole role) =>
         RbacAuthorizationEvaluator.IsRbacSecurityAdministrator(
             role.PermissionAssignments.Select(static assignment => assignment.Permission.NormalizedCode));

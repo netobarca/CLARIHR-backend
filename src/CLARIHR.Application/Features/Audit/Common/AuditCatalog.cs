@@ -12,6 +12,7 @@ public static class AuditEventTypes
     public const string RoleCreated = "ROLE_CREATED";
     public const string RoleUpdated = "ROLE_UPDATED";
     public const string RoleCloned = "ROLE_CLONED";
+    public const string RoleDeleted = "ROLE_DELETED";
     public const string RoleResourcePermissionsUpdated = "ROLE_RESOURCE_PERMISSIONS_UPDATED";
     public const string RoleFieldPermissionsUpdated = "ROLE_FIELD_PERMISSIONS_UPDATED";
     public const string CompanyCreated = "COMPANY_CREATED";
@@ -166,6 +167,7 @@ public static class AuditEventTypes
         RoleCreated,
         RoleUpdated,
         RoleCloned,
+        RoleDeleted,
         RoleResourcePermissionsUpdated,
         RoleFieldPermissionsUpdated,
         CompanyCreated,
@@ -418,6 +420,7 @@ public static class AuditActions
 {
     public const string Create = "Create";
     public const string Update = "Update";
+    public const string Delete = "Delete";
     public const string Deactivate = "Deactivate";
     public const string Reactivate = "Reactivate";
     public const string Invite = "Invite";

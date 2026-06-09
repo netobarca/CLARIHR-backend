@@ -37,9 +37,6 @@ public sealed class IamRole : TenantEntity
     public static IamRole Create(string name, string? description, bool isSystemRole = false) =>
         new(Guid.NewGuid(), name, description, isSystemRole);
 
-    public IamRole Clone(string name, string? description) =>
-        Create(name, description ?? Description, isSystemRole: false);
-
     public void UpdateDetails(string name, string? description)
     {
         Name = IdentityNormalization.Clean(name, nameof(name));

@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -161,6 +164,64 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         await AssertProblemDetailsAsync(stalePatch, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
     }
 
+    [Fact]
+    public async Task AccountCompanyAuthorization_SyncUserRoles_ShouldEnforceWeakIfMatch()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUsersAdminContext(scenario));
+
+        // Target the non-admin actor user (the security admin remains the active administrator, so the
+        // last-admin invariant is never tripped). userPublicId is the linked user id.
+        var url = $"/api/v1/account/companies/{scenario.TenantId}/authorization/users/{scenario.ActorUserId}/roles";
+
+        // Missing If-Match → 400 (the weak-token binder rejects the write).
+        var missing = await client.PutAsync(
+            url,
+            CreateJsonContent($$"""{ "roleIds": ["{{scenario.TargetRoleId}}"] }"""));
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+
+        // Wildcard → 200 (unconditional first write); the rotated weak token comes back in body + ETag.
+        var first = await SendWeakIfMatchAsync(client, url, $$"""{ "roleIds": ["{{scenario.TargetRoleId}}"] }""", "*");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.NotNull(first.Headers.ETag);
+        Assert.True(first.Headers.ETag!.IsWeak);
+
+        using var firstDoc = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        var weakETag = firstDoc.RootElement.GetProperty("weakETag").GetString();
+        Assert.False(string.IsNullOrEmpty(weakETag));
+
+        // Stale/incorrect weak token → 409 CONCURRENCY_CONFLICT.
+        var stale = await SendWeakIfMatchAsync(client, url, """{ "roleIds": [] }""", "W/\"0000000000000000000000000000000000000000000000000000000000000000\"");
+        await AssertProblemDetailsAsync(stale, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+
+        // The correct (current) weak token → 200, and the token rotates again.
+        var conditional = await SendWeakIfMatchAsync(client, url, """{ "roleIds": [] }""", $"W/\"{weakETag}\"");
+        Assert.Equal(HttpStatusCode.OK, conditional.StatusCode);
+
+        using var conditionalDoc = JsonDocument.Parse(await conditional.Content.ReadAsStringAsync());
+        Assert.NotEqual(weakETag, conditionalDoc.RootElement.GetProperty("weakETag").GetString());
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_DeleteRole_ShouldWriteAuditEntry()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var rolePublicId = await CreateRoleAsync(client, scenario, "Rol Auditado Al Borrar");
+
+        var deleteResponse = await client.DeleteAsync(RoleUrl(scenario, rolePublicId));
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        // A-1: the hard delete must leave a forensic trail (ROLE_DELETED audit entry on the role).
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var deletionAudited = await dbContext.AuditLogs
+            .IgnoreQueryFilters()
+            .AnyAsync(log => log.EntityId == rolePublicId && log.EventType == "ROLE_DELETED");
+        Assert.True(deletionAudited);
+    }
+
     private static async Task<Guid> CreateRoleAsync(HttpClient client, IntegrationTestScenario scenario, string name)
     {
         var (rolePublicId, _) = await CreateRoleWithTokenAsync(client, scenario, name);
@@ -220,6 +281,20 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         return client.SendAsync(request);
     }
 
+    private static Task<HttpResponseMessage> SendWeakIfMatchAsync(
+        HttpClient client,
+        string requestUri,
+        string json,
+        string ifMatch)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, requestUri)
+        {
+            Content = CreateJsonContent(json)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        return client.SendAsync(request);
+    }
+
     private static async Task AssertProblemDetailsAsync(
         HttpResponseMessage response,
         HttpStatusCode expectedStatusCode,
@@ -242,6 +317,14 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Create),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Update),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Roles, RbacPermissionAction.Delete),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Permissions, RbacPermissionAction.Update));
+
+    private static TestUserContext CreateUsersAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.SecurityAdminUserId,
+            scenario.TenantId,
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update));
 }

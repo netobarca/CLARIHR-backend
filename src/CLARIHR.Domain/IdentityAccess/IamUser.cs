@@ -35,9 +35,6 @@ public sealed class IamUser : TenantEntity
 
     public IReadOnlyCollection<IamUserRoleAssignment> RoleAssignments => _roleAssignments;
 
-    public static IamUser Create(string firstName, string lastName, string email, bool isActive) =>
-        new(Guid.NewGuid(), linkedUserPublicId: null, firstName, lastName, email, isActive);
-
     public static IamUser CreateLinked(Guid linkedUserPublicId, string firstName, string lastName, string email, bool isActive) =>
         new(Guid.NewGuid(), linkedUserPublicId, firstName, lastName, email, isActive);
 

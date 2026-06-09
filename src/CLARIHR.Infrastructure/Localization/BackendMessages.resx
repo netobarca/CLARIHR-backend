@@ -1342,8 +1342,14 @@
   <data name="auth.password_reset.password_policy_violation" xml:space="preserve">
     <value>The new password does not meet the password policy.</value>
   </data>
+  <data name="validation.message.a_maximum_of_1000_permissions_per_role_is_allowed" xml:space="preserve">
+    <value>A maximum of 1000 permissions per role is allowed.</value>
+  </data>
   <data name="validation.message.a_maximum_of_10_social_links_is_allowed" xml:space="preserve">
     <value>A maximum of 10 social links is allowed.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_200_roles_per_user_is_allowed" xml:space="preserve">
+    <value>A maximum of 200 roles per user is allowed.</value>
   </data>
   <data name="validation.message.a_maximum_of_200_competency_matrix_items_is_allowed" xml:space="preserve">
     <value>A maximum of 200 competency matrix items is allowed.</value>
