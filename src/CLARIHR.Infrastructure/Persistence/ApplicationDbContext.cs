@@ -50,6 +50,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
 
     public DbSet<UserSocialLink> UserSocialLinks => Set<UserSocialLink>();

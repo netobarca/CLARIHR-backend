@@ -108,19 +108,47 @@ public sealed class RegisterUserCommandValidatorTests
 
 public sealed class RegisterUserCommandHandlerTests
 {
+    private static readonly DateTime FixedNow = DateTime.Parse("2026-06-10T10:00:00Z").ToUniversalTime();
+
     [Fact]
-    public async Task Handle_WhenEmailAlreadyExists_ShouldReturnConflict()
+    public async Task Handle_WhenUserIsNew_ShouldCreatePendingUserAndSendVerificationWithoutTokens()
     {
         var repository = new TestUserRepository();
+        var tokenRepository = new TestEmailVerificationTokenRepository();
+        var emailService = new TestAuthEmailService();
         var unitOfWork = new TestUnitOfWork();
-        repository.Seed(User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
+        var handler = CreateHandler(repository, tokenRepository, emailService, unitOfWork);
 
-        var handler = new RegisterUserCommandHandler(
-            repository,
-            new TestUserPreferenceRepository(),
-            new TestPasswordHasher(),
-            new TestTokenService(),
-            unitOfWork);
+        var result = await handler.Handle(new RegisterUserCommand(
+            "Carla",
+            "Lopez",
+            "carla@clarihr.test",
+            "StrongP@ss1!",
+            "SV",
+            "landing"), CancellationToken.None);
+
+        // AU-1: registration no longer mints a session — it creates a NON-usable account pending email
+        // verification and emails a single-use link. The result carries no tokens.
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.NotNull(repository.AddedUser);
+        Assert.Equal(UserStatus.PendingEmailVerification, repository.AddedUser!.Status);
+        Assert.Equal("hashed::StrongP@ss1!", repository.AddedUser.PasswordHash);
+        Assert.Single(tokenRepository.Added);
+        Assert.Single(emailService.VerificationMessages);
+        Assert.Equal("carla@clarihr.test", emailService.VerificationMessages[0].ToEmail);
+        Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenEmailExistsActive_ShouldReturnUniformSuccessWithoutVerification()
+    {
+        var repository = new TestUserRepository();
+        repository.Seed(User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
+        var tokenRepository = new TestEmailVerificationTokenRepository();
+        var emailService = new TestAuthEmailService();
+        var unitOfWork = new TestUnitOfWork();
+        var handler = CreateHandler(repository, tokenRepository, emailService, unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
             "Ana",
@@ -130,69 +158,132 @@ public sealed class RegisterUserCommandHandlerTests
             "SV",
             "landing"), CancellationToken.None);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(AuthErrors.UserAlreadyExists.Code, result.Error.Code);
-        Assert.True(unitOfWork.Transaction.RollbackCalled);
+        // Uniform success (anti-enumeration) and no mutation when the email already maps to an active account.
+        Assert.True(result.IsSuccess);
+        Assert.Null(repository.AddedUser);
+        Assert.Empty(tokenRepository.Added);
+        Assert.Empty(emailService.VerificationMessages);
     }
 
     [Fact]
-    public async Task Handle_WhenUserIsNew_ShouldCreateUserAndReturnTokens()
+    public async Task Handle_WhenEmailExistsPendingVerification_ShouldReissueAndResend()
     {
         var repository = new TestUserRepository();
-        var passwordHasher = new TestPasswordHasher();
-        var tokenService = new TestTokenService();
+        repository.Seed(User.RegisterLocalPendingVerification("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
+        var tokenRepository = new TestEmailVerificationTokenRepository();
+        var emailService = new TestAuthEmailService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new RegisterUserCommandHandler(
-            repository,
-            new TestUserPreferenceRepository(),
-            passwordHasher,
-            tokenService,
-            unitOfWork);
+        var handler = CreateHandler(repository, tokenRepository, emailService, unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
-            "Carla",
-            "Lopez",
-            "carla@clarihr.test",
+            "Ana",
+            "Mendoza",
+            "ana@clarihr.test",
             "StrongP@ss1!",
             "SV",
             "landing"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(repository.AddedUser);
-        Assert.Equal("hashed::StrongP@ss1!", repository.AddedUser!.PasswordHash);
-        Assert.Equal("jwt-access-token", result.Value.AccessToken);
-        Assert.Equal("refresh-token", result.Value.RefreshToken);
-        Assert.Equal(900, result.Value.ExpiresIn);
-        Assert.Equal("carla@clarihr.test", result.Value.User.Email);
-        Assert.Equal(AuthProvider.Local, result.Value.User.AuthProvider);
-        Assert.True(unitOfWork.Transaction.CommitCalled);
+        Assert.Null(repository.AddedUser);
+        Assert.Single(tokenRepository.Added);
+        Assert.Single(emailService.VerificationMessages);
     }
 
     [Fact]
-    public async Task Handle_WhenTokenGenerationFails_ShouldReturnTokenErrorAndRollback()
+    public async Task Handle_WhenPendingButWithinCooldown_ShouldNotResend()
     {
         var repository = new TestUserRepository();
+        repository.Seed(User.RegisterLocalPendingVerification("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
+        var tokenRepository = new TestEmailVerificationTokenRepository { HasRecentRequest = true };
+        var emailService = new TestAuthEmailService();
         var unitOfWork = new TestUnitOfWork();
-        var tokenService = new FailingTestTokenService(AuthErrors.TokenConfigurationInvalid);
-
-        var handler = new RegisterUserCommandHandler(
-            repository,
-            new TestUserPreferenceRepository(),
-            new TestPasswordHasher(),
-            tokenService,
-            unitOfWork);
+        var handler = CreateHandler(repository, tokenRepository, emailService, unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
-            "Carla",
-            "Lopez",
-            "carla@clarihr.test",
+            "Ana",
+            "Mendoza",
+            "ana@clarihr.test",
             "StrongP@ss1!",
             "SV",
             "landing"), CancellationToken.None);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(AuthErrors.TokenConfigurationInvalid.Code, result.Error.Code);
-        Assert.True(unitOfWork.Transaction.RollbackCalled);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(emailService.VerificationMessages);
+    }
+
+    private static RegisterUserCommandHandler CreateHandler(
+        TestUserRepository repository,
+        TestEmailVerificationTokenRepository tokenRepository,
+        TestAuthEmailService emailService,
+        TestUnitOfWork unitOfWork) =>
+        new(
+            repository,
+            new TestUserPreferenceRepository(),
+            new TestPasswordHasher(),
+            tokenRepository,
+            new TestEmailVerificationTokenHasher(),
+            new TestEmailVerificationTokenGenerator(),
+            emailService,
+            new TestEmailVerificationLinkBuilder(),
+            new TestEmailVerificationPolicyProvider(),
+            new FixedDateTimeProvider(FixedNow),
+            unitOfWork);
+
+    private sealed class TestEmailVerificationTokenRepository : IEmailVerificationTokenRepository
+    {
+        public List<EmailVerificationToken> Added { get; } = [];
+
+        public bool HasRecentRequest { get; init; }
+
+        public void Add(EmailVerificationToken token) => Added.Add(token);
+
+        public Task<EmailVerificationTokenResolution?> GetActiveByHashAsync(
+            string tokenHash,
+            DateTime utcNow,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<EmailVerificationTokenResolution?>(null);
+
+        public Task RevokeActiveTokensAsync(long userId, DateTime revokedUtc, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task<bool> HasRecentRequestAsync(long userId, DateTime sinceUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(HasRecentRequest);
+    }
+
+    private sealed class TestEmailVerificationTokenHasher : IEmailVerificationTokenHasher
+    {
+        public string Hash(string token) => $"vhash::{token}";
+    }
+
+    private sealed class TestEmailVerificationTokenGenerator : IEmailVerificationTokenGenerator
+    {
+        public string Generate() => "raw-verification-token";
+    }
+
+    private sealed class TestEmailVerificationLinkBuilder : IEmailVerificationLinkBuilder
+    {
+        public string Build(string token) => $"https://frontend/verify-email?token={token}";
+    }
+
+    private sealed class TestEmailVerificationPolicyProvider : IEmailVerificationPolicyProvider
+    {
+        public int GetTokenLifetimeMinutes() => 60;
+
+        public int GetCooldownMinutes() => 2;
+    }
+
+    private sealed class TestAuthEmailService : IAuthEmailService
+    {
+        public List<EmailVerificationEmailMessage> VerificationMessages { get; } = [];
+
+        public Task SendPasswordResetAsync(PasswordResetEmailMessage message, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task SendEmailVerificationAsync(EmailVerificationEmailMessage message, CancellationToken cancellationToken)
+        {
+            VerificationMessages.Add(message);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestUserRepository : IUserRepository
@@ -262,27 +353,6 @@ public sealed class RegisterUserCommandHandlerTests
         public bool Verify(string password, string passwordHash) => passwordHash == $"hashed::{password}";
     }
 
-    private sealed class TestTokenService : ITokenService
-    {
-        public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
-            Task.FromResult(Result<AuthTokenResult>.Success(new AuthTokenResult(
-                "jwt-access-token",
-                RefreshToken: "refresh-token",
-                ExpiresIn: 900)));
-
-        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
-            GenerateAsync(user, cancellationToken);
-
-        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
-            GenerateAsync(user, cancellationToken);
-
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
-            string refreshToken,
-            AuthClientType clientType,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
-    }
-
     private sealed class TestUserPreferenceRepository : IUserPreferenceRepository
     {
         public void Add(UserPreference preference)
@@ -294,23 +364,5 @@ public sealed class RegisterUserCommandHandlerTests
 
         public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>(null);
-    }
-
-    private sealed class FailingTestTokenService(Error error) : ITokenService
-    {
-        public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
-            Task.FromResult(Result<AuthTokenResult>.Failure(error));
-
-        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
-            Task.FromResult(Result<AuthTokenResult>.Failure(error));
-
-        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
-            Task.FromResult(Result<AuthTokenResult>.Failure(error));
-
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
-            string refreshToken,
-            AuthClientType clientType,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
 }

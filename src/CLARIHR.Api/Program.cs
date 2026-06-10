@@ -13,6 +13,7 @@ using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -156,7 +157,7 @@ builder.Services.AddRateLimiter(options =>
         var problemDetails = ProblemDetailsFactory.CreateProblemDetails(context.HttpContext, ErrorCatalog.TooManyRequests);
         await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
     };
-    options.AddPolicy("auth-password-reset-request", httpContext =>
+    options.AddPolicy(AuthRateLimitPolicies.PasswordResetRequest, httpContext =>
     {
         var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -170,7 +171,7 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
-    options.AddPolicy("auth-register", httpContext =>
+    options.AddPolicy(AuthRateLimitPolicies.Register, httpContext =>
     {
         var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -184,7 +185,7 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
-    options.AddPolicy("auth-login", httpContext =>
+    options.AddPolicy(AuthRateLimitPolicies.Login, httpContext =>
     {
         var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -198,7 +199,66 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
-    options.AddPolicy("auth-invite-accept", httpContext =>
+    options.AddPolicy(AuthRateLimitPolicies.InviteAccept, httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy(AuthRateLimitPolicies.PasswordResetSubmit, httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy(AuthRateLimitPolicies.Refresh, httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            // Deliberately generous: refresh is a frequent legitimate operation and the limiter is
+            // IP-partitioned, so a tight cap would clip users behind shared NAT. The real anti-abuse is the
+            // 512-bit token + rotation/reuse-detection; this is a per-IP DoS backstop (AU-2).
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy(AuthRateLimitPolicies.EmailVerificationSubmit, httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy(AuthRateLimitPolicies.EmailVerificationResend, httpContext =>
     {
         var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(

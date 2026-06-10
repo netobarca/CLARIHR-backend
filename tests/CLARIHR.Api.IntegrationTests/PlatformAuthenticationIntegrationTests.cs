@@ -6,6 +6,8 @@ using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.IntegrationTests;
@@ -18,6 +20,18 @@ public sealed class PlatformAuthenticationIntegrationTests(
 {
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
     private static readonly Guid PlatformUserPublicId = Guid.Parse("90000000-0000-0000-0000-000000000003");
+
+    // AU-1: registration creates a pending (unverified) account that cannot log in. Tests that only need an
+    // authenticated core user activate it directly instead of redeeming the emailed verification link.
+    private async Task ActivatePendingUserAsync(string email)
+    {
+        using var scope = coreFactory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var normalizedEmail = User.NormalizeEmail(email);
+        var user = await dbContext.AuthUsers.SingleAsync(pendingUser => pendingUser.NormalizedEmail == normalizedEmail);
+        user.ConfirmEmail();
+        await dbContext.SaveChangesAsync();
+    }
 
     [Fact]
     public async Task CoreLogin_ShouldEmitCoreClientType_WithoutPlatformRole()
@@ -34,7 +48,8 @@ public sealed class PlatformAuthenticationIntegrationTests(
             country = "SV",
             source = "integration-tests"
         });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, registerResponse.StatusCode);
+        await ActivatePendingUserAsync("dev@clarihr.local");
 
         var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
@@ -131,7 +146,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         });
 
         using var coreClient = coreFactory.CreateClient();
-        _ = await coreClient.PostJsonAsync("/api/v1/auth/register", new
+        var coreRegisterResponse = await coreClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Core",
             lastName = "User",
@@ -140,6 +155,9 @@ public sealed class PlatformAuthenticationIntegrationTests(
             country = "SV",
             source = "integration-tests"
         });
+        Assert.Equal(HttpStatusCode.Accepted, coreRegisterResponse.StatusCode);
+        await ActivatePendingUserAsync("core.user@clarihr.test");
+
         var coreLoginResponse = await coreClient.PostJsonAsync("/api/v1/auth/login", new
         {
             email = "core.user@clarihr.test",
@@ -186,9 +204,12 @@ public sealed class PlatformAuthenticationIntegrationTests(
             country = "SV",
             source = "integration-tests"
         });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, registerResponse.StatusCode);
+        await ActivatePendingUserAsync(email);
 
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthEnvelope>(JsonOptions);
+        var registerLoginResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/login", new { email, password });
+        registerLoginResponse.EnsureSuccessStatusCode();
+        var registerPayload = await registerLoginResponse.Content.ReadFromJsonAsync<AuthEnvelope>(JsonOptions);
         Assert.NotNull(registerPayload);
 
         using var companyProvisioningClient = coreFactory.CreateClient();

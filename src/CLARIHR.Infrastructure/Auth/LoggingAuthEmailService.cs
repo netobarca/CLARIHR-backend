@@ -15,4 +15,15 @@ internal sealed class LoggingAuthEmailService(ILogger<LoggingAuthEmailService> l
 
         return Task.CompletedTask;
     }
+
+    public Task SendEmailVerificationAsync(EmailVerificationEmailMessage message, CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "Email verification email queued for {Email}. ExpiresAtUtc {ExpiresAtUtc}. VerificationLink {VerificationLink}",
+            message.ToEmail,
+            message.ExpiresAtUtc,
+            message.VerificationLink);
+
+        return Task.CompletedTask;
+    }
 }

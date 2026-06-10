@@ -5,7 +5,7 @@ using CLARIHR.Application.Abstractions.Companies;
 
 namespace CLARIHR.Infrastructure.Auth;
 
-internal sealed class RefreshTokenHasher : IRefreshTokenHasher, IInvitationTokenHasher, IPasswordResetTokenHasher
+internal sealed class RefreshTokenHasher : IRefreshTokenHasher, IInvitationTokenHasher, IPasswordResetTokenHasher, IEmailVerificationTokenHasher
 {
     public string Hash(string refreshToken)
     {

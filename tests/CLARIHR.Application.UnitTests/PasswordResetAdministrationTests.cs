@@ -212,6 +212,9 @@ file sealed class TestAuthEmailService : IAuthEmailService
         Messages.Add(message);
         return Task.CompletedTask;
     }
+
+    public Task SendEmailVerificationAsync(EmailVerificationEmailMessage message, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }
 
 file sealed class TestPasswordResetLinkBuilder : IPasswordResetLinkBuilder

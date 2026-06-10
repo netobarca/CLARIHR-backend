@@ -1348,6 +1348,9 @@
   <data name="auth.password_reset.invalid_token" xml:space="preserve">
     <value>El token de restablecimiento de contrasena es invalido o expiro.</value>
   </data>
+  <data name="auth.email_verification.invalid_token" xml:space="preserve">
+    <value>El token de verificacion de correo es invalido o expiro.</value>
+  </data>
   <data name="auth.password_reset.password_policy_violation" xml:space="preserve">
     <value>La nueva contrasena no cumple con la politica de contrasenas.</value>
   </data>

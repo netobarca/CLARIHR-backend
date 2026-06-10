@@ -1348,6 +1348,9 @@
   <data name="auth.password_reset.invalid_token" xml:space="preserve">
     <value>The password reset token is invalid or expired.</value>
   </data>
+  <data name="auth.email_verification.invalid_token" xml:space="preserve">
+    <value>The email verification token is invalid or expired.</value>
+  </data>
   <data name="auth.password_reset.password_policy_violation" xml:space="preserve">
     <value>The new password does not meet the password policy.</value>
   </data>

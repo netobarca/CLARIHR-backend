@@ -41,7 +41,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         "Legacy /api/iam and /api/rbac routes were removed; coverage lives in account-company authorization and company-users tests.";
 
     [Fact]
-    public async Task Register_ShouldReturnCreatedAndTokens()
+    public async Task Register_ShouldReturnAcceptedWithoutSession()
     {
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
@@ -56,32 +56,35 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             source = "integration-tests"
         });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var payload = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
-        Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
-        Assert.Equal("admin.local@test.com", payload.User.Email);
+        // AU-1: registration no longer issues a session — it returns 202 Accepted and emails a verification link.
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
     }
 
     [Fact]
-    public async Task Register_WithoutCompanyPayload_ShouldReturnCreated()
+    public async Task Register_ThenVerify_ShouldActivateAccountAndIssueSession()
     {
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Admin",
-            lastName = "Local",
-            email = "admin.local@test.com",
-            password = "StrongPass123!",
-            country = "SV",
-            source = "integration-tests"
-        });
+        var email = $"verify.{Guid.NewGuid():N}@clarihr.test";
+        var session = await factory.RegisterAndVerifyAsync(client, email, "StrongPass123!", "Admin", "Local");
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(session.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(session.RefreshToken));
+        Assert.Equal(email, session.User.Email);
+    }
+
+    [Fact]
+    public async Task EmailVerification_Confirm_WithInvalidToken_ShouldReturnUnauthorized()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostJsonAsync(
+            "/api/v1/auth/email-verification/confirm",
+            new { token = "not-a-real-token" });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Unauthorized, "auth.email_verification.invalid_token");
     }
 
     [Fact]
@@ -91,20 +94,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var anonymousClient = factory.CreateClient();
 
         var email = $"onboarding.{Guid.NewGuid():N}@clarihr.test";
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Onboarding",
-            lastName = "User",
-            email,
-            password = "StrongPass123!",
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(registerPayload);
-        Assert.False(string.IsNullOrWhiteSpace(registerPayload!.AccessToken));
+        var registerPayload = await factory.RegisterAndVerifyAsync(anonymousClient, email, "StrongPass123!", "Onboarding", "User");
+        Assert.False(string.IsNullOrWhiteSpace(registerPayload.AccessToken));
 
         var registerToken = new JwtSecurityTokenHandler().ReadJwtToken(registerPayload.AccessToken);
         Assert.DoesNotContain(registerToken.Claims, static claim => claim.Type == "tid");
@@ -146,19 +137,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var anonymousClient = factory.CreateClient();
 
         var email = $"onboarding.locations.{Guid.NewGuid():N}@clarihr.test";
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Onboarding",
-            lastName = "Locations",
-            email,
-            password = "StrongPass123!",
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(registerPayload);
+        var registerPayload = await factory.RegisterAndVerifyAsync(anonymousClient, email, "StrongPass123!", "Onboarding", "Locations");
 
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
@@ -201,16 +180,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Login",
-            lastName = "User",
-            email,
-            password,
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        await factory.RegisterAndVerifyAsync(client, email, password, "Login", "User");
 
         var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
@@ -238,16 +208,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.invalid.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Login",
-            lastName = "Invalid",
-            email,
-            password,
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        await factory.RegisterAndVerifyAsync(client, email, password, "Login", "Invalid");
 
         var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
@@ -267,20 +228,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"logout.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Logout",
-            lastName = "User",
-            email,
-            password,
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(registerPayload);
-        Assert.False(string.IsNullOrWhiteSpace(registerPayload!.RefreshToken));
+        var registerPayload = await factory.RegisterAndVerifyAsync(anonymousClient, email, password, "Logout", "User");
+        Assert.False(string.IsNullOrWhiteSpace(registerPayload.RefreshToken));
 
         using var authenticatedClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
@@ -984,18 +933,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"archived.primary.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Archived",
-            lastName = "Primary",
-            email,
-            password,
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(registerPayload);
+        var registerPayload = await factory.RegisterAndVerifyAsync(anonymousClient, email, password, "Archived", "Primary");
 
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
@@ -1044,18 +982,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"archive.revoke.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
-        {
-            firstName = "Archive",
-            lastName = "Revoke",
-            email,
-            password,
-            country = "SV",
-            source = "integration-tests"
-        });
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
-        Assert.NotNull(registerPayload);
+        var registerPayload = await factory.RegisterAndVerifyAsync(anonymousClient, email, password, "Archive", "Revoke");
 
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));

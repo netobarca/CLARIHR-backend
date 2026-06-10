@@ -108,6 +108,28 @@ public sealed class LoginCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.InvalidCredentials.Code, result.Error.Code);
     }
+
+    [Fact]
+    public async Task Handle_WhenEmailIsUnknown_ShouldStillRunPasswordVerificationToEqualizeTiming()
+    {
+        // AU-5: login must perform a password verification even when the email maps to no account, so the
+        // response time does not reveal which emails are active local accounts (timing-based enumeration).
+        var hasher = new CountingPasswordHasher();
+        var handler = new LoginCommandHandler(
+            new TestUserRepository(),
+            hasher,
+            new SuccessfulTokenService());
+
+        var result = await handler.Handle(
+            new LoginCommand("unknown@clarihr.test", "StrongPass123!"),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(AuthErrors.InvalidCredentials.Code, result.Error.Code);
+        Assert.True(
+            hasher.VerifyCount >= 1,
+            "Login must verify a password even for unknown emails (timing equalization, AU-5).");
+    }
 }
 
 public sealed class LogoutCommandHandlerTests
@@ -221,6 +243,19 @@ internal sealed class TestPasswordHasher : IPasswordHasher
     public string Hash(string password) => $"hashed::{password}";
 
     public bool Verify(string password, string passwordHash) => passwordHash == $"hashed::{password}";
+}
+
+internal sealed class CountingPasswordHasher : IPasswordHasher
+{
+    public int VerifyCount { get; private set; }
+
+    public string Hash(string password) => $"hashed::{password}";
+
+    public bool Verify(string password, string passwordHash)
+    {
+        VerifyCount++;
+        return passwordHash == $"hashed::{password}";
+    }
 }
 
 internal sealed class SuccessfulTokenService : ITokenService

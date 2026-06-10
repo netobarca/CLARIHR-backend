@@ -99,6 +99,14 @@ internal sealed class RegisterExternalUserCommandHandler(
             await userRepository.AddAsync(user, cancellationToken);
             wasCreated = true;
         }
+        else if (user is { Status: UserStatus.PendingEmailVerification, ProviderUserId: null } &&
+                 externalUser.CanAutoLinkByEmail)
+        {
+            // AU-1: a verified external identity (proven email ownership) claims a still-pending, unverified
+            // local account squatting this email — activate it, link the provider, and discard the never-
+            // verified password so the original (unverified) registrant cannot retain access.
+            user.ActivateAsExternal(externalUser.Provider, externalUser.ProviderUserId);
+        }
         else
         {
             if (user.Status != UserStatus.Active)

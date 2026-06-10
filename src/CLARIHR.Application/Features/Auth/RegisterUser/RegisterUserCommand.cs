@@ -1,9 +1,11 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Features.Auth.EmailVerification;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Preferences;
 using FluentValidation;
@@ -16,7 +18,7 @@ public sealed record RegisterUserCommand(
     string Email,
     string Password,
     string? Country,
-    string? Source) : ICommand<AuthResponse>;
+    string? Source) : ICommand<bool>;
 
 internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand>
 {
@@ -69,30 +71,47 @@ internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterU
     }
 }
 
+// AU-1: registration no longer mints a session. It creates a NON-usable local account
+// (PendingEmailVerification) and emails a single-use verification link; the account becomes Active — and a
+// session is issued — only once the link is redeemed (ConfirmEmailVerificationCommand). This proves the
+// registrant controls the email, closing the federated pre-account-hijacking vector, and the uniform success
+// response (regardless of whether the email already exists) closes account enumeration.
 internal sealed class RegisterUserCommandHandler(
     IUserRepository userRepository,
     IUserPreferenceRepository userPreferenceRepository,
     IPasswordHasher passwordHasher,
-    ITokenService tokenService,
-    IUnitOfWork unitOfWork) : ICommandHandler<RegisterUserCommand, AuthResponse>
+    IEmailVerificationTokenRepository emailVerificationTokenRepository,
+    IEmailVerificationTokenHasher emailVerificationTokenHasher,
+    IEmailVerificationTokenGenerator emailVerificationTokenGenerator,
+    IAuthEmailService authEmailService,
+    IEmailVerificationLinkBuilder emailVerificationLinkBuilder,
+    IEmailVerificationPolicyProvider emailVerificationPolicyProvider,
+    IDateTimeProvider dateTimeProvider,
+    IUnitOfWork unitOfWork) : ICommandHandler<RegisterUserCommand, bool>
 {
-    public async Task<Result<AuthResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
+    public async Task<Result<bool>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-
         var existingUser = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
         if (existingUser is not null)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            return Result<AuthResponse>.Failure(AuthErrors.UserAlreadyExists);
+            // Uniform success regardless of whether the email exists (anti-enumeration). Only a still-pending
+            // local account is re-notified: reissue + resend the verification (no password change — the link
+            // always lands in the real mailbox, so only its owner can complete it), honoring the cooldown.
+            if (existingUser is { AuthProvider: AuthProvider.Local, Status: UserStatus.PendingEmailVerification })
+            {
+                await ReissueVerificationIfAllowedAsync(existingUser, cancellationToken);
+            }
+
+            return Result<bool>.Success(true);
         }
 
-        var passwordHash = passwordHasher.Hash(command.Password);
-        var user = User.RegisterLocal(
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        var user = User.RegisterLocalPendingVerification(
             command.FirstName,
             command.LastName,
             command.Email,
-            passwordHash,
+            passwordHasher.Hash(command.Password),
             command.Country,
             command.Source);
 
@@ -102,26 +121,44 @@ internal sealed class RegisterUserCommandHandler(
         userPreferenceRepository.Add(UserPreference.Create(user.Id));
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
-        if (tokenResult.IsFailure)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Result<AuthResponse>.Failure(tokenResult.Error);
-        }
+        var message = await EmailVerificationDispatch.StageAsync(
+            user,
+            emailVerificationTokenRepository,
+            emailVerificationTokenHasher,
+            emailVerificationTokenGenerator,
+            emailVerificationLinkBuilder,
+            emailVerificationPolicyProvider,
+            dateTimeProvider.UtcNow,
+            cancellationToken);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
 
-        var response = new AuthResponse(
-            tokenResult.Value.AccessToken,
-            tokenResult.Value.RefreshToken,
-            tokenResult.Value.ExpiresIn,
-            new UserDto(
-                user.PublicId,
-                user.Email,
-                user.FirstName,
-                user.LastName,
-                user.AuthProvider));
+        await authEmailService.SendEmailVerificationAsync(message, cancellationToken);
 
-        return Result<AuthResponse>.Success(response);
+        return Result<bool>.Success(true);
+    }
+
+    private async Task ReissueVerificationIfAllowedAsync(User user, CancellationToken cancellationToken)
+    {
+        var utcNow = dateTimeProvider.UtcNow;
+        var cooldownUtc = utcNow.AddMinutes(-emailVerificationPolicyProvider.GetCooldownMinutes());
+        if (await emailVerificationTokenRepository.HasRecentRequestAsync(user.Id, cooldownUtc, cancellationToken))
+        {
+            return;
+        }
+
+        var message = await EmailVerificationDispatch.StageAsync(
+            user,
+            emailVerificationTokenRepository,
+            emailVerificationTokenHasher,
+            emailVerificationTokenGenerator,
+            emailVerificationLinkBuilder,
+            emailVerificationPolicyProvider,
+            utcNow,
+            cancellationToken);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await authEmailService.SendEmailVerificationAsync(message, cancellationToken);
     }
 }

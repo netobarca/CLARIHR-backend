@@ -144,6 +144,25 @@ public sealed class User : AuditableEntity
             source,
             UserStatus.PendingActivation);
 
+    public static User RegisterLocalPendingVerification(
+        string firstName,
+        string lastName,
+        string email,
+        string passwordHash,
+        string? country,
+        string? source) =>
+        new(
+            Guid.NewGuid(),
+            firstName,
+            lastName,
+            email,
+            passwordHash,
+            AuthProvider.Local,
+            providerUserId: null,
+            country,
+            source,
+            UserStatus.PendingEmailVerification);
+
     public bool IsLinkedTo(AuthProvider authProvider, string providerUserId) =>
         AuthProvider == authProvider &&
         string.Equals(ProviderUserId, AuthNormalization.Clean(providerUserId, nameof(providerUserId)), StringComparison.Ordinal);
@@ -196,6 +215,32 @@ public sealed class User : AuditableEntity
         }
 
         PasswordHash = AuthNormalization.Clean(passwordHash, nameof(passwordHash));
+        Status = UserStatus.Active;
+    }
+
+    public void ConfirmEmail()
+    {
+        if (AuthProvider != AuthProvider.Local)
+        {
+            throw new InvalidOperationException("Email confirmation is only supported for local users.");
+        }
+
+        Status = UserStatus.Active;
+    }
+
+    // A verified external identity (which proves email ownership) claims a still-pending, unverified local
+    // account that squats the same email: link the provider, discard the never-verified password so the
+    // original registrant cannot retain access, and activate (AU-1).
+    public void ActivateAsExternal(AuthProvider authProvider, string providerUserId)
+    {
+        if (authProvider == AuthProvider.Local)
+        {
+            throw new ArgumentException("External provider is required.", nameof(authProvider));
+        }
+
+        AuthProvider = authProvider;
+        ProviderUserId = AuthNormalization.Clean(providerUserId, nameof(providerUserId));
+        PasswordHash = null;
         Status = UserStatus.Active;
     }
 

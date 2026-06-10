@@ -76,6 +76,11 @@ public static class AuthErrors
         "The password reset token is invalid or expired.",
         ErrorType.Unauthorized);
 
+    public static readonly Error EmailVerificationTokenInvalid = new(
+        "auth.email_verification.invalid_token",
+        "The email verification token is invalid or expired.",
+        ErrorType.Unauthorized);
+
     public static readonly Error TokenConfigurationInvalid = new(
         "auth.token_configuration_invalid",
         "JWT token generation is not configured correctly.",

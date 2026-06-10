@@ -1,5 +1,7 @@
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Features.Auth.AcceptInvitation;
+using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Features.Auth.EmailVerification;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.External;
@@ -42,7 +44,7 @@ public sealed class AuthController(
 {
     [AllowAnonymous]
     [Tags("Password Reset")]
-    [EnableRateLimiting("auth-password-reset-request")]
+    [EnableRateLimiting(AuthRateLimitPolicies.PasswordResetRequest)]
     [HttpPost("password-reset/request")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -71,6 +73,7 @@ public sealed class AuthController(
 
     [AllowAnonymous]
     [Tags("Password Reset")]
+    [EnableRateLimiting(AuthRateLimitPolicies.PasswordResetSubmit)]
     [HttpPost("password-reset/validate")]
     [ProducesResponseType<PasswordResetTokenValidationResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -92,6 +95,7 @@ public sealed class AuthController(
 
     [AllowAnonymous]
     [Tags("Password Reset")]
+    [EnableRateLimiting(AuthRateLimitPolicies.PasswordResetSubmit)]
     [HttpPost("password-reset/redeem")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -120,21 +124,22 @@ public sealed class AuthController(
     }
 
     [AllowAnonymous]
-    [EnableRateLimiting("auth-register")]
+    [EnableRateLimiting(AuthRateLimitPolicies.Register)]
     [HttpPost("register")]
-    [ProducesResponseType<AuthResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     [SwaggerOperation(
         Summary = "Register a new local user",
         Description = """
-            Creates an active local user (enforcing the password policy) and seeds default user
-            preferences in a single transaction, then returns `201 Created` with the issued access and
-            refresh tokens and the authenticated user. A duplicate email yields `409`; validation or
+            Starts local registration. Creates a non-usable account pending email verification and emails a
+            single-use verification link; **no session is issued here** — the account is activated and a
+            session returned only when the link is redeemed via `email-verification/confirm`. Always responds
+            `202 Accepted` regardless of whether the email already exists (anti-enumeration). Validation or
             password-policy failures yield `400`.
             """)]
-    public async Task<ActionResult<AuthResponse>> Register(
+    public async Task<IActionResult> Register(
         [FromBody] RegisterUserRequest request,
         CancellationToken cancellationToken)
     {
@@ -149,14 +154,71 @@ public sealed class AuthController(
         var result = await commandDispatcher.SendAsync(command, cancellationToken);
         if (result.IsFailure)
         {
-            return this.ToActionResult(Result<AuthResponse>.Failure(result.Error));
+            return this.ToActionResult(result).Result!;
         }
 
-        return StatusCode(StatusCodes.Status201Created, result.Value);
+        return Accepted();
     }
 
     [AllowAnonymous]
-    [EnableRateLimiting("auth-register")]
+    [Tags("Email Verification")]
+    [EnableRateLimiting(AuthRateLimitPolicies.EmailVerificationSubmit)]
+    [HttpPost("email-verification/confirm")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Confirm an email verification token",
+        Description = """
+            Redeems the single-use verification link sent at registration: activates the pending local
+            account and returns `200 OK` with the issued access and refresh tokens and the authenticated user
+            (auto-login). An invalid, expired or already-used token yields `401`.
+            """)]
+    public async Task<ActionResult<AuthResponse>> ConfirmEmailVerification(
+        [FromBody] ConfirmEmailVerificationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ConfirmEmailVerificationCommand(request.Token),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<AuthResponse>.Failure(result.Error))
+            : Ok(result.Value);
+    }
+
+    [AllowAnonymous]
+    [Tags("Email Verification")]
+    [EnableRateLimiting(AuthRateLimitPolicies.EmailVerificationResend)]
+    [HttpPost("email-verification/resend")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [SwaggerOperation(
+        Summary = "Resend the email verification link",
+        Description = """
+            Re-sends the verification link for a still-pending local account. Always responds `202 Accepted`
+            regardless of whether the email exists or is pending (anti-enumeration), and honors a per-account
+            cooldown plus the `auth-email-verification-resend` rate limit (`429`).
+            """)]
+    public async Task<IActionResult> ResendEmailVerification(
+        [FromBody] ResendEmailVerificationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ResendEmailVerificationCommand(request.Email),
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        return Accepted();
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitPolicies.Register)]
     [HttpPost("external")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
@@ -197,7 +259,7 @@ public sealed class AuthController(
     }
 
     [AllowAnonymous]
-    [EnableRateLimiting("auth-login")]
+    [EnableRateLimiting(AuthRateLimitPolicies.Login)]
     [HttpPost("login")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -225,7 +287,7 @@ public sealed class AuthController(
     }
 
     [AllowAnonymous]
-    [EnableRateLimiting("auth-invite-accept")]
+    [EnableRateLimiting(AuthRateLimitPolicies.InviteAccept)]
     [HttpPost("company-user-invitations/accept")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -253,6 +315,7 @@ public sealed class AuthController(
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitPolicies.Refresh)]
     [HttpPost("refresh")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -307,4 +370,8 @@ public sealed class AuthController(
     public sealed record ValidatePasswordResetRequest(string Token);
 
     public sealed record RedeemPasswordResetRequest(string Token, string NewPassword);
+
+    public sealed record ConfirmEmailVerificationRequest(string Token);
+
+    public sealed record ResendEmailVerificationRequest(string Email);
 }

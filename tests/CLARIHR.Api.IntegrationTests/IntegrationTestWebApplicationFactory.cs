@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -13,11 +15,14 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 {
     private readonly SemaphoreSlim _resetLock = new(1, 1);
     private readonly string _connectionString;
+    private readonly CapturingAuthEmailService _authEmails = new();
 
     public IntegrationTestWebApplicationFactory()
     {
         _connectionString = IntegrationTestConnectionStrings.Create();
     }
+
+    internal CapturingAuthEmailService AuthEmails => _authEmails;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -48,6 +53,11 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                     TestAuthenticationHandler.SchemeName,
                     static _ => { });
+
+            // Capture the (otherwise log-only) verification/reset emails so tests can redeem the real token
+            // and exercise the AU-1 register -> verify flow end-to-end.
+            services.RemoveAll<IAuthEmailService>();
+            services.AddSingleton<IAuthEmailService>(_authEmails);
         });
     }
 
