@@ -651,6 +651,7 @@ public sealed class CompanyUserManagementTests
         var handler = new AcceptCompanyUserInvitationCommandHandler(
             userRepository,
             userCompanyRepository,
+            companyRepository,
             iamRepository,
             invitationTokenRepository,
             new TestInvitationTokenHasher(),
@@ -677,12 +678,63 @@ public sealed class CompanyUserManagementTests
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
+    // AC-1 (capa 2): an otherwise-valid invitation must not mint a session against an archived company.
+    [Fact]
+    public async Task Handle_WhenAcceptingInvitationForArchivedCompany_ShouldReturnConflict()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        companyRepository.Items[0].Archive();
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+        var invitationTokenRepository = new TestInvitationTokenRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var utcNow = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
+
+        var user = CreatePersistedInvitedUser("invitee@acme.test");
+        userRepository.Seed(user);
+
+        var role = CreateRole(iamRepository, TenantId, "Usuario Estandar");
+        var membership = UserCompanyMembership.Create(user.Id, companyRepository.Items[0].Id, role.Id, isPrimary: true);
+        membership.Deactivate();
+        userCompanyRepository.Add(membership);
+
+        invitationTokenRepository.RegisterCompany(companyRepository.Items[0].Id, companyRepository.Items[0].PublicId);
+        invitationTokenRepository.Add(InvitationToken.Issue(
+            user.Id,
+            companyRepository.Items[0].Id,
+            "HASH::raw-token",
+            utcNow.AddHours(24)));
+
+        var handler = new AcceptCompanyUserInvitationCommandHandler(
+            userRepository,
+            userCompanyRepository,
+            companyRepository,
+            iamRepository,
+            invitationTokenRepository,
+            new TestInvitationTokenHasher(),
+            new TestPasswordHasher(),
+            new TestTokenService(),
+            new FixedDateTimeProvider(utcNow),
+            CreateAuditService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new AcceptCompanyUserInvitationCommand("raw-token", "StrongPass123!"),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(AuthErrors.InvitationCompanyUnavailable.Code, result.Error.Code);
+        Assert.False(unitOfWork.Transaction.CommitCalled);
+    }
+
     [Fact]
     public async Task Handle_WhenInvitationTokenIsInvalid_ShouldReturnUnauthorized()
     {
         var handler = new AcceptCompanyUserInvitationCommandHandler(
             new TestUserRepository(),
             new TestUserCompanyRepository(new TestCompanyRepository(), new TestUserRepository(), new TestIamAdministrationRepository()),
+            new TestCompanyRepository(),
             new TestIamAdministrationRepository(),
             new TestInvitationTokenRepository(),
             new TestInvitationTokenHasher(),
@@ -1234,6 +1286,16 @@ public sealed class CompanyUserManagementTests
                 : companyRepository.Items.Single(item => item.Id == membership.CompanyId).PublicId;
 
             return Task.FromResult(companyPublicId);
+        }
+
+        public Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken)
+        {
+            var membership = Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary);
+            var company = membership is null
+                ? null
+                : companyRepository.Items.SingleOrDefault(item => item.Id == membership.CompanyId);
+
+            return Task.FromResult(company is { Status: CompanyStatus.Active } ? (Guid?)company.PublicId : null);
         }
 
         public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>

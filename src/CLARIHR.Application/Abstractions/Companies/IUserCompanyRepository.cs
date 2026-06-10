@@ -17,6 +17,21 @@ public interface IUserCompanyRepository
 
     Task<Guid?> GetPrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// AC-1: same as <see cref="GetPrimaryCompanyPublicIdAsync"/> but only resolves the primary company when
+    /// it is <see cref="CLARIHR.Domain.Companies.CompanyStatus.Active"/>. Used by token issuance (login /
+    /// refresh / GenerateAsync) so a session is never minted against an archived primary company.
+    /// </summary>
+    Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// AC-1: the internal user ids of every membership of a company (any status), used to revoke the
+    /// members' refresh tokens when the company is archived. The default returns empty (test fakes that do
+    /// not exercise archive revocation); the EF repository returns the real member set.
+    /// </summary>
+    Task<IReadOnlyCollection<long>> GetMemberUserIdsAsync(Guid companyPublicId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyCollection<long>>(Array.Empty<long>());
+
     Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken);
 
     Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);

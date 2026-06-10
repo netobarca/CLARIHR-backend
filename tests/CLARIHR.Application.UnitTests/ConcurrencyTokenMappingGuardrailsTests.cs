@@ -48,8 +48,9 @@ public sealed class ConcurrencyTokenMappingGuardrailsTests
         // Sanity check: the §1-bis remediation targets the PDC aggregates and their JobProfile sibling,
         // plus the CompetencyFramework aggregates (OccupationalPyramidLevel / CompetencyConduct /
         // JobProfileCompetencyExpectation), the LegalRepresentative aggregate (§LR8), the
-        // LocationGroup aggregate (§LG9) and the IamRole aggregate (AccountCompanyAuthorization PR-B);
-        // if these ever disappear from the model the drift-proof loop above passes vacuously.
+        // LocationGroup aggregate (§LG9), the IamRole aggregate (AccountCompanyAuthorization PR-B) and the
+        // Company aggregate (AccountCompanies AC-6); if these ever disappear from the model the drift-proof
+        // loop above passes vacuously.
         Assert.Contains(typeof(PositionDescriptionCatalogItem), observed);
         Assert.Contains(typeof(PositionCategoryClassification), observed);
         Assert.Contains(typeof(PositionCategory), observed);
@@ -61,6 +62,7 @@ public sealed class ConcurrencyTokenMappingGuardrailsTests
         Assert.Contains(typeof(LocationGroup), observed);
         Assert.Contains(typeof(CompanySubscription), observed);
         Assert.Contains(typeof(IamRole), observed);
+        Assert.Contains(typeof(Company), observed);
     }
 
     private static ApplicationDbContext CreateContext()

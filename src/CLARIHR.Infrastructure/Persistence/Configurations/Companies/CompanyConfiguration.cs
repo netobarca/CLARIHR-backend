@@ -71,6 +71,11 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .IsUnique()
             .HasDatabaseName("uq_companies__slug");
 
+        // AC-7: the whole AccountCompanies family filters by owner (List / Count / Detail probe), so without
+        // this index each request seq-scans companies as tenants grow.
+        builder.HasIndex(company => company.CreatedByUserPublicId)
+            .HasDatabaseName("ix_companies__created_by_user_public_id");
+
         builder.HasIndex(company => company.CompanyTypeCatalogItemId)
             .HasDatabaseName("ix_companies__company_type_catalog_item");
 

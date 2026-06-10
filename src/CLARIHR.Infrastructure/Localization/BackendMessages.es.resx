@@ -58,8 +58,14 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
   </resheader>
+  <data name="ACCOUNT_COMPANY_ACTIVE_CONTEXT_REQUIRED" xml:space="preserve">
+    <value>Cambia a esta empresa antes de leer sus politicas de recurso.</value>
+  </data>
   <data name="ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN" xml:space="preserve">
     <value>La suscripcion MASTER esta reservada para operadores CLARI.</value>
+  </data>
+  <data name="ACCOUNT_COMPANY_SUBSCRIPTION_NOT_FOUND" xml:space="preserve">
+    <value>La empresa no tiene una suscripcion activa para resolver su contexto de acceso.</value>
   </data>
   <data name="ACTIVE_COMPANY_ARCHIVE_FORBIDDEN" xml:space="preserve">
     <value>Cambia a otra compania activa antes de archivar la compania activa actual.</value>
@@ -885,6 +891,9 @@
   </data>
   <data name="auth.forbidden" xml:space="preserve">
     <value>No tienes permiso para acceder a este recurso.</value>
+  </data>
+  <data name="auth.invitation.company_unavailable" xml:space="preserve">
+    <value>La empresa de esta invitacion ya no esta disponible.</value>
   </data>
   <data name="auth.invitation.invalid_token" xml:space="preserve">
     <value>El token de invitacion es invalido o ha expirado.</value>

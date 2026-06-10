@@ -64,6 +64,13 @@ public static class AuthErrors
         "The invitation token is invalid or expired.",
         ErrorType.Unauthorized);
 
+    // AC-1: the invitation is valid but its company has been archived — do not mint a session against an
+    // archived company.
+    public static readonly Error InvitationCompanyUnavailable = new(
+        "auth.invitation.company_unavailable",
+        "The company for this invitation is no longer available.",
+        ErrorType.Conflict);
+
     public static readonly Error PasswordResetTokenInvalid = new(
         "auth.password_reset.invalid_token",
         "The password reset token is invalid or expired.",

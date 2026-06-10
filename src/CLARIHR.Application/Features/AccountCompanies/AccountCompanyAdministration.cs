@@ -9,6 +9,7 @@ using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -128,10 +129,11 @@ internal sealed class GetOwnedCompanyByIdQueryHandler(
             return Result<AccountCompanyDetailResponse>.Success(company);
         }
 
-        var existingCompany = await companyRepository.FindByPublicIdAsync(query.CompanyId, cancellationToken);
-        return existingCompany is null
-            ? Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyNotFound)
-            : Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.OwnershipForbidden);
+        // AC-7: boolean existence probe (404 unknown vs 403 owned-by-another) without loading the aggregate.
+        var exists = await companyRepository.ExistsByPublicIdAsync(query.CompanyId, cancellationToken);
+        return exists
+            ? Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.OwnershipForbidden)
+            : Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyNotFound);
     }
 }
 
@@ -175,10 +177,7 @@ internal sealed class CreateAccountCompanyCommandHandler(
             return Result<AccountCompanyDetailResponse>.Failure(currentUserResult.Error);
         }
 
-        if (!await companyOwnershipPolicy.HasCapacityForAnotherActiveCompanyAsync(currentUserResult.Value.PublicId, cancellationToken))
-        {
-            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyLimitReached);
-        }
+        var owner = currentUserResult.Value;
 
         CatalogReferenceLookup? companyType = null;
         if (command.CompanyTypeId.HasValue)
@@ -199,59 +198,81 @@ internal sealed class CreateAccountCompanyCommandHandler(
             }
         }
 
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-
-        try
+        // AC-3/AC-4: serialize the capacity check per owner with a transaction-scoped advisory lock (closing
+        // the quota TOCTOU), and retry once on a duplicate-slug race. The slug is server-generated, so a
+        // 23505 is an internal retry — regenerating picks the next suffix — not a client-facing 409.
+        const int maxAttempts = 2;
+        for (var attempt = 1; ; attempt++)
         {
-            var provisioningResult = await companyProvisioningService.ProvisionAsync(
-                new ProvisionCompanyRequest(
-                    currentUserResult.Value.PublicId,
-                    command.Name,
-                    command.CountryCode,
-                    command.InitialLegalRepresentative,
-                    MakePrimary: false,
-                    ProvisioningConstants.FreePlanCode,
-                    ProvisionAsInitialCompany: false,
-                    companyType?.InternalId),
-                cancellationToken);
-            if (provisioningResult.IsFailure)
+            await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                await companyRepository.AcquireOwnerCapacityLockAsync(owner.PublicId, cancellationToken);
+
+                if (!await companyOwnershipPolicy.HasCapacityForAnotherActiveCompanyAsync(owner.PublicId, cancellationToken))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyLimitReached);
+                }
+
+                var provisioningResult = await companyProvisioningService.ProvisionAsync(
+                    new ProvisionCompanyRequest(
+                        owner.PublicId,
+                        command.Name,
+                        command.CountryCode,
+                        command.InitialLegalRepresentative,
+                        MakePrimary: false,
+                        ProvisioningConstants.FreePlanCode,
+                        ProvisionAsInitialCompany: false,
+                        companyType?.InternalId),
+                    cancellationToken);
+                if (provisioningResult.IsFailure)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<AccountCompanyDetailResponse>.Failure(provisioningResult.Error);
+                }
+
+                var response = await companyRepository.FindOwnedByUserAsync(
+                    provisioningResult.Value.CompanyId,
+                    owner.PublicId,
+                    tenantContext.TenantId,
+                    cancellationToken)
+                    ?? throw new InvalidOperationException("Company response could not be resolved after creation.");
+
+                await auditService.LogForTenantAsync(
+                    provisioningResult.Value.CompanyId,
+                    new AuditLogEntry(
+                        AuditEventTypes.CompanyCreated,
+                        AuditEntityTypes.Company,
+                        provisioningResult.Value.CompanyId,
+                        provisioningResult.Value.Slug,
+                        AuditActions.Create,
+                        $"Created company {provisioningResult.Value.CompanyName}.",
+                        After: response),
+                    cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+
+                logger.LogInformation(
+                    "Account company {CompanyPublicId} created by user {UserPublicId}",
+                    provisioningResult.Value.CompanyId,
+                    owner.PublicId);
+
+                return Result<AccountCompanyDetailResponse>.Success(response);
+            }
+            catch (UniqueConstraintViolationException ex)
+                when (attempt < maxAttempts && AccountCompanyConstraintViolations.IsSlugConflict(ex.ConstraintName))
+            {
+                // Duplicate-slug race: roll back, clear the failed attempt's tracked entities, and retry on a
+                // fresh transaction (the colliding slug now exists, so a new suffix is chosen).
+                await transaction.RollbackAsync(cancellationToken);
+                unitOfWork.ClearTracked();
+            }
+            catch
             {
                 await transaction.RollbackAsync(cancellationToken);
-                return Result<AccountCompanyDetailResponse>.Failure(provisioningResult.Error);
+                throw;
             }
-
-            var response = await companyRepository.FindOwnedByUserAsync(
-                provisioningResult.Value.CompanyId,
-                currentUserResult.Value.PublicId,
-                tenantContext.TenantId,
-                cancellationToken)
-                ?? throw new InvalidOperationException("Company response could not be resolved after creation.");
-
-            await auditService.LogForTenantAsync(
-                provisioningResult.Value.CompanyId,
-                new AuditLogEntry(
-                    AuditEventTypes.CompanyCreated,
-                    AuditEntityTypes.Company,
-                    provisioningResult.Value.CompanyId,
-                    provisioningResult.Value.Slug,
-                    AuditActions.Create,
-                    $"Created company {provisioningResult.Value.CompanyName}.",
-                    After: response),
-                cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-
-            logger.LogInformation(
-                "Account company {CompanyPublicId} created by user {UserPublicId}",
-                provisioningResult.Value.CompanyId,
-                currentUserResult.Value.PublicId);
-
-            return Result<AccountCompanyDetailResponse>.Success(response);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
         }
     }
 }
@@ -664,8 +685,10 @@ internal sealed class ArchiveAccountCompanyCommandHandler(
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
     IUserCompanyRepository userCompanyRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
+    IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : ICommandHandler<ArchiveAccountCompanyCommand, AccountCompanyDetailResponse>
 {
@@ -720,6 +743,19 @@ internal sealed class ArchiveAccountCompanyCommandHandler(
         try
         {
             company.Archive();
+
+            // AC-1: revoke the members' refresh tokens so the archived company cannot keep being operated via
+            // an existing session (the access token still lives out its ≤15-min TTL; the 14-day refresh token
+            // is killed here). Mirrors DeactivateCompanyUser. A member who also belongs to another active
+            // company is signed out of it too — re-login re-issues a session against their active primary.
+            var memberUserIds = await userCompanyRepository.GetMemberUserIdsAsync(company.PublicId, cancellationToken);
+            await refreshTokenRepository.RevokeUsersTokensAsync(
+                memberUserIds,
+                AuthClientType.Core,
+                dateTimeProvider.UtcNow,
+                "company-archived",
+                cancellationToken);
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await companyRepository.FindOwnedByUserAsync(
@@ -796,11 +832,6 @@ internal sealed class ReactivateAccountCompanyCommandHandler(
             return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyAlreadyActive);
         }
 
-        if (!await companyOwnershipPolicy.HasCapacityForAnotherActiveCompanyAsync(currentUserResult.Value.PublicId, cancellationToken))
-        {
-            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyReactivationLimitReached);
-        }
-
         var before = await companyRepository.FindOwnedByUserAsync(
             company.PublicId,
             currentUserResult.Value.PublicId,
@@ -810,6 +841,15 @@ internal sealed class ReactivateAccountCompanyCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // AC-3: serialize the reactivation capacity check per owner with a transaction-scoped advisory
+            // lock, closing the check-then-act race that could push the owner past the active-company quota.
+            await companyRepository.AcquireOwnerCapacityLockAsync(currentUserResult.Value.PublicId, cancellationToken);
+            if (!await companyOwnershipPolicy.HasCapacityForAnotherActiveCompanyAsync(currentUserResult.Value.PublicId, cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyReactivationLimitReached);
+            }
+
             company.Reactivate();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -917,7 +957,7 @@ internal sealed class SwitchActiveCompanyCommandHandler(
             if (accessContext is null)
             {
                 await transaction.RollbackAsync(cancellationToken);
-                return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.CompanyNotFound);
+                return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.SubscriptionContextUnavailable);
             }
 
             await auditService.LogForTenantAsync(
@@ -987,7 +1027,7 @@ internal sealed class GetOwnedCompanyAccessContextQueryHandler(
             cancellationToken);
 
         return accessContext is null
-            ? Result<AccountCompanyAccessContextResponse>.Failure(AccountCompanyErrors.CompanyNotFound)
+            ? Result<AccountCompanyAccessContextResponse>.Failure(AccountCompanyErrors.SubscriptionContextUnavailable)
             : Result<AccountCompanyAccessContextResponse>.Success(accessContext);
     }
 }
@@ -1033,7 +1073,7 @@ internal sealed class GetOwnedCompanyRoleBuilderCatalogQueryHandler(
 
         if (accessContext is null)
         {
-            return Result<AccountCompanyRoleBuilderCatalogResponse>.Failure(AccountCompanyErrors.CompanyNotFound);
+            return Result<AccountCompanyRoleBuilderCatalogResponse>.Failure(AccountCompanyErrors.SubscriptionContextUnavailable);
         }
 
         var fieldPoliciesCatalog = FieldCatalogRegistry.Definitions
@@ -1092,7 +1132,7 @@ internal sealed class GetOwnedCompanyResourcePolicyQueryHandler(
 
         if (!tenantContext.TenantId.HasValue || tenantContext.TenantId.Value != query.CompanyId)
         {
-            return Result<AccountCompanyResourcePolicyResponse>.Failure(AccountCompanyErrors.ActiveCompanySwitchForbidden);
+            return Result<AccountCompanyResourcePolicyResponse>.Failure(AccountCompanyErrors.ActiveCompanyContextRequired);
         }
 
         if (!PermissionMatrixCatalog.TryGet(query.ResourceKey, out _))

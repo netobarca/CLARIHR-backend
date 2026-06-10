@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -6,12 +7,14 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
+using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -44,7 +47,7 @@ public sealed class AccountCompaniesController(
     public async Task<ActionResult<PagedResponse<AccountCompanySummaryResponse>>> List(
         [FromQuery] CompanyStatus? status,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery][Range(1, AccountCompanyValidationRules.MaxPageSize)] int pageSize = 20,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
@@ -213,6 +216,7 @@ public sealed class AccountCompaniesController(
     }
 
     [HttpPost("{companyPublicId:guid}/switch")]
+    [EnableRateLimiting(AccountCompanyRateLimitPolicies.Switch)]
     [ProducesResponseType<SwitchActiveCompanyResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read | StandardErrorSet.Conflict)]
     [SwaggerOperation(

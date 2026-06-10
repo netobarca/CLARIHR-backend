@@ -59,6 +59,21 @@ public static class AccountCompanyErrors
         "The requested company cannot become the active company.",
         ErrorType.Conflict);
 
+    // AC-5: the company resolved and ownership passed, but it has no active commercial subscription/plan to
+    // build an access context from. This is NOT "company not found" (the prior code), it is a subscription
+    // gap — mirror the sibling AccountCompanySubscriptionsController which surfaces a subscription error.
+    public static readonly Error SubscriptionContextUnavailable = new(
+        "ACCOUNT_COMPANY_SUBSCRIPTION_NOT_FOUND",
+        "The company has no active subscription to resolve its access context.",
+        ErrorType.NotFound);
+
+    // AC-5: reading a per-resource policy requires the company to be the caller's active tenant context.
+    // Distinct from the switch guard above (this is a read precondition, not a failed switch).
+    public static readonly Error ActiveCompanyContextRequired = new(
+        "ACCOUNT_COMPANY_ACTIVE_CONTEXT_REQUIRED",
+        "Switch to this company before reading its resource policies.",
+        ErrorType.Conflict);
+
     public static readonly Error ConcurrencyConflict = new(
         "CONCURRENCY_CONFLICT",
         "The company was modified by another request. Refresh and try again.",

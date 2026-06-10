@@ -48,6 +48,31 @@ internal sealed class RefreshTokenRepository(ApplicationDbContext dbContext) : I
         }
     }
 
+    public async Task RevokeUsersTokensAsync(
+        IReadOnlyCollection<long> userIds,
+        AuthClientType clientType,
+        DateTime revokedUtc,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return;
+        }
+
+        var activeTokens = await dbContext.RefreshTokens
+            .Where(refreshToken =>
+                userIds.Contains(refreshToken.UserId) &&
+                refreshToken.ClientType == clientType &&
+                refreshToken.RevokedUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var refreshToken in activeTokens)
+        {
+            refreshToken.Revoke(revokedUtc, reason);
+        }
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

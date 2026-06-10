@@ -17,6 +17,25 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
     public Task<Company?> FindByPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
         dbContext.Companies.SingleOrDefaultAsync(company => company.PublicId == companyPublicId, cancellationToken);
 
+    // AC-7: boolean existence probe for GetById's 404-vs-403 disambiguation (no aggregate materialization).
+    public Task<bool> ExistsByPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+        dbContext.Companies.AnyAsync(company => company.PublicId == companyPublicId, cancellationToken);
+
+    // AC-3: a fixed class id namespaces this advisory lock; the object id is derived deterministically from
+    // the owner's public id so every capacity-bounded mutation (create/reactivate) of one owner contends on
+    // the same lock. Executed on the context's current transaction (the handler opens one), so
+    // pg_advisory_xact_lock holds until that transaction commits/rolls back, serializing the quota check.
+    private const int OwnerCapacityLockClassId = 0x41_43_43_50; // "ACCP" — account-company capacity
+
+    public Task AcquireOwnerCapacityLockAsync(Guid ownerUserPublicId, CancellationToken cancellationToken)
+    {
+        var ownerKey = BitConverter.ToInt32(ownerUserPublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { OwnerCapacityLockClassId, ownerKey },
+            cancellationToken);
+    }
+
     public Task<AccountCompanyDetailResponse?> FindOwnedByUserAsync(
         Guid companyPublicId,
         Guid ownerUserPublicId,
@@ -38,6 +57,12 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.ConcurrencyToken,
                 dbContext.LegalRepresentatives
                     .AsNoTracking()
+                    // AC-2: the owned-company detail can be read for any company the caller owns, not only the
+                    // active tenant. LegalRepresentative is tenant-scoped, so the ambient tenant filter would
+                    // otherwise return empty for every company that is not the active tenant (and for the 201
+                    // of a just-created company).
+                    // Intentional tenant filter bypass: re-anchored explicitly to this company's TenantId below.
+                    .IgnoreQueryFilters()
                     .Where(legalRepresentative =>
                         legalRepresentative.TenantId == company.CompanyId &&
                         legalRepresentative.IsActive)
@@ -50,13 +75,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                         legalRepresentative.PositionTitle,
                         legalRepresentative.IsPrimary))
                     .ToArray(),
-                company.CompanyTypeId.HasValue
-                    ? new CompanyTypeMetadataResponse(
-                        company.CompanyTypeId.Value,
-                        company.CompanyTypeCode ?? string.Empty,
-                        company.CompanyTypeName ?? string.Empty,
-                        company.CompanyTypeIsActive ?? false)
-                    : null))
+                company.CompanyType))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
@@ -87,13 +106,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.IsActiveContext,
                 IsOwnedByCurrentUser: true,
                 company.CreatedAtUtc,
-                company.CompanyTypeId.HasValue
-                    ? new CompanyTypeMetadataResponse(
-                        company.CompanyTypeId.Value,
-                        company.CompanyTypeCode ?? string.Empty,
-                        company.CompanyTypeName ?? string.Empty,
-                        company.CompanyTypeIsActive ?? false)
-                    : null))
+                company.CompanyType))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<AccountCompanySummaryResponse>(items, filter.PageNumber, filter.PageSize, totalCount);
@@ -105,24 +118,27 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
         CancellationToken cancellationToken) =>
         CountOwnedByUserInternalAsync(ownerUserPublicId, filter, cancellationToken);
 
-    private async Task<int> CountOwnedByUserInternalAsync(
+    private Task<int> CountOwnedByUserInternalAsync(
         Guid ownerUserPublicId,
         CompanyOwnershipCountFilter filter,
         CancellationToken cancellationToken)
     {
-        var statuses = filter.Statuses.ToHashSet();
-        if (statuses.Count == 0)
+        if (filter.Statuses.Length == 0)
         {
-            return 0;
+            return Task.FromResult(0);
         }
 
-        var ownedStatuses = await dbContext.Companies
+        // AC-7: count set-based (WHERE created_by AND status IN (...)) instead of materializing every owned
+        // company's status and counting in memory. Bind a List (not the array) so the predicate resolves to
+        // Enumerable.Contains → SQL IN, not the ReadOnlySpan MemoryExtensions.Contains overload that .NET
+        // prefers for arrays and that EF cannot translate.
+        var statuses = filter.Statuses.ToList();
+        return dbContext.Companies
             .AsNoTracking()
-            .Where(company => company.CreatedByUserPublicId == ownerUserPublicId)
-            .Select(company => company.Status)
-            .ToListAsync(cancellationToken);
-
-        return ownedStatuses.Count(statuses.Contains);
+            .Where(company =>
+                company.CreatedByUserPublicId == ownerUserPublicId &&
+                statuses.Contains(company.Status))
+            .CountAsync(cancellationToken);
     }
 
     private IQueryable<OwnedCompanyProjection> BuildOwnedCompanyQuery(Guid ownerUserPublicId, Guid? activeTenantId) =>
@@ -146,25 +162,12 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                     .Select(subscription => subscription.PlanCode)
                     .FirstOrDefault() ?? string.Empty,
                 IsActiveContext = activeTenantId.HasValue && company.PublicId == activeTenantId.Value,
-                CompanyTypeId = dbContext.CompanyTypeCatalogItems
+                // AC-7: a single correlated subquery projecting the metadata object, instead of four separate
+                // subqueries to the same catalog item per row (left-join semantics: null when unset).
+                CompanyType = dbContext.CompanyTypeCatalogItems
                     .AsNoTracking()
                     .Where(item => item.Id == company.CompanyTypeCatalogItemId)
-                    .Select(item => (Guid?)item.PublicId)
-                    .FirstOrDefault(),
-                CompanyTypeCode = dbContext.CompanyTypeCatalogItems
-                    .AsNoTracking()
-                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
-                    .Select(item => item.Code)
-                    .FirstOrDefault(),
-                CompanyTypeName = dbContext.CompanyTypeCatalogItems
-                    .AsNoTracking()
-                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
-                    .Select(item => item.Name)
-                    .FirstOrDefault(),
-                CompanyTypeIsActive = dbContext.CompanyTypeCatalogItems
-                    .AsNoTracking()
-                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
-                    .Select(item => (bool?)item.IsActive)
+                    .Select(item => new CompanyTypeMetadataResponse(item.PublicId, item.Code, item.Name, item.IsActive))
                     .FirstOrDefault(),
                 CreatedAtUtc = company.CreatedUtc,
                 ModifiedAtUtc = company.ModifiedUtc,
@@ -187,13 +190,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
 
         public bool IsActiveContext { get; init; }
 
-        public Guid? CompanyTypeId { get; init; }
-
-        public string? CompanyTypeCode { get; init; }
-
-        public string? CompanyTypeName { get; init; }
-
-        public bool? CompanyTypeIsActive { get; init; }
+        public CompanyTypeMetadataResponse? CompanyType { get; init; }
 
         public DateTime CreatedAtUtc { get; init; }
 

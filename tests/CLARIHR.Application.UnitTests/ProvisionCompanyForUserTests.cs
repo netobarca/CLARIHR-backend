@@ -999,6 +999,14 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             return Task.FromResult(companyPublicId);
         }
 
+        public Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken)
+        {
+            var membership = Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary);
+            var company = membership is null ? null : companyRepository.FindById(membership.CompanyId);
+
+            return Task.FromResult(company is { Status: CompanyStatus.Active } ? (Guid?)company.PublicId : null);
+        }
+
         public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary));
 

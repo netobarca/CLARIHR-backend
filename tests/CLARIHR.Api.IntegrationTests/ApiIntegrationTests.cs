@@ -1002,6 +1002,69 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_OWNERSHIP_FORBIDDEN");
     }
 
+    // AC-6: the AccountCompanyAccessController endpoints (moved out of AccountCompanies in doc 28) had no
+    // integration coverage. Pin the owner happy-path (fixes the access-context contract) and the intruder
+    // negative (ownership is handler-gated, not RBAC — a company owned by another user must yield 403).
+    [Fact]
+    public async Task AccountCompanies_GetAccessContext_ShouldReturnContextForOwner()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/access-context");
+
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        Assert.Equal(scenario.TenantId, root.GetProperty("companyContext").GetProperty("publicId").GetGuid());
+        Assert.True(root.TryGetProperty("commercialContext", out _));
+        Assert.True(root.TryGetProperty("currentUserAccess", out _));
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetAccessContext_ForUnownedCompany_ShouldReturn403()
+    {
+        Guid foreignCompanyId = Guid.Empty;
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var countryCatalogItemId = await dbContext.CountryCatalogItems
+                .Where(item => item.NormalizedCode == "SV")
+                .Select(item => item.Id)
+                .SingleAsync();
+
+            var foreignCompany = Company.Create(
+                "Foreign Access Company",
+                "foreign-access-company",
+                Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                "SV",
+                countryCatalogItemId);
+            dbContext.Companies.Add(foreignCompany);
+            await dbContext.SaveChangesAsync();
+            foreignCompanyId = foreignCompany.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/account/companies/{foreignCompanyId}/access-context");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_OWNERSHIP_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetRoleBuilderCatalog_ShouldReturnCatalogForOwner()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/account/companies/{scenario.TenantId}/authorization/role-builder-catalog");
+
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        Assert.True(root.TryGetProperty("availablePermissions", out _));
+        Assert.True(root.TryGetProperty("scopeTypes", out _));
+    }
+
     [Fact]
     public async Task AccountCompanies_Switch_ShouldReturnTokenWithSelectedTenant()
     {

@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
+using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Domain.Companies;
@@ -116,7 +117,7 @@ internal sealed class GetOwnedCompaniesQueryValidator : AbstractValidator<GetOwn
     public GetOwnedCompaniesQueryValidator()
     {
         RuleFor(query => query.PageNumber).GreaterThan(0);
-        RuleFor(query => query.PageSize).InclusiveBetween(1, 100);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, AccountCompanyValidationRules.MaxPageSize);
     }
 }
 

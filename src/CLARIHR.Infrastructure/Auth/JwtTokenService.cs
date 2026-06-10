@@ -32,13 +32,13 @@ internal sealed class JwtTokenService(
 
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
-        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+        var tenantId = await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
         return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: true, cancellationToken);
     }
 
     public async Task<Result<AuthTokenResult>> GenerateLoginAsync(User user, CancellationToken cancellationToken)
     {
-        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+        var tenantId = await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
         return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: false, cancellationToken);
     }
 
@@ -206,7 +206,7 @@ internal sealed class JwtTokenService(
     {
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
         var tenantId = clientType == AuthClientType.Core
-            ? await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken)
+            ? await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken)
             : null;
         var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, includeAuthorizationClaims: true, cancellationToken);
 

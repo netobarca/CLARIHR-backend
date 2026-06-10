@@ -11,6 +11,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -289,6 +290,10 @@ builder.Services.AddRateLimiter(options =>
     // (scan + LIKE '%x%' over the append-only audit trail). Same paged-search abuse class as the
     // other read surfaces; mirrors the 120/min family default.
     options.AddPolicy(AuditRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:Audit:Search:PermitLimit", 120));
+
+    // AC-8: POST account/companies/{id}/switch mints a fresh access+refresh token pair (functional
+    // equivalent of login, which is limited at 5/min), so it gets an auth-style per-user+tenant limiter.
+    options.AddPolicy(AccountCompanyRateLimitPolicies.Switch, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:AccountCompanies:Switch:PermitLimit", 10));
 });
 builder.Services.AddAuthorization(options =>
 {

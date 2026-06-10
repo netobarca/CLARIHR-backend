@@ -347,6 +347,9 @@ public sealed class JwtTokenServiceTests
         public Task<Guid?> GetPrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult(primaryCompanyPublicId);
 
+        public Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult(primaryCompanyPublicId);
+
         public Task<Domain.Companies.UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

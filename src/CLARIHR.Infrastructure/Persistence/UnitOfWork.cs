@@ -21,6 +21,8 @@ internal sealed class UnitOfWork(ApplicationDbContext dbContext) : IUnitOfWork
         }
     }
 
+    public void ClearTracked() => dbContext.ChangeTracker.Clear();
+
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (dbContext.Database.CurrentTransaction is not null)

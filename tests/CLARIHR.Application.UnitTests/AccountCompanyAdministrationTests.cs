@@ -279,8 +279,10 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             companyRepository,
             userCompanyRepository,
+            new TestRefreshTokenRepository(),
             new TestAuditService(),
             new TestTenantContext(CurrentTenantId),
+            new FixedDateTimeProvider(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
             new TestUnitOfWork());
 
         var result = await handler.Handle(new ArchiveAccountCompanyCommand(company.PublicId, company.ConcurrencyToken), CancellationToken.None);
@@ -302,8 +304,10 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             companyRepository,
             new TestUserCompanyRepository(companyRepository),
+            new TestRefreshTokenRepository(),
             new TestAuditService(),
             new TestTenantContext(CurrentTenantId),
+            new FixedDateTimeProvider(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
             new TestUnitOfWork());
 
         var result = await handler.Handle(new ArchiveAccountCompanyCommand(companyRepository.Items[0].PublicId, companyRepository.Items[0].ConcurrencyToken), CancellationToken.None);
@@ -686,6 +690,16 @@ public sealed class AccountCompanyAdministrationTests
                 : companyRepository.Items.Single(item => item.Id == membership.CompanyId).PublicId;
 
             return Task.FromResult(companyPublicId);
+        }
+
+        public Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken)
+        {
+            var membership = Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary);
+            var company = membership is null
+                ? null
+                : companyRepository.Items.SingleOrDefault(item => item.Id == membership.CompanyId);
+
+            return Task.FromResult(company is { Status: CompanyStatus.Active } ? (Guid?)company.PublicId : null);
         }
 
         public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>

@@ -10,6 +10,7 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.Companies;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.Auth.AcceptInvitation;
@@ -46,6 +47,7 @@ internal sealed class AcceptCompanyUserInvitationCommandValidator : AbstractVali
 internal sealed class AcceptCompanyUserInvitationCommandHandler(
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
+    ICompanyRepository companyRepository,
     IIamAdministrationRepository iamAdministrationRepository,
     IInvitationTokenRepository invitationTokenRepository,
     IInvitationTokenHasher invitationTokenHasher,
@@ -79,6 +81,13 @@ internal sealed class AcceptCompanyUserInvitationCommandHandler(
         if (membership is null)
         {
             return Result<AuthResponse>.Failure(AuthErrors.InvitationTokenInvalid);
+        }
+
+        // AC-1: never mint a session against an archived company, even on a still-valid invitation.
+        var company = await companyRepository.FindByPublicIdAsync(resolution.CompanyPublicId, cancellationToken);
+        if (company is null || company.Status != CompanyStatus.Active)
+        {
+            return Result<AuthResponse>.Failure(AuthErrors.InvitationCompanyUnavailable);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);

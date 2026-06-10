@@ -46,6 +46,32 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (_, company) => (Guid?)company.PublicId)
             .SingleOrDefaultAsync(cancellationToken);
 
+    // AC-1: token issuance resolves the primary company ONLY when it is Active, so a session is never
+    // minted against an archived primary company (login / refresh would otherwise keep emitting a tenant
+    // claim for an archived company until the 14-day refresh TTL).
+    public Task<Guid?> GetActivePrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken) =>
+        dbContext.UserCompanyMemberships
+            .Where(membership => membership.UserId == userId && membership.IsPrimary)
+            .Join(
+                dbContext.Companies.Where(company => company.Status == CompanyStatus.Active),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (_, company) => (Guid?)company.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    // AC-1: every member of a company (any membership status), used to revoke their refresh tokens when the
+    // company is archived. Returns internal user ids; refresh tokens are keyed by internal user id.
+    public async Task<IReadOnlyCollection<long>> GetMemberUserIdsAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+        await dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Join(
+                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership.UserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
     public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships.SingleOrDefaultAsync(
             membership => membership.UserId == userId && membership.IsPrimary,
