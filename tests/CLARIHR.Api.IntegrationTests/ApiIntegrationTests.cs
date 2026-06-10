@@ -973,6 +973,126 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return (await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions))!;
     }
 
+    // AC-1 (capa 1): once a user's primary company is archived, a fresh login must NOT mint a session bound to
+    // it — the token is issued without a tenant ("tid") claim, exactly like a user with no active company.
+    [Fact]
+    public async Task Login_WhenPrimaryCompanyArchived_ShouldIssueTokenWithoutTenant()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var anonymousClient = factory.CreateClient();
+
+        var email = $"archived.primary.{Guid.NewGuid():N}@clarihr.test";
+        const string password = "StrongPass123!";
+
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        {
+            firstName = "Archived",
+            lastName = "Primary",
+            email,
+            password,
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(registerPayload);
+
+        using var accountClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
+
+        var createResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
+        {
+            name = "Soon Archived Company",
+            countryCode = "SV",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var companyPayload = await createResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(companyPayload);
+
+        // Make it the caller's primary company, then archive it directly in the DB (the endpoint forbids
+        // archiving the primary/active company — exactly the state we need to exercise).
+        var switchResponse = await accountClient.PostAsync(
+            $"/api/v1/account/companies/{companyPayload!.PublicId}/switch", content: null);
+        switchResponse.EnsureSuccessStatusCode();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var company = await dbContext.Companies.SingleAsync(item => item.PublicId == companyPayload.PublicId);
+            company.Archive();
+            await dbContext.SaveChangesAsync();
+        }
+
+        var loginResponse = await anonymousClient.PostJsonAsync("/api/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        var loginPayload = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(loginPayload);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(loginPayload!.AccessToken);
+        Assert.DoesNotContain(token.Claims, static claim => claim.Type == "tid");
+    }
+
+    // AC-1 (capa 3): archiving a company revokes its members' refresh tokens, so the archived company cannot
+    // keep being operated from an existing long-lived session.
+    [Fact]
+    public async Task Archive_ShouldRevokeMembersRefreshTokens()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var anonymousClient = factory.CreateClient();
+
+        var email = $"archive.revoke.{Guid.NewGuid():N}@clarihr.test";
+        const string password = "StrongPass123!";
+
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        {
+            firstName = "Archive",
+            lastName = "Revoke",
+            email,
+            password,
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(registerPayload);
+
+        using var accountClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
+
+        // Create a non-primary company (no switch) so the owner can archive it via the endpoint while keeping
+        // the register-issued refresh token alive in the DB.
+        var createResponse = await accountClient.PostJsonAsync("/api/v1/account/companies", new
+        {
+            name = "Owner Archivable Company",
+            countryCode = "SV",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var companyPayload = await createResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(companyPayload);
+
+        using var archiveRequest = new HttpRequestMessage(
+            HttpMethod.Patch, $"/api/v1/account/companies/{companyPayload!.PublicId}/archive");
+        archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{companyPayload.ConcurrencyToken}\"");
+        var archiveResponse = await accountClient.SendAsync(archiveRequest);
+        archiveResponse.EnsureSuccessStatusCode();
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var ownerId = await dbContext.AuthUsers
+            .Where(user => user.PublicId == registerPayload.User.Id)
+            .Select(user => user.Id)
+            .SingleAsync();
+        var tokens = await dbContext.RefreshTokens
+            .Where(token => token.UserId == ownerId)
+            .ToListAsync();
+
+        Assert.NotEmpty(tokens);
+        Assert.All(tokens, token => Assert.NotNull(token.RevokedUtc));
+        Assert.Contains(tokens, token => token.RevocationReason == "company-archived");
+    }
+
     [Fact]
     public async Task AccountCompanies_GetById_ForUnownedCompany_ShouldReturn403()
     {
