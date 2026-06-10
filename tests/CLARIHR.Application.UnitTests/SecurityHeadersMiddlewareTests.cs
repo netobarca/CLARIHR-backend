@@ -7,7 +7,7 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class SecurityHeadersMiddlewareTests
 {
     [Theory]
-    [InlineData("/api/auth/login")]
+    [InlineData("/api/v1/auth/login")]
     [InlineData("/api/v1/personnel-file-documents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/file")]
     public async Task CoreApiSecurityHeaders_WhenPathStartsWithApi_ShouldDisableCaching(string path)
     {

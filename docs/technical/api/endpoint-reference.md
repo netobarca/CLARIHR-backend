@@ -18,11 +18,11 @@ El repositorio expone actualmente una Core API tenant-scoped y una Platform Back
 
 El acceso publico se limita intencionalmente a:
 
-- `POST /api/auth/register`
-- `POST /api/auth/external`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `GET /api/system/status`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/external`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/system/status`
 
 ### 2.2 Core API autenticada
 
@@ -61,7 +61,7 @@ Swagger runtime es la referencia canonica del contrato. Las secciones narrativas
 
 La secuencia actual de onboarding es:
 
-1. `POST /api/auth/register`
+1. `POST /api/v1/auth/register`
 2. `POST /api/v1/account/companies`
 3. `POST /api/v1/account/companies/{companyPublicId}/switch`
 
@@ -106,8 +106,8 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 
 | Modulo | Controladores | Familias principales de rutas | Proposito |
 |---|---|---|---|
-| System | `SystemController` | `/api/system/status` | salud y estado de runtime |
-| Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh, recuperacion de contrasena y logout |
+| System | `SystemController` | `/api/v1/system/status` | salud y estado de runtime |
+| Auth | `AuthController` | `/api/v1/auth/*` | registro, auth externa, login, refresh, recuperacion de contrasena y logout |
 | Account companies | `AccountCompaniesController` | `/api/v1/account/companies*` | crear, listar, actualizar (PUT/PATCH con `If-Match`/`ETag`), archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/v1/account/companies/{companyPublicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
 | Job Profile internal catalogs | `JobProfileInternalCatalogsController` | `/api/v1/job-profiles/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
@@ -138,15 +138,15 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 
 ### 4.1 Autenticacion
 
-- `POST /api/auth/register`: crea una cuenta de usuario y devuelve tokens
-- `POST /api/auth/external`: crea o autentica un usuario mediante proveedor externo
-- `POST /api/auth/login`: inicia sesion local
-- `POST /api/auth/refresh`: rota la sesion usando un refresh token
-- `POST /api/auth/password-reset/request`: solicita recuperacion de contrasena con respuesta uniforme `202`
-- `POST /api/auth/password-reset/validate`: valida un token de recuperacion vigente
-- `POST /api/auth/password-reset/redeem`: redime el token con la nueva contrasena y revoca sesiones activas
-- `POST /api/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
-- `POST /api/auth/logout`: revoca la sesion autenticada
+- `POST /api/v1/auth/register`: crea una cuenta de usuario y devuelve tokens
+- `POST /api/v1/auth/external`: crea o autentica un usuario mediante proveedor externo
+- `POST /api/v1/auth/login`: inicia sesion local
+- `POST /api/v1/auth/refresh`: rota la sesion usando un refresh token
+- `POST /api/v1/auth/password-reset/request`: solicita recuperacion de contrasena con respuesta uniforme `202`
+- `POST /api/v1/auth/password-reset/validate`: valida un token de recuperacion vigente
+- `POST /api/v1/auth/password-reset/redeem`: redime el token con la nueva contrasena y revoca sesiones activas
+- `POST /api/v1/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
+- `POST /api/v1/auth/logout`: revoca la sesion autenticada
 - `GET /api/v1/account/me/preferences`: obtiene preferencias del usuario autenticado (auto-provisiona el registro en el primer acceso); el body incluye el `concurrencyToken` actual
 - `PUT /api/v1/account/me/preferences`: reemplaza el `language` del usuario autenticado; requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
 - `PATCH /api/v1/account/me/preferences`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); unico path patcheable `/language`; mismo contrato de `If-Match`/`ETag` que el PUT
@@ -896,16 +896,16 @@ No existe ya una superficie publica separada legacy para frontend Core fuera del
 
 #### 5.2.1 Alcance
 
-Este bloque cubre la autenticacion publica y la gestion de sesiones iniciales a traves de `AuthController`, con base `/api/auth`.
+Este bloque cubre la autenticacion publica y la gestion de sesiones iniciales a traves de `AuthController`, con base `/api/v1/auth`.
 
 Incluye:
 
-- `POST /api/auth/register`
-- `POST /api/auth/external`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/company-user-invitations/accept`
-- `POST /api/auth/logout`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/external`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/company-user-invitations/accept`
+- `POST /api/v1/auth/logout`
 
 #### 5.2.2 Proposito funcional en CLARIHR
 
@@ -954,7 +954,7 @@ Este modulo no administra companias ni permisos RBAC. Su responsabilidad termina
 
 #### 5.2.5 `AuthController`
 
-Base route: `/api/auth`
+Base route: `/api/v1/auth`
 
 Contratos principales:
 
@@ -965,7 +965,7 @@ Contratos principales:
 - `AcceptCompanyUserInvitationRequest`: `token`, `password`
 - `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`
 
-##### `POST /api/auth/register`
+##### `POST /api/v1/auth/register`
 
 - Proposito: registrar una cuenta local nueva y devolver sesion autenticada.
 - Autenticacion: publica.
@@ -975,7 +975,7 @@ Contratos principales:
 - Errores relevantes: `common.validation`, `auth.user_already_exists`.
 - Observaciones: hace hash del password, crea `User` local, guarda en transaccion y emite un par de tokens inmediatamente.
 
-##### `POST /api/auth/external`
+##### `POST /api/v1/auth/external`
 
 - Proposito: autenticar via proveedor externo y registrar o vincular usuario segun corresponda.
 - Autenticacion: publica.
@@ -985,7 +985,7 @@ Contratos principales:
 - Errores relevantes: `auth.external.invalid_token`, `auth.external.email_missing`, `auth.external.provider_not_supported`, `auth.external.provider_configuration_invalid`, `auth.external.provider_link_conflict`, `auth.external.email_link_not_allowed`, `auth.user_not_active`.
 - Observaciones: hoy valida Google ID tokens; si el usuario no existe se crea como externo; si existe y esta activo puede vincularse automaticamente por email solo cuando el proveedor lo permite, por ejemplo email verificado de Gmail o hosted domain en Google Workspace.
 
-##### `POST /api/auth/login`
+##### `POST /api/v1/auth/login`
 
 - Proposito: autenticar un usuario local con email y password.
 - Autenticacion: publica.
@@ -995,7 +995,7 @@ Contratos principales:
 - Errores relevantes: `auth.login.invalid_credentials`.
 - Observaciones: devuelve el mismo error para email inexistente, usuario inactivo, proveedor no local o password incorrecto.
 
-##### `POST /api/auth/refresh`
+##### `POST /api/v1/auth/refresh`
 
 - Proposito: rotar la sesion usando un refresh token valido.
 - Autenticacion: publica.
@@ -1005,7 +1005,7 @@ Contratos principales:
 - Errores relevantes: `auth.refresh.invalid_token`, `auth.token_configuration_invalid`.
 - Observaciones: cada refresh exitoso invalida el refresh token anterior y emite uno nuevo; si se intenta reutilizar un token ya rotado, el backend revoca toda la familia de refresh tokens asociada.
 
-##### `POST /api/auth/company-user-invitations/accept`
+##### `POST /api/v1/auth/company-user-invitations/accept`
 
 - Proposito: activar un usuario de compania invitado y definir su contrasena final.
 - Autenticacion: publica.
@@ -1015,7 +1015,7 @@ Contratos principales:
 - Errores relevantes: `common.validation`, `auth.invitation.invalid_token`, `auth.token_configuration_invalid`.
 - Observaciones: el backend marca el token como usado, activa al usuario local e `IamUser` tenant-scoped asociado, reactiva la membresia y devuelve una sesion ya contextualizada al tenant de la invitacion.
 
-##### `POST /api/auth/logout`
+##### `POST /api/v1/auth/logout`
 
 - Proposito: cerrar la sesion del usuario autenticado.
 - Autenticacion: `Bearer` requerido.
@@ -1274,7 +1274,7 @@ Contratos principales:
 
 #### 5.3.7 Relacion con `Auth` y onboarding
 
-- `POST /api/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
+- `POST /api/v1/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
 - `GET /api/v1/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
 - `GET /api/v1/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types` resuelve el catalogo de tipos documentales desde la fuente unificada por pais de compania.

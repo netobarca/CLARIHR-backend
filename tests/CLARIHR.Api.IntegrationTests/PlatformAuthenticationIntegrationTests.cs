@@ -25,7 +25,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         await coreFactory.ResetDatabaseAsync();
         using var client = coreFactory.CreateClient();
 
-        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Dev",
             lastName = "Platform",
@@ -36,7 +36,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
             email = "dev@clarihr.local",
             password = "StrongPass123!"
@@ -131,7 +131,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         });
 
         using var coreClient = coreFactory.CreateClient();
-        _ = await coreClient.PostJsonAsync("/api/auth/register", new
+        _ = await coreClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Core",
             lastName = "User",
@@ -140,7 +140,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
             country = "SV",
             source = "integration-tests"
         });
-        var coreLoginResponse = await coreClient.PostJsonAsync("/api/auth/login", new
+        var coreLoginResponse = await coreClient.PostJsonAsync("/api/v1/auth/login", new
         {
             email = "core.user@clarihr.test",
             password = corePassword
@@ -177,7 +177,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         const string password = "StrongPass123!";
 
         using var anonymousClient = coreFactory.CreateClient();
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Jwt",
             lastName = "Regression",
@@ -210,7 +210,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
             content: null);
         Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
 
-        var loginResponse = await anonymousClient.PostJsonAsync("/api/auth/login", new
+        var loginResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/login", new
         {
             email,
             password
@@ -232,7 +232,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         Assert.Equal(HttpStatusCode.OK, companiesResponse.StatusCode);
         await AssertContainsCompanyAsync(companiesResponse, "JWT Regression Company");
 
-        var refreshResponse = await anonymousClient.PostJsonAsync("/api/auth/refresh", new
+        var refreshResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/refresh", new
         {
             refreshToken = loginPayload.RefreshToken
         });

@@ -147,6 +147,17 @@ public sealed class OpenApiContractGuardrailsTests
         // [SwaggerOperation] or a class that drops [Tags] fails CI. `^AccountCompanies` (plural) matches only
         // AccountCompaniesController — the AccountCompany* (singular) siblings have disjoint prefixes.
         ("AccountCompanies", new Regex(@"^AccountCompanies", RegexOptions.Compiled), "Account Companies"),
+        // AuthController is the anonymous authentication command surface (register/external/login/refresh/
+        // logout/password-reset/invitation-accept). It is not a CRUD resource and has no RBAC policy pair, so
+        // it stays OUT of GovernedFamilyRegex by design, but it is a public OpenAPI surface. Enrolled
+        // (canonical doc 30) so an action that drops [SwaggerOperation] or a class that drops [Tags] fails CI.
+        // `^Auth` matches only AuthController (AccountCompanyAuthorization starts with "Account"). The
+        // password-reset actions additionally carry a per-action [Tags("Password Reset")] for Swagger
+        // grouping; this guardrail checks the CLASS-level [Tags("Authentication")], which they keep.
+        ("Auth", new Regex(@"^Auth", RegexOptions.Compiled), "Authentication"),
+        // SystemController is the anonymous system/status surface. Not a tenant resource (no [AuthorizationPolicySet],
+        // OUT of GovernedFamilyRegex by design), but a public OpenAPI surface. `^System` matches only SystemController.
+        ("System", new Regex(@"^System", RegexOptions.Compiled), "System"),
     ];
 
     public static TheoryData<string> FamilyLabels()

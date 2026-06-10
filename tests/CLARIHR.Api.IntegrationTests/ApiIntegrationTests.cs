@@ -46,7 +46,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostJsonAsync("/api/auth/register", new
+        var response = await client.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Admin",
             lastName = "Local",
@@ -71,7 +71,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostJsonAsync("/api/auth/register", new
+        var response = await client.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Admin",
             lastName = "Local",
@@ -91,7 +91,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var anonymousClient = factory.CreateClient();
 
         var email = $"onboarding.{Guid.NewGuid():N}@clarihr.test";
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Onboarding",
             lastName = "User",
@@ -146,7 +146,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var anonymousClient = factory.CreateClient();
 
         var email = $"onboarding.locations.{Guid.NewGuid():N}@clarihr.test";
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Onboarding",
             lastName = "Locations",
@@ -201,7 +201,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Login",
             lastName = "User",
@@ -212,7 +212,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
             email,
             password
@@ -238,7 +238,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.invalid.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Login",
             lastName = "Invalid",
@@ -249,7 +249,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/v1/auth/login", new
         {
             email,
             password = "WrongPassword123!"
@@ -267,7 +267,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"logout.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Logout",
             lastName = "User",
@@ -285,10 +285,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var authenticatedClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
 
-        var logoutResponse = await authenticatedClient.PostAsync("/api/auth/logout", content: null);
+        var logoutResponse = await authenticatedClient.PostAsync("/api/v1/auth/logout", content: null);
         Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 
-        var refreshResponse = await anonymousClient.PostJsonAsync("/api/auth/refresh", new
+        var refreshResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/refresh", new
         {
             refreshToken = registerPayload.RefreshToken
         });
@@ -984,7 +984,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"archived.primary.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Archived",
             lastName = "Primary",
@@ -1024,7 +1024,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             await dbContext.SaveChangesAsync();
         }
 
-        var loginResponse = await anonymousClient.PostJsonAsync("/api/auth/login", new { email, password });
+        var loginResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/login", new { email, password });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         var loginPayload = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
         Assert.NotNull(loginPayload);
@@ -1044,7 +1044,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"archive.revoke.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Archive",
             lastName = "Revoke",

@@ -2761,10 +2761,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/password-reset/request:
+  /api/v1/auth/password-reset/request:
     post:
       tags:
-      - Auth
+      - Password Reset
+      summary: Request a password reset email
+      description: |-
+        Starts the password-reset flow for a local account. Always responds `202
+        Accepted` regardless of whether the email exists or is eligible — this uniform
+        response prevents account enumeration. When eligible, any active reset tokens
+        are revoked, a new single-use token is issued and a signed reset link is
+        emailed. A per-account cooldown plus rate limiting (`429`) throttle abuse.
       requestBody:
         content:
           application/json:
@@ -2803,10 +2810,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/password-reset/validate:
+  /api/v1/auth/password-reset/validate:
     post:
       tags:
-      - Auth
+      - Password Reset
+      summary: Validate a password reset token
+      description: |-
+        Pre-flight check used by the reset form before it shows the new-password
+        fields. For an active (unused, unexpired, unrevoked) token it returns the token
+        expiry and a masked email; an invalid, expired or already-used token yields
+        `401`.
       requestBody:
         content:
           application/json:
@@ -2855,10 +2868,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/password-reset/redeem:
+  /api/v1/auth/password-reset/redeem:
     post:
       tags:
-      - Auth
+      - Password Reset
+      summary: Redeem a password reset token
+      description: |-
+        Consumes the single-use reset token and sets the new password (enforcing the
+        password policy → `400` on violation). On success it marks the token used,
+        revokes every other active reset token and revokes all refresh sessions, then
+        returns `204`. An invalid/expired/used token yields `401`. The user must log in
+        again with the new password.
       requestBody:
         content:
           application/json:
@@ -2897,10 +2917,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/register:
+  /api/v1/auth/register:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Register a new local user
+      description: |-
+        Creates an active local user (enforcing the password policy) and seeds default
+        user preferences in a single transaction, then returns `201 Created` with the
+        issued access and refresh tokens and the authenticated user. A duplicate email
+        yields `409`; validation or password-policy failures yield `400`.
       requestBody:
         content:
           application/json:
@@ -2961,10 +2987,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/external:
+  /api/v1/auth/external:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Authenticate or register via an external identity provider
+      description: |-
+        Validates the external provider id-token (e.g. Google) and either logs in the
+        matching user or provisions a new one linked to the provider. Returns `201
+        Created` when a new user is provisioned and `200 OK` when an existing user logs
+        in, both with the issued session. An invalid token yields `401`, a
+        provider-link conflict yields `409`, and a provider that returns no email
+        yields `422`.
       requestBody:
         content:
           application/json:
@@ -3061,10 +3095,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/login:
+  /api/v1/auth/login:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Authenticate with email and password
+      description: |-
+        Exchanges email + password for a session. Returns `200 OK` with the access and
+        refresh tokens and the authenticated user for an active local account. Invalid
+        credentials, an inactive account or a non-local account all yield a uniform
+        `401` to avoid leaking which condition failed (anti-enumeration).
       requestBody:
         content:
           application/json:
@@ -3125,10 +3165,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/company-user-invitations/accept:
+  /api/v1/auth/company-user-invitations/accept:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Accept a company user invitation
+      description: |-
+        Anonymous endpoint that consumes the single-use invitation token, sets the
+        invited user's password and activates the user, their company membership and
+        their IAM user, then returns `200 OK` with a tenant-scoped session. An invalid
+        or expired token yields `401`; if the invitation's company has been archived
+        the session is refused with `409`.
       requestBody:
         content:
           application/json:
@@ -3189,10 +3236,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/refresh:
+  /api/v1/auth/refresh:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Exchange a refresh token for a new session
+      description: |-
+        Rotates the supplied refresh token: the presented token is single-use and is
+        revoked as it is exchanged for a fresh access/refresh pair (`200 OK`). Replaying
+        an already-rotated token is detected as reuse and revokes the whole token
+        family. An invalid, expired or revoked token yields `401`.
       requestBody:
         content:
           application/json:
@@ -3253,10 +3306,15 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/auth/logout:
+  /api/v1/auth/logout:
     post:
       tags:
-      - Auth
+      - Authentication
+      summary: Log out the current session
+      description: |-
+        Requires an authenticated caller. Revokes the caller's active Core refresh
+        tokens so the session can no longer be refreshed, then returns `204 No
+        Content`. Idempotent — logging out an already-revoked session still succeeds.
       responses:
         '204':
           description: No Content
@@ -33594,10 +33652,15 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/system/status:
+  /api/v1/system/status:
     get:
       tags:
       - System
+      summary: Get API status
+      description: |-
+        Anonymous liveness/status probe. Returns `200 OK` with the API status payload
+        (e.g. service name and version) for monitoring and client bootstrap checks. No
+        authentication required.
       responses:
         '200':
           description: OK
