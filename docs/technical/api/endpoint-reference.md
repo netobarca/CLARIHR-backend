@@ -26,7 +26,7 @@ El acceso publico se limita intencionalmente a:
 
 ### 2.2 Core API autenticada
 
-Las rutas del core (`/api/account/*`, `/api/company/*`, `/api/audit/*` y `/api/v1/*`) aceptan solo tokens emitidos con `client_type=core`.
+Las rutas del core (`/api/v1/account/*`, `/api/v1/company/*`, `/api/v1/audit/*` y el resto de `/api/v1/*`) aceptan solo tokens emitidos con `client_type=core`.
 
 ### 2.3 Platform backoffice autenticado
 
@@ -123,7 +123,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Company users | `CompanyUsersController` | `/api/v1/company/users*` | invitar y administrar usuarios del tenant; concurrencia con **ETag debil computado** (`W/"hash"`) + `If-Match` (sin token persistido — proyeccion de 3 aggregates); authz handler-gated RBAC field-level |
 | Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/v1/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/v1/account/companies/{companyPublicId}/access-context`, `/api/v1/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
-| Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
+| Audit | `AuditController` | `/api/v1/audit/logs*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
 | Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyPublicId}/location-*`, `/api/v1/companies/{companyPublicId}/work-*` | modelo geografico del tenant, grupos y work centers |
 | Org units and cost centers | `OrgUnitsController`, `CostCentersController` | `/api/v1/companies/{companyPublicId}/org-units*`, `/api/v1/companies/{companyPublicId}/cost-centers*` | arbol organizacional, grafos, exportes y centros de costo |
@@ -138,7 +138,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 
 ### 4.1 Autenticacion
 
-- `POST /api/v1/auth/register`: crea una cuenta de usuario y devuelve tokens
+- `POST /api/v1/auth/register`: crea una cuenta local pendiente de verificacion de email (responde `202`; la sesion se emite al confirmar el enlace)
 - `POST /api/v1/auth/external`: crea o autentica un usuario mediante proveedor externo
 - `POST /api/v1/auth/login`: inicia sesion local
 - `POST /api/v1/auth/refresh`: rota la sesion usando un refresh token
@@ -848,7 +848,7 @@ Comportamiento observable:
 
 #### 5.1.8 `AuditController` - auditoria funcional del tenant
 
-Base route: `/api/audit/logs`
+Base route: `/api/v1/audit/logs`
 
 Este controlador expone la auditoria funcional del tenant activo para entidades del negocio y de seguridad. Aqui el sujeto principal es la entidad auditada y no la configuracion de grants o policies.
 
@@ -866,7 +866,7 @@ Reglas comunes:
 - `totalCount` se calcula despues de aplicar todos los filtros server-side, incluido `EntityPublicId`, para que la paginacion del frontend quede alineada con la misma consulta.
 - Por compatibilidad, el backend tambien acepta `ActorUserId` y `EntityId` en query string y los normaliza al contrato publico `ActorUserPublicId` y `EntityPublicId` antes de consultar.
 
-##### `GET /api/audit/logs`
+##### `GET /api/v1/audit/logs`
 
 - Proposito: listar logs de auditoria del tenant activo.
 - Autorizacion: `AUDIT_LOGS:Read`.
@@ -876,7 +876,7 @@ Reglas comunes:
 - Response: `PagedResponse<AuditLogSummaryResponse>`.
 - Observaciones: `EntityPublicId` filtra por el sujeto auditado; combinarlo con `entityType` evita ambiguedad entre tipos distintos que pudieran compartir el mismo GUID publico en ambientes sinteticos o seeds. Si se reciben aliases legacy, el backend los normaliza al mismo filtro efectivo antes de ejecutar la consulta.
 
-##### `GET /api/audit/logs/{publicId}`
+##### `GET /api/v1/audit/logs/{publicId}`
 
 - Proposito: obtener el detalle completo de un log de auditoria.
 - Autorizacion: `AUDIT_LOGS:Read`.
@@ -887,8 +887,8 @@ Reglas comunes:
 #### 5.1.9 Relacion entre superficies de usuarios y authorization
 
 - `api/v1/company/users` resuelve membresia, invitacion y lifecycle operativo del usuario dentro de una compania.
-- `api/account/companies/{companyPublicId}/authorization/*` resuelve roles, grants, policies y asignacion de roles a usuarios.
-- `api/account/companies/{companyPublicId}/access-context` resuelve el contexto efectivo de acceso.
+- `api/v1/account/companies/{companyPublicId}/authorization/*` resuelve roles, grants, policies y asignacion de roles a usuarios.
+- `api/v1/account/companies/{companyPublicId}/access-context` resuelve el contexto efectivo de acceso.
 
 No existe ya una superficie publica separada legacy para frontend Core fuera del espacio `authorization`.
 
@@ -963,17 +963,35 @@ Contratos principales:
 - `LoginRequest`: `email`, `password`
 - `RefreshTokenRequest`: `refreshToken`
 - `AcceptCompanyUserInvitationRequest`: `token`, `password`
+- `ConfirmEmailVerificationRequest`: `token`
+- `ResendEmailVerificationRequest`: `email`
 - `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`
 
 ##### `POST /api/v1/auth/register`
 
-- Proposito: registrar una cuenta local nueva y devolver sesion autenticada.
+- Proposito: iniciar el registro de una cuenta local. **No emite sesion**: crea una cuenta no usable (pendiente de verificacion de email) y envia un enlace de verificacion de un solo uso.
 - Autenticacion: publica.
 - Request body: `firstName`, `lastName`, `email`, `password`, `country`, `source`.
 - Validaciones: nombres maximo `100`; email valido maximo `320`; password entre `12` y `100` con mayuscula, minuscula, numero y caracter especial, sin espacios y sin incluir nombre, apellido o correo del usuario; `country` y `source` tienen regex controlada.
-- Response: `201 Created` con `AuthResponse`.
-- Errores relevantes: `common.validation`, `auth.user_already_exists`.
-- Observaciones: hace hash del password, crea `User` local, guarda en transaccion y emite un par de tokens inmediatamente.
+- Response: `202 Accepted` sin cuerpo. Respuesta uniforme exista o no el email (anti-enumeracion).
+- Errores relevantes: `common.validation`. Rate limit `429` por IP.
+- Observaciones: la cuenta queda en estado `PendingEmailVerification` (no puede iniciar sesion) hasta redimir el enlace via `email-verification/confirm`, que activa la cuenta y emite la sesion (auto-login). Cierra el pre-account-hijacking federado y la enumeracion por `409`.
+
+##### `POST /api/v1/auth/email-verification/confirm`
+
+- Proposito: redimir el enlace de verificacion enviado en el registro: activa la cuenta local pendiente y devuelve la sesion (auto-login).
+- Autenticacion: publica.
+- Request body: `token`.
+- Response: `200 OK` con `AuthResponse`.
+- Errores relevantes: `auth.email_verification.invalid_token` (`401`, token invalido/expirado/usado). Rate limit `429` por IP.
+
+##### `POST /api/v1/auth/email-verification/resend`
+
+- Proposito: reenviar el enlace de verificacion para una cuenta local pendiente.
+- Autenticacion: publica.
+- Request body: `email`.
+- Response: `202 Accepted` sin cuerpo. Respuesta uniforme (anti-enumeracion) con cooldown por cuenta.
+- Errores relevantes: rate limit `429` por IP.
 
 ##### `POST /api/v1/auth/external`
 
@@ -1274,7 +1292,7 @@ Contratos principales:
 
 #### 5.3.7 Relacion con `Auth` y onboarding
 
-- `POST /api/v1/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
+- `POST /api/v1/auth/register` crea la cuenta local en estado pendiente; tras redimir el enlace via `POST /api/v1/auth/email-verification/confirm` se activa y se emite la identidad autenticada, normalmente aun sin tenant.
 - `GET /api/v1/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
 - `GET /api/v1/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types` resuelve el catalogo de tipos documentales desde la fuente unificada por pais de compania.

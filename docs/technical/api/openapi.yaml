@@ -8,6 +8,12 @@ paths:
     get:
       tags:
       - Account Companies
+      summary: List the caller's companies
+      description: |-
+        Returns the paged set of companies owned by the authenticated user (optionally filtered by
+        `status`). Set `includeAllowedActions=true` to enrich each row with the caller's allowed
+        actions (edit/archive/reactivate) for client affordances. This is the only endpoint that
+        returns the full company collection.
       parameters:
       - name: status
         in: query
@@ -22,6 +28,8 @@ paths:
       - name: pageSize
         in: query
         schema:
+          maximum: 100
+          minimum: 1
           type: integer
           format: int32
           default: 20
@@ -139,6 +147,12 @@ paths:
     get:
       tags:
       - Account Companies
+      summary: Get an owned company
+      description: |-
+        Returns a single owned company with its detail (active legal representatives and the company
+        type). The current `concurrencyToken` is included in the body and the `ETag` header for use in
+        the `If-Match` header of a subsequent update/patch. Requires ownership: a company owned by
+        another user yields `403`, an unknown id `404`.
       parameters:
       - name: companyPublicId
         in: path
@@ -602,6 +616,11 @@ paths:
     get:
       tags:
       - Account Companies Catalogs
+      summary: List supported countries
+      description: |-
+        Returns the catalog of countries available when provisioning a company (ISO country code plus
+        display metadata). Authenticated read; no company context is required — this lookup feeds the
+        company-creation form before any company exists.
       responses:
         '200':
           description: OK
@@ -637,6 +656,11 @@ paths:
     get:
       tags:
       - Account Companies Catalogs
+      summary: List company types for a country
+      description: |-
+        Returns the active company types available for the given ISO country code, used when provisioning
+        a company. The `countryCode` query parameter is required and must be a 2–3 letter ISO-style code;
+        a missing or malformed code yields `400`.
       parameters:
       - name: countryCode
         in: query
@@ -689,6 +713,10 @@ paths:
     get:
       tags:
       - Account Companies Catalogs
+      summary: List legal-representative position titles
+      description: |-
+        Returns the catalog of position titles for a company's initial legal representative, used in the
+        company-creation form. Authenticated read; no company context is required.
       responses:
         '200':
           description: OK
@@ -724,6 +752,10 @@ paths:
     get:
       tags:
       - Account Companies Catalogs
+      summary: List legal-representative representation types
+      description: |-
+        Returns the catalog of representation types for a company's initial legal representative, used in
+        the company-creation form. Authenticated read; no company context is required.
       responses:
         '200':
           description: OK
@@ -947,6 +979,12 @@ paths:
     post:
       tags:
       - Account Companies
+      summary: Switch the active company
+      description: |-
+        Sets the given owned company as the caller's active company and re-issues the session: returns a
+        fresh access token (and refresh token), the active-company summary, and the full access context.
+        The company must be active and the caller must have an active membership, otherwise `403`. This
+        action mutates membership and re-issues the JWT, so it does not take an `If-Match` token.
       parameters:
       - name: companyPublicId
         in: path
@@ -2569,209 +2607,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/audit/logs:
-    get:
-      tags:
-      - Audit
-      parameters:
-      - name: FromUtc
-        in: query
-        schema:
-          type: string
-          format: date-time
-      - name: ToUtc
-        in: query
-        schema:
-          type: string
-          format: date-time
-      - name: ActorUserPublicId
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: EntityPublicId
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: EntityType
-        in: query
-        schema:
-          type: string
-      - name: EventType
-        in: query
-        schema:
-          type: string
-      - name: Search
-        in: query
-        schema:
-          type: string
-      - name: Page
-        in: query
-        schema:
-          type: integer
-          format: int32
-      - name: PageSize
-        in: query
-        schema:
-          type: integer
-          format: int32
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: Forbidden
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/audit/logs/{publicId}:
-    get:
-      tags:
-      - Audit
-      parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/AuditLogDetailResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuditLogDetailResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/AuditLogDetailResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: Forbidden
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/auth/password-reset/request:
     post:
       tags:
       - Password Reset
       summary: Request a password reset email
       description: |-
-        Starts the password-reset flow for a local account. Always responds `202
-        Accepted` regardless of whether the email exists or is eligible — this uniform
-        response prevents account enumeration. When eligible, any active reset tokens
-        are revoked, a new single-use token is issued and a signed reset link is
-        emailed. A per-account cooldown plus rate limiting (`429`) throttle abuse.
+        Starts the password-reset flow for a local account. Always responds `202 Accepted`
+        regardless of whether the email exists or is eligible — this uniform response prevents
+        account enumeration. When eligible, any active reset tokens are revoked, a new single-use
+        token is issued and a signed reset link is emailed. A per-account cooldown plus the
+        `auth-password-reset-request` rate limit (`429`) throttle abuse.
       requestBody:
         content:
           application/json:
@@ -2816,10 +2662,9 @@ paths:
       - Password Reset
       summary: Validate a password reset token
       description: |-
-        Pre-flight check used by the reset form before it shows the new-password
-        fields. For an active (unused, unexpired, unrevoked) token it returns the token
-        expiry and a masked email; an invalid, expired or already-used token yields
-        `401`.
+        Pre-flight check used by the reset form before it shows the new-password fields. For an
+        active (unused, unexpired, unrevoked) token it returns the token expiry and a masked email;
+        an invalid, expired or already-used token yields `401`.
       requestBody:
         content:
           application/json:
@@ -2874,11 +2719,10 @@ paths:
       - Password Reset
       summary: Redeem a password reset token
       description: |-
-        Consumes the single-use reset token and sets the new password (enforcing the
-        password policy → `400` on violation). On success it marks the token used,
-        revokes every other active reset token and revokes all refresh sessions, then
-        returns `204`. An invalid/expired/used token yields `401`. The user must log in
-        again with the new password.
+        Consumes the single-use reset token and sets the new password (enforcing the password
+        policy → `400` on violation). On success it marks the token used, revokes every other active
+        reset token and revokes all refresh sessions (Core + Platform), then returns `204`. An
+        invalid/expired/used token yields `401`. The user must log in again with the new password.
       requestBody:
         content:
           application/json:
@@ -2923,10 +2767,11 @@ paths:
       - Authentication
       summary: Register a new local user
       description: |-
-        Creates an active local user (enforcing the password policy) and seeds default
-        user preferences in a single transaction, then returns `201 Created` with the
-        issued access and refresh tokens and the authenticated user. A duplicate email
-        yields `409`; validation or password-policy failures yield `400`.
+        Starts local registration. Creates a non-usable account pending email verification and emails a
+        single-use verification link; **no session is issued here** — the account is activated and a
+        session returned only when the link is redeemed via `email-verification/confirm`. Always responds
+        `202 Accepted` regardless of whether the email already exists (anti-enumeration). Validation or
+        password-policy failures yield `400`.
       requestBody:
         content:
           application/json:
@@ -2939,18 +2784,8 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterUserRequest'
       responses:
-        '201':
-          description: Created
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
+        '202':
+          description: Accepted
         '400':
           description: Bad Request
           content:
@@ -2963,8 +2798,8 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Conflict
+        '429':
+          description: Too Many Requests
           content:
             text/plain:
               schema:
@@ -2993,12 +2828,11 @@ paths:
       - Authentication
       summary: Authenticate or register via an external identity provider
       description: |-
-        Validates the external provider id-token (e.g. Google) and either logs in the
-        matching user or provisions a new one linked to the provider. Returns `201
-        Created` when a new user is provisioned and `200 OK` when an existing user logs
-        in, both with the issued session. An invalid token yields `401`, a
-        provider-link conflict yields `409`, and a provider that returns no email
-        yields `422`.
+        Validates the external provider id-token (e.g. Google) and either logs in the matching user
+        or provisions a new one linked to the provider. Returns `201 Created` when a new user is
+        provisioned and `200 OK` when an existing user logs in, both with the issued session. An
+        invalid token yields `401`, a provider-link conflict yields `409`, and a provider that
+        returns no email yields `422`.
       requestBody:
         content:
           application/json:
@@ -3101,10 +2935,10 @@ paths:
       - Authentication
       summary: Authenticate with email and password
       description: |-
-        Exchanges email + password for a session. Returns `200 OK` with the access and
-        refresh tokens and the authenticated user for an active local account. Invalid
-        credentials, an inactive account or a non-local account all yield a uniform
-        `401` to avoid leaking which condition failed (anti-enumeration).
+        Exchanges email + password for a session. Returns `200 OK` with the access and refresh
+        tokens and the authenticated user for an active local account. Invalid credentials, an
+        inactive account or a non-local account all yield a uniform `401` to avoid leaking which
+        condition failed (anti-enumeration). The `auth-login` rate limit throttles brute force.
       requestBody:
         content:
           application/json:
@@ -3171,11 +3005,10 @@ paths:
       - Authentication
       summary: Accept a company user invitation
       description: |-
-        Anonymous endpoint that consumes the single-use invitation token, sets the
-        invited user's password and activates the user, their company membership and
-        their IAM user, then returns `200 OK` with a tenant-scoped session. An invalid
-        or expired token yields `401`; if the invitation's company has been archived
-        the session is refused with `409`.
+        Anonymous endpoint that consumes the single-use invitation token, sets the invited user's
+        password and activates the user, their company membership and their IAM user, then returns
+        `200 OK` with a tenant-scoped session. An invalid or expired token yields `401`; if the
+        invitation's company has been archived the session is refused with `409`.
       requestBody:
         content:
           application/json:
@@ -3242,10 +3075,10 @@ paths:
       - Authentication
       summary: Exchange a refresh token for a new session
       description: |-
-        Rotates the supplied refresh token: the presented token is single-use and is
-        revoked as it is exchanged for a fresh access/refresh pair (`200 OK`). Replaying
-        an already-rotated token is detected as reuse and revokes the whole token
-        family. An invalid, expired or revoked token yields `401`.
+        Rotates the supplied refresh token: the presented token is single-use and is revoked as it
+        is exchanged for a fresh access/refresh pair (`200 OK`). Replaying an already-rotated token
+        is detected as reuse and revokes the whole token family. An invalid, expired or revoked
+        token yields `401`.
       requestBody:
         content:
           application/json:
@@ -3312,9 +3145,9 @@ paths:
       - Authentication
       summary: Log out the current session
       description: |-
-        Requires an authenticated caller. Revokes the caller's active Core refresh
-        tokens so the session can no longer be refreshed, then returns `204 No
-        Content`. Idempotent — logging out an already-revoked session still succeeds.
+        Requires an authenticated caller. Revokes the caller's active Core refresh tokens so the
+        session can no longer be refreshed, then returns `204 No Content`. Idempotent — logging out
+        an already-revoked session still succeeds.
       responses:
         '204':
           description: No Content
@@ -35512,6 +35345,303 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/audit/logs:
+    get:
+      tags:
+      - Audit Logs
+      summary: List audit log entries
+      description: |-
+        Returns a paginated, time-ordered (newest first) list of audit log entries for the
+        authenticated tenant. Filterable by date range (`fromUtc`/`toUtc`), `actorUserPublicId`,
+        `entityPublicId`, `entityType`, `eventType` and free-text `search` (matches actor email and
+        summary, minimum 2 characters). Each item carries the sanitized `diff` of the change; the full
+        `before`/`after` payloads are available via the detail endpoint. The audit trail is read-only.
+      parameters:
+      - name: FromUtc
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: ToUtc
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: ActorUserPublicId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: EntityPublicId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: EntityType
+        in: query
+        schema:
+          type: string
+      - name: EventType
+        in: query
+        schema:
+          type: string
+      - name: Search
+        in: query
+        schema:
+          type: string
+      - name: Page
+        in: query
+        schema:
+          type: integer
+          format: int32
+      - name: PageSize
+        in: query
+        schema:
+          type: integer
+          format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfAuditLogSummaryResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/audit/logs/{publicId}:
+    get:
+      tags:
+      - Audit Logs
+      summary: Get an audit log entry by id
+      description: |-
+        Returns a single audit log entry by its public id, including the sanitized `before`, `after`
+        and `diff` payloads plus the actor, IP address and user agent. The entry is resolved within
+        the authenticated tenant: a non-existent id yields `404`, while an id that belongs to another
+        tenant yields `403 TENANT_MISMATCH`. Sensitive fields (PII/secrets) are redacted at write time.
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/AuditLogDetailResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogDetailResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogDetailResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/auth/email-verification/confirm:
+    post:
+      tags:
+      - Email Verification
+      summary: Confirm an email verification token
+      description: |-
+        Redeems the single-use verification link sent at registration: activates the pending local
+        account and returns `200 OK` with the issued access and refresh tokens and the authenticated user
+        (auto-login). An invalid, expired or already-used token yields `401`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailVerificationRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailVerificationRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailVerificationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/auth/email-verification/resend:
+    post:
+      tags:
+      - Email Verification
+      summary: Resend the email verification link
+      description: |-
+        Re-sends the verification link for a still-pending local account. Always responds `202 Accepted`
+        regardless of whether the email exists or is pending (anti-enumeration), and honors a per-account
+        cooldown plus the `auth-email-verification-resend` rate limit (`429`).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailVerificationRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailVerificationRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailVerificationRequest'
+      responses:
+        '202':
+          description: Accepted
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too Many Requests
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     CreateUploadSessionRequest:
@@ -46949,6 +47079,20 @@ components:
           type: string
           nullable: true
       additionalProperties: {}
+    ResendEmailVerificationRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          nullable: true
+      additionalProperties: false
+    ConfirmEmailVerificationRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          nullable: true
+      additionalProperties: false
   securitySchemes:
     Bearer:
       type: http
