@@ -1,8 +1,10 @@
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
@@ -48,6 +50,7 @@ internal sealed class RegisterExternalUserCommandHandler(
     IUserPreferenceRepository userPreferenceRepository,
     IExternalAuthProviderService externalAuthProviderService,
     ITokenService tokenService,
+    IPlatformAuditService platformAuditService,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterExternalUserCommand, ExternalAuthCommandResult>
 {
     public async Task<Result<ExternalAuthCommandResult>> Handle(
@@ -139,6 +142,18 @@ internal sealed class RegisterExternalUserCommandHandler(
             userPreferenceRepository.Add(UserPreference.Create(user.Id));
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+
+        await platformAuditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.UserExternalAuthenticated,
+                AuditEntityTypes.User,
+                user.PublicId,
+                user.Email,
+                AuditActions.Login,
+                wasCreated
+                    ? $"External user {user.Email} registered via {user.AuthProvider}."
+                    : $"External login for {user.Email} via {user.AuthProvider}."),
+            cancellationToken);
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
         if (tokenResult.IsFailure)

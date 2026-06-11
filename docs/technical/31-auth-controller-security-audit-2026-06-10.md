@@ -5,7 +5,7 @@
 | **Controlador** | `src/CLARIHR.Api/Controllers/AuthController.cs` (superficie de autenticación) + delegados en `Application/Features/Auth/*`, `Infrastructure/Auth/*` |
 | **Veredicto** | **APROBADO CON OBSERVACIONES · 0 crítico / 0 alto.** El núcleo criptográfico, de emisión/rotación de tokens, de validación JWT y de aislamiento es **SÓLIDO**. Las observaciones son de defensa-en-profundidad, observabilidad/cumplimiento y un vector de *pre-account-hijacking*. |
 | **Hallazgos** | 4 × 🟠 MEDIA (AU-1..AU-4) · 6 × 🟡 BAJA (AU-5..AU-10). Ninguno es un quiebre de control de acceso, IDOR, forja de token ni fuga cross-tenant. |
-| **Estado** | **PARCIAL (2026-06-10):** AU-1 + AU-2 + AU-5 ✅ **REMEDIADOS** (uncommitted). AU-6 + AU-7 **reclasificados** a decisión (§3.1). AU-3/AU-4/AU-8/AU-10 → decisiones §5 pendientes. **AU-1 = feature de verificación de email (§3.2), BREAKING en `register`, +1 migración.** |
+| **Estado** | **✅ CERRADA (2026-06-10, uncommitted):** los 10 hallazgos en estado terminal — AU-1/2/3/4/5/6/7 + AU-10(parcial) **REMEDIADOS**; AU-8/AU-9 + AU-10(clave-dev, bucket) **ACEPTADOS** con racional. **2 migraciones (email-verification + login-throttle), NO aplicadas.** |
 | **Relación** | Complementa la alineación canónica [doc 30](30-auth-controller-canonical-alignment-2026-06-10.md). |
 
 ---
@@ -38,14 +38,14 @@ Verificado con cita directa; estas áreas son correctas y **no deben re-levantar
 |----|-----|--------|---------------|
 | **AU-1** | 🟠 MEDIA | Registro local sin verificación de email + auto-link por email verificado ⇒ **enumeración (409)** y **pre-account-hijacking** | ✅ **REMEDIADO** (§3.2): verificación de email (Opción A); residual sutil documentado |
 | **AU-2** | 🟠 MEDIA | Sin rate-limit en `refresh`, `password-reset/validate`, `password-reset/redeem` | ✅ **REMEDIADO** (§3.1): 2 políticas nuevas + guardrail anti-drift |
-| **AU-3** | 🟠 MEDIA | Sin auditoría de eventos de autenticación (login ok/fallo, logout, register, external) | Definir eventos auth + auditar; clave para detección y cumplimiento |
-| **AU-4** | 🟠 MEDIA | Sin account-lockout / throttle por-cuenta (única defensa = rate-limit por-IP 5/min) | Throttle por-cuenta (partición por email) o backoff de intentos fallidos |
+| **AU-3** | 🟠 MEDIA | Sin auditoría de eventos de autenticación (login ok/fallo, logout, register, external) | ✅ **REMEDIADO** (§3.3): 7 eventos auth al platform audit + guardrail de catálogo |
+| **AU-4** | 🟠 MEDIA | Sin account-lockout / throttle por-cuenta (única defensa = rate-limit por-IP 5/min) | ✅ **REMEDIADO** (§3.4): throttle por-cuenta con ventana + lockout temporal (DB, +migración) |
 | **AU-5** | 🟡 BAJA | Timing side-channel en login (`user is null` corta antes de `Verify`) | ✅ **REMEDIADO** (§3.1): dummy-verify de timing constante + test |
-| **AU-6** | 🟡 BAJA | Logout revoca solo tokens `Core`; sesión `Platform` sobrevive | 🔁 **Reclasificado a decisión** (§3.1): no es fix mecánico |
-| **AU-7** | 🟡 BAJA | Reuse-detection solo en replay de rotación (no de token revocado por logout/reset); solo `LogWarning`, sin auditoría | 🔁 **Reclasificado** (§3.1): mitad mootada, mitad se pliega a AU-3 |
-| **AU-8** | 🟡 BAJA | TOCTOU en rotación de refresh (sin lock/unique-constraint) | Lock por familia (`pg_advisory_xact_lock`, espejo PositionSlots RA-1) o índice único |
-| **AU-9** | 🟡 BAJA | PII (email, nombre) en claims del JWT firmado | Aceptar por diseño (TTL 15 min + HTTPS) o minimizar claims |
-| **AU-10** | 🟡 BAJA | Hardening de plataforma (HSTS/CSP/X-Frame-Options ausentes; sin `ValidAlgorithms` pin; clave dev commiteada; `external` comparte bucket `auth-register`) | Mayormente fuera del controlador; HSTS + pin de algoritmos |
+| **AU-6** | 🟡 BAJA | Logout revoca solo tokens `Core`; sesión `Platform` sobrevive | ✅ **REMEDIADO** (§3.5): logout revoca Core + Platform (global) |
+| **AU-7** | 🟡 BAJA | Reuse-detection solo en replay de rotación (no de token revocado por logout/reset); solo `LogWarning`, sin auditoría | ✅ **REMEDIADO** vía AU-3 (§3.3): `RefreshTokenReuseDetected` al platform audit |
+| **AU-8** | 🟡 BAJA | TOCTOU en rotación de refresh (sin lock/unique-constraint) | ➖ **ACEPTADO** (§3.5): double-mint benigno (mismo usuario/familia, sin cross-user); no vale tocar el hot-path |
+| **AU-9** | 🟡 BAJA | PII (email, nombre) en claims del JWT firmado | ➖ **ACEPTADO por diseño** (§3.5): estándar (TTL 15 min + HTTPS) |
+| **AU-10** | 🟡 BAJA | Hardening de plataforma (HSTS/CSP/X-Frame-Options ausentes; sin `ValidAlgorithms` pin; clave dev commiteada; `external` comparte bucket `auth-register`) | ✅/➖ **PARCIAL** (§3.5): `ValidAlgorithms`+HSTS+X-Frame+CSP remediados; clave-dev + bucket-external aceptados |
 
 ### Detalle
 
@@ -116,7 +116,7 @@ Fix estructural: el registro deja de acuñar sesión. Crea una cuenta **no usabl
 **⚠️ BREAKING (frontend):** `register` ya no devuelve `{accessToken, refreshToken, user}` (era 201) → ahora **202 sin body**. El front debe: mostrar "revisa tu correo" tras registrar, y una landing `/verify-email?token=...` que llame a `email-verification/confirm` y loguee con la sesión devuelta. Config nueva: `Authentication:EmailVerification` (`FrontendVerifyUrl`, lifetime 60 min).
 
 ### Verificación
-build 0/0 · unit **1799/1799** (incl. register-pending/confirm/claim/cooldown + guardrail + localization en+es del nuevo `auth.email_verification.invalid_token`) · integ auth (register→verify→login/logout/refresh end-to-end vía `CapturingAuthEmailService`) **en ejecución al cierre, confirmar**.
+build 0/0 · unit **1799/1799** (incl. register-pending/confirm/claim/cooldown + guardrail + localization en+es del nuevo `auth.email_verification.invalid_token`) · integ **320/0/23skip** (register→verify→login/logout/refresh end-to-end vía `CapturingAuthEmailService`; la migración aplica limpio en la DB efímera de test). **Sin regresión.**
 
 ### Archivos (≈20)
 - Domain: `UserStatus.PendingEmailVerification`, `User.{RegisterLocalPendingVerification,ConfirmEmail,ActivateAsExternal}`, `EmailVerificationToken`.
@@ -127,21 +127,86 @@ build 0/0 · unit **1799/1799** (incl. register-pending/confirm/claim/cooldown +
 
 ---
 
-## 4. Matriz de decisión
+## 3.3 Remediación AU-3 (+AU-7) — auditoría de eventos de autenticación (2026-06-10, uncommitted)
 
-| Acción sugerida | Hallazgos |
-|---|---|
-| ✅ **Remediado (2026-06-10)** | **AU-1** (verificación de email, §3.2), **AU-2** (rate-limits + guardrail), **AU-5** (timing-equalization) |
-| **Requiere decisión (trade-off producto/infra)** | **AU-3** (eventos de auditoría auth → catálogo nuevo; **AU-7** se pliega aquí), **AU-4** (throttle por-cuenta vs lockout), **AU-6** (logout por-cliente vs global), **AU-8** (advisory lock — ¿vale la complejidad?) |
-| **Aceptar / fuera de alcance** | **AU-9** (PII en JWT, estándar), **AU-10** (plataforma: HSTS/headers/clave-dev — esfuerzo hermano de infra) |
+Aditivo, **sin migración / sin resx / sin endpoint / sin breaking**. Los eventos de auth se registran en el **platform audit** (`IPlatformAuditService` → `PlatformAuditLog`, NO tenant-scoped) porque ocurren antes/fuera de un contexto de tenant — el audit tenant-scoped (`IAuditService`) lanza excepción sin tenant. Ambos servicios **autocapturan IP + User-Agent** del `HttpContext` (sin plumbing extra).
+
+**7 eventos nuevos** (`AuditEventTypes` + `All`): `UserLoggedIn`, `UserLoginFailed`, `UserLoggedOut`, `UserRegistered`, `UserEmailVerified`, `UserExternalAuthenticated`, `RefreshTokenReuseDetected`. +3 acciones (`Login`/`Logout`/`SecurityAlert`).
+
+**Emisión:**
+- `LoginCommandHandler` → `UserLoginFailed` (uniforme, exista o no la cuenta — detección de brute-force; sin secretos, email en el summary) + `UserLoggedIn` (staged antes de la emisión de token → persistido atómicamente por el `SaveChanges` de `GenerateLoginAsync`). Login pasa a inyectar `IUnitOfWork` (save del path de fallo).
+- `LogoutCommandHandler` → `UserLoggedOut`. `RegisterUserCommandHandler` → `UserRegistered` (solo alta nueva). `ConfirmEmailVerificationCommandHandler` → `UserEmailVerified`. `RegisterExternalUserCommandHandler` → `UserExternalAuthenticated` (registro vs login).
+- **AU-7:** `JwtTokenService` (rama de reuse) → `RefreshTokenReuseDetected` con el usuario afectado + IP/UA, en el audit **durable** (no solo `LogWarning`).
+
+**Guardrail anti-drift:** `AuditCatalogGuardrailTests` (reflexión) — todo const de `AuditEventTypes`/`AuditEntityTypes` debe estar en `All` (si no, `TryNormalize` lo rechaza y el filtro de audit no lo selecciona). Sanity: unit tests asertan que login OK / fallo + logout emiten su evento.
+
+**Decisiones aplicadas (§4):** sink = platform audit; auditar fallidos = sí (uniforme). Nota anotada: auditar cada login = 1 write/login; fallidos masivos generan filas (mitigado por el rate-limit AU-2; sampling/agregación = roadmap si preocupa).
+
+### Verificación
+build 0/0 · unit **1800/1800** (+ test de audit de login + guardrail de catálogo 2/2) · integ **320/0/23skip** (valida que los writes de audit no rompen login/logout/register/refresh).
+
+### Archivos
+`AuditCatalog.cs` (7 eventos + `All` + 3 acciones); handlers `Login`/`Logout`/`RegisterUser`/`EmailVerification(confirm)`/`RegisterExternal` (+`IPlatformAuditService`); `JwtTokenService` (AU-7); tests `AuditCatalogGuardrailTests` + `TestPlatformAuditService` + asserts en `LoginAndLogoutTests`.
 
 ---
 
-## 5. Decisiones pendientes (del usuario)
+## 3.4 Remediación AU-4 — throttle por-cuenta anti-brute-force (2026-06-10, uncommitted)
 
-> AU-1 + AU-2 + AU-5 ya remediados (§3.1/§3.2). Lo siguiente requiere tu decisión:
+Añade el frenado **por-cuenta** que complementa el por-IP (AU-2) y el registro (AU-3). **Throttle con ventana + lockout temporal** (no lockout permanente — acota el DoS a la víctima, per NIST 800-63B / OWASP). Estado en **DB** (cross-instancia; la app no tiene Redis).
 
-1. **AU-3 (auditoría auth) + AU-7:** ¿agregar eventos de autenticación al catálogo y auditar login/logout/register/external/reuse-detected (recomendado para cumplimiento)? AU-7 (auditar el reuse-detected) se incluye aquí.
-3. **AU-4 (anti-brute-force):** ¿throttle por-cuenta (partición por email) además del por-IP, o se acepta el rate-limit por-IP actual?
-4. **AU-6 (logout):** ¿logout global (revocar Core + Platform, más seguro) o se mantiene el actual por-cliente (Core; menor-sorpresa)?
-5. **AU-8 / AU-10:** ¿se atienden ahora o se difieren a un esfuerzo de infra (junto con SystemController/headers)?
+**Domain (`User`):** `AccessFailedCount` + `AccessFailedWindowStartUtc` + `LockoutEndUtc` + `IsLockedOut(now)` / `RegisterFailedLogin(now, max, window, lockout)` (acumula en ventana deslizante; al llegar al umbral fija `LockoutEndUtc` y resetea el contador) / `ResetFailedLogins()`. **Migración `20260610233225_AddLoginThrottleColumns`** (3 columnas en `auth_users`, `access_failed_count` default 0) — generada + verificada, **NO aplicada**.
+
+**Config:** `Authentication:LoginThrottle` (`MaxFailedAttempts` 10 / `WindowMinutes` 15 / `LockoutMinutes` 15) vía `ILoginThrottlePolicyProvider` (espejo de `IPasswordResetPolicyProvider`).
+
+**`LoginCommandHandler`:**
+- Cuenta un fallo **solo** para una cuenta real y elegible con password incorrecto y **no** ya bloqueada (no penaliza inexistentes/inactivos; no recuenta durante el lockout) → frena stuffing distribuido **y** low-and-slow contra una cuenta real (lo que el límite por-IP de AU-2 no cubre).
+- Cuenta bloqueada → **401 uniforme** (anti-enumeración; no le avisa al atacante que pegó el límite); el evento que dispara el lockout se audita como **`UserLoginThrottled`** (señal alta para alerta, vía AU-3).
+- Login exitoso → `ResetFailedLogins()`.
+- **AU-5 preservado:** el verify PBKDF2 corre **antes** del check de lockout, así el tiempo de respuesta no cambia para cuentas bloqueadas (no reintroduce el oráculo de timing).
+
+**Tests:** unit (N fallos → lockout + `UserLoginThrottled` + 401 uniforme aun con password correcto; éxito resetea el contador). El guardrail de catálogo (AU-3) cubre el nuevo evento.
+
+### Verificación
+build 0/0 · unit **1804/1804** · integ **320/0/23skip** (login OK/fallo con las columnas nuevas + la migración aplica limpio en la DB de test). **+1 migración (3 columnas, NO aplicada). Sin breaking, sin resx.**
+
+### Archivos
+`User.cs` (estado de lockout); `UserConfiguration.cs` (+3 columnas) + migración; `LoginThrottleOptions` / `ILoginThrottlePolicyProvider` / `LoginThrottlePolicyProvider`; DI + appsettings(.Development); `AuditCatalog` (`UserLoginThrottled` + `All`); `LoginCommand.cs` (handler); tests `TestLoginThrottlePolicyProvider` + 2 tests en `LoginAndLogoutTests`.
+
+---
+
+## 3.5 Cierre de las observaciones BAJA (2026-06-10, uncommitted)
+
+**AU-6 ✅ — Logout global.** `LogoutCommandHandler` revoca los refresh tokens de **ambos** client-types (Core + Platform), no solo Core → cerrar sesión termina toda sesión del usuario (espejo de password-reset). Decisión: seguridad > menor-sorpresa (un usuario con sesión dual queda fuera de ambas).
+
+**AU-8 ➖ — Aceptado (TOCTOU de rotación).** Dos refresh concurrentes con el mismo token pueden acuñar dos miembros de la misma familia. Impacto real **nulo en seguridad**: mismo usuario, misma familia, sin cross-user ni escalada; el siguiente refresh de cualquiera rota normal; la reuse-detection sigue cubriendo el robo real. Añadir concurrencia optimista al **hot-path** de refresh no compensa el riesgo para un double-mint benigno.
+
+**AU-9 ➖ — Aceptado por diseño (PII en JWT).** `email`/nombre en el access-token firmado es práctica estándar; mitigado por TTL 15 min + HTTPS + token no almacenado server-side. Minimizar claims sería una mejora marginal sin valor de seguridad real.
+
+**AU-10 ✅/➖ — Hardening de plataforma (parcial).**
+- ✅ `ValidAlgorithms = [HS256]` en `TokenValidationParameters` (pin anti-alg-confusion).
+- ✅ `UseHsts()` en no-Development (junto a `UseHttpsRedirection`).
+- ✅ `SecurityHeadersMiddleware`: `X-Frame-Options: DENY` (global) + `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` en `/api*` (la API es solo JSON; no afecta el Swagger UI en `/swagger`).
+- ➖ **Aceptado:** clave dev HS256 commiteada (Development-only, prod fail-closed con clave vacía — mover a user-secrets añade fricción de dev por beneficio marginal); `external` comparte el bucket `auth-register` (ambos son endpoints anónimos de alta de cuenta).
+
+### Verificación
+build 0/0 · unit **1804/1804** · integ **320/0/23skip** (confirma que `ValidAlgorithms=[HS256]` no rompe la validación JWT real de PlatformAuth, y el logout global). **Sin breaking, sin migración, sin resx.**
+
+---
+
+## 4. Matriz de decisión
+
+| Acción | Hallazgos |
+|---|---|
+| ✅ **Remediado (2026-06-10)** | **AU-1** (email-verif, §3.2), **AU-2** (rate-limits, §3.1), **AU-3+AU-7** (auditoría auth, §3.3), **AU-4** (throttle por-cuenta, §3.4), **AU-5** (timing, §3.1), **AU-6** (logout global, §3.5), **AU-10** parcial (ValidAlgorithms+HSTS+headers, §3.5) |
+| ➖ **Aceptado con racional** | **AU-8** (double-mint benigno, §3.5), **AU-9** (PII-JWT estándar, §3.5), **AU-10** parcial (clave-dev + bucket-external, §3.5) |
+
+---
+
+## 5. Pendientes (operativos, no de seguridad)
+
+> **Auditoría cerrada** — los 10 hallazgos en estado terminal (remediado o aceptado-con-racional). No quedan decisiones de seguridad. Solo operativo:
+
+1. **Aplicar 2 migraciones** (email-verification + login-throttle) — `dotnet ef database update`.
+2. **Comunicar al frontend** la breaking de AU-1 (`register` → 202 + flujo de verificación).
+3. **Regenerar `openapi.yaml` + `endpoint-reference.md`** para el contrato de AU-1 (no-bloqueante, diferido por el usuario).
+4. **Commit** (el usuario maneja commits).

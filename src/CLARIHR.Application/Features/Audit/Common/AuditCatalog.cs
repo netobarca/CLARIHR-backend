@@ -155,6 +155,17 @@ public static class AuditEventTypes
     // and the audit log is tenant-scoped (see audit doc 23).
     public const string CompanyPreferencesUpdated = "COMPANY_PREFERENCES_UPDATED";
 
+    // Authentication / session lifecycle (AU-3). Recorded to the NON-tenant-scoped platform audit log
+    // (IPlatformAuditService) because these events happen before / outside a tenant context.
+    public const string UserLoggedIn = "USER_LOGGED_IN";
+    public const string UserLoginFailed = "USER_LOGIN_FAILED";
+    public const string UserLoginThrottled = "USER_LOGIN_THROTTLED";
+    public const string UserLoggedOut = "USER_LOGGED_OUT";
+    public const string UserRegistered = "USER_REGISTERED";
+    public const string UserEmailVerified = "USER_EMAIL_VERIFIED";
+    public const string UserExternalAuthenticated = "USER_EXTERNAL_AUTHENTICATED";
+    public const string RefreshTokenReuseDetected = "REFRESH_TOKEN_REUSE_DETECTED";
+
     public static readonly IReadOnlyCollection<string> All =
     [
         UserCreated,
@@ -304,7 +315,15 @@ public static class AuditEventTypes
         LocationLevelUpdated,
         LocationLevelActivated,
         LocationLevelInactivated,
-        CompanyPreferencesUpdated
+        CompanyPreferencesUpdated,
+        UserLoggedIn,
+        UserLoginFailed,
+        UserLoginThrottled,
+        UserLoggedOut,
+        UserRegistered,
+        UserEmailVerified,
+        UserExternalAuthenticated,
+        RefreshTokenReuseDetected
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -431,4 +450,7 @@ public static class AuditActions
     public const string Switch = "Switch";
     public const string Export = "Export";
     public const string Print = "Print";
+    public const string Login = "Login";
+    public const string Logout = "Logout";
+    public const string SecurityAlert = "SecurityAlert";
 }

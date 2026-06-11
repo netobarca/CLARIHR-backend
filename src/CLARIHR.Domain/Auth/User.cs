@@ -68,6 +68,13 @@ public sealed class User : AuditableEntity
 
     public UserStatus Status { get; private set; }
 
+    // AU-4: per-account brute-force throttle state.
+    public int AccessFailedCount { get; private set; }
+
+    public DateTime? AccessFailedWindowStartUtc { get; private set; }
+
+    public DateTime? LockoutEndUtc { get; private set; }
+
     public static User RegisterLocal(
         string firstName,
         string lastName,
@@ -267,6 +274,44 @@ public sealed class User : AuditableEntity
     public bool CanAuthenticate() =>
         Status == UserStatus.Active &&
         (AuthProvider != AuthProvider.Local || !string.IsNullOrWhiteSpace(PasswordHash));
+
+    // AU-4: per-account brute-force throttle. Failed attempts accumulate within a sliding window; once the
+    // threshold is reached the account is temporarily locked (a bounded cooldown, NOT a permanent lockout —
+    // this limits the victim-denial-of-service that hard lockout enables). A successful login clears the state.
+    public bool IsLockedOut(DateTime utcNow) =>
+        LockoutEndUtc.HasValue && LockoutEndUtc.Value > utcNow;
+
+    public void RegisterFailedLogin(DateTime utcNow, int maxAttempts, TimeSpan window, TimeSpan lockoutDuration)
+    {
+        if (IsLockedOut(utcNow))
+        {
+            return;
+        }
+
+        if (AccessFailedWindowStartUtc is null || utcNow - AccessFailedWindowStartUtc.Value > window)
+        {
+            AccessFailedWindowStartUtc = utcNow;
+            AccessFailedCount = 1;
+        }
+        else
+        {
+            AccessFailedCount++;
+        }
+
+        if (AccessFailedCount >= maxAttempts)
+        {
+            LockoutEndUtc = utcNow + lockoutDuration;
+            AccessFailedCount = 0;
+            AccessFailedWindowStartUtc = null;
+        }
+    }
+
+    public void ResetFailedLogins()
+    {
+        AccessFailedCount = 0;
+        AccessFailedWindowStartUtc = null;
+        LockoutEndUtc = null;
+    }
 
     public static string NormalizeEmail(string email) => AuthNormalization.NormalizeEmail(email);
 }

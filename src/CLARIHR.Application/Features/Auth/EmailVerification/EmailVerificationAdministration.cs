@@ -1,8 +1,10 @@
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
@@ -40,6 +42,7 @@ internal sealed class ConfirmEmailVerificationCommandHandler(
     IEmailVerificationTokenRepository emailVerificationTokenRepository,
     IEmailVerificationTokenHasher emailVerificationTokenHasher,
     ITokenService tokenService,
+    IPlatformAuditService platformAuditService,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : ICommandHandler<ConfirmEmailVerificationCommand, AuthResponse>
@@ -70,6 +73,17 @@ internal sealed class ConfirmEmailVerificationCommandHandler(
             user.ConfirmEmail();
             resolution.Token.MarkUsed(utcNow);
             await emailVerificationTokenRepository.RevokeActiveTokensAsync(user.Id, utcNow, cancellationToken);
+
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.UserEmailVerified,
+                    AuditEntityTypes.User,
+                    user.PublicId,
+                    user.Email,
+                    AuditActions.Update,
+                    $"Email verified for user {user.Email}."),
+                cancellationToken);
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);

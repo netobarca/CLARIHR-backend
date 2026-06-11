@@ -226,6 +226,7 @@ public sealed class RegisterUserCommandHandlerTests
             emailService,
             new TestEmailVerificationLinkBuilder(),
             new TestEmailVerificationPolicyProvider(),
+            new TestPlatformAuditService(),
             new FixedDateTimeProvider(FixedNow),
             unitOfWork);
 

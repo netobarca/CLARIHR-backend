@@ -613,6 +613,7 @@ app.UseStatusCodePages(async statusCodeContext =>
 });
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 app.UseAuthentication();
@@ -681,6 +682,9 @@ static void ConfigureAuthentication(IServiceCollection services)
                 ValidateAudience = true,
                 ValidateIssuerSigningKey = true,
                 ValidateLifetime = true,
+                // AU-10: pin the accepted signing algorithm so an attacker cannot coerce a different alg
+                // (alg-confusion defense-in-depth; tokens are HS256-signed).
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                 ValidIssuer = jwtOptions.Issuer,
                 ValidAudience = jwtOptions.Audience,
                 IssuerSigningKey = JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),

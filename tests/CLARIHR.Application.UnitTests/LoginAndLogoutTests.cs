@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.Login;
 using CLARIHR.Application.Features.Auth.Logout;
@@ -27,6 +28,8 @@ public sealed class LoginCommandValidatorTests
 
 public sealed class LoginCommandHandlerTests
 {
+    private static readonly DateTime LoginNow = DateTime.Parse("2026-06-10T10:00:00Z").ToUniversalTime();
+
     [Fact]
     public async Task Handle_WhenCredentialsAreValid_ShouldReturnAuthResponse()
     {
@@ -43,7 +46,11 @@ public sealed class LoginCommandHandlerTests
         var handler = new LoginCommandHandler(
             repository,
             new TestPasswordHasher(),
-            new SuccessfulTokenService());
+            new SuccessfulTokenService(),
+            new TestPlatformAuditService(),
+            new TestLoginThrottlePolicyProvider(),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
 
         var result = await handler.Handle(
             new LoginCommand("ana@clarihr.test", "StrongPass123!"),
@@ -71,7 +78,11 @@ public sealed class LoginCommandHandlerTests
         var handler = new LoginCommandHandler(
             repository,
             new TestPasswordHasher(),
-            new SuccessfulTokenService());
+            new SuccessfulTokenService(),
+            new TestPlatformAuditService(),
+            new TestLoginThrottlePolicyProvider(),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
 
         var result = await handler.Handle(
             new LoginCommand("ana@clarihr.test", "WrongPass123!"),
@@ -99,7 +110,11 @@ public sealed class LoginCommandHandlerTests
         var handler = new LoginCommandHandler(
             repository,
             new TestPasswordHasher(),
-            new SuccessfulTokenService());
+            new SuccessfulTokenService(),
+            new TestPlatformAuditService(),
+            new TestLoginThrottlePolicyProvider(),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
 
         var result = await handler.Handle(
             new LoginCommand("ana.external@clarihr.test", "StrongPass123!"),
@@ -118,7 +133,11 @@ public sealed class LoginCommandHandlerTests
         var handler = new LoginCommandHandler(
             new TestUserRepository(),
             hasher,
-            new SuccessfulTokenService());
+            new SuccessfulTokenService(),
+            new TestPlatformAuditService(),
+            new TestLoginThrottlePolicyProvider(),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
 
         var result = await handler.Handle(
             new LoginCommand("unknown@clarihr.test", "StrongPass123!"),
@@ -129,6 +148,83 @@ public sealed class LoginCommandHandlerTests
         Assert.True(
             hasher.VerifyCount >= 1,
             "Login must verify a password even for unknown emails (timing equalization, AU-5).");
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRecordLoginAuditEvents()
+    {
+        var repository = new TestUserRepository();
+        repository.Seed(User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "hashed::StrongPass123!", "SV", "tests"));
+
+        var successAudit = new TestPlatformAuditService();
+        var success = await new LoginCommandHandler(repository, new TestPasswordHasher(), new SuccessfulTokenService(), successAudit, new TestLoginThrottlePolicyProvider(), new FixedDateTimeProvider(LoginNow), new TestUnitOfWork())
+            .Handle(new LoginCommand("ana@clarihr.test", "StrongPass123!"), CancellationToken.None);
+        Assert.True(success.IsSuccess);
+        Assert.True(successAudit.Recorded(AuditEventTypes.UserLoggedIn));
+
+        var failureAudit = new TestPlatformAuditService();
+        var failure = await new LoginCommandHandler(repository, new TestPasswordHasher(), new SuccessfulTokenService(), failureAudit, new TestLoginThrottlePolicyProvider(), new FixedDateTimeProvider(LoginNow), new TestUnitOfWork())
+            .Handle(new LoginCommand("ana@clarihr.test", "WrongPass123!"), CancellationToken.None);
+        Assert.True(failure.IsFailure);
+        Assert.True(failureAudit.Recorded(AuditEventTypes.UserLoginFailed));
+    }
+
+    [Fact]
+    public async Task Handle_AfterRepeatedFailures_ShouldLockAccountAndRejectEvenCorrectPassword()
+    {
+        var repository = new TestUserRepository();
+        var user = User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "hashed::StrongPass123!", "SV", "tests");
+        repository.Seed(user);
+
+        var audit = new TestPlatformAuditService();
+        var handler = new LoginCommandHandler(
+            repository,
+            new TestPasswordHasher(),
+            new SuccessfulTokenService(),
+            audit,
+            new TestLoginThrottlePolicyProvider(maxAttempts: 3),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var failed = await handler.Handle(new LoginCommand("ana@clarihr.test", "WrongPass123!"), CancellationToken.None);
+            Assert.True(failed.IsFailure);
+        }
+
+        // AU-4: the 3rd failure trips the lockout and records the higher-signal throttle event.
+        Assert.True(user.IsLockedOut(LoginNow));
+        Assert.True(audit.Recorded(AuditEventTypes.UserLoginThrottled));
+
+        // While locked, even the correct password is rejected uniformly.
+        var lockedOut = await handler.Handle(new LoginCommand("ana@clarihr.test", "StrongPass123!"), CancellationToken.None);
+        Assert.True(lockedOut.IsFailure);
+        Assert.Equal(AuthErrors.InvalidCredentials.Code, lockedOut.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_OnSuccess_ShouldResetAccumulatedFailures()
+    {
+        var repository = new TestUserRepository();
+        var user = User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "hashed::StrongPass123!", "SV", "tests");
+        repository.Seed(user);
+
+        var handler = new LoginCommandHandler(
+            repository,
+            new TestPasswordHasher(),
+            new SuccessfulTokenService(),
+            new TestPlatformAuditService(),
+            new TestLoginThrottlePolicyProvider(maxAttempts: 5),
+            new FixedDateTimeProvider(LoginNow),
+            new TestUnitOfWork());
+
+        await handler.Handle(new LoginCommand("ana@clarihr.test", "WrongPass123!"), CancellationToken.None);
+        await handler.Handle(new LoginCommand("ana@clarihr.test", "WrongPass123!"), CancellationToken.None);
+        Assert.Equal(2, user.AccessFailedCount);
+
+        var success = await handler.Handle(new LoginCommand("ana@clarihr.test", "StrongPass123!"), CancellationToken.None);
+        Assert.True(success.IsSuccess);
+        Assert.Equal(0, user.AccessFailedCount);
     }
 }
 
@@ -141,6 +237,7 @@ public sealed class LogoutCommandHandlerTests
             new TestCurrentUserService("not-a-guid"),
             new TestUserRepository(),
             new TestRefreshTokenRepository(),
+            new TestPlatformAuditService(),
             new FixedDateTimeProvider(DateTime.Parse("2026-03-07T10:00:00Z").ToUniversalTime()));
 
         var result = await handler.Handle(new LogoutCommand(), CancellationToken.None);
@@ -164,11 +261,13 @@ public sealed class LogoutCommandHandlerTests
         repository.Seed(user);
 
         var refreshTokens = new TestRefreshTokenRepository();
+        var auditService = new TestPlatformAuditService();
         var now = DateTime.Parse("2026-03-07T10:00:00Z").ToUniversalTime();
         var handler = new LogoutCommandHandler(
             new TestCurrentUserService(user.PublicId.ToString()),
             repository,
             refreshTokens,
+            auditService,
             new FixedDateTimeProvider(now));
 
         var result = await handler.Handle(new LogoutCommand(), CancellationToken.None);
@@ -178,6 +277,7 @@ public sealed class LogoutCommandHandlerTests
         Assert.Equal("logout", refreshTokens.RevokedReason);
         Assert.Equal(now, refreshTokens.RevokedUtc);
         Assert.True(refreshTokens.SaveChangesCalled);
+        Assert.True(auditService.Recorded(AuditEventTypes.UserLoggedOut));
     }
 }
 

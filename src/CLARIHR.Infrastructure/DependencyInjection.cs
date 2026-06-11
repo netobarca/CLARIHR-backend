@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
         services.Configure<EmailVerificationOptions>(configuration.GetSection(EmailVerificationOptions.SectionName));
+        services.Configure<LoginThrottleOptions>(configuration.GetSection(LoginThrottleOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.Configure<ReportPerformanceOptions>(configuration.GetSection(ReportPerformanceOptions.SectionName));
@@ -125,6 +126,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordResetPolicyProvider, PasswordResetPolicyProvider>();
         services.AddScoped<IEmailVerificationLinkBuilder, EmailVerificationLinkBuilder>();
         services.AddScoped<IEmailVerificationPolicyProvider, EmailVerificationPolicyProvider>();
+        services.AddScoped<ILoginThrottlePolicyProvider, LoginThrottlePolicyProvider>();
         services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();
         services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
         services.AddScoped<IPlatformOperatorRepository, PlatformOperatorRepository>();

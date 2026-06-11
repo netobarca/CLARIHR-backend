@@ -1,9 +1,11 @@
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.EmailVerification;
 using CLARIHR.Domain.Auth;
@@ -86,6 +88,7 @@ internal sealed class RegisterUserCommandHandler(
     IAuthEmailService authEmailService,
     IEmailVerificationLinkBuilder emailVerificationLinkBuilder,
     IEmailVerificationPolicyProvider emailVerificationPolicyProvider,
+    IPlatformAuditService platformAuditService,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterUserCommand, bool>
 {
@@ -130,6 +133,17 @@ internal sealed class RegisterUserCommandHandler(
             emailVerificationPolicyProvider,
             dateTimeProvider.UtcNow,
             cancellationToken);
+
+        await platformAuditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.UserRegistered,
+                AuditEntityTypes.User,
+                user.PublicId,
+                user.Email,
+                AuditActions.Create,
+                $"Registered local user {user.Email} (pending email verification)."),
+            cancellationToken);
+
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);

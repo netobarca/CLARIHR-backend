@@ -61,6 +61,16 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion<string>()
             .HasMaxLength(30);
 
+        builder.Property(user => user.AccessFailedCount)
+            .HasColumnName("access_failed_count")
+            .HasDefaultValue(0);
+
+        builder.Property(user => user.AccessFailedWindowStartUtc)
+            .HasColumnName("access_failed_window_start_utc");
+
+        builder.Property(user => user.LockoutEndUtc)
+            .HasColumnName("lockout_end_utc");
+
         builder.Property(user => user.CreatedUtc)
             .HasColumnName("created_utc");
 

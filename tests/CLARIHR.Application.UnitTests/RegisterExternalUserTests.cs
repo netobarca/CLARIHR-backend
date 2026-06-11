@@ -22,6 +22,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
             new TestUserPreferenceRepository(),
             new FailingExternalAuthProviderService(AuthErrors.ExternalTokenInvalid),
             new TestTokenService(),
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -50,6 +51,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -79,6 +81,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -121,6 +124,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -162,6 +166,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -194,6 +199,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             tokenService,
+            new TestPlatformAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(

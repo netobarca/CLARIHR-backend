@@ -267,6 +267,7 @@ public sealed class JwtTokenServiceTests
             new TestIamAdministrationRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
+            new TestPlatformAuditService(),
             NullLogger<JwtTokenService>.Instance);
 
     private static User CreatePersistedUser()

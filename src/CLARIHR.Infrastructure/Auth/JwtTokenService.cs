@@ -1,9 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Security.Claims;
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
@@ -25,6 +27,7 @@ internal sealed class JwtTokenService(
     IIamAdministrationRepository iamRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
+    IPlatformAuditService platformAuditService,
     ILogger<JwtTokenService> logger) : ITokenService
 {
     private const string LanguageClaimType = "language";
@@ -148,6 +151,20 @@ internal sealed class JwtTokenService(
                     utcNow,
                     "reuse-detected",
                     cancellationToken);
+
+                // AU-7: record the token-theft signal in the durable audit trail (not just an app log), with
+                // the affected user and the auto-captured source IP / user-agent.
+                var compromisedUser = await userRepository.GetByIdAsync(storedToken.UserId, cancellationToken);
+                await platformAuditService.LogAsync(
+                    new AuditLogEntry(
+                        AuditEventTypes.RefreshTokenReuseDetected,
+                        AuditEntityTypes.User,
+                        compromisedUser?.PublicId,
+                        compromisedUser?.Email,
+                        AuditActions.SecurityAlert,
+                        $"Refresh token reuse detected for token family {storedToken.FamilyId}; the family was revoked."),
+                    cancellationToken);
+
                 await refreshTokenRepository.SaveChangesAsync(cancellationToken);
 
                 logger.LogWarning(
