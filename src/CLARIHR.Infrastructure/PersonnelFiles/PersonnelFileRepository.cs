@@ -1274,7 +1274,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .ToArrayAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(
-        Guid companyId,
+        string? countryCode,
         string category,
         CancellationToken cancellationToken)
     {
@@ -1284,33 +1284,47 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             return await GetCountryCatalogItemsAsync("Country", cancellationToken);
         }
 
-        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
-        if (companyCountry is null)
+        // System-scoped (global) catalogs are the same for every tenant/country, so they resolve with
+        // no country context — this is what lets the company-less surface serve them during onboarding.
+        switch (normalizedCategory)
+        {
+            case "CURRICULUMEDUCATIONSTATUS":
+                return await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken);
+            case "CURRICULUMSTUDYTYPE":
+                return await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken);
+            case "CURRICULUMSHIFT":
+                return await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken);
+            case "CURRICULUMMODALITY":
+                return await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken);
+            case "CURRICULUMCAREER":
+                return await GetSystemScopedCatalogItemsAsync<EducationCareerCatalogItem>("CurriculumCareer", cancellationToken);
+            case "FILEDOCUMENTTYPE":
+                return await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken);
+        }
+
+        // Country-scoped catalogs require a country, now supplied explicitly via countryCode (the caller
+        // no longer needs a company); an unknown/missing code resolves to no items rather than an error.
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
         {
             return [];
         }
 
         return normalizedCategory switch
         {
-            "CURRICULUMLANGUAGE" => await GetCountryScopedCatalogItemsAsync<LanguageCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumLanguage", cancellationToken),
-            "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumLanguageLevel", cancellationToken),
-            "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumTrainingType", cancellationToken),
-            "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumDurationUnit", cancellationToken),
-            "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumReferenceType", cancellationToken),
-            "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, "Currency", cancellationToken),
-            "CURRICULUMEDUCATIONSTATUS" => await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken),
-            "CURRICULUMSTUDYTYPE" => await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken),
-            "CURRICULUMSHIFT" => await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken),
-            "CURRICULUMMODALITY" => await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken),
-            "CURRICULUMCAREER" => await GetSystemScopedCatalogItemsAsync<EducationCareerCatalogItem>("CurriculumCareer", cancellationToken),
-            "FILEDOCUMENTTYPE" => await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken),
-            "BANK" => await GetCountryScopedCatalogItemsAsync<BankCatalogItem>(companyCountry.CountryCatalogItemId, "Bank", cancellationToken),
+            "CURRICULUMLANGUAGE" => await GetCountryScopedCatalogItemsAsync<LanguageCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguage", cancellationToken),
+            "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguageLevel", cancellationToken),
+            "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumTrainingType", cancellationToken),
+            "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(countryCatalogItemId.Value, "CurriculumDurationUnit", cancellationToken),
+            "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumReferenceType", cancellationToken),
+            "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(countryCatalogItemId.Value, "Currency", cancellationToken),
+            "BANK" => await GetCountryScopedCatalogItemsAsync<BankCatalogItem>(countryCatalogItemId.Value, "Bank", cancellationToken),
             _ => []
         };
     }
 
     public async Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
-        Guid companyId,
+        string countryCode,
         string category,
         string? parentCode,
         CancellationToken cancellationToken)
@@ -1320,20 +1334,20 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             ? null
             : parentCode.Trim().ToUpperInvariant();
 
-        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
-        if (companyCountry is null)
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
         {
             return [];
         }
 
         return normalizedCategory switch
         {
-            "IDENTIFICATIONTYPE" => await GetFlatReferenceCatalogItemsAsync<IdentificationTypeCatalogItem>(companyCountry.CountryCatalogItemId, cancellationToken),
-            "PROFESSION" => await GetFlatReferenceCatalogItemsAsync<ProfessionCatalogItem>(companyCountry.CountryCatalogItemId, cancellationToken),
-            "MARITALSTATUS" => await GetFlatReferenceCatalogItemsAsync<MaritalStatusCatalogItem>(companyCountry.CountryCatalogItemId, cancellationToken),
-            "KINSHIP" => await GetFlatReferenceCatalogItemsAsync<KinshipCatalogItem>(companyCountry.CountryCatalogItemId, cancellationToken),
-            "DEPARTMENT" => await GetFlatReferenceCatalogItemsAsync<DepartmentCatalogItem>(companyCountry.CountryCatalogItemId, cancellationToken),
-            "MUNICIPALITY" => await GetMunicipalityCatalogItemsAsync(companyCountry.CountryCatalogItemId, normalizedParentCode, cancellationToken),
+            "IDENTIFICATIONTYPE" => await GetFlatReferenceCatalogItemsAsync<IdentificationTypeCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "PROFESSION" => await GetFlatReferenceCatalogItemsAsync<ProfessionCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "MARITALSTATUS" => await GetFlatReferenceCatalogItemsAsync<MaritalStatusCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "KINSHIP" => await GetFlatReferenceCatalogItemsAsync<KinshipCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "DEPARTMENT" => await GetFlatReferenceCatalogItemsAsync<DepartmentCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "MUNICIPALITY" => await GetMunicipalityCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             _ => []
         };
     }
@@ -2435,6 +2449,24 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Where(company => company.PublicId == companyId)
             .Select(company => new CompanyCountryLookup(company.CountryCatalogItemId, company.CountryCode))
             .SingleOrDefaultAsync(cancellationToken);
+
+    // Resolves the country catalog item id from an explicit ISO country code (replacing the former
+    // company → country resolution for the company-less catalog surface). Returns null when the code is
+    // missing or does not match an active country, so country-scoped catalog reads degrade to no items.
+    private Task<long?> ResolveCountryCatalogItemIdAsync(string? countryCode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            return Task.FromResult<long?>(null);
+        }
+
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        return dbContext.CountryCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive && item.NormalizedCode == normalizedCountryCode)
+            .Select(item => (long?)item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
 
     private static PersonnelFileEducationResponse MapEducationResponse(PersonnelFileEducation item) =>
         new(

@@ -29,19 +29,26 @@ public sealed record PersonnelReferenceCatalogItemResponse(
     string Name,
     int SortOrder);
 
-public sealed record GetPersonnelCatalogItemsQuery(Guid CompanyId, string Category) : IQuery<IReadOnlyCollection<PersonnelCatalogItemResponse>>;
+public sealed record GetPersonnelCatalogItemsQuery(string Category, string? CountryCode = null) : IQuery<IReadOnlyCollection<PersonnelCatalogItemResponse>>;
 
 public sealed record GetPersonnelReferenceCatalogItemsQuery(
-    Guid CompanyId,
     string Category,
+    string CountryCode,
     string? ParentCode = null) : IQuery<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>;
 
 internal sealed class GetPersonnelCatalogItemsQueryValidator : AbstractValidator<GetPersonnelCatalogItemsQuery>
 {
     public GetPersonnelCatalogItemsQueryValidator()
     {
-        RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.Category).NotEmpty().MaximumLength(80);
+
+        // countryCode is optional here: system-scoped catalogs (document types, education-*) ignore it,
+        // country-scoped ones (banks, currencies, languages) use it. Only the format is constrained.
+        RuleFor(query => query.CountryCode)
+            .MaximumLength(3)
+            .Matches("^[A-Za-z]{2,3}$")
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.")
+            .When(query => !string.IsNullOrWhiteSpace(query.CountryCode));
     }
 }
 
@@ -49,12 +56,19 @@ internal sealed class GetPersonnelReferenceCatalogItemsQueryValidator : Abstract
 {
     public GetPersonnelReferenceCatalogItemsQueryValidator()
     {
-        RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.Category)
             .NotEmpty()
             .MaximumLength(80)
             .Must(PersonnelFileValidationRules.IsValidCode)
             .WithMessage("Category format is invalid.");
+
+        // Reference catalogs are country-scoped, so the country code is required (supplied explicitly now
+        // that the route carries no company).
+        RuleFor(query => query.CountryCode)
+            .NotEmpty()
+            .MaximumLength(3)
+            .Matches("^[A-Za-z]{2,3}$")
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.");
         RuleFor(query => query.ParentCode)
             .MaximumLength(120)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -341,8 +355,10 @@ internal static class PersonnelReferenceCatalogValidation
     }
 }
 
+// Read authz is authn-only: these are global / country reference catalogs (not tenant data) consumed
+// before a company exists (onboarding) and on every form load. The controller's [Authorize] is the only
+// gate — mirror AccountCompanyCatalogsController — so no per-company authorization service is involved.
 internal sealed class GetPersonnelCatalogItemsQueryHandler(
-    IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository)
     : IQueryHandler<GetPersonnelCatalogItemsQuery, IReadOnlyCollection<PersonnelCatalogItemResponse>>
 {
@@ -350,19 +366,12 @@ internal sealed class GetPersonnelCatalogItemsQueryHandler(
         GetPersonnelCatalogItemsQuery query,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<IReadOnlyCollection<PersonnelCatalogItemResponse>>.Failure(authorizationResult.Error);
-        }
-
-        var items = await repository.GetCatalogItemsAsync(query.CompanyId, query.Category, cancellationToken);
+        var items = await repository.GetCatalogItemsAsync(query.CountryCode, query.Category, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelCatalogItemResponse>>.Success(items);
     }
 }
 
 internal sealed class GetPersonnelReferenceCatalogItemsQueryHandler(
-    IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository)
     : IQueryHandler<GetPersonnelReferenceCatalogItemsQuery, IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>
 {
@@ -370,14 +379,8 @@ internal sealed class GetPersonnelReferenceCatalogItemsQueryHandler(
         GetPersonnelReferenceCatalogItemsQuery query,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Failure(authorizationResult.Error);
-        }
-
         var items = await repository.GetReferenceCatalogItemsAsync(
-            query.CompanyId,
+            query.CountryCode,
             query.Category,
             query.ParentCode,
             cancellationToken);

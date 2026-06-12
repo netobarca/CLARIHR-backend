@@ -13,6 +13,7 @@ Sub‑recurso que registra los **documentos** (contratos, títulos, certificados
 | `GET`    | `/api/v1/personnel-files/{publicId}/documents` | Listar los documentos del archivo |
 | `POST`   | `/api/v1/personnel-files/{publicId}/documents` | Adjuntar un documento (enlazar un archivo subido) |
 | `GET`    | `/api/v1/personnel-files/{publicId}/documents/{documentPublicId}` | Obtener un documento por id |
+| `GET`    | `/api/v1/personnel-files/{publicId}/documents/{documentPublicId}/read-url` | Obtener una URL de descarga del binario (**autorizada** por el archivo de personal) |
 | `PUT`    | `/api/v1/personnel-files/{publicId}/documents/{documentPublicId}` | Reemplazar metadata (y opcionalmente el archivo) |
 | `PATCH`  | `/api/v1/personnel-files/{publicId}/documents/{documentPublicId}` | Cambios parciales de metadata |
 | `DELETE` | `/api/v1/personnel-files/{publicId}/documents/{documentPublicId}` | Quitar un documento (borrado lógico) |
@@ -28,7 +29,15 @@ El documento **no recibe bytes**: enlaza un `filePublicId` ya existente. El bina
 3. `PATCH /api/v1/files/{filePublicId}/complete` con body `{ "concurrencyToken": "<el del paso 1>" }` → deja el archivo en estado `Active`. (Si omitís el `concurrencyToken` la API responde `400`.)
 4. Adjuntá el documento acá pasando ese `filePublicId` (paso `POST`, más abajo).
 
-Para **descargar** el binario de un documento existente, usá su `filePublicId`: `GET /api/v1/files/{filePublicId}/read-url`.
+Para **descargar** el binario de un documento existente, usá el endpoint **propio de este
+sub‑recurso**: `GET /api/v1/personnel-files/{publicId}/documents/{documentPublicId}/read-url`
+(devuelve una URL pre‑firmada de corta duración). Está **autorizado por el archivo de personal**
+(mismo gate que el resto: `PersonnelFiles.Read`), así que cualquier usuario con acceso al archivo
+puede descargar sus documentos.
+
+> ⚠️ **No uses el genérico `GET /api/v1/files/{filePublicId}/read-url`** para esto: ese está
+> restringido al **uploader** del archivo (dueño), no a quien tiene permiso sobre el archivo de
+> personal — un usuario de RRHH legítimo recibiría `403`. Usá siempre la variante `.../documents/{documentPublicId}/read-url`.
 
 ---
 
@@ -113,7 +122,7 @@ curl -X POST "$BASE/api/v1/personnel-files/$ID/documents" \
 | `documentTypeName` | string (nullable) | Nombre resuelto del catálogo. |
 | `documentType` | string (nullable) | Tipo de documento (etiqueta). |
 | `observations` | string (nullable) | Notas. |
-| `filePublicId` | uuid | Id del archivo enlazado (usalo en `GET /api/v1/files/{filePublicId}/read-url`). |
+| `filePublicId` | uuid | Id del archivo enlazado. Para descargarlo usá el `read-url` de abajo, **no** el genérico de Files. |
 | `fileName` | string (nullable) | Nombre del archivo. |
 | `contentType` | string (nullable) | MIME type del archivo. |
 | `sizeBytes` | int | Tamaño del archivo en bytes. |
@@ -128,6 +137,29 @@ curl "$BASE/api/v1/personnel-files/$ID/documents/$DOC_ID" \
 ```
 
 **Errores:** `401`, `403`, `404`.
+
+---
+
+## `GET` URL de descarga (read-url)
+
+`GET /api/v1/personnel-files/{publicId}/documents/{documentPublicId}/read-url`
+
+Devuelve una **URL pre‑firmada de corta duración** para descargar el binario del documento.
+Autorizado por el archivo de personal (gate `PersonnelFiles.Read`), no por el uploader del archivo
+— por eso es el endpoint correcto para que RRHH descargue documentos de empleados.
+
+**Respuesta `200`** — `GetPersonnelFileDocumentReadUrlResponse` (incluye la URL de descarga y su
+expiración). Abrí/descargá esa URL directamente (es de un solo uso/corta vida; no la caches).
+
+```bash
+curl "$BASE/api/v1/personnel-files/$ID/documents/$DOC_ID/read-url" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Errores:** `401`, `403`, `404`.
+
+> No uses `GET /api/v1/files/{filePublicId}/read-url` para documentos de personal: está restringido
+> al uploader y un usuario de RRHH legítimo recibiría `403`.
 
 ---
 

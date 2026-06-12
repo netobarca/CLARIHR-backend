@@ -19,7 +19,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/general-catalogs/banks");
+        var response = await client.GetAsync("/api/v1/general-catalogs/banks?countryCode=SV");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelCatalogItemEnvelope>>(JsonOptions);
@@ -61,7 +61,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var personnelFileId = created!.Id;
         var concurrencyToken = created.ConcurrencyToken;
 
-        var banksResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/general-catalogs/banks");
+        var banksResponse = await client.GetAsync("/api/v1/general-catalogs/banks?countryCode=SV");
         banksResponse.EnsureSuccessStatusCode();
 
         var banks = await banksResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelCatalogItemEnvelope>>(JsonOptions);

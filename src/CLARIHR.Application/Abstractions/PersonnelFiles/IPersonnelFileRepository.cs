@@ -190,12 +190,12 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(
-        Guid companyId,
+        string? countryCode,
         string category,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
-        Guid companyId,
+        string countryCode,
         string category,
         string? parentCode,
         CancellationToken cancellationToken);

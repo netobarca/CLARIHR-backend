@@ -337,7 +337,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/identification-types");
+        var response = await client.GetAsync("/api/v1/reference-catalogs/identification-types?countryCode=SV");
 
         response.EnsureSuccessStatusCode();
 
@@ -2184,21 +2184,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var professionsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/professions");
+        var professionsResponse = await client.GetAsync("/api/v1/reference-catalogs/professions?countryCode=SV");
         professionsResponse.EnsureSuccessStatusCode();
         var professions = await professionsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(professions);
         Assert.Equal(35, professions!.Count);
         Assert.Contains(professions, item => item.Code == "ANALISTA_DE_DATOS" && item.Name == "Analista de datos");
 
-        var maritalStatusesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/marital-statuses");
+        var maritalStatusesResponse = await client.GetAsync("/api/v1/reference-catalogs/marital-statuses?countryCode=SV");
         maritalStatusesResponse.EnsureSuccessStatusCode();
         var maritalStatuses = await maritalStatusesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(maritalStatuses);
         Assert.Equal(6, maritalStatuses!.Count);
         Assert.Contains(maritalStatuses, item => item.Code == "SOLTERO_A" && item.Name == "Soltero/a");
 
-        var identificationTypesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/identification-types");
+        var identificationTypesResponse = await client.GetAsync("/api/v1/reference-catalogs/identification-types?countryCode=SV");
         identificationTypesResponse.EnsureSuccessStatusCode();
         var identificationTypes = await identificationTypesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(identificationTypes);
@@ -2206,21 +2206,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Contains(identificationTypes, item => item.Code == "DUI" && item.Name == "DUI");
         Assert.Contains(identificationTypes, item => item.Code == "PASSPORT" && item.Name == "Pasaporte");
 
-        var kinshipsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/kinships");
+        var kinshipsResponse = await client.GetAsync("/api/v1/reference-catalogs/kinships?countryCode=SV");
         kinshipsResponse.EnsureSuccessStatusCode();
         var kinships = await kinshipsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(kinships);
         Assert.Equal(10, kinships!.Count);
         Assert.Contains(kinships, item => item.Code == "HERMANO_A" && item.Name == "Hermano/a");
 
-        var departmentsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/departments");
+        var departmentsResponse = await client.GetAsync("/api/v1/reference-catalogs/departments?countryCode=SV");
         departmentsResponse.EnsureSuccessStatusCode();
         var departments = await departmentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(departments);
         Assert.Equal(14, departments!.Count);
         Assert.Contains(departments, item => item.Code == "SAN_SALVADOR" && item.Name == "San Salvador");
 
-        var municipalitiesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/reference-catalogs/municipalities?parentCode=SAN_SALVADOR");
+        var municipalitiesResponse = await client.GetAsync("/api/v1/reference-catalogs/municipalities?countryCode=SV&parentCode=SAN_SALVADOR");
         municipalitiesResponse.EnsureSuccessStatusCode();
         var municipalities = await municipalitiesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(municipalities);
@@ -11251,7 +11251,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code)
     {
         var response = await client.GetAsync(
-            $"/api/v1/companies/{companyId}/general-catalogs/{routeSegment}");
+            $"/api/v1/general-catalogs/{routeSegment}");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelEducationCatalogLookupItem>>(JsonOptions);

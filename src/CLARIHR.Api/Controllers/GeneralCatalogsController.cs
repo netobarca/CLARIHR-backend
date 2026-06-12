@@ -8,30 +8,37 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
+// Company-less catalog surface. These are global system catalogs (document types, education-*) and
+// country reference catalogs (professions, identification types, banks…) — reference data, not tenant
+// data — consumed before a company exists (onboarding) and on every form load. Authz is authn-only
+// ([Authorize], no companyId / ownership / RBAC), mirroring AccountCompanyCatalogsController; the family
+// is intentionally OUT of GovernedFamilyRegex (no policy to declare) but enrolled in the OpenAPI
+// guardrail ("General Catalogs"). Country-scoped catalogs take the country via the `countryCode` query
+// parameter instead of resolving it from a company.
 [ApiController]
 [Authorize]
 [Tags("General Catalogs")]
 public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/general-catalogs/{catalogKey}")]
+    [HttpGet("api/v1/general-catalogs/{catalogKey}")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelCatalogItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [SwaggerOperation(
         Summary = "List a general catalog",
         Description = """
             Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —
             e.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,
-            `file-document-types`; an unsupported key yields `400`). System-scoped catalogs (education
-            statuses/study types/shifts/modalities/careers, document types) are global; country-scoped
-            catalogs (languages, currencies, banks…) are filtered by the authorized company's country.
-            Items are ordered by `sortOrder`. Read access is gated by the company's personnel-files
-            module and read permission (`403` otherwise).
+            `file-document-types`; an unsupported key yields `400`). Authenticated read; no company
+            context is required. System-scoped catalogs (education statuses/study types/shifts/
+            modalities/careers, document types) are global and ignore `countryCode`; country-scoped
+            catalogs (languages, currencies, banks…) require the `countryCode` query parameter (a 2–3
+            letter ISO-style code) to select the country and return no items when it is missing or
+            unknown. Items are ordered by `sortOrder`.
             """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelCatalogItemResponse>>> GetGeneralCatalogItems(
-        Guid companyId,
         string catalogKey,
+        [FromQuery] string? countryCode,
         CancellationToken cancellationToken = default)
     {
         if (!GeneralCatalogKeyMap.TryResolveCatalogCategory(catalogKey, out var category))
@@ -44,30 +51,29 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
         }
 
         var result = await queryDispatcher.SendAsync(
-            new GetPersonnelCatalogItemsQuery(companyId, category),
+            new GetPersonnelCatalogItemsQuery(category, countryCode),
             cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/reference-catalogs/{catalogKey}")]
+    [HttpGet("api/v1/reference-catalogs/{catalogKey}")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [SwaggerOperation(
         Summary = "List a reference catalog",
         Description = """
             Returns the active items of the country-scoped reference catalog identified by `catalogKey`
             (a closed whitelist — `professions`, `marital-statuses`, `identification-types`, `kinships`,
-            `departments`, `municipalities`; an unsupported key yields `400`). Items are scoped to the
-            authorized company's country and ordered by `sortOrder`. For hierarchical catalogs, the
-            optional `parentCode` narrows children (e.g. `municipalities?parentCode={departmentCode}`).
-            Read access is gated by the company's personnel-files module and read permission (`403`
-            otherwise).
+            `departments`, `municipalities`; an unsupported key yields `400`). Authenticated read; no
+            company context is required. The `countryCode` query parameter (a 2–3 letter ISO-style code)
+            is required and scopes the items to that country; items are ordered by `sortOrder`. For
+            hierarchical catalogs, the optional `parentCode` narrows children
+            (e.g. `municipalities?countryCode=SV&parentCode={departmentCode}`).
             """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetReferenceCatalogItems(
-        Guid companyId,
         string catalogKey,
+        [FromQuery] string? countryCode,
         [FromQuery] string? parentCode,
         CancellationToken cancellationToken = default)
     {
@@ -81,7 +87,7 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
         }
 
         var result = await queryDispatcher.SendAsync(
-            new GetPersonnelReferenceCatalogItemsQuery(companyId, category, parentCode),
+            new GetPersonnelReferenceCatalogItemsQuery(category, countryCode ?? string.Empty, parentCode),
             cancellationToken);
         return this.ToActionResult(result);
     }

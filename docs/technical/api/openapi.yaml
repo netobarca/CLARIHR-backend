@@ -7014,7 +7014,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyPublicId}/general-catalogs/{catalogKey}:
+  /api/v1/general-catalogs/{catalogKey}:
     get:
       tags:
       - General Catalogs
@@ -7022,21 +7022,20 @@ paths:
       description: |-
         Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —
         e.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,
-        `file-document-types`; an unsupported key yields `400`). System-scoped catalogs (education
-        statuses/study types/shifts/modalities/careers, document types) are global; country-scoped
-        catalogs (languages, currencies, banks…) are filtered by the authorized company's country.
-        Items are ordered by `sortOrder`. Read access is gated by the company's personnel-files
-        module and read permission (`403` otherwise).
+        `file-document-types`; an unsupported key yields `400`). Authenticated read; no company
+        context is required. System-scoped catalogs (education statuses/study types/shifts/
+        modalities/careers, document types) are global and ignore `countryCode`; country-scoped
+        catalogs (languages, currencies, banks…) require the `countryCode` query parameter (a 2–3
+        letter ISO-style code) to select the country and return no items when it is missing or
+        unknown. Items are ordered by `sortOrder`.
       parameters:
-      - name: companyPublicId
+      - name: catalogKey
         in: path
         required: true
         schema:
           type: string
-          format: uuid
-      - name: catalogKey
-        in: path
-        required: true
+      - name: countryCode
+        in: query
         schema:
           type: string
       responses:
@@ -7082,19 +7081,7 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: Forbidden
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyPublicId}/reference-catalogs/{catalogKey}:
+  /api/v1/reference-catalogs/{catalogKey}:
     get:
       tags:
       - General Catalogs
@@ -7102,21 +7089,19 @@ paths:
       description: |-
         Returns the active items of the country-scoped reference catalog identified by `catalogKey`
         (a closed whitelist — `professions`, `marital-statuses`, `identification-types`, `kinships`,
-        `departments`, `municipalities`; an unsupported key yields `400`). Items are scoped to the
-        authorized company's country and ordered by `sortOrder`. For hierarchical catalogs, the
-        optional `parentCode` narrows children (e.g. `municipalities?parentCode={departmentCode}`).
-        Read access is gated by the company's personnel-files module and read permission (`403`
-        otherwise).
+        `departments`, `municipalities`; an unsupported key yields `400`). Authenticated read; no
+        company context is required. The `countryCode` query parameter (a 2–3 letter ISO-style code)
+        is required and scopes the items to that country; items are ordered by `sortOrder`. For
+        hierarchical catalogs, the optional `parentCode` narrows children
+        (e.g. `municipalities?countryCode=SV&parentCode={departmentCode}`).
       parameters:
-      - name: companyPublicId
+      - name: catalogKey
         in: path
         required: true
         schema:
           type: string
-          format: uuid
-      - name: catalogKey
-        in: path
-        required: true
+      - name: countryCode
+        in: query
         schema:
           type: string
       - name: parentCode
@@ -7156,18 +7141,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: Forbidden
           content:
             text/plain:
               schema:

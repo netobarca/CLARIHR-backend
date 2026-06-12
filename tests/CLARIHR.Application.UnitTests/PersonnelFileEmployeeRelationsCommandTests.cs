@@ -526,9 +526,9 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
 
-        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(string? countryCode, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(string countryCode, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

@@ -81,10 +81,12 @@ public sealed class OpenApiContractGuardrailsTests
         // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^Files` matches only
         // FilesController (PersonnelFile* controllers start with "PersonnelFile", not "Files").
         ("Files", new Regex(@"^Files", RegexOptions.Compiled), "Files"),
-        // GeneralCatalogsController is the read-only general/reference catalog surface. Its read authz
-        // is intentionally handler-gated via the personnel-files authorization service (GC2 by-design,
-        // see the GeneralCatalogs audit), so it stays out of GovernedFamilyRegex but is still a public
-        // OpenAPI surface. `^GeneralCatalogs` matches only GeneralCatalogsController.
+        // GeneralCatalogsController is the company-less read-only general/reference catalog surface
+        // (global system catalogs + country reference catalogs, country selected via the `countryCode`
+        // query parameter). It is reference data — not tenant data — consumed before a company exists
+        // (onboarding) and on every form load, so its read authz is authn-only ([Authorize], no
+        // ownership/RBAC, mirror AccountCompanyCatalogsController): it stays out of GovernedFamilyRegex
+        // by design but is still a public OpenAPI surface. `^GeneralCatalogs` matches only GeneralCatalogsController.
         ("GeneralCatalogs", new Regex(@"^GeneralCatalogs", RegexOptions.Compiled), "General Catalogs"),
         // ReportExportJobsController is the async report-export queue — a technical/handler-gated
         // controller (authz delegated per-resource via ReportExportResourceAuthorizer, kept out of
