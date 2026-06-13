@@ -28,16 +28,17 @@ public sealed class OrganizationStructureCatalogsController(
 {
     [HttpGet("companies/{companyId:guid}/organization-structure-catalogs/unit-types")]
     [EnableRateLimiting(OrgStructureCatalogRateLimitPolicies.Search)]
-    [ProducesResponseType<PagedResponse<OrgUnitTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<OrgUnitTypeCatalogListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
         Summary = "List org unit types for a company",
         Description = """
             Returns a paginated list of organization unit-type catalog items for the company,
             filterable by `isActive` and free-text `q`. The owning company is validated against the
-            authenticated tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
+            authenticated tenant. List items omit `description` (detail-only); fetch the item by id
+            for the full payload. Set `includeAllowedActions=true` to receive per-item read/manage flags.
             """)]
-    public async Task<ActionResult<PagedResponse<OrgUnitTypeCatalogItemResponse>>> SearchOrgUnitTypes(
+    public async Task<ActionResult<PagedResponse<OrgUnitTypeCatalogListItemResponse>>> SearchOrgUnitTypes(
         Guid companyId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
@@ -168,16 +169,17 @@ public sealed class OrganizationStructureCatalogsController(
 
     [HttpGet("companies/{companyId:guid}/organization-structure-catalogs/functional-areas")]
     [EnableRateLimiting(OrgStructureCatalogRateLimitPolicies.Search)]
-    [ProducesResponseType<PagedResponse<FunctionalAreaCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<FunctionalAreaCatalogListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
         Summary = "List functional areas for a company",
         Description = """
             Returns a paginated list of functional-area catalog items for the company, filterable by
             `isActive` and free-text `q`. The owning company is validated against the authenticated
-            tenant. Set `includeAllowedActions=true` to receive per-item read/manage flags.
+            tenant. List items omit `description` (detail-only); fetch the item by id for the full
+            payload. Set `includeAllowedActions=true` to receive per-item read/manage flags.
             """)]
-    public async Task<ActionResult<PagedResponse<FunctionalAreaCatalogItemResponse>>> SearchFunctionalAreas(
+    public async Task<ActionResult<PagedResponse<FunctionalAreaCatalogListItemResponse>>> SearchFunctionalAreas(
         Guid companyId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,

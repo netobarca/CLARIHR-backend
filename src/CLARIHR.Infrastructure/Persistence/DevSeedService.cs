@@ -468,14 +468,25 @@ internal sealed class DevSeedService(
 
     private async Task<CostCenter[]> SeedCostCentersAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var salaryExpenseType = CostCenterType.Create(
+            "SALARY-EXPENSE", "Gasto salarial", "Centros de costo de gasto salarial.");
+        salaryExpenseType.SetTenantId(tenantId);
+
+        var mixedType = CostCenterType.Create(
+            "MIXED", "Mixto", "Centros de costo mixtos.");
+        mixedType.SetTenantId(tenantId);
+
+        dbContext.CostCenterTypes.AddRange(salaryExpenseType, mixedType);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         var cc1 = CostCenter.Create(
-            "CC-001", "Operaciones", CostCenterType.SalaryExpense,
+            "CC-001", "Operaciones", salaryExpenseType.Id,
             payrollExpenseAccountCode: "5101", employerContributionAccountCode: "5102",
             provisionAccountCode: "5103", description: "Centro de costo principal.");
         cc1.SetTenantId(tenantId);
 
         var cc2 = CostCenter.Create(
-            "CC-002", "Administracion", CostCenterType.Mixed,
+            "CC-002", "Administracion", mixedType.Id,
             payrollExpenseAccountCode: "5201", employerContributionAccountCode: null,
             provisionAccountCode: null, description: "Centro de costo administrativo.");
         cc2.SetTenantId(tenantId);

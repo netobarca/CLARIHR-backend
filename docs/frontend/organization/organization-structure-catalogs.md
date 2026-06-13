@@ -45,7 +45,7 @@ Mismo body para ambos sub-catálogos (`UpsertCatalogItemRequest`):
 
 ## Responses
 
-`200`/`201` — `OrgUnitTypeCatalogItemResponse` / `FunctionalAreaCatalogItemResponse`:
+`200`/`201` (detalle y escrituras) — `OrgUnitTypeCatalogItemResponse` / `FunctionalAreaCatalogItemResponse`:
 
 ```json
 {
@@ -55,7 +55,9 @@ Mismo body para ambos sub-catálogos (`UpsertCatalogItemRequest`):
 }
 ```
 
-Create → `201` + `Location` + `ETag`. Listado → paginado (ver Convenciones §8).
+Create → `201` + `Location` + `ETag`. Listado → paginado (ver Convenciones §8); los items del
+listado **no incluyen `description`** (solo detalle) — para mostrarla u editarla, pedí el item por
+id.
 
 ## Errores específicos
 

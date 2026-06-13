@@ -1,6 +1,5 @@
 using System.Text.Json;
 using CLARIHR.Application.Features.CostCenters;
-using CLARIHR.Domain.CostCenters;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -8,18 +7,22 @@ namespace CLARIHR.Application.UnitTests;
 /// Unit coverage for the scalar-only JSON Patch allow-list of <see cref="CostCenterPatchApplier"/>
 /// (the novel logic added when CostCenters was aligned to the canonical RFC-6902 PATCH). Locks in
 /// the scalar-only decision (no <c>/isActive</c>), the If-Match-only concurrency contract
-/// (<c>/concurrencyToken</c> rejected in the body), and the enum/remove handling — so a mechanical
-/// replication of the Ola 0 recipe cannot silently regress these.
+/// (<c>/concurrencyToken</c> rejected in the body), and the catalog-reference (public id GUID) /
+/// remove handling — so a mechanical replication of the Ola 0 recipe cannot silently regress these.
 /// </summary>
 public sealed class CostCenterPatchApplierTests
 {
+    private static readonly Guid TypeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     private static CostCenterPatchState NewState() =>
         CostCenterPatchState.From(new CostCenterResponse(
             Id: Guid.NewGuid(),
             CompanyId: Guid.NewGuid(),
             Code: "CC-001",
             Name: "Centro",
-            Type: CostCenterType.Mixed,
+            CostCenterTypeId: TypeId,
+            CostCenterTypeCode: "MIXED",
+            CostCenterTypeName: "Mixto",
             PayrollExpenseAccountCode: "5101",
             EmployerContributionAccountCode: null,
             ProvisionAccountCode: null,
@@ -46,24 +49,39 @@ public sealed class CostCenterPatchApplierTests
     }
 
     [Fact]
-    public void Apply_ReplaceType_ParsesEnumCaseInsensitively()
+    public void Apply_ReplaceCostCenterTypeId_ParsesGuid()
     {
         var state = NewState();
+        var newTypeId = Guid.NewGuid();
 
-        var result = CostCenterPatchApplier.Apply(new[] { Op("replace", "/type", "salaryexpense") }, state);
+        var result = CostCenterPatchApplier.Apply(
+            new[] { Op("replace", "/costCenterTypeId", newTypeId.ToString()) }, state);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(CostCenterType.SalaryExpense, state.Type);
+        Assert.Equal(newTypeId, state.CostCenterTypeId);
+        Assert.True(state.HasMutation);
     }
 
     [Fact]
-    public void Apply_InvalidTypeValue_IsRejected()
+    public void Apply_InvalidCostCenterTypeIdValue_IsRejected()
     {
         var state = NewState();
 
-        var result = CostCenterPatchApplier.Apply(new[] { Op("replace", "/type", "NotARealType") }, state);
+        var result = CostCenterPatchApplier.Apply(
+            new[] { Op("replace", "/costCenterTypeId", "NotAGuid") }, state);
 
         Assert.True(result.IsFailure);
+    }
+
+    [Fact]
+    public void Apply_RemoveCostCenterTypeId_IsRejected()
+    {
+        var state = NewState();
+
+        var result = CostCenterPatchApplier.Apply(new[] { Op("remove", "/costCenterTypeId", null) }, state);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(TypeId, state.CostCenterTypeId);
     }
 
     [Fact]

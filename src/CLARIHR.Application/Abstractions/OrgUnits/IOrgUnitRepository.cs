@@ -14,7 +14,7 @@ public interface IOrgUnitRepository
 
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingOrgUnitId, CancellationToken cancellationToken);
 
-    Task<PagedResponse<OrgUnitResponse>> SearchAsync(
+    Task<PagedResponse<OrgUnitListItemResponse>> SearchAsync(
         Guid tenantId,
         bool? isActive,
         Guid? orgUnitTypeId,

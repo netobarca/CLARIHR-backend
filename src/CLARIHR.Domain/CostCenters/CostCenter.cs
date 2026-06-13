@@ -12,16 +12,21 @@ public sealed class CostCenter : TenantEntity
         Guid publicId,
         string code,
         string name,
-        CostCenterType type,
+        long costCenterTypeId,
         string? payrollExpenseAccountCode,
         string? employerContributionAccountCode,
         string? provisionAccountCode,
         string? description)
     {
+        if (costCenterTypeId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costCenterTypeId), "Cost center type id must be greater than zero.");
+        }
+
         PublicId = publicId;
         SetCode(code);
         SetName(name);
-        Type = type;
+        CostCenterTypeId = costCenterTypeId;
         PayrollExpenseAccountCode = CostCenterNormalization.CleanOptional(payrollExpenseAccountCode);
         EmployerContributionAccountCode = CostCenterNormalization.CleanOptional(employerContributionAccountCode);
         ProvisionAccountCode = CostCenterNormalization.CleanOptional(provisionAccountCode);
@@ -38,7 +43,7 @@ public sealed class CostCenter : TenantEntity
 
     public string NormalizedName { get; private set; } = string.Empty;
 
-    public CostCenterType Type { get; private set; }
+    public long CostCenterTypeId { get; private set; }
 
     public string? PayrollExpenseAccountCode { get; private set; }
 
@@ -55,7 +60,7 @@ public sealed class CostCenter : TenantEntity
     public static CostCenter Create(
         string code,
         string name,
-        CostCenterType type,
+        long costCenterTypeId,
         string? payrollExpenseAccountCode,
         string? employerContributionAccountCode,
         string? provisionAccountCode,
@@ -64,7 +69,7 @@ public sealed class CostCenter : TenantEntity
             Guid.NewGuid(),
             code,
             name,
-            type,
+            costCenterTypeId,
             payrollExpenseAccountCode,
             employerContributionAccountCode,
             provisionAccountCode,
@@ -73,15 +78,20 @@ public sealed class CostCenter : TenantEntity
     public void Update(
         string code,
         string name,
-        CostCenterType type,
+        long costCenterTypeId,
         string? payrollExpenseAccountCode,
         string? employerContributionAccountCode,
         string? provisionAccountCode,
         string? description)
     {
+        if (costCenterTypeId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costCenterTypeId), "Cost center type id must be greater than zero.");
+        }
+
         SetCode(code);
         SetName(name);
-        Type = type;
+        CostCenterTypeId = costCenterTypeId;
         PayrollExpenseAccountCode = CostCenterNormalization.CleanOptional(payrollExpenseAccountCode);
         EmployerContributionAccountCode = CostCenterNormalization.CleanOptional(employerContributionAccountCode);
         ProvisionAccountCode = CostCenterNormalization.CleanOptional(provisionAccountCode);

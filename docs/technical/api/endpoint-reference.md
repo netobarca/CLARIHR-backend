@@ -1821,7 +1821,8 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 - `unit-types` y `functional-areas` dependen del `tenantId` y de claims tenant-scoped.
 - En `unit-types` y `functional-areas`, `search/create` usan `companyPublicId` en la ruta y exigen que coincida con el tenant del token.
 - En `unit-types` y `functional-areas`, `get/update/activate/inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual. Si el item existe en otro tenant, la API devuelve `TENANT_MISMATCH` en vez de `404` plano.
-- Ambos catalogos comparten el mismo shape observable: `publicId`, `code`, `normalizedCode`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
+- Ambos catalogos comparten el mismo shape observable en detalle y escrituras: `publicId`, `code`, `normalizedCode`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
+- El listado paginado de ambos usa un list item con el mismo shape sin `description` (payload solo de detalle).
 - Todas las escrituras validan `code` con regex alfanumerica mas `_` o `-`, longitud maxima `50`, `name` maximo `150`, `description` maximo `500` y `sortOrder >= 0`.
 - Los endpoints de `update`, `activate` e `inactivate` usan concurrencia optimista con `ConcurrencyToken`.
 - Los endpoints de busqueda usan `isActive`, `q`, `page` y `pageSize`; el `pageSize` maximo es `100` y el default es `20`.
@@ -1934,6 +1935,7 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 - `get by id`, `update`, `move`, `activate` e `inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual.
 - Si una org unit existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver un `404` plano.
 - El shape principal de lectura es `OrgUnitResponse`: `publicId`, `code`, `normalizedCode`, `name`, `orgUnitType`, `functionalArea`, `parent`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeePublicId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- El listado paginado usa `OrgUnitListItemResponse`: el mismo shape sin `description` (payload solo de detalle).
 - `code` es obligatorio, maximo `50`, y debe cumplir regex alfanumerica con `_` o `-`.
 - `name` es obligatorio y maximo `150`.
 - `description` acepta hasta `500` caracteres.
@@ -1986,7 +1988,7 @@ Observaciones funcionales:
 - `search` soporta filtros `isActive`, `orgUnitTypePublicId`, `functionalAreaPublicId`, `parentPublicId`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - `q` busca por `code`, `name`, tipo de unidad, area funcional y nombre del padre.
 - el orden observable del listado es `sortOrder`, luego `name`, luego `code`.
-- `search` devuelve `PagedResponse<OrgUnitResponse>`.
+- `search` devuelve `PagedResponse<OrgUnitListItemResponse>` (sin `description`).
 - `get by id` devuelve una sola `OrgUnitResponse`.
 - `search` y `get by id` incluyen `parent` con `publicId`, `code`, `normalizedCode` y `name` cuando la unidad tiene padre.
 - `get by id` siempre calcula `allowedActions` usando el estado activo y la existencia de hijos activos.
@@ -2081,7 +2083,7 @@ Observaciones funcionales:
 
 #### 5.6.1 Alcance
 
-Este bloque cubre `CostCentersController` y expone la administracion tenant-scoped de centros de costo.
+Este bloque cubre `CostCentersController` y `CostCenterTypesController`, y expone la administracion tenant-scoped de centros de costo y de su catalogo de tipos.
 
 Familias de rutas:
 
@@ -2091,6 +2093,10 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/cost-centers/export`
 - `/api/v1/cost-centers/{id}/activate`
 - `/api/v1/cost-centers/{id}/inactivate`
+- `/api/v1/companies/{companyId}/cost-center-types`
+- `/api/v1/cost-center-types/{id}`
+- `/api/v1/cost-center-types/{id}/activate`
+- `/api/v1/cost-center-types/{id}/inactivate`
 
 #### 5.6.2 Proposito funcional en CLARIHR
 
@@ -2105,7 +2111,7 @@ No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos co
 - `search`, `export` y `create` usan `companyId` en la ruta.
 - `get by id`, `usage`, `update`, `activate` e `inactivate` usan solo `{id}` y resuelven el tenant desde el token actual.
 - Si un centro de costo existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver `404` plano.
-- `CostCenterListItemResponse` devuelve `id`, `code`, `name`, `type`, codigos contables opcionales, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- `CostCenterListItemResponse` devuelve `id`, `code`, `name`, `costCenterTypeId`, `costCenterTypeCode`, `costCenterTypeName`, codigos contables opcionales, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
 - `CostCenterResponse` agrega `companyId` y `description`.
 - `CostCenterUsageResponse` devuelve contadores de referencias activas e inactivas desde `OrgUnits` y `PositionSlots`, mas `hasActiveReferences`.
 - El uso de `PositionSlots` se calcula por derivacion `PositionSlot -> JobProfile -> OrgUnit -> CostCenterCode`; la plaza ya no conserva un `costCenterCode` propio.
@@ -2116,7 +2122,8 @@ No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos co
 - `pageSize` maximo es `100`, el default es `20`.
 - `update`, `activate` e `inactivate` usan concurrencia optimista con `ConcurrencyToken`.
 - Todas las escrituras y el export generan auditoria.
-- El campo `type` usa el enum `CostCenterType`: `SalaryExpense`, `EmployerContribution`, `ProvisionReserve` y `Mixed`.
+- El tipo de centro de costo es un catalogo tenant-scoped (`cost-center-types`), no un enum: cada empresa administra sus propios tipos y los centros de costo lo referencian por public id (`costCenterTypePublicId` en escrituras, `costCenterTypeId` + `costCenterTypeCode`/`costCenterTypeName` en lecturas).
+- Las empresas existentes al momento de la migracion reciben sembrados los cuatro tipos heredados del enum anterior (`SALARY-EXPENSE`, `EMPLOYER-CONTRIBUTION`, `PROVISION-RESERVE`, `MIXED`); las empresas nuevas inician con el catalogo vacio y crean los suyos (espejo de `work-center-types`).
 
 #### 5.6.4 Autorizacion observable
 
@@ -2136,6 +2143,10 @@ No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos co
 - `COST_CENTER_IN_USE`: `409`, no puede inactivarse porque sigue referenciado por org units activas o position slots activas.
 - `CONCURRENCY_CONFLICT`: `409`, el `concurrencyToken` ya no coincide con la version actual.
 - `COST_CENTER_EXPORT_FORMAT_INVALID`: `400`, `format` no soportado en el export.
+- `COST_CENTER_TYPE_NOT_FOUND`: `404`, el tipo referenciado no existe en el tenant activo.
+- `COST_CENTER_TYPE_CODE_CONFLICT`: `409`, otro tipo del mismo tenant ya usa ese `code`.
+- `COST_CENTER_TYPE_IN_USE`: `409`, el tipo no puede inactivarse porque centros de costo activos lo usan.
+- `COST_CENTER_TYPE_INACTIVE`: `409`, se intento asignar un tipo inactivo a un centro de costo.
 - `400` de validacion: `page/pageSize` invalidos, `code` invalido, account codes invalidos, ids vacios o `ConcurrencyToken` ausente.
 
 #### 5.6.6 Search y detalle de cost centers
@@ -2152,7 +2163,7 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `search` soporta filtros `type`, `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
+- `search` soporta filtros `typeId` (public id del tipo), `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - `q` busca solo por `code` y `name`.
 - el orden observable del listado es `name`, luego `code`.
 - `search` devuelve `PagedResponse<CostCenterListItemResponse>`.
@@ -2192,7 +2203,7 @@ Observaciones funcionales:
 
 - soporta `format=csv|xlsx`.
 - reutiliza los mismos filtros de busqueda operativa, salvo paginacion.
-- devuelve filas planas con `code`, `name`, `type`, account codes, `description`, `isActive` y timestamps.
+- devuelve filas planas con `code`, `name`, `costCenterTypeCode`, `costCenterTypeName`, account codes, `description`, `isActive` y timestamps.
 - genera auditoria de tipo `ReportExported`.
 - si `format` no es soportado, la respuesta observable es `COST_CENTER_EXPORT_FORMAT_INVALID`.
 
@@ -2214,9 +2225,10 @@ Uso principal:
 Observaciones funcionales:
 
 - `create` devuelve `201 Created` con la `CostCenterResponse` creada.
-- `create` exige `code`, `name` y `type`; acepta `payrollExpenseAccountCode`, `employerContributionAccountCode`, `provisionAccountCode` y `description`.
+- `create` exige `code`, `name` y `costCenterTypePublicId` (tipo activo del tenant); acepta `payrollExpenseAccountCode`, `employerContributionAccountCode`, `provisionAccountCode` y `description`.
 - `create` valida unicidad de `code` por tenant.
-- `update` modifica datos escalares del centro de costo, exige `ConcurrencyToken` y puede cambiar `type` y account codes.
+- `update` modifica datos escalares del centro de costo, exige `ConcurrencyToken` y puede cambiar el tipo (`costCenterTypePublicId`) y account codes; asignar un tipo distinto exige que ese tipo este activo (conservar el tipo actual inactivo es valido).
+- `PATCH` soporta el path `/costCenterTypeId` con el public id de un tipo activo del tenant.
 - `activate` exige `ConcurrencyToken` y reactiva el centro de costo.
 - `inactivate` exige `ConcurrencyToken` y falla si existe uso activo en `OrgUnits` o en `PositionSlots` que lleguen a ese centro de costo por derivacion.
 
@@ -2228,6 +2240,35 @@ Observaciones funcionales:
 - La respuesta `usage` existe precisamente para hacer visible esa dependencia cruzada antes de desactivar un codigo.
 
 `CostCenters` cierra el bloque organizacional base junto con `Org structure catalogs` y `OrgUnits`: primero se definen catalogos, luego la estructura y luego las claves de imputacion de costo que esa estructura y los perfiles/plazas reutilizan por derivacion.
+
+#### 5.6.11 Tipos de centro de costo (catalogo por empresa)
+
+Route family:
+
+- `GET /api/v1/companies/{companyId}/cost-center-types`
+- `POST /api/v1/companies/{companyId}/cost-center-types`
+- `GET /api/v1/cost-center-types/{id}`
+- `PUT /api/v1/cost-center-types/{id}`
+- `PATCH /api/v1/cost-center-types/{id}`
+- `PATCH /api/v1/cost-center-types/{id}/activate`
+- `PATCH /api/v1/cost-center-types/{id}/inactivate`
+
+Uso principal:
+
+- administrar el catalogo de tipos que clasifican los centros de costo del tenant
+
+Observaciones funcionales:
+
+- el modulo es un espejo estructural de `work-center-types`: catalogo tenant-scoped con codigo unico por empresa, soft-delete por `activate`/`inactivate` y concurrencia optimista via `If-Match`.
+- `CostCenterTypeResponse` (detalle y escrituras) devuelve `id`, `code`, `name`, `description`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- el listado paginado usa `CostCenterTypeListItemResponse`: el mismo shape sin `description` (payload solo de detalle).
+- `list` soporta `isActive`, `q` (minimo 2 caracteres), `page`, `pageSize` (max `100`) e `includeAllowedActions`, comparte el rate limit `cost-centers-search` y ordena por `name`, luego `code`.
+- `code` es obligatorio, maximo `50`, regex alfanumerica con `_` o `-`, unico por tenant (conflicto -> `COST_CENTER_TYPE_CODE_CONFLICT`).
+- `name` es obligatorio, maximo `150`; `description` opcional, maximo `500`.
+- `PATCH` (JSON Patch) soporta `/code`, `/name` y `/description`; `/isActive` y `/concurrencyToken` se rechazan.
+- `inactivate` falla con `COST_CENTER_TYPE_IN_USE` si centros de costo activos siguen usando el tipo.
+- usa las mismas policies y permisos del modulo (`CostCenters.Read` / `CostCenters.Admin` / `iam.administration.manage`), igual que `work-center-types` reutiliza los de `Locations`.
+- todas las escrituras generan auditoria (`COST_CENTER_TYPE_CREATED|UPDATED|ACTIVATED|INACTIVATED`, entidad `CostCenterType`).
 
 ### 5.7 Legal representatives
 

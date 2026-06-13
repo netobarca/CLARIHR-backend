@@ -21,6 +21,11 @@ public static partial class CostCenterValidationRules
     // backstop, so a rename cannot silently degrade the 23505 → clean 409 mapping into an HTTP 500.
     public const string CodeUniqueConstraintName = "uq_cost_centers__tenant_code";
 
+    // Same single-sourcing for the cost-center-type catalog's (TenantId, NormalizedCode) unique
+    // index, shared by CostCenterTypeConfiguration and the type handlers' 23505 → 409 mapping
+    // (mirrors WorkCenterTypeCodeUniqueConstraintName in LocationValidationRules).
+    public const string CostCenterTypeCodeUniqueConstraintName = "uq_cost_center_types__tenant_code";
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
 
@@ -70,6 +75,26 @@ public static class CostCenterErrors
     public static readonly Error ConcurrencyConflict = new(
         "CONCURRENCY_CONFLICT",
         "The resource was modified by another request. Refresh and try again.",
+        ErrorType.Conflict);
+
+    public static readonly Error CostCenterTypeNotFound = new(
+        "COST_CENTER_TYPE_NOT_FOUND",
+        "The cost center type could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error CostCenterTypeCodeConflict = new(
+        "COST_CENTER_TYPE_CODE_CONFLICT",
+        "Another cost center type already uses the requested code.",
+        ErrorType.Conflict);
+
+    public static readonly Error CostCenterTypeInUse = new(
+        "COST_CENTER_TYPE_IN_USE",
+        "The cost center type cannot be inactivated because active cost centers still use it.",
+        ErrorType.Conflict);
+
+    public static readonly Error CostCenterTypeInactive = new(
+        "COST_CENTER_TYPE_INACTIVE",
+        "The selected cost center type is inactive.",
         ErrorType.Conflict);
 
     public static readonly Error ExportFormatInvalid = new(

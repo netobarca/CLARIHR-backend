@@ -43,6 +43,24 @@ public sealed record OrgUnitResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
+// List projection of the paged search: same shape as OrgUnitResponse minus Description, which is
+// detail-only payload (mirror of the CostCenters ListItem/Response split).
+public sealed record OrgUnitListItemResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    OrgUnitCatalogReferenceResponse OrgUnitType,
+    OrgUnitCatalogReferenceResponse? FunctionalArea,
+    OrgUnitCatalogReferenceResponse? Parent,
+    int? SortOrder,
+    string? CostCenterCode,
+    Guid? ManagerEmployeeId,
+    bool IsActive,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
 public sealed record OrgUnitExportRow(
     Guid Id,
     string Code,
@@ -121,7 +139,7 @@ public sealed record SearchOrgUnitsQuery(
     Guid? ParentId,
     int PageNumber = 1,
     int PageSize = OrgUnitValidationRules.DefaultPageSize,
-    bool IncludeAllowedActions = false) : IQuery<PagedResponse<OrgUnitResponse>>;
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<OrgUnitListItemResponse>>;
 
 public sealed record GetOrgUnitByIdQuery(Guid OrgUnitId) : IQuery<OrgUnitResponse>;
 
@@ -375,16 +393,16 @@ internal sealed class SearchOrgUnitsQueryHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
     IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<SearchOrgUnitsQuery, PagedResponse<OrgUnitResponse>>
+    : IQueryHandler<SearchOrgUnitsQuery, PagedResponse<OrgUnitListItemResponse>>
 {
-    public async Task<Result<PagedResponse<OrgUnitResponse>>> Handle(
+    public async Task<Result<PagedResponse<OrgUnitListItemResponse>>> Handle(
         SearchOrgUnitsQuery query,
         CancellationToken cancellationToken)
     {
         var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<PagedResponse<OrgUnitResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<OrgUnitListItemResponse>>.Failure(authorizationResult.Error);
         }
 
         var result = await repository.SearchAsync(
@@ -400,7 +418,7 @@ internal sealed class SearchOrgUnitsQueryHandler(
 
         if (!query.IncludeAllowedActions)
         {
-            return Result<PagedResponse<OrgUnitResponse>>.Success(result);
+            return Result<PagedResponse<OrgUnitListItemResponse>>.Success(result);
         }
 
         var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
@@ -413,7 +431,7 @@ internal sealed class SearchOrgUnitsQueryHandler(
             .ToArray();
 
         result = result with { Items = items };
-        return Result<PagedResponse<OrgUnitResponse>>.Success(result);
+        return Result<PagedResponse<OrgUnitListItemResponse>>.Success(result);
     }
 }
 
@@ -1398,13 +1416,43 @@ internal static class OrgUnitPolicyAdapter
         OrgUnitResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
         bool canManage,
-        bool hasActiveChildren)
-    {
-        var allowedActions = resourceActionPolicyService.Evaluate(
-            new ResourceActionContext(
-                OrgUnitPermissionCodes.ResourceKey,
+        bool hasActiveChildren) =>
+        response with
+        {
+            AllowedActions = Evaluate(
+                resourceActionPolicyService,
                 response.OrgUnitType.Code,
                 response.IsActive,
+                canManage,
+                hasActiveChildren)
+        };
+
+    public static OrgUnitListItemResponse ApplyAllowedActions(
+        OrgUnitListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasActiveChildren) =>
+        response with
+        {
+            AllowedActions = Evaluate(
+                resourceActionPolicyService,
+                response.OrgUnitType.Code,
+                response.IsActive,
+                canManage,
+                hasActiveChildren)
+        };
+
+    private static AllowedActionsResponse Evaluate(
+        IResourceActionPolicyService resourceActionPolicyService,
+        string orgUnitTypeCode,
+        bool isActive,
+        bool canManage,
+        bool hasActiveChildren) =>
+        resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                OrgUnitPermissionCodes.ResourceKey,
+                orgUnitTypeCode,
+                isActive,
                 HasDependencies: hasActiveChildren,
                 SupportsEdit: true,
                 EditAllowed: canManage,
@@ -1414,9 +1462,6 @@ internal static class OrgUnitPolicyAdapter
                 ActivateAllowed: canManage,
                 SupportsInactivate: true,
                 InactivateAllowed: canManage));
-
-        return response with { AllowedActions = allowedActions };
-    }
 }
 
 internal static class OrgUnitHierarchyBuilder

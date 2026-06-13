@@ -34,7 +34,7 @@ public interface IOrgStructureCatalogRepository
         string countryCode,
         CancellationToken cancellationToken);
 
-    Task<PagedResponse<OrgUnitTypeCatalogItemResponse>> SearchOrgUnitTypesAsync(
+    Task<PagedResponse<OrgUnitTypeCatalogListItemResponse>> SearchOrgUnitTypesAsync(
         Guid tenantId,
         bool? isActive,
         string? search,
@@ -42,7 +42,7 @@ public interface IOrgStructureCatalogRepository
         int pageSize,
         CancellationToken cancellationToken);
 
-    Task<PagedResponse<FunctionalAreaCatalogItemResponse>> SearchFunctionalAreasAsync(
+    Task<PagedResponse<FunctionalAreaCatalogListItemResponse>> SearchFunctionalAreasAsync(
         Guid tenantId,
         bool? isActive,
         string? search,

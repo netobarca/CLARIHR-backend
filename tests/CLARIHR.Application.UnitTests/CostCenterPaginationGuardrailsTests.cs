@@ -19,8 +19,10 @@ public sealed class CostCenterPaginationGuardrailsTests
 {
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
+    // Matches CostCentersController and CostCenterTypesController ("CostCenterTypes" does not share
+    // the plural "CostCenters" prefix, hence the alternation — mirror of the Locations family regex).
     private static readonly Regex CostCenterFamilyRegex =
-        new(@"^CostCenters", RegexOptions.Compiled);
+        new(@"^CostCenter(s|Types)", RegexOptions.Compiled);
 
     private static IReadOnlyList<MethodInfo> FamilyActions() =>
         ApiAssembly.GetTypes()

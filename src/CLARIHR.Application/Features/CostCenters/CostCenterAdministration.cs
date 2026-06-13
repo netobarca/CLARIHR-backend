@@ -21,7 +21,9 @@ public sealed record CostCenterListItemResponse(
     Guid Id,
     string Code,
     string Name,
-    CostCenterType Type,
+    Guid CostCenterTypeId,
+    string CostCenterTypeCode,
+    string CostCenterTypeName,
     string? PayrollExpenseAccountCode,
     string? EmployerContributionAccountCode,
     string? ProvisionAccountCode,
@@ -36,7 +38,9 @@ public sealed record CostCenterResponse(
     Guid CompanyId,
     string Code,
     string Name,
-    CostCenterType Type,
+    Guid CostCenterTypeId,
+    string CostCenterTypeCode,
+    string CostCenterTypeName,
     string? PayrollExpenseAccountCode,
     string? EmployerContributionAccountCode,
     string? ProvisionAccountCode,
@@ -61,7 +65,8 @@ public sealed record CostCenterExportRow(
     Guid Id,
     string Code,
     string Name,
-    CostCenterType Type,
+    string CostCenterTypeCode,
+    string CostCenterTypeName,
     string? PayrollExpenseAccountCode,
     string? EmployerContributionAccountCode,
     string? ProvisionAccountCode,
@@ -72,7 +77,7 @@ public sealed record CostCenterExportRow(
 
 public sealed record SearchCostCentersQuery(
     Guid CompanyId,
-    CostCenterType? Type,
+    Guid? TypeId,
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
@@ -86,7 +91,7 @@ public sealed record GetCostCenterUsageQuery(Guid CostCenterId) : IQuery<CostCen
 
 public sealed record ExportCostCentersQuery(
     Guid CompanyId,
-    CostCenterType? Type,
+    Guid? TypeId,
     bool? IsActive,
     string? Search,
     int? MaxRows = null)
@@ -96,7 +101,7 @@ public sealed record CreateCostCenterCommand(
     Guid CompanyId,
     string Code,
     string Name,
-    CostCenterType Type,
+    Guid CostCenterTypeId,
     string? PayrollExpenseAccountCode,
     string? EmployerContributionAccountCode,
     string? ProvisionAccountCode,
@@ -107,7 +112,7 @@ public sealed record UpdateCostCenterCommand(
     Guid CostCenterId,
     string Code,
     string Name,
-    CostCenterType Type,
+    Guid CostCenterTypeId,
     string? PayrollExpenseAccountCode,
     string? EmployerContributionAccountCode,
     string? ProvisionAccountCode,
@@ -138,6 +143,7 @@ internal sealed class SearchCostCentersQueryValidator : AbstractValidator<Search
     public SearchCostCentersQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.TypeId).NotEqual(Guid.Empty).When(static query => query.TypeId.HasValue);
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(CostCenterValidationRules.IsValidSearchLength)
@@ -168,6 +174,7 @@ internal sealed class ExportCostCentersQueryValidator : AbstractValidator<Export
     public ExportCostCentersQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.TypeId).NotEqual(Guid.Empty).When(static query => query.TypeId.HasValue);
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(CostCenterValidationRules.IsValidSearchLength)
@@ -186,6 +193,7 @@ internal sealed class CreateCostCenterCommandValidator : AbstractValidator<Creat
             .Must(CostCenterValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.CostCenterTypeId).NotEmpty();
         RuleFor(command => command.PayrollExpenseAccountCode)
             .MaximumLength(100)
             .Must(CostCenterValidationRules.IsValidAccountCode)
@@ -216,6 +224,7 @@ internal sealed class UpdateCostCenterCommandValidator : AbstractValidator<Updat
             .Must(CostCenterValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.CostCenterTypeId).NotEmpty();
         RuleFor(command => command.PayrollExpenseAccountCode)
             .MaximumLength(100)
             .Must(CostCenterValidationRules.IsValidAccountCode)
@@ -290,7 +299,7 @@ internal sealed class SearchCostCentersQueryHandler(
 
         var response = await repository.SearchAsync(
             query.CompanyId,
-            query.Type,
+            query.TypeId,
             query.IsActive,
             query.Search,
             query.PageNumber,
@@ -414,7 +423,7 @@ internal sealed class ExportCostCentersQueryHandler(
 
         var rows = await repository.GetExportRowsAsync(
             query.CompanyId,
-            query.Type,
+            query.TypeId,
             query.IsActive,
             query.Search,
             query.MaxRows,
@@ -427,6 +436,7 @@ internal sealed class ExportCostCentersQueryHandler(
 internal sealed class CreateCostCenterCommandHandler(
     ICostCenterAuthorizationService authorizationService,
     ICostCenterRepository repository,
+    ICostCenterTypeRepository typeRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<CreateCostCenterCommand, CostCenterResponse>
@@ -446,10 +456,26 @@ internal sealed class CreateCostCenterCommandHandler(
             return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
         }
 
+        var typeResult = await CostCenterRules.ResolveTypeAsync(
+            typeRepository,
+            authorizationService,
+            command.CostCenterTypeId,
+            RbacPermissionAction.Create,
+            cancellationToken);
+        if (typeResult.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(typeResult.Error);
+        }
+
+        if (!typeResult.Value.IsActive)
+        {
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CostCenterTypeInactive);
+        }
+
         var costCenter = CostCenter.Create(
             command.Code,
             command.Name,
-            command.Type,
+            typeResult.Value.Id,
             command.PayrollExpenseAccountCode,
             command.EmployerContributionAccountCode,
             command.ProvisionAccountCode,
@@ -496,6 +522,7 @@ internal sealed class CreateCostCenterCommandHandler(
 internal sealed class UpdateCostCenterCommandHandler(
     ICostCenterAuthorizationService authorizationService,
     ICostCenterRepository repository,
+    ICostCenterTypeRepository typeRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -535,6 +562,24 @@ internal sealed class UpdateCostCenterCommandHandler(
             return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
         }
 
+        var typeResult = await CostCenterRules.ResolveTypeAsync(
+            typeRepository,
+            authorizationService,
+            command.CostCenterTypeId,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (typeResult.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(typeResult.Error);
+        }
+
+        // An inactive type only blocks ASSIGNING it: keeping the current (now inactive) type while
+        // editing other fields stays allowed, so inactivating a type never bricks its cost centers.
+        if (typeResult.Value.Id != costCenter.CostCenterTypeId && !typeResult.Value.IsActive)
+        {
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CostCenterTypeInactive);
+        }
+
         var before = await repository.GetResponseByIdAsync(costCenter.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Cost center response could not be resolved before update.");
 
@@ -544,7 +589,7 @@ internal sealed class UpdateCostCenterCommandHandler(
             costCenter.Update(
                 command.Code,
                 command.Name,
-                command.Type,
+                typeResult.Value.Id,
                 command.PayrollExpenseAccountCode,
                 command.EmployerContributionAccountCode,
                 command.ProvisionAccountCode,
@@ -739,6 +784,7 @@ internal sealed class InactivateCostCenterCommandHandler(
 internal sealed class PatchCostCenterCommandHandler(
     ICostCenterAuthorizationService authorizationService,
     ICostCenterRepository repository,
+    ICostCenterTypeRepository typeRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -800,13 +846,31 @@ internal sealed class PatchCostCenterCommandHandler(
             return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
         }
 
+        var typeResult = await CostCenterRules.ResolveTypeAsync(
+            typeRepository,
+            authorizationService,
+            state.CostCenterTypeId,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (typeResult.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(typeResult.Error);
+        }
+
+        // Same rule as Update: only ASSIGNING a different, inactive type is blocked — patches that
+        // keep the current type untouched still work after that type was inactivated.
+        if (typeResult.Value.Id != costCenter.CostCenterTypeId && !typeResult.Value.IsActive)
+        {
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CostCenterTypeInactive);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             costCenter.Update(
                 state.Code,
                 state.Name,
-                state.Type,
+                typeResult.Value.Id,
                 state.PayrollExpenseAccountCode,
                 state.EmployerContributionAccountCode,
                 state.ProvisionAccountCode,
@@ -845,6 +909,28 @@ internal sealed class PatchCostCenterCommandHandler(
     }
 }
 
+internal static class CostCenterRules
+{
+    public static async Task<Result<CostCenterType>> ResolveTypeAsync(
+        ICostCenterTypeRepository repository,
+        ICostCenterAuthorizationService authorizationService,
+        Guid typeId,
+        RbacPermissionAction action,
+        CancellationToken cancellationToken)
+    {
+        var type = await repository.GetByIdAsync(typeId, cancellationToken);
+        if (type is not null)
+        {
+            return Result<CostCenterType>.Success(type);
+        }
+
+        return Result<CostCenterType>.Failure(
+            await repository.ExistsOutsideTenantAsync(typeId, cancellationToken)
+                ? authorizationService.TenantMismatch(action)
+                : CostCenterErrors.CostCenterTypeNotFound);
+    }
+}
+
 internal static class CostCenterConstraintViolations
 {
     // The (TenantId, NormalizedCode) unique index is the real guard against duplicate codes; the
@@ -860,7 +946,7 @@ internal sealed class CostCenterPatchState
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public CostCenterType Type { get; set; }
+    public Guid CostCenterTypeId { get; set; }
     public string? PayrollExpenseAccountCode { get; set; }
     public string? EmployerContributionAccountCode { get; set; }
     public string? ProvisionAccountCode { get; set; }
@@ -872,7 +958,7 @@ internal sealed class CostCenterPatchState
         {
             Code = response.Code,
             Name = response.Name,
-            Type = response.Type,
+            CostCenterTypeId = response.CostCenterTypeId,
             PayrollExpenseAccountCode = response.PayrollExpenseAccountCode,
             EmployerContributionAccountCode = response.EmployerContributionAccountCode,
             ProvisionAccountCode = response.ProvisionAccountCode,
@@ -953,6 +1039,11 @@ internal static class CostCenterPatchApplier
             errors["name"] = ["Name must be 150 characters or fewer."];
         }
 
+        if (state.CostCenterTypeId == Guid.Empty)
+        {
+            errors["costCenterTypeId"] = ["Cost center type id is required."];
+        }
+
         ValidateAccountCode(errors, "payrollExpenseAccountCode", state.PayrollExpenseAccountCode);
         ValidateAccountCode(errors, "employerContributionAccountCode", state.EmployerContributionAccountCode);
         ValidateAccountCode(errors, "provisionAccountCode", state.ProvisionAccountCode);
@@ -1022,14 +1113,14 @@ internal static class CostCenterPatchApplier
             return Result.Success();
         }
 
-        if (IsSegment(property, "type"))
+        if (IsSegment(property, "costCenterTypeId") || IsSegment(property, "costCenterTypePublicId"))
         {
             if (isRemove)
             {
-                return ValidationFailure(path, "Type cannot be removed.");
+                return ValidationFailure(path, "Cost center type cannot be removed.");
             }
 
-            state.Type = ReadEnum<CostCenterType>(value, path);
+            state.CostCenterTypeId = ReadGuid(value, path);
             state.HasMutation = true;
             return Result.Success();
         }
@@ -1104,8 +1195,7 @@ internal static class CostCenterPatchApplier
             : throw new CostCenterPatchValueException(path, "Value must be a string or null.");
     }
 
-    private static TEnum ReadEnum<TEnum>(JsonElement? value, string path)
-        where TEnum : struct, Enum
+    private static Guid ReadGuid(JsonElement? value, string path)
     {
         if (IsNull(value))
         {
@@ -1113,13 +1203,13 @@ internal static class CostCenterPatchApplier
         }
 
         if (value!.Value.ValueKind == JsonValueKind.String &&
-            Enum.TryParse<TEnum>(value.Value.GetString(), ignoreCase: true, out var parsed) &&
-            Enum.IsDefined(parsed))
+            Guid.TryParse(value.Value.GetString(), out var parsed) &&
+            parsed != Guid.Empty)
         {
             return parsed;
         }
 
-        throw new CostCenterPatchValueException(path, $"Value must be a valid {typeof(TEnum).Name}.");
+        throw new CostCenterPatchValueException(path, "Value must be a valid public id (GUID).");
     }
 
     private static Result ValidationFailure(string path, string message) =>
@@ -1139,7 +1229,7 @@ internal static class CostCenterPolicyAdapter
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 CostCenterPermissionCodes.ResourceKey,
-                response.Type.ToString(),
+                response.CostCenterTypeCode,
                 response.IsActive,
                 SupportsEdit: true,
                 EditAllowed: canManage,
@@ -1162,7 +1252,7 @@ internal static class CostCenterPolicyAdapter
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 CostCenterPermissionCodes.ResourceKey,
-                response.Type.ToString(),
+                response.CostCenterTypeCode,
                 response.IsActive,
                 HasDependencies: hasActiveUsage,
                 SupportsEdit: true,

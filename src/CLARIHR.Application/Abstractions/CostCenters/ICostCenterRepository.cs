@@ -18,7 +18,7 @@ public interface ICostCenterRepository
 
     Task<PagedResponse<CostCenterListItemResponse>> SearchAsync(
         Guid tenantId,
-        CostCenterType? type,
+        Guid? typeId,
         bool? isActive,
         string? search,
         int pageNumber,
@@ -39,7 +39,7 @@ public interface ICostCenterRepository
 
     Task<IReadOnlyCollection<CostCenterExportRow>> GetExportRowsAsync(
         Guid tenantId,
-        CostCenterType? type,
+        Guid? typeId,
         bool? isActive,
         string? search,
         int? maxRows,

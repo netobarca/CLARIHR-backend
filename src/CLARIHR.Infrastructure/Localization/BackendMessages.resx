@@ -184,6 +184,18 @@
   <data name="COST_CENTER_NOT_FOUND" xml:space="preserve">
     <value>The cost center could not be found.</value>
   </data>
+  <data name="COST_CENTER_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another cost center type already uses the requested code.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_INACTIVE" xml:space="preserve">
+    <value>The selected cost center type is inactive.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_IN_USE" xml:space="preserve">
+    <value>The cost center type cannot be inactivated because active cost centers still use it.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The cost center type could not be found.</value>
+  </data>
   <data name="DEFAULT_GROUP_PROTECTED" xml:space="preserve">
     <value>The default location group is protected and cannot be renamed, recoded or inactivated.</value>
   </data>

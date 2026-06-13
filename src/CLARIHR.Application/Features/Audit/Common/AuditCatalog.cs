@@ -96,6 +96,10 @@ public static class AuditEventTypes
     public const string CostCenterUpdated = "COST_CENTER_UPDATED";
     public const string CostCenterActivated = "COST_CENTER_ACTIVATED";
     public const string CostCenterInactivated = "COST_CENTER_INACTIVATED";
+    public const string CostCenterTypeCreated = "COST_CENTER_TYPE_CREATED";
+    public const string CostCenterTypeUpdated = "COST_CENTER_TYPE_UPDATED";
+    public const string CostCenterTypeActivated = "COST_CENTER_TYPE_ACTIVATED";
+    public const string CostCenterTypeInactivated = "COST_CENTER_TYPE_INACTIVATED";
     public const string LegalRepresentativeCreated = "LEGAL_REPRESENTATIVE_CREATED";
     public const string LegalRepresentativeUpdated = "LEGAL_REPRESENTATIVE_UPDATED";
     public const string LegalRepresentativeActivated = "LEGAL_REPRESENTATIVE_ACTIVATED";
@@ -262,6 +266,10 @@ public static class AuditEventTypes
         CostCenterUpdated,
         CostCenterActivated,
         CostCenterInactivated,
+        CostCenterTypeCreated,
+        CostCenterTypeUpdated,
+        CostCenterTypeActivated,
+        CostCenterTypeInactivated,
         LegalRepresentativeCreated,
         LegalRepresentativeUpdated,
         LegalRepresentativeActivated,
@@ -366,6 +374,7 @@ public static class AuditEntityTypes
     public const string PositionCategory = "PositionCategory";
     public const string PositionSlot = "PositionSlot";
     public const string CostCenter = "CostCenter";
+    public const string CostCenterType = "CostCenterType";
     public const string LegalRepresentative = "LegalRepresentative";
     public const string PersonnelFile = "PersonnelFile";
     public const string OccupationalPyramidLevel = "OccupationalPyramidLevel";
@@ -407,6 +416,7 @@ public static class AuditEntityTypes
         PositionCategory,
         PositionSlot,
         CostCenter,
+        CostCenterType,
         LegalRepresentative,
         PersonnelFile,
         OccupationalPyramidLevel,

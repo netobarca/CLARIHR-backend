@@ -160,6 +160,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PositionCategory> PositionCategories => Set<PositionCategory>();
 
+    public DbSet<CostCenterType> CostCenterTypes => Set<CostCenterType>();
+
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
 
     public DbSet<LegalRepresentative> LegalRepresentatives => Set<LegalRepresentative>();

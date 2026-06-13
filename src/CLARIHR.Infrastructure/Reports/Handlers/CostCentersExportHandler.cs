@@ -20,7 +20,7 @@ internal sealed class CostCentersExportHandler(
     {
         var rows = await costCenterRepository.GetExportRowsAsync(
             job.TenantId,
-            ReportExportParameters.ReadEnum<CostCenterType>(parameters, null, "type"),
+            ReportExportParameters.ReadGuid(parameters, "typeId", "type"),
             ReportExportParameters.ReadBool(parameters, "isActive"),
             ReportExportParameters.ReadString(parameters, "search", "q"),
             rowWriter.MaxRowsToRead,

@@ -11,7 +11,6 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.Reports.Common;
-using CLARIHR.Domain.CostCenters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
@@ -38,14 +37,14 @@ public sealed class CostCentersController(
     [SwaggerOperation(
         Summary = "List cost centers for a company",
         Description = """
-            Returns a paginated list of cost centers for the company, filterable by `type`,
-            `isActive` and free-text `q`. The owning company is validated against the
-            authenticated tenant. Set `includeAllowedActions=true` to receive per-item
-            read/manage flags.
+            Returns a paginated list of cost centers for the company, filterable by `typeId`
+            (the cost center type's public id), `isActive` and free-text `q`. The owning
+            company is validated against the authenticated tenant. Set
+            `includeAllowedActions=true` to receive per-item read/manage flags.
             """)]
     public async Task<ActionResult<PagedResponse<CostCenterListItemResponse>>> Search(
         Guid companyId,
-        [FromQuery] CostCenterType? type,
+        [FromQuery] Guid? typeId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
@@ -54,7 +53,7 @@ public sealed class CostCentersController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchCostCentersQuery(companyId, type, isActive, search, page, pageSize, includeAllowedActions),
+            new SearchCostCentersQuery(companyId, typeId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -103,13 +102,13 @@ public sealed class CostCentersController(
         Description = """
             Exports the filtered cost centers as a downloadable report in the requested
             `format` (e.g. `xlsx`; an unknown format yields `400`). The same filters as the
-            list endpoint apply (`type`, `isActive`, free-text `q`). The export is bounded by
+            list endpoint apply (`typeId`, `isActive`, free-text `q`). The export is bounded by
             the synchronous read limit and audited.
             """)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
-        [FromQuery] CostCenterType? type = null,
+        [FromQuery] Guid? typeId = null,
         [FromQuery] bool? isActive = null,
         [FromQuery(Name = "q")] string? search = null,
         CancellationToken cancellationToken = default)
@@ -117,7 +116,7 @@ public sealed class CostCentersController(
         var result = await queryDispatcher.SendAsync(
             new ExportCostCentersQuery(
                 companyId,
-                type,
+                typeId,
                 isActive,
                 search,
                 reportExportDeliveryService.SynchronousReadLimit),
@@ -137,7 +136,7 @@ public sealed class CostCentersController(
             AuditEntityTypes.CostCenter,
             ReportExportResources.CostCenters,
             "Exported cost centers report.",
-            new { type, isActive, q = search },
+            new { typeId, isActive, q = search },
             CostCenterErrors.ExportFormatInvalid,
             cancellationToken);
     }
@@ -150,7 +149,8 @@ public sealed class CostCentersController(
         Description = """
             Creates a cost center under the company and returns `201 Created` with the
             `Location` header pointing to the new resource and the `ETag` header carrying its
-            initial `concurrencyToken`. A duplicate code yields `409`.
+            initial `concurrencyToken`. The cost center type is referenced by public id and
+            must be an active type of the company. A duplicate code yields `409`.
             """)]
     public async Task<ActionResult<CostCenterResponse>> Create(
         Guid companyId,
@@ -162,7 +162,7 @@ public sealed class CostCentersController(
                 companyId,
                 request.Code,
                 request.Name,
-                request.Type,
+                request.CostCenterTypePublicId,
                 request.PayrollExpenseAccountCode,
                 request.EmployerContributionAccountCode,
                 request.ProvisionAccountCode,
@@ -185,8 +185,9 @@ public sealed class CostCentersController(
     [SwaggerOperation(
         Summary = "Update a cost center",
         Description = """
-            Replaces the editable fields of a cost center (code, name, type, account codes,
-            description). Requires the current `concurrencyToken` in the `If-Match` header; a
+            Replaces the editable fields of a cost center (code, name, cost center type by
+            public id, account codes, description). Assigning a different type requires it to
+            be active. Requires the current `concurrencyToken` in the `If-Match` header; a
             missing/malformed header yields `400` and a stale token yields
             `409 CONCURRENCY_CONFLICT`. A duplicate code yields `409`. The refreshed token is
             returned in the body and the `ETag` header.
@@ -202,7 +203,7 @@ public sealed class CostCentersController(
                 id,
                 request.Code,
                 request.Name,
-                request.Type,
+                request.CostCenterTypePublicId,
                 request.PayrollExpenseAccountCode,
                 request.EmployerContributionAccountCode,
                 request.ProvisionAccountCode,
@@ -223,11 +224,13 @@ public sealed class CostCentersController(
         Description = """
             Applies a partial update using JSON Patch (RFC 6902), media type
             `application/json-patch+json`. Supported operations are `add`/`replace`/`remove`
-            on root paths `/code`, `/name`, `/type`, `/payrollExpenseAccountCode`,
+            on root paths `/code`, `/name`, `/costCenterTypeId`, `/payrollExpenseAccountCode`,
             `/employerContributionAccountCode`, `/provisionAccountCode`, `/description`
             (activation is handled by the dedicated `/activate` and `/inactivate` endpoints).
-            Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`,
-            stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+            `/costCenterTypeId` takes the public id of an active cost center type of the
+            company. Requires the current `concurrencyToken` in the `If-Match` header
+            (missing → `400`, stale → `409`). The refreshed token is returned in the body and
+            the `ETag` header.
             """)]
     public async Task<ActionResult<CostCenterResponse>> Patch(
         Guid id,
@@ -295,7 +298,7 @@ public sealed class CostCentersController(
     public sealed record CreateCostCenterRequest(
         string Code,
         string Name,
-        CostCenterType Type,
+        Guid CostCenterTypePublicId,
         string? PayrollExpenseAccountCode,
         string? EmployerContributionAccountCode,
         string? ProvisionAccountCode,
@@ -304,7 +307,7 @@ public sealed class CostCentersController(
     public sealed record UpdateCostCenterRequest(
         string Code,
         string Name,
-        CostCenterType Type,
+        Guid CostCenterTypePublicId,
         string? PayrollExpenseAccountCode,
         string? EmployerContributionAccountCode,
         string? ProvisionAccountCode,
@@ -314,7 +317,7 @@ public sealed class CostCentersController(
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public CostCenterType Type { get; set; }
+        public Guid CostCenterTypeId { get; set; }
         public string? PayrollExpenseAccountCode { get; set; }
         public string? EmployerContributionAccountCode { get; set; }
         public string? ProvisionAccountCode { get; set; }

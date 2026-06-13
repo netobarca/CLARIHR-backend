@@ -1217,11 +1217,11 @@ public sealed class AccountCompanyAdministrationTests
         public Task<bool> FunctionalAreaCodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<PagedResponse<OrgUnitTypeCatalogItemResponse>> SearchOrgUnitTypesAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
-            Task.FromResult(new PagedResponse<OrgUnitTypeCatalogItemResponse>([], pageNumber, pageSize, 0));
+        public Task<PagedResponse<OrgUnitTypeCatalogListItemResponse>> SearchOrgUnitTypesAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<OrgUnitTypeCatalogListItemResponse>([], pageNumber, pageSize, 0));
 
-        public Task<PagedResponse<FunctionalAreaCatalogItemResponse>> SearchFunctionalAreasAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
-            Task.FromResult(new PagedResponse<FunctionalAreaCatalogItemResponse>([], pageNumber, pageSize, 0));
+        public Task<PagedResponse<FunctionalAreaCatalogListItemResponse>> SearchFunctionalAreasAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<FunctionalAreaCatalogListItemResponse>([], pageNumber, pageSize, 0));
 
         public Task<IReadOnlyCollection<CompanyTypeCatalogItemResponse>> GetActiveCompanyTypesByCountryCodeAsync(string countryCode, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>([]);

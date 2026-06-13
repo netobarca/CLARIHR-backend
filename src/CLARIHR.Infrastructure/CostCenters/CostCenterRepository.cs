@@ -40,77 +40,87 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
 
     public async Task<PagedResponse<CostCenterListItemResponse>> SearchAsync(
         Guid tenantId,
-        CostCenterType? type,
+        Guid? typeId,
         bool? isActive,
         string? search,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.CostCenters
-            .AsNoTracking()
-            .Where(costCenter => costCenter.TenantId == tenantId);
+        var query =
+            from costCenter in dbContext.CostCenters.AsNoTracking()
+            join type in dbContext.CostCenterTypes.AsNoTracking() on costCenter.CostCenterTypeId equals type.Id
+            where costCenter.TenantId == tenantId
+            select new
+            {
+                CostCenter = costCenter,
+                Type = type
+            };
 
-        if (type.HasValue)
+        if (typeId.HasValue)
         {
-            query = query.Where(costCenter => costCenter.Type == type.Value);
+            query = query.Where(item => item.Type.PublicId == typeId.Value);
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(costCenter => costCenter.IsActive == isActive.Value);
+            query = query.Where(item => item.CostCenter.IsActive == isActive.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var normalizedSearch = search.Trim().ToUpperInvariant();
-            query = query.Where(costCenter =>
-                costCenter.NormalizedCode.Contains(normalizedSearch) ||
-                costCenter.NormalizedName.Contains(normalizedSearch));
+            query = query.Where(item =>
+                item.CostCenter.NormalizedCode.Contains(normalizedSearch) ||
+                item.CostCenter.NormalizedName.Contains(normalizedSearch));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-            .OrderBy(costCenter => costCenter.Name)
-            .ThenBy(costCenter => costCenter.Code)
+            .OrderBy(item => item.CostCenter.Name)
+            .ThenBy(item => item.CostCenter.Code)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(costCenter => new CostCenterListItemResponse(
-                costCenter.PublicId,
-                costCenter.Code,
-                costCenter.Name,
-                costCenter.Type,
-                costCenter.PayrollExpenseAccountCode,
-                costCenter.EmployerContributionAccountCode,
-                costCenter.ProvisionAccountCode,
-                costCenter.IsActive,
-                costCenter.ConcurrencyToken,
-                costCenter.CreatedUtc,
-                costCenter.ModifiedUtc))
+            .Select(item => new CostCenterListItemResponse(
+                item.CostCenter.PublicId,
+                item.CostCenter.Code,
+                item.CostCenter.Name,
+                item.Type.PublicId,
+                item.Type.Code,
+                item.Type.Name,
+                item.CostCenter.PayrollExpenseAccountCode,
+                item.CostCenter.EmployerContributionAccountCode,
+                item.CostCenter.ProvisionAccountCode,
+                item.CostCenter.IsActive,
+                item.CostCenter.ConcurrencyToken,
+                item.CostCenter.CreatedUtc,
+                item.CostCenter.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<CostCenterListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<CostCenterResponse?> GetResponseByIdAsync(Guid costCenterId, CancellationToken cancellationToken) =>
-        dbContext.CostCenters
-            .AsNoTracking()
-            .Where(costCenter => costCenter.PublicId == costCenterId)
-            .Select(costCenter => new CostCenterResponse(
-                costCenter.PublicId,
-                costCenter.TenantId,
-                costCenter.Code,
-                costCenter.Name,
-                costCenter.Type,
-                costCenter.PayrollExpenseAccountCode,
-                costCenter.EmployerContributionAccountCode,
-                costCenter.ProvisionAccountCode,
-                costCenter.Description,
-                costCenter.IsActive,
-                costCenter.ConcurrencyToken,
-                costCenter.CreatedUtc,
-                costCenter.ModifiedUtc))
-            .SingleOrDefaultAsync(cancellationToken);
+        (from costCenter in dbContext.CostCenters.AsNoTracking()
+         join type in dbContext.CostCenterTypes.AsNoTracking() on costCenter.CostCenterTypeId equals type.Id
+         where costCenter.PublicId == costCenterId
+         select new CostCenterResponse(
+             costCenter.PublicId,
+             costCenter.TenantId,
+             costCenter.Code,
+             costCenter.Name,
+             type.PublicId,
+             type.Code,
+             type.Name,
+             costCenter.PayrollExpenseAccountCode,
+             costCenter.EmployerContributionAccountCode,
+             costCenter.ProvisionAccountCode,
+             costCenter.Description,
+             costCenter.IsActive,
+             costCenter.ConcurrencyToken,
+             costCenter.CreatedUtc,
+             costCenter.ModifiedUtc))
+        .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<CostCenterUsageResponse?> GetUsageByIdAsync(Guid costCenterId, CancellationToken cancellationToken)
     {
@@ -217,57 +227,62 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
 
     public async Task<IReadOnlyCollection<CostCenterExportRow>> GetExportRowsAsync(
         Guid tenantId,
-        CostCenterType? type,
+        Guid? typeId,
         bool? isActive,
         string? search,
         int? maxRows,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.CostCenters
-            .AsNoTracking()
-            .Where(costCenter => costCenter.TenantId == tenantId);
+        var query =
+            from costCenter in dbContext.CostCenters.AsNoTracking()
+            join type in dbContext.CostCenterTypes.AsNoTracking() on costCenter.CostCenterTypeId equals type.Id
+            where costCenter.TenantId == tenantId
+            select new
+            {
+                CostCenter = costCenter,
+                Type = type
+            };
 
-        if (type.HasValue)
+        if (typeId.HasValue)
         {
-            query = query.Where(costCenter => costCenter.Type == type.Value);
+            query = query.Where(item => item.Type.PublicId == typeId.Value);
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(costCenter => costCenter.IsActive == isActive.Value);
+            query = query.Where(item => item.CostCenter.IsActive == isActive.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var normalizedSearch = search.Trim().ToUpperInvariant();
-            query = query.Where(costCenter =>
-                costCenter.NormalizedCode.Contains(normalizedSearch) ||
-                costCenter.NormalizedName.Contains(normalizedSearch));
+            query = query.Where(item =>
+                item.CostCenter.NormalizedCode.Contains(normalizedSearch) ||
+                item.CostCenter.NormalizedName.Contains(normalizedSearch));
         }
 
         var ordered = query
-            .OrderBy(costCenter => costCenter.Name)
-            .ThenBy(costCenter => costCenter.Code);
+            .OrderBy(item => item.CostCenter.Name)
+            .ThenBy(item => item.CostCenter.Code);
 
-        IQueryable<CostCenter> limited = ordered;
-        if (maxRows.HasValue)
-        {
-            limited = limited.Take(maxRows.Value);
-        }
+        var limited = maxRows.HasValue
+            ? ordered.Take(maxRows.Value)
+            : ordered;
 
         return await limited
-            .Select(costCenter => new CostCenterExportRow(
-                costCenter.PublicId,
-                costCenter.Code,
-                costCenter.Name,
-                costCenter.Type,
-                costCenter.PayrollExpenseAccountCode,
-                costCenter.EmployerContributionAccountCode,
-                costCenter.ProvisionAccountCode,
-                costCenter.Description,
-                costCenter.IsActive,
-                costCenter.CreatedUtc,
-                costCenter.ModifiedUtc))
+            .Select(item => new CostCenterExportRow(
+                item.CostCenter.PublicId,
+                item.CostCenter.Code,
+                item.CostCenter.Name,
+                item.Type.Code,
+                item.Type.Name,
+                item.CostCenter.PayrollExpenseAccountCode,
+                item.CostCenter.EmployerContributionAccountCode,
+                item.CostCenter.ProvisionAccountCode,
+                item.CostCenter.Description,
+                item.CostCenter.IsActive,
+                item.CostCenter.CreatedUtc,
+                item.CostCenter.ModifiedUtc))
             .ToArrayAsync(cancellationToken);
     }
 }

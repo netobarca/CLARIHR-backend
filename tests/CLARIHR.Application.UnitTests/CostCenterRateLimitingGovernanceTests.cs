@@ -22,8 +22,10 @@ public sealed class CostCenterRateLimitingGovernanceTests
 {
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
+    // Matches CostCentersController and CostCenterTypesController ("CostCenterTypes" does not share
+    // the plural "CostCenters" prefix, hence the alternation — mirror of the Locations family regex).
     private static readonly Regex CostCenterFamilyRegex =
-        new(@"^CostCenters", RegexOptions.Compiled);
+        new(@"^CostCenter(s|Types)", RegexOptions.Compiled);
 
     /// <summary>Unbounded-cost reads that must be rate-limited (name or route match).</summary>
     private static readonly Regex HeavyEndpointRegex =

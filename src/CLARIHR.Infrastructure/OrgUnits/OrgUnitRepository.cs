@@ -27,7 +27,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
                     (!excludingOrgUnitId.HasValue || unit.Id != excludingOrgUnitId.Value),
             cancellationToken);
 
-    public async Task<PagedResponse<OrgUnitResponse>> SearchAsync(
+    public async Task<PagedResponse<OrgUnitListItemResponse>> SearchAsync(
         Guid tenantId,
         bool? isActive,
         Guid? orgUnitTypeId,
@@ -95,7 +95,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
             .ThenBy(item => item.Unit.Code)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new OrgUnitResponse(
+            .Select(item => new OrgUnitListItemResponse(
                 item.Unit.PublicId,
                 item.Unit.Code,
                 item.Unit.Name,
@@ -107,7 +107,6 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
                     ? new OrgUnitCatalogReferenceResponse(item.Parent.PublicId, item.Parent.Code, item.Parent.Name)
                     : null,
                 item.Unit.SortOrder,
-                item.Unit.Description,
                 item.Unit.CostCenterCode,
                 item.Unit.ManagerEmployeeId,
                 item.Unit.IsActive,
@@ -116,7 +115,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
                 item.Unit.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
-        return new PagedResponse<OrgUnitResponse>(items, pageNumber, pageSize, totalCount);
+        return new PagedResponse<OrgUnitListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<OrgUnitResponse?> GetResponseByIdAsync(Guid orgUnitId, CancellationToken cancellationToken) =>

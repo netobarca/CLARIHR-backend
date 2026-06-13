@@ -39,10 +39,8 @@ internal sealed class CostCenterConfiguration : IEntityTypeConfiguration<CostCen
             .HasColumnName("normalized_name")
             .HasMaxLength(150);
 
-        builder.Property(costCenter => costCenter.Type)
-            .HasColumnName("type")
-            .HasConversion<string>()
-            .HasMaxLength(40);
+        builder.Property(costCenter => costCenter.CostCenterTypeId)
+            .HasColumnName("cost_center_type_id");
 
         builder.Property(costCenter => costCenter.PayrollExpenseAccountCode)
             .HasColumnName("payroll_expense_account_code")
@@ -81,10 +79,16 @@ internal sealed class CostCenterConfiguration : IEntityTypeConfiguration<CostCen
             .IsUnique()
             .HasDatabaseName(CostCenterValidationRules.CodeUniqueConstraintName);
 
-        builder.HasIndex(costCenter => new { costCenter.TenantId, costCenter.Type, costCenter.IsActive })
+        builder.HasIndex(costCenter => new { costCenter.TenantId, costCenter.CostCenterTypeId, costCenter.IsActive })
             .HasDatabaseName("ix_cost_centers__tenant_type_active");
 
         builder.HasIndex(costCenter => new { costCenter.TenantId, costCenter.NormalizedName })
             .HasDatabaseName("ix_cost_centers__tenant_normalized_name");
+
+        builder.HasOne<CostCenterType>()
+            .WithMany()
+            .HasForeignKey(costCenter => costCenter.CostCenterTypeId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_cost_centers__cost_center_types");
     }
 }

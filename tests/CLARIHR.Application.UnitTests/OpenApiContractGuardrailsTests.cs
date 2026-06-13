@@ -43,7 +43,10 @@ public sealed class OpenApiContractGuardrailsTests
         // sit under /job-profiles/{}; it is enrolled in the CompetencyFramework family below instead.
         ("JobProfile/JobCatalog", new Regex(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
-        ("CostCenter", new Regex(@"^CostCenter", RegexOptions.Compiled), "Cost Centers"),
+        // `^CostCenters` (plural) matches only CostCentersController; the CostCenterTypes catalog is a
+        // separate Swagger group, mirroring the WorkCenters / WorkCenterTypes split below.
+        ("CostCenters", new Regex(@"^CostCenters", RegexOptions.Compiled), "Cost Centers"),
+        ("CostCenterTypes", new Regex(@"^CostCenterTypes", RegexOptions.Compiled), "Cost Center Types"),
         ("WorkCenters", new Regex(@"^WorkCenters", RegexOptions.Compiled), "Work Centers"),
         ("WorkCenterTypes", new Regex(@"^WorkCenterTypes", RegexOptions.Compiled), "Work Center Types"),
         ("LocationGroups", new Regex(@"^LocationGroups", RegexOptions.Compiled), "Location Groups"),

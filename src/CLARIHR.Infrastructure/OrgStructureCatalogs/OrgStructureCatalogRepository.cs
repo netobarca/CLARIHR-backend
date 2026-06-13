@@ -86,7 +86,7 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
         return items;
     }
 
-    public async Task<PagedResponse<OrgUnitTypeCatalogItemResponse>> SearchOrgUnitTypesAsync(
+    public async Task<PagedResponse<OrgUnitTypeCatalogListItemResponse>> SearchOrgUnitTypesAsync(
         Guid tenantId,
         bool? isActive,
         string? search,
@@ -118,11 +118,10 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
             .ThenBy(item => item.Code)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new OrgUnitTypeCatalogItemResponse(
+            .Select(item => new OrgUnitTypeCatalogListItemResponse(
                 item.PublicId,
                 item.Code,
                 item.Name,
-                item.Description,
                 item.SortOrder,
                 item.IsActive,
                 item.ConcurrencyToken,
@@ -130,10 +129,10 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                 item.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
-        return new PagedResponse<OrgUnitTypeCatalogItemResponse>(items, pageNumber, pageSize, totalCount);
+        return new PagedResponse<OrgUnitTypeCatalogListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
-    public async Task<PagedResponse<FunctionalAreaCatalogItemResponse>> SearchFunctionalAreasAsync(
+    public async Task<PagedResponse<FunctionalAreaCatalogListItemResponse>> SearchFunctionalAreasAsync(
         Guid tenantId,
         bool? isActive,
         string? search,
@@ -165,11 +164,10 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
             .ThenBy(item => item.Code)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new FunctionalAreaCatalogItemResponse(
+            .Select(item => new FunctionalAreaCatalogListItemResponse(
                 item.PublicId,
                 item.Code,
                 item.Name,
-                item.Description,
                 item.SortOrder,
                 item.IsActive,
                 item.ConcurrencyToken,
@@ -177,7 +175,7 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                 item.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
-        return new PagedResponse<FunctionalAreaCatalogItemResponse>(items, pageNumber, pageSize, totalCount);
+        return new PagedResponse<FunctionalAreaCatalogListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<OrgUnitTypeCatalogItemResponse?> GetOrgUnitTypeResponseByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>

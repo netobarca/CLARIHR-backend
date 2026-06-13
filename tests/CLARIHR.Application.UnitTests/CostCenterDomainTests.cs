@@ -10,7 +10,7 @@ public sealed class CostCenterDomainTests
         var costCenter = CostCenter.Create(
             code: "  cc-001  ",
             name: "  Centro Contable  ",
-            type: CostCenterType.Mixed,
+            costCenterTypeId: 1,
             payrollExpenseAccountCode: " 5101-001 ",
             employerContributionAccountCode: " 5102-001 ",
             provisionAccountCode: " 5103-001 ",
@@ -20,6 +20,7 @@ public sealed class CostCenterDomainTests
         Assert.Equal("CC-001", costCenter.NormalizedCode);
         Assert.Equal("Centro Contable", costCenter.Name);
         Assert.Equal("CENTRO CONTABLE", costCenter.NormalizedName);
+        Assert.Equal(1, costCenter.CostCenterTypeId);
         Assert.Equal("5101-001", costCenter.PayrollExpenseAccountCode);
         Assert.Equal("5102-001", costCenter.EmployerContributionAccountCode);
         Assert.Equal("5103-001", costCenter.ProvisionAccountCode);
@@ -28,12 +29,25 @@ public sealed class CostCenterDomainTests
     }
 
     [Fact]
+    public void CostCenter_Create_WithNonPositiveTypeId_ShouldThrow()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CostCenter.Create(
+            code: "CC-001",
+            name: "Centro",
+            costCenterTypeId: 0,
+            payrollExpenseAccountCode: null,
+            employerContributionAccountCode: null,
+            provisionAccountCode: null,
+            description: null));
+    }
+
+    [Fact]
     public void CostCenter_Update_ShouldRefreshConcurrencyToken()
     {
         var costCenter = CostCenter.Create(
             code: "CC-001",
             name: "Centro",
-            type: CostCenterType.Mixed,
+            costCenterTypeId: 1,
             payrollExpenseAccountCode: null,
             employerContributionAccountCode: null,
             provisionAccountCode: null,
@@ -44,14 +58,14 @@ public sealed class CostCenterDomainTests
         costCenter.Update(
             code: "CC-001",
             name: "Centro Actualizado",
-            type: CostCenterType.SalaryExpense,
+            costCenterTypeId: 2,
             payrollExpenseAccountCode: "5101-002",
             employerContributionAccountCode: null,
             provisionAccountCode: null,
             description: "Actualizado");
 
         Assert.Equal("Centro Actualizado", costCenter.Name);
-        Assert.Equal(CostCenterType.SalaryExpense, costCenter.Type);
+        Assert.Equal(2, costCenter.CostCenterTypeId);
         Assert.NotEqual(beforeToken, costCenter.ConcurrencyToken);
     }
 
@@ -61,7 +75,7 @@ public sealed class CostCenterDomainTests
         var costCenter = CostCenter.Create(
             code: "CC-001",
             name: "Centro",
-            type: CostCenterType.Mixed,
+            costCenterTypeId: 1,
             payrollExpenseAccountCode: null,
             employerContributionAccountCode: null,
             provisionAccountCode: null,

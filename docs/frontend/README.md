@@ -16,6 +16,12 @@ Considerations, enums.
 La integración va de **onboarding/cuenta** (1–6) a **datos del negocio** (7+). Cada fase asume las
 anteriores.
 
+> 📋 **¿Buscás el orden exacto para integrar sin bloqueos?** Ver
+> [INTEGRATION-ORDER.md](./INTEGRATION-ORDER.md) — el paso a paso topológico (23 pasos en 8 bloques),
+> cómo validar cada bloque y las **3 trampas de "flujo faltante"** donde un módulo "posterior" es en
+> realidad prerequisito de uno "anterior". Esta tabla de fases es el **mapa temático**; ese doc es la
+> **ruta de implementación**.
+
 | # | Fase | Carpeta | Qué cubre |
 |---|------|---------|-----------|
 | 1 | **Autenticación** | [auth/](./auth/authentication.md) | login, refresh, logout, registro + verificación de email, Google, password reset, aceptar invitación |

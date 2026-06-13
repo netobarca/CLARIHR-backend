@@ -34,18 +34,19 @@ public sealed class OrganizationUnitsController(
 {
     [HttpGet("companies/{companyId:guid}/organization-units")]
     [EnableRateLimiting(OrgUnitRateLimitPolicies.Search)]
-    [ProducesResponseType<PagedResponse<OrgUnitResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<OrgUnitListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
         Summary = "List org units for a company",
         Description = """
             Returns a paginated list of organization units for the company, filterable by
             `isActive`, `orgUnitTypeId`, `functionalAreaId`, `parentId` and free-text `q`. The
-            owning company is validated against the authenticated tenant. Set
+            owning company is validated against the authenticated tenant. List items omit
+            `description` (detail-only); fetch the unit by id for the full payload. Set
             `includeAllowedActions=true` to receive per-item read/manage flags. For the hierarchy
             use the `/tree` endpoint.
             """)]
-    public async Task<ActionResult<PagedResponse<OrgUnitResponse>>> Search(
+    public async Task<ActionResult<PagedResponse<OrgUnitListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] bool? isActive,
         [FromQuery] Guid? orgUnitTypeId,

@@ -18,7 +18,6 @@ using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Companies;
-using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.DocumentTypeCatalogs;
 using CLARIHR.Domain.Files;
 using CLARIHR.Domain.IdentityAccess;
@@ -5482,7 +5481,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             maxEmployees: 1);
 
         using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
-        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-AA", "Centro AllowedActions", "Mixed");
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-AA", "Centro AllowedActions");
 
         using var legalRepresentativeClient = factory.CreateClientFor(
             TestUserContext.Authenticated(
@@ -8337,8 +8336,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
         using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-OLD", "Centro Derivado Inicial", "Mixed");
-        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-NEW", "Centro Derivado Nuevo", "Mixed");
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-OLD", "Centro Derivado Inicial");
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-NEW", "Centro Derivado Nuevo");
 
         var initialOrgUnit = await CreateOrgUnitAsync(
             client,
@@ -8654,7 +8653,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-001", "Centro Principal", "Mixed");
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-001", "Centro Principal");
 
         var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers?page=1&pageSize=20");
         listResponse.EnsureSuccessStatusCode();
@@ -8668,11 +8667,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(getPayload);
         Assert.Equal("CC-001", getPayload!.Code);
 
+        var salaryExpenseType = await CreateCostCenterTypeAsync(client, scenario.TenantId, "SALARY-EXPENSE", "Gasto salarial");
         var updateResponse = await client.PutJsonAsync($"/api/v1/cost-centers/{created.Id}", new
         {
             code = "CC-001",
             name = "Centro Principal Actualizado",
-            type = "SalaryExpense",
+            costCenterTypePublicId = salaryExpenseType.Id,
             payrollExpenseAccountCode = "5101-001",
             employerContributionAccountCode = "5102-001",
             provisionAccountCode = "5103-001",
@@ -8683,7 +8683,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var updated = await updateResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
         Assert.NotNull(updated);
         Assert.Equal("Centro Principal Actualizado", updated!.Name);
-        Assert.Equal(CostCenterType.SalaryExpense, updated.Type);
+        Assert.Equal(salaryExpenseType.Id, updated.CostCenterTypeId);
+        Assert.Equal("SALARY-EXPENSE", updated.CostCenterTypeCode);
 
         var usageResponse = await client.GetAsync($"/api/v1/cost-centers/{created.Id}/usage");
         usageResponse.EnsureSuccessStatusCode();
@@ -8728,13 +8729,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        _ = await CreateCostCenterAsync(client, scenario.TenantId, "CC-DUP", "Centro 1", "Mixed");
+        var existing = await CreateCostCenterAsync(client, scenario.TenantId, "CC-DUP", "Centro 1");
 
         var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
         {
             code = "CC-DUP",
             name = "Centro 2",
-            type = "Mixed",
+            costCenterTypePublicId = existing.CostCenterTypeId,
             payrollExpenseAccountCode = (string?)null,
             employerContributionAccountCode = (string?)null,
             provisionAccountCode = (string?)null,
@@ -8750,13 +8751,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-STALE", "Centro", "Mixed");
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-STALE", "Centro");
 
         var response = await client.PutJsonAsync($"/api/v1/cost-centers/{costCenter.Id}", new
         {
             code = "CC-STALE",
             name = "Centro Actualizado",
-            type = "Mixed",
+            costCenterTypePublicId = costCenter.CostCenterTypeId,
             payrollExpenseAccountCode = (string?)null,
             employerContributionAccountCode = (string?)null,
             provisionAccountCode = (string?)null,
@@ -8773,7 +8774,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USE", "Centro Uso", "Mixed");
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USE", "Centro Uso");
 
         _ = await CreateOrgUnitAsync(
             client,
@@ -8801,7 +8802,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USAGE", "Centro Uso GetById", "Mixed");
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USAGE", "Centro Uso GetById");
 
         Assert.True(await GetCostCenterCanInactivateAsync(client, costCenter.Id));
 
@@ -8832,7 +8833,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PATCH", "Centro Patch", "Mixed");
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PATCH", "Centro Patch");
 
         using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
         {
@@ -8858,7 +8859,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOMATCH", "Centro", "Mixed");
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOMATCH", "Centro");
 
         using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
         {
@@ -8878,7 +8879,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PSTALE", "Centro", "Mixed");
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PSTALE", "Centro");
 
         using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
         {
@@ -8899,7 +8900,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOISACTIVE", "Centro", "Mixed");
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOISACTIVE", "Centro");
 
         // Scalar-only PATCH: /isActive is not a patchable path (activation lives in the
         // dedicated /activate and /inactivate endpoints), so it must be rejected with 400.
@@ -8925,7 +8926,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
         using var positionSlotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
-        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-SLOT-USAGE", "Centro Plaza", "Mixed");
+        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-SLOT-USAGE", "Centro Plaza");
         var orgUnit = await CreateOrgUnitAsync(
             orgUnitClient,
             scenario.TenantId,
@@ -8974,11 +8975,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminWithAuditContext(scenario));
 
+        var costCenterType = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CC-AUD-T", "Tipo Audit");
+
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
         {
             code = "CC-AUD",
             name = "Centro Audit",
-            type = "Mixed",
+            costCenterTypePublicId = costCenterType.Id,
             payrollExpenseAccountCode = "5101-100",
             employerContributionAccountCode = "5102-100",
             provisionAccountCode = "5103-100",
@@ -8992,6 +8995,166 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Contains(payload!.Items, static item => item.EventType == "COST_CENTER_CREATED" && item.EntityType == "CostCenter");
+    }
+
+    [Fact]
+    public async Task CostCenterTypes_FullFlow_ShouldCreateListGetUpdateActivateAndInactivate()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CCT-001", "Gasto salarial");
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-center-types?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CostCenterTypeItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        Assert.Contains(listPayload!.Items, item => item.Id == created.Id);
+
+        var getResponse = await client.GetAsync($"/api/v1/cost-center-types/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var getPayload = await getResponse.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(getPayload);
+        Assert.Equal("CCT-001", getPayload!.Code);
+
+        var updateResponse = await client.PutJsonAsync($"/api/v1/cost-center-types/{created.Id}", new
+        {
+            code = "CCT-001",
+            name = "Gasto salarial actualizado",
+            description = "Actualizado",
+            concurrencyToken = created.ConcurrencyToken
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Gasto salarial actualizado", updated!.Name);
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+
+        var inactivateResponse = await client.PatchJsonAsync($"/api/v1/cost-center-types/{created.Id}/inactivate", new
+        {
+            concurrencyToken = updated.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+        var inactive = await inactivateResponse.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(inactive);
+        Assert.False(inactive!.IsActive);
+
+        var activateResponse = await client.PatchJsonAsync($"/api/v1/cost-center-types/{created.Id}/activate", new
+        {
+            concurrencyToken = inactive.ConcurrencyToken
+        });
+        activateResponse.EnsureSuccessStatusCode();
+        var active = await activateResponse.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(active);
+        Assert.True(active!.IsActive);
+    }
+
+    [Fact]
+    public async Task CostCenterTypes_Create_WithDuplicateCode_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        _ = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CCT-DUP", "Tipo 1");
+
+        var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-center-types", new
+        {
+            code = "CCT-DUP",
+            name = "Tipo 2",
+            description = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(duplicateResponse, HttpStatusCode.Conflict, "COST_CENTER_TYPE_CODE_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CostCenterTypes_Inactivate_WhenTypeIsInUse_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenterType = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CCT-USE", "Tipo en uso");
+        _ = await CreateCostCenterAsync(client, scenario.TenantId, "CC-CCT-USE", "Centro Tipo Uso", costCenterType.Id);
+
+        var response = await client.PatchJsonAsync($"/api/v1/cost-center-types/{costCenterType.Id}/inactivate", new
+        {
+            concurrencyToken = costCenterType.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COST_CENTER_TYPE_IN_USE");
+    }
+
+    [Fact]
+    public async Task CostCenterTypes_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CCT-PATCH", "Tipo Patch");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-center-types/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Tipo Patcheado" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Tipo Patcheado", patched!.Name);
+        Assert.Equal("CCT-PATCH", patched.Code);
+        Assert.NotEqual(created.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task CostCenters_Create_WithUnknownType_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        {
+            code = "CC-NOTYPE",
+            name = "Centro Sin Tipo",
+            costCenterTypePublicId = Guid.NewGuid(),
+            payrollExpenseAccountCode = (string?)null,
+            employerContributionAccountCode = (string?)null,
+            provisionAccountCode = (string?)null,
+            description = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "COST_CENTER_TYPE_NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task CostCenters_Create_WithInactiveType_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenterType = await CreateCostCenterTypeAsync(client, scenario.TenantId, "CCT-OFF", "Tipo Inactivo");
+        var inactivateResponse = await client.PatchJsonAsync($"/api/v1/cost-center-types/{costCenterType.Id}/inactivate", new
+        {
+            concurrencyToken = costCenterType.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        {
+            code = "CC-OFFTYPE",
+            name = "Centro Tipo Inactivo",
+            costCenterTypePublicId = costCenterType.Id,
+            payrollExpenseAccountCode = (string?)null,
+            employerContributionAccountCode = (string?)null,
+            provisionAccountCode = (string?)null,
+            description = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COST_CENTER_TYPE_INACTIVE");
     }
 
     [Fact]
@@ -9023,7 +9186,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
-        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-INACTIVE", "Centro Inactivo", "Mixed");
+        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-INACTIVE", "Centro Inactivo");
 
         using var slotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
@@ -10813,18 +10976,42 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
+    private async Task<CostCenterTypeItem> CreateCostCenterTypeAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        string name = "Tipo de centro de costo")
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/cost-center-types", new
+        {
+            code,
+            name,
+            description = "Tipo de centro de costo"
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CostCenterTypeItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
     private async Task<CostCenterItem> CreateCostCenterAsync(
         HttpClient client,
         Guid companyId,
         string code,
         string name,
-        string type)
+        Guid? costCenterTypePublicId = null)
     {
+        // Each cost center gets a dedicated catalog type unless the caller supplies one ("{code}-T"
+        // stays unique per tenant because cost center codes are unique per test scenario).
+        var typeId = costCenterTypePublicId
+            ?? (await CreateCostCenterTypeAsync(client, companyId, $"{code}-T", $"Tipo {name}")).Id;
+
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/cost-centers", new
         {
             code,
             name,
-            type,
+            costCenterTypePublicId = typeId,
             payrollExpenseAccountCode = "5101-001",
             employerContributionAccountCode = "5102-001",
             provisionAccountCode = "5103-001",
@@ -12078,7 +12265,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid Id,
         string Code,
         string Name,
-        CostCenterType Type,
+        Guid CostCenterTypeId,
+        string CostCenterTypeCode,
+        string CostCenterTypeName,
         bool IsActive,
         Guid ConcurrencyToken);
 
@@ -12086,7 +12275,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid Id,
         string Code,
         string Name,
-        CostCenterType Type,
+        Guid CostCenterTypeId,
+        string CostCenterTypeCode,
+        string CostCenterTypeName,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record CostCenterTypeItem(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
         bool IsActive,
         Guid ConcurrencyToken);
 

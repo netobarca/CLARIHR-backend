@@ -160,6 +160,7 @@ public static class DependencyInjection
         services.AddScoped<CatalogTypes.CatalogTypeDescriptorSeedService>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<IPositionSlotAuthorizationService, PositionSlotAuthorizationService>();
+        services.AddScoped<ICostCenterTypeRepository, CostCenterTypeRepository>();
         services.AddScoped<ICostCenterRepository, CostCenterRepository>();
         services.AddScoped<ICostCenterAuthorizationService, CostCenterAuthorizationService>();
         services.AddScoped<ICompetencyFrameworkRepository, CompetencyFrameworkRepository>();

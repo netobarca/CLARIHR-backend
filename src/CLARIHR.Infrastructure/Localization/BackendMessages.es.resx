@@ -184,6 +184,18 @@
   <data name="COST_CENTER_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar cost center.</value>
   </data>
+  <data name="COST_CENTER_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro tipo de centro de costo ya usa el code solicitado.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_INACTIVE" xml:space="preserve">
+    <value>El tipo de centro de costo seleccionado esta inactivo.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de centro de costo no puede ser inactivado porque centros de costo activos todavia lo usan.</value>
+  </data>
+  <data name="COST_CENTER_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el tipo de centro de costo.</value>
+  </data>
   <data name="DEFAULT_GROUP_PROTECTED" xml:space="preserve">
     <value>El grupo de ubicacion predeterminado esta protegido y no puede ser renombrado, recodificado ni inactivado.</value>
   </data>

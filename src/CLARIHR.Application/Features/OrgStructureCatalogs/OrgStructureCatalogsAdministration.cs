@@ -57,6 +57,30 @@ public sealed record FunctionalAreaCatalogItemResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
+// List projections of the paged searches: same shape as the detail responses minus Description,
+// which is detail-only payload (mirror of the CostCenters ListItem/Response split).
+public sealed record OrgUnitTypeCatalogListItemResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int SortOrder,
+    bool IsActive,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
+public sealed record FunctionalAreaCatalogListItemResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int SortOrder,
+    bool IsActive,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
 public sealed record SearchOrgUnitTypesQuery(
     Guid CompanyId,
     bool? IsActive,
@@ -64,7 +88,7 @@ public sealed record SearchOrgUnitTypesQuery(
     int PageNumber = 1,
     int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false)
-    : IQuery<PagedResponse<OrgUnitTypeCatalogItemResponse>>;
+    : IQuery<PagedResponse<OrgUnitTypeCatalogListItemResponse>>;
 
 public sealed record GetOrgUnitTypeByIdQuery(Guid OrgUnitTypeId)
     : IQuery<OrgUnitTypeCatalogItemResponse>;
@@ -103,7 +127,7 @@ public sealed record SearchFunctionalAreasQuery(
     int PageNumber = 1,
     int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false)
-    : IQuery<PagedResponse<FunctionalAreaCatalogItemResponse>>;
+    : IQuery<PagedResponse<FunctionalAreaCatalogListItemResponse>>;
 
 public sealed record GetFunctionalAreaByIdQuery(Guid FunctionalAreaId)
     : IQuery<FunctionalAreaCatalogItemResponse>;
@@ -285,16 +309,16 @@ internal sealed class SearchOrgUnitTypesQueryHandler(
     IOrgStructureCatalogAuthorizationService authorizationService,
     IOrgStructureCatalogRepository repository,
     IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<SearchOrgUnitTypesQuery, PagedResponse<OrgUnitTypeCatalogItemResponse>>
+    : IQueryHandler<SearchOrgUnitTypesQuery, PagedResponse<OrgUnitTypeCatalogListItemResponse>>
 {
-    public async Task<Result<PagedResponse<OrgUnitTypeCatalogItemResponse>>> Handle(
+    public async Task<Result<PagedResponse<OrgUnitTypeCatalogListItemResponse>>> Handle(
         SearchOrgUnitTypesQuery query,
         CancellationToken cancellationToken)
     {
         var authResult = await authorizationService.EnsureCanReadTenantAsync(query.CompanyId, cancellationToken);
         if (authResult.IsFailure)
         {
-            return Result<PagedResponse<OrgUnitTypeCatalogItemResponse>>.Failure(authResult.Error);
+            return Result<PagedResponse<OrgUnitTypeCatalogListItemResponse>>.Failure(authResult.Error);
         }
 
         var response = await repository.SearchOrgUnitTypesAsync(
@@ -322,14 +346,14 @@ internal sealed class SearchOrgUnitTypesQueryHandler(
                     item.IsActive && inUse.Contains(item.Id)))
                 .ToList();
 
-            response = new PagedResponse<OrgUnitTypeCatalogItemResponse>(
+            response = new PagedResponse<OrgUnitTypeCatalogListItemResponse>(
                 enrichedItems,
                 response.PageNumber,
                 response.PageSize,
                 response.TotalCount);
         }
 
-        return Result<PagedResponse<OrgUnitTypeCatalogItemResponse>>.Success(response);
+        return Result<PagedResponse<OrgUnitTypeCatalogListItemResponse>>.Success(response);
     }
 }
 
@@ -670,16 +694,16 @@ internal sealed class SearchFunctionalAreasQueryHandler(
     IOrgStructureCatalogAuthorizationService authorizationService,
     IOrgStructureCatalogRepository repository,
     IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<SearchFunctionalAreasQuery, PagedResponse<FunctionalAreaCatalogItemResponse>>
+    : IQueryHandler<SearchFunctionalAreasQuery, PagedResponse<FunctionalAreaCatalogListItemResponse>>
 {
-    public async Task<Result<PagedResponse<FunctionalAreaCatalogItemResponse>>> Handle(
+    public async Task<Result<PagedResponse<FunctionalAreaCatalogListItemResponse>>> Handle(
         SearchFunctionalAreasQuery query,
         CancellationToken cancellationToken)
     {
         var authResult = await authorizationService.EnsureCanReadTenantAsync(query.CompanyId, cancellationToken);
         if (authResult.IsFailure)
         {
-            return Result<PagedResponse<FunctionalAreaCatalogItemResponse>>.Failure(authResult.Error);
+            return Result<PagedResponse<FunctionalAreaCatalogListItemResponse>>.Failure(authResult.Error);
         }
 
         var response = await repository.SearchFunctionalAreasAsync(
@@ -707,14 +731,14 @@ internal sealed class SearchFunctionalAreasQueryHandler(
                     item.IsActive && inUse.Contains(item.Id)))
                 .ToList();
 
-            response = new PagedResponse<FunctionalAreaCatalogItemResponse>(
+            response = new PagedResponse<FunctionalAreaCatalogListItemResponse>(
                 enrichedItems,
                 response.PageNumber,
                 response.PageSize,
                 response.TotalCount);
         }
 
-        return Result<PagedResponse<FunctionalAreaCatalogItemResponse>>.Success(response);
+        return Result<PagedResponse<FunctionalAreaCatalogListItemResponse>>.Success(response);
     }
 }
 
@@ -730,8 +754,28 @@ internal static class OrgStructureCatalogPolicyAdapter
             AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "OrgUnitTypes")
         };
 
+    public static OrgUnitTypeCatalogListItemResponse ApplyAllowedActions(
+        OrgUnitTypeCatalogListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "OrgUnitTypes")
+        };
+
     public static FunctionalAreaCatalogItemResponse ApplyAllowedActions(
         FunctionalAreaCatalogItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "FunctionalAreas")
+        };
+
+    public static FunctionalAreaCatalogListItemResponse ApplyAllowedActions(
+        FunctionalAreaCatalogListItemResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
         bool canManage,
         bool hasDependencies) =>
