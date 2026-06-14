@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -26,6 +27,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Legal Representatives")]
 [AuthorizationPolicySet(LegalRepresentativePolicies.Read, LegalRepresentativePolicies.Manage)]
+[ResourceActions(LegalRepresentativePermissionCodes.ResourceKey)]
 public sealed class LegalRepresentativesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,

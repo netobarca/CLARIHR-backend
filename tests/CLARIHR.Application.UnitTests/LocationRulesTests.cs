@@ -33,6 +33,7 @@ public sealed class LocationRulesTests
         var workCenterType = WorkCenterType.Create(
             code: "AGENCY",
             name: "Agency",
+            description: null,
             requiresAddress: false,
             requiresGeo: false,
             allowsBiometric: true);
@@ -66,6 +67,7 @@ public sealed class LocationRulesTests
         var workCenterType = WorkCenterType.Create(
             code: "AGENCY",
             name: "Agency",
+            description: null,
             requiresAddress: true,
             requiresGeo: false,
             allowsBiometric: true);
@@ -110,6 +112,7 @@ public sealed class LocationRulesTests
         var workCenterType = WorkCenterType.Create(
             code: "AGENCY",
             name: "Agency",
+            description: null,
             requiresAddress: false,
             requiresGeo: false,
             allowsBiometric: true);
@@ -160,6 +163,7 @@ public sealed class LocationRulesTests
         var workCenterType = WorkCenterType.Create(
             code: "AGENCY",
             name: "Agency",
+            description: null,
             requiresAddress: false,
             requiresGeo: false,
             allowsBiometric: false);

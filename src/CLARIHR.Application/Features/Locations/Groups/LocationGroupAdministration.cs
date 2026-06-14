@@ -29,7 +29,7 @@ public sealed record LocationGroupResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record LocationGroupTreeNodeResponse(
     Guid Id,

@@ -43,7 +43,7 @@ public sealed record OrgUnitTypeCatalogItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record FunctionalAreaCatalogItemResponse(
     Guid Id,
@@ -55,7 +55,7 @@ public sealed record FunctionalAreaCatalogItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 // List projections of the paged searches: same shape as the detail responses minus Description,
 // which is detail-only payload (mirror of the CostCenters ListItem/Response split).
@@ -68,7 +68,7 @@ public sealed record OrgUnitTypeCatalogListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record FunctionalAreaCatalogListItemResponse(
     Guid Id,
@@ -79,7 +79,7 @@ public sealed record FunctionalAreaCatalogListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record SearchOrgUnitTypesQuery(
     Guid CompanyId,

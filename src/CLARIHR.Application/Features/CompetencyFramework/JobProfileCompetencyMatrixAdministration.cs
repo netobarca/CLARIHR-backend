@@ -46,7 +46,7 @@ public sealed record JobProfileCompetencyMatrixResponse(
     int JobProfileVersion,
     Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileCompetencyMatrixItemResponse> Items,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record JobProfileCompetencyMatrixExportRow(
     Guid JobProfileId,

@@ -17,6 +17,12 @@ public sealed record AllowedActionsResponse(
 {
     public IReadOnlyCollection<AllowedActionPermissionResponse> ActionPermissions { get; init; } =
         ActionPermissions ?? [];
+
+    // Screen-level capabilities. Declared as init-only (not positional) so existing
+    // positional constructions of this record keep compiling unchanged.
+    public bool CanView { get; init; }
+
+    public bool CanCreate { get; init; }
 }
 
 public sealed record AllowedActionPermissionResponse(
@@ -41,4 +47,8 @@ public sealed record ResourceActionContext(
     bool ActivateAllowed = true,
     bool SupportsInactivate = false,
     bool InactivateAllowed = true,
-    IReadOnlyCollection<string>? NonEditableStates = null);
+    IReadOnlyCollection<string>? NonEditableStates = null,
+    bool SupportsCreate = false,
+    bool CreateAllowed = true,
+    bool SupportsView = true,
+    bool ViewAllowed = true);

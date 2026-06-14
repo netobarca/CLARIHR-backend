@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -25,6 +26,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Position Slots")]
 [AuthorizationPolicySet(PositionSlotPolicies.Read, PositionSlotPolicies.Manage)]
+[ResourceActions(PositionSlotPermissionCodes.ResourceKey)]
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,

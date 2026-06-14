@@ -27,7 +27,7 @@ public sealed record JobCatalogItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record SearchJobCatalogItemsQuery(
     Guid CompanyId,

@@ -38,7 +38,7 @@ public sealed record WorkCenterResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record SearchWorkCentersQuery(
     Guid CompanyId,

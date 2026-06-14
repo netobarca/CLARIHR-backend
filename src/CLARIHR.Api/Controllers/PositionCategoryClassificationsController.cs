@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using System.ComponentModel.DataAnnotations;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -23,6 +24,7 @@ namespace CLARIHR.Api.Controllers;
 [Produces("application/json")]
 [Tags("Position Description Catalogs")]
 [AuthorizationPolicySet(PositionDescriptionCatalogPolicies.Read, PositionDescriptionCatalogPolicies.Manage)]
+[ResourceActions(PositionDescriptionCatalogPermissionCodes.ResourceKey)]
 public sealed class PositionCategoryClassificationsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)

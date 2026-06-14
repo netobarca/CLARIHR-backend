@@ -9,6 +9,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -36,8 +37,10 @@ public sealed record JobProfileCompensationItemResponse(
     string? Notes,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc)
+    DateTime? ModifiedAtUtc) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => CompensationPublicId;
 

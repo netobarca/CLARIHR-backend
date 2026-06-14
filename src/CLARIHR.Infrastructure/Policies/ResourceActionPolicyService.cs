@@ -16,17 +16,17 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         var canEdit = context.SupportsEdit && context.EditAllowed;
         if (context.SupportsEdit && !context.EditAllowed)
         {
-            reasons.Add("The current user is not authorized to edit this record.");
+            reasons.Add(AllowedActionReasonCodes.NotAuthorized);
         }
         else if (context.IsSystem)
         {
             canEdit = false;
-            reasons.Add("System-managed records cannot be edited.");
+            reasons.Add(AllowedActionReasonCodes.SystemRecord);
         }
         else if (normalizedState is not null && nonEditableStates.Contains(normalizedState))
         {
             canEdit = false;
-            reasons.Add($"Records in state '{context.State}' cannot be edited.");
+            reasons.Add(AllowedActionReasonCodes.NonEditableState);
         }
 
         var canDelete = context.SupportsDelete && context.DeleteAllowed && !context.IsSystem && !context.HasDependencies;
@@ -34,19 +34,19 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         {
             if (!context.SupportsDelete)
             {
-                reasons.Add("Soft delete policy is enforced for this resource.");
+                reasons.Add(AllowedActionReasonCodes.SoftDeleteEnforced);
             }
             else if (!context.DeleteAllowed)
             {
-                reasons.Add("The current user is not authorized to delete this record.");
+                reasons.Add(AllowedActionReasonCodes.NotAuthorized);
             }
             else if (context.IsSystem)
             {
-                reasons.Add("System-managed records cannot be deleted.");
+                reasons.Add(AllowedActionReasonCodes.SystemRecord);
             }
             else if (context.HasDependencies)
             {
-                reasons.Add("The record cannot be deleted because it has active dependencies.");
+                reasons.Add(AllowedActionReasonCodes.HasDependencies);
             }
         }
 
@@ -54,20 +54,20 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         if (!canArchive && context.SupportsArchive)
         {
             reasons.Add(!context.ArchiveAllowed
-                ? "The current user is not authorized to archive this record."
+                ? AllowedActionReasonCodes.NotAuthorized
                 : context.IsActive
-                    ? "The record cannot be archived due to current restrictions."
-                    : "The record is already inactive/archived.");
+                    ? AllowedActionReasonCodes.ActionRestricted
+                    : AllowedActionReasonCodes.AlreadyInactive);
         }
 
         var canActivate = context.SupportsActivate && context.ActivateAllowed && !context.IsActive;
         if (!canActivate && context.SupportsActivate)
         {
             reasons.Add(!context.ActivateAllowed
-                ? "The current user is not authorized to activate this record."
+                ? AllowedActionReasonCodes.NotAuthorized
                 : context.IsActive
-                    ? "The record is already active."
-                    : "The record cannot be activated due to current restrictions.");
+                    ? AllowedActionReasonCodes.AlreadyActive
+                    : AllowedActionReasonCodes.ActionRestricted);
         }
 
         var canInactivate = context.SupportsInactivate && context.InactivateAllowed && context.IsActive && !context.HasDependencies;
@@ -75,21 +75,24 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         {
             if (!context.InactivateAllowed)
             {
-                reasons.Add("The current user is not authorized to inactivate this record.");
+                reasons.Add(AllowedActionReasonCodes.NotAuthorized);
             }
             else if (!context.IsActive)
             {
-                reasons.Add("The record is already inactive.");
+                reasons.Add(AllowedActionReasonCodes.AlreadyInactive);
             }
             else if (context.HasDependencies)
             {
-                reasons.Add("The record cannot be inactivated because it has active dependencies.");
+                reasons.Add(AllowedActionReasonCodes.HasDependencies);
             }
             else
             {
-                reasons.Add("The record cannot be inactivated due to current restrictions.");
+                reasons.Add(AllowedActionReasonCodes.ActionRestricted);
             }
         }
+
+        var canView = context.SupportsView && context.ViewAllowed;
+        var canCreate = context.SupportsCreate && context.CreateAllowed;
 
         return new AllowedActionsResponse(
             canEdit,
@@ -98,7 +101,11 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
             canActivate,
             canInactivate,
             reasons
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray());
+                .Distinct(StringComparer.Ordinal)
+                .ToArray())
+        {
+            CanView = canView,
+            CanCreate = canCreate,
+        };
     }
 }

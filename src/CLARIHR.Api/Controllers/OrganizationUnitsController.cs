@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -26,6 +27,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Organization Units")]
 [AuthorizationPolicySet(OrgUnitPolicies.Read, OrgUnitPolicies.Manage)]
+[ResourceActions(OrgUnitPermissionCodes.ResourceKey)]
 public sealed class OrganizationUnitsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,

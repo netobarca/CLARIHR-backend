@@ -196,6 +196,7 @@ public static class DependencyInjection
         // QuestPDF today, swappable without touching document logic (doc 01 §4.2).
         services.AddDocumentPdfRendering(configuration);
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
+        services.AddScoped<IAllowedActionsResolver, AllowedActionsResolver>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IExternalAuthProviderService, GoogleExternalAuthProviderService>();
         services.AddScoped<IUserRepository, UserRepository>();

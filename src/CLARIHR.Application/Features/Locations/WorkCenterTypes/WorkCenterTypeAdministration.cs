@@ -21,6 +21,7 @@ public sealed record WorkCenterTypeResponse(
     Guid Id,
     string Code,
     string Name,
+    string? Description,
     bool RequiresAddress,
     bool RequiresGeo,
     bool AllowsBiometric,
@@ -28,7 +29,7 @@ public sealed record WorkCenterTypeResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record GetWorkCenterTypesQuery(
     Guid CompanyId,
@@ -44,6 +45,7 @@ public sealed record CreateWorkCenterTypeCommand(
     Guid CompanyId,
     string Code,
     string Name,
+    string? Description,
     bool RequiresAddress,
     bool RequiresGeo,
     bool AllowsBiometric) : ICommand<WorkCenterTypeResponse>;
@@ -52,6 +54,7 @@ public sealed record UpdateWorkCenterTypeCommand(
     Guid WorkCenterTypeId,
     string Code,
     string Name,
+    string? Description,
     bool RequiresAddress,
     bool RequiresGeo,
     bool AllowsBiometric,
@@ -105,6 +108,7 @@ internal sealed class CreateWorkCenterTypeCommandValidator : AbstractValidator<C
             .Must(LocationValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.Description).MaximumLength(500);
     }
 }
 
@@ -119,6 +123,7 @@ internal sealed class UpdateWorkCenterTypeCommandValidator : AbstractValidator<U
             .Must(LocationValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -251,6 +256,7 @@ internal sealed class CreateWorkCenterTypeCommandHandler(
         var workCenterType = WorkCenterType.Create(
             command.Code,
             command.Name,
+            command.Description,
             command.RequiresAddress,
             command.RequiresGeo,
             command.AllowsBiometric);
@@ -344,6 +350,7 @@ internal sealed class UpdateWorkCenterTypeCommandHandler(
             workCenterType.Update(
                 command.Code,
                 command.Name,
+                command.Description,
                 command.RequiresAddress,
                 command.RequiresGeo,
                 command.AllowsBiometric);
@@ -628,7 +635,7 @@ internal sealed class PatchWorkCenterTypeCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            workCenterType.Update(state.Code, state.Name, state.RequiresAddress, state.RequiresGeo, state.AllowsBiometric);
+            workCenterType.Update(state.Code, state.Name, state.Description, state.RequiresAddress, state.RequiresGeo, state.AllowsBiometric);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = WorkCenterTypeMapper.Map(workCenterType);
@@ -668,6 +675,7 @@ internal sealed class WorkCenterTypePatchState
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public bool RequiresAddress { get; set; }
     public bool RequiresGeo { get; set; }
     public bool AllowsBiometric { get; set; }
@@ -678,6 +686,7 @@ internal sealed class WorkCenterTypePatchState
         {
             Code = response.Code,
             Name = response.Name,
+            Description = response.Description,
             RequiresAddress = response.RequiresAddress,
             RequiresGeo = response.RequiresGeo,
             AllowsBiometric = response.AllowsBiometric
@@ -757,6 +766,11 @@ internal static class WorkCenterTypePatchApplier
             errors["name"] = ["Name must be 150 characters or fewer."];
         }
 
+        if (state.Description is { Length: > 500 })
+        {
+            errors["description"] = ["Description must be 500 characters or fewer."];
+        }
+
         return errors.Count == 0
             ? Result.Success()
             : Result.Failure(ErrorCatalog.Validation(errors));
@@ -801,6 +815,13 @@ internal static class WorkCenterTypePatchApplier
             }
 
             state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            state.Description = isRemove ? null : ReadNullableString(value, path);
             state.HasMutation = true;
             return Result.Success();
         }
@@ -856,6 +877,18 @@ internal static class WorkCenterTypePatchApplier
             : throw new WorkCenterTypePatchValueException(path, "Value must be a string.");
     }
 
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new WorkCenterTypePatchValueException(path, "Value must be a string or null.");
+    }
+
     private static bool ReadBool(JsonElement? value, string path)
     {
         if (IsNull(value))
@@ -886,6 +919,7 @@ internal static class WorkCenterTypeMapper
             workCenterType.PublicId,
             workCenterType.Code,
             workCenterType.Name,
+            workCenterType.Description,
             workCenterType.RequiresAddress,
             workCenterType.RequiresGeo,
             workCenterType.AllowsBiometric,

@@ -19,7 +19,7 @@ public sealed class ResourceActionPolicyTests
             NonEditableStates: ["ARCHIVED"]));
 
         Assert.False(result.CanEdit);
-        Assert.Contains(result.Reasons, reason => reason.Contains("cannot be edited", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(AllowedActionReasonCodes.NonEditableState, result.Reasons);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public sealed class ResourceActionPolicyTests
             SupportsDelete: false));
 
         Assert.False(result.CanDelete);
-        Assert.Contains(result.Reasons, reason => reason.Contains("soft delete", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(AllowedActionReasonCodes.SoftDeleteEnforced, result.Reasons);
     }
 
     [Fact]
@@ -52,6 +52,6 @@ public sealed class ResourceActionPolicyTests
             SupportsInactivate: true));
 
         Assert.False(result.CanInactivate);
-        Assert.Contains(result.Reasons, reason => reason.Contains("dependencies", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(AllowedActionReasonCodes.HasDependencies, result.Reasons);
     }
 }

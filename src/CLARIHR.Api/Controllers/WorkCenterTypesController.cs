@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -22,6 +23,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Work Center Types")]
 [AuthorizationPolicySet(LocationPolicies.Read, LocationPolicies.Manage)]
+[ResourceActions(LocationPermissionCodes.ResourceKey)]
 public sealed class WorkCenterTypesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
@@ -82,7 +84,8 @@ public sealed class WorkCenterTypesController(
             Creates a work center type under the company and returns `201 Created` with the
             `Location` header pointing to the new resource and the `ETag` header carrying its
             initial `concurrencyToken`. The flags `requiresAddress`/`requiresGeo` control the
-            validation applied to work centers of this type. A duplicate code yields `409`.
+            validation applied to work centers of this type. An optional `description` (≤500
+            characters) documents the type. A duplicate code yields `409`.
             """)]
     public async Task<ActionResult<WorkCenterTypeResponse>> Create(
         Guid companyId,
@@ -94,6 +97,7 @@ public sealed class WorkCenterTypesController(
                 companyId,
                 request.Code,
                 request.Name,
+                request.Description,
                 request.RequiresAddress,
                 request.RequiresGeo,
                 request.AllowsBiometric),
@@ -114,8 +118,8 @@ public sealed class WorkCenterTypesController(
     [SwaggerOperation(
         Summary = "Update a work center type",
         Description = """
-            Replaces the editable fields of a work center type (code, name, requiresAddress,
-            requiresGeo, allowsBiometric). Requires the current `concurrencyToken` in the
+            Replaces the editable fields of a work center type (code, name, description,
+            requiresAddress, requiresGeo, allowsBiometric). Requires the current `concurrencyToken` in the
             `If-Match` header (a missing/malformed header yields `400` and a stale token yields
             `409 CONCURRENCY_CONFLICT`). A duplicate code yields `409`. The refreshed token is
             returned in the body and the `ETag` header.
@@ -131,6 +135,7 @@ public sealed class WorkCenterTypesController(
                 id,
                 request.Code,
                 request.Name,
+                request.Description,
                 request.RequiresAddress,
                 request.RequiresGeo,
                 request.AllowsBiometric,
@@ -149,9 +154,10 @@ public sealed class WorkCenterTypesController(
         Summary = "Patch a work center type",
         Description = """
             Applies a partial update using JSON Patch (RFC 6902), media type
-            `application/json-patch+json`. Supported operations are `add`/`replace` on root paths
-            `/code`, `/name`, `/requiresAddress`, `/requiresGeo`, `/allowsBiometric` (activation is
-            handled by the dedicated `/activate` and `/inactivate` endpoints). Requires the current
+            `application/json-patch+json`. Supported operations are `add`/`replace`/`remove` on root
+            paths `/code`, `/name`, `/description`, `/requiresAddress`, `/requiresGeo`,
+            `/allowsBiometric` (activation is handled by the dedicated `/activate` and `/inactivate`
+            endpoints). Requires the current
             `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The
             refreshed token is returned in the body and the `ETag` header.
             """)]
@@ -221,6 +227,7 @@ public sealed class WorkCenterTypesController(
     public sealed record CreateWorkCenterTypeRequest(
         string Code,
         string Name,
+        string? Description,
         bool RequiresAddress,
         bool RequiresGeo,
         bool AllowsBiometric);
@@ -228,6 +235,7 @@ public sealed class WorkCenterTypesController(
     public sealed record UpdateWorkCenterTypeRequest(
         string Code,
         string Name,
+        string? Description,
         bool RequiresAddress,
         bool RequiresGeo,
         bool AllowsBiometric);
@@ -236,6 +244,7 @@ public sealed class WorkCenterTypesController(
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public bool RequiresAddress { get; set; }
         public bool RequiresGeo { get; set; }
         public bool AllowsBiometric { get; set; }

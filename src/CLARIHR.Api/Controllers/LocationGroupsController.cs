@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -22,6 +23,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Location Groups")]
 [AuthorizationPolicySet(LocationPolicies.Read, LocationPolicies.Manage)]
+[ResourceActions(LocationPermissionCodes.ResourceKey)]
 public sealed class LocationGroupsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

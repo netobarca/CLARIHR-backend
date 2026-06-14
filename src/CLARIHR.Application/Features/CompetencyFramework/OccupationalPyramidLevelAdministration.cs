@@ -25,7 +25,7 @@ public sealed record OccupationalPyramidLevelListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record OccupationalPyramidLevelResponse(
     Guid Id,
@@ -38,7 +38,7 @@ public sealed record OccupationalPyramidLevelResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record SearchOccupationalPyramidLevelsQuery(
     Guid CompanyId,

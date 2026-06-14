@@ -12,6 +12,7 @@ public sealed class WorkCenterType : TenantEntity
         Guid publicId,
         string code,
         string name,
+        string? description,
         bool requiresAddress,
         bool requiresGeo,
         bool allowsBiometric)
@@ -19,6 +20,7 @@ public sealed class WorkCenterType : TenantEntity
         PublicId = publicId;
         SetCode(code);
         SetName(name);
+        Description = LocationNormalization.CleanOptional(description);
         RequiresAddress = requiresAddress;
         RequiresGeo = requiresGeo;
         AllowsBiometric = allowsBiometric;
@@ -34,6 +36,8 @@ public sealed class WorkCenterType : TenantEntity
 
     public string NormalizedName { get; private set; } = string.Empty;
 
+    public string? Description { get; private set; }
+
     public bool RequiresAddress { get; private set; }
 
     public bool RequiresGeo { get; private set; }
@@ -47,20 +51,23 @@ public sealed class WorkCenterType : TenantEntity
     public static WorkCenterType Create(
         string code,
         string name,
+        string? description,
         bool requiresAddress,
         bool requiresGeo,
         bool allowsBiometric) =>
-        new(Guid.NewGuid(), code, name, requiresAddress, requiresGeo, allowsBiometric);
+        new(Guid.NewGuid(), code, name, description, requiresAddress, requiresGeo, allowsBiometric);
 
     public void Update(
         string code,
         string name,
+        string? description,
         bool requiresAddress,
         bool requiresGeo,
         bool allowsBiometric)
     {
         SetCode(code);
         SetName(name);
+        Description = LocationNormalization.CleanOptional(description);
         RequiresAddress = requiresAddress;
         RequiresGeo = requiresGeo;
         AllowsBiometric = allowsBiometric;

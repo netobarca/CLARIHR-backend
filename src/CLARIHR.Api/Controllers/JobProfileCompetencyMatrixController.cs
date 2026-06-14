@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -20,6 +21,7 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 [Route("api/v{version:apiVersion}")]
 [Tags("Competency Framework")]
+[ResourceActions("JOB_PROFILE_COMPETENCY_MATRIX")]
 public sealed class JobProfileCompetencyMatrixController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,

@@ -33,7 +33,7 @@ public sealed class WorkCenterTypeAdministrationTests
             unitOfWork);
 
         var result = await handler.Handle(
-            new CreateWorkCenterTypeCommand(CompanyId, "WCT-001", "Agencia", true, false, false),
+            new CreateWorkCenterTypeCommand(CompanyId, "WCT-001", "Agencia", null, true, false, false),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -54,7 +54,7 @@ public sealed class WorkCenterTypeAdministrationTests
             new ThrowingUnitOfWork(LocationValidationRules.WorkCenterTypeCodeUniqueConstraintName));
 
         var result = await handler.Handle(
-            new CreateWorkCenterTypeCommand(CompanyId, "WCT-001", "Agencia", true, false, false),
+            new CreateWorkCenterTypeCommand(CompanyId, "WCT-001", "Agencia", null, true, false, false),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -62,9 +62,28 @@ public sealed class WorkCenterTypeAdministrationTests
     }
 
     [Fact]
+    public async Task Create_WhenDescriptionProvided_ShouldPersistAndReturnTrimmedDescription()
+    {
+        // The reported bug: a stored description must round-trip back through the response. Asserts the
+        // create handler maps Description into WorkCenterTypeResponse (and normalizes surrounding whitespace).
+        var handler = new CreateWorkCenterTypeCommandHandler(
+            new AllowLocationAuthorizationService(),
+            new TestWorkCenterTypeRepository { CodeExists = false },
+            new NoOpAuditService(),
+            new CountingUnitOfWork());
+
+        var result = await handler.Handle(
+            new CreateWorkCenterTypeCommand(CompanyId, "WCT-010", "Agencia", "  Centros de atención al cliente  ", true, false, false),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Centros de atención al cliente", result.Value.Description);
+    }
+
+    [Fact]
     public async Task Inactivate_WhenActiveWorkCentersStillUseTheType_ShouldReturnConflict()
     {
-        var workCenterType = WorkCenterType.Create("WCT-001", "Agencia", true, false, false);
+        var workCenterType = WorkCenterType.Create("WCT-001", "Agencia", null, true, false, false);
         workCenterType.SetTenantId(CompanyId);
         var repository = new TestWorkCenterTypeRepository();
         repository.Seed(workCenterType);

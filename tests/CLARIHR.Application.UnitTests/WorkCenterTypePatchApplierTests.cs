@@ -16,6 +16,7 @@ public sealed class WorkCenterTypePatchApplierTests
             Id: Guid.NewGuid(),
             Code: "WCT-001",
             Name: "Agencia",
+            Description: "Centros de atención al cliente",
             RequiresAddress: true,
             RequiresGeo: false,
             AllowsBiometric: true,
@@ -38,6 +39,30 @@ public sealed class WorkCenterTypePatchApplierTests
         Assert.True(state.HasMutation);
         Assert.Equal("Sucursal", state.Name);
         Assert.True(WorkCenterTypePatchApplier.Validate(state).IsSuccess);
+    }
+
+    [Fact]
+    public void Apply_ReplaceDescription_SetsValue()
+    {
+        var state = NewState();
+
+        var result = WorkCenterTypePatchApplier.Apply(new[] { Op("replace", "/description", "Nueva descripción") }, state);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(state.HasMutation);
+        Assert.Equal("Nueva descripción", state.Description);
+    }
+
+    [Fact]
+    public void Apply_RemoveNullableDescription_SetsNull()
+    {
+        var state = NewState();
+
+        var result = WorkCenterTypePatchApplier.Apply(new[] { Op("remove", "/description", null) }, state);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(state.Description);
+        Assert.True(state.HasMutation);
     }
 
     [Fact]

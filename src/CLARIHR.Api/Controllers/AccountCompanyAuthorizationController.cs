@@ -1,3 +1,4 @@
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -5,6 +6,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.IdentityAccess.Roles;
 using CLARIHR.Application.Features.IdentityAccess.Users;
@@ -33,6 +35,7 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 [Route("api/v1/account/companies/{companyPublicId:guid}/authorization")]
 [Tags("Account Authorization")]
+[ResourceActions("RBAC_ROLES")]
 public sealed class AccountCompanyAuthorizationController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
@@ -527,14 +530,16 @@ public sealed class AccountCompanyAuthorizationController(
         bool IsSystemRole,
         int UserCount,
         Guid ConcurrencyToken,
-        IReadOnlyCollection<AuthorizationGrantResponse> Grants);
+        IReadOnlyCollection<AuthorizationGrantResponse> Grants,
+        AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
     public sealed record AuthorizationRoleGrantsResponse(
         Guid RoleId,
         string RoleName,
         bool IsSystemRole,
         Guid ConcurrencyToken,
-        IReadOnlyCollection<AuthorizationGrantResponse> Grants);
+        IReadOnlyCollection<AuthorizationGrantResponse> Grants,
+        AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
     public sealed record AuthorizationUserRolesResponse(
         Guid UserId,
@@ -543,5 +548,6 @@ public sealed class AccountCompanyAuthorizationController(
         string LastName,
         bool IsActive,
         string? WeakETag,
-        IReadOnlyCollection<AuthorizationRoleReferenceResponse> Roles);
+        IReadOnlyCollection<AuthorizationRoleReferenceResponse> Roles,
+        AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 }

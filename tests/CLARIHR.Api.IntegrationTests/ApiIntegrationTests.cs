@@ -4553,6 +4553,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(payload);
         Assert.Equal(workCenterType.Id, payload!.Id);
         Assert.Equal("WCT-GET", payload.Code);
+        // Regression: the stored description must round-trip through GET /work-center-types/{publicId}.
+        Assert.Equal("Centro de trabajo de prueba", payload.Description);
     }
 
     [Fact]
@@ -4654,6 +4656,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         {
             code,
             name = "Agency",
+            description = "Centro de trabajo de prueba",
             requiresAddress = true,
             requiresGeo = false,
             allowsBiometric = true
@@ -12004,7 +12007,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsActive,
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
-        DateTime? ModifiedAtUtc);
+        DateTime? ModifiedAtUtc,
+        string? Description = null);
 
     private sealed record WorkCenterItem(
         Guid Id,

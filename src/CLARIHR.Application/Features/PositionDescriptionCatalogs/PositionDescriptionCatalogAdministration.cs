@@ -39,7 +39,7 @@ public sealed record PositionDescriptionCatalogItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record PositionCategoryClassificationResponse(
     Guid Id,
@@ -54,7 +54,7 @@ public sealed record PositionCategoryClassificationResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record PositionCategoryResponse(
     Guid Id,
@@ -67,7 +67,7 @@ public sealed record PositionCategoryResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record SearchPositionDescriptionCatalogItemsQuery(
     Guid CompanyId,

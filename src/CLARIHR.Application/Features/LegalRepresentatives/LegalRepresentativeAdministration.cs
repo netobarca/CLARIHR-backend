@@ -41,7 +41,7 @@ public sealed record LegalRepresentativeListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record LegalRepresentativeResponse(
     Guid Id,
@@ -65,7 +65,7 @@ public sealed record LegalRepresentativeResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record LegalRepresentativeUsageResponse(
     Guid LegalRepresentativeId,

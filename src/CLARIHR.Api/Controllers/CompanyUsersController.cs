@@ -31,6 +31,7 @@ namespace CLARIHR.Api.Controllers;
 [Consumes("application/json")]
 [Produces("application/json")]
 [Tags("Company Users")]
+[ResourceActions(CompanyUserFieldKeys.ResourceKey)]
 public sealed class CompanyUsersController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

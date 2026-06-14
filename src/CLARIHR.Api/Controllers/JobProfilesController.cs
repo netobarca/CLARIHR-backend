@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using System.ComponentModel.DataAnnotations;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -27,6 +28,7 @@ namespace CLARIHR.Api.Controllers;
 [Produces("application/json")]
 [Tags("Job Profiles")]
 [AuthorizationPolicySet(JobProfilePolicies.Read, JobProfilePolicies.Manage)]
+[ResourceActions(JobProfilePermissionCodes.ResourceKey)]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

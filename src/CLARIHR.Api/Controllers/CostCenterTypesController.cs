@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -22,6 +23,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Tags("Cost Center Types")]
 [AuthorizationPolicySet(CostCenterPolicies.Read, CostCenterPolicies.Manage)]
+[ResourceActions(CostCenterPermissionCodes.ResourceKey)]
 public sealed class CostCenterTypesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

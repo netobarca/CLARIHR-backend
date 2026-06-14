@@ -41,7 +41,7 @@ public sealed record OrgUnitResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 // List projection of the paged search: same shape as OrgUnitResponse minus Description, which is
 // detail-only payload (mirror of the CostCenters ListItem/Response split).
@@ -59,7 +59,7 @@ public sealed record OrgUnitListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record OrgUnitExportRow(
     Guid Id,

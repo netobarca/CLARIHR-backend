@@ -40,8 +40,10 @@ public sealed record JobProfileRequirementResponse(
     JobRequirementType RequirementType,
     string Description,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => RequirementPublicId;
 
@@ -58,8 +60,10 @@ public sealed record JobProfileFunctionResponse(
     JobFunctionType FunctionType,
     string Description,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => FunctionPublicId;
 
@@ -74,8 +78,10 @@ public sealed record JobProfileRelationResponse(
     string Counterpart,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => RelationPublicId;
 
@@ -113,8 +119,10 @@ public sealed record JobProfileTrainingResponse(
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => TrainingPublicId;
 
@@ -140,8 +148,10 @@ public sealed record JobProfileBenefitResponse(
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => BenefitPublicId;
 
@@ -156,8 +166,10 @@ public sealed record JobProfileWorkingConditionResponse(
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => WorkingConditionPublicId;
 
@@ -175,8 +187,10 @@ public sealed record JobProfileDependentPositionResponse(
     string DependentJobProfileTitle,
     int Quantity,
     string? Notes,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => DependentPositionPublicId;
 
@@ -198,8 +212,10 @@ public sealed record JobProfileLegacyCompetencyResponse(
     string? ExpectedLevel,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken) : ISupportsAllowedActions
 {
+    public AllowedActionsResponse? AllowedActions { get; init; }
+
     [JsonIgnore]
     public Guid Id => CompetencyPublicId;
 
@@ -219,7 +235,7 @@ public sealed record JobProfileListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record JobProfileEntityResponse(
     Guid Id,
@@ -248,7 +264,7 @@ public sealed record JobProfileEntityResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record JobProfileResponse(
     Guid Id,
@@ -289,7 +305,7 @@ public sealed record JobProfileResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record JobProfileCoreResponse(
     Guid Id,
@@ -322,7 +338,7 @@ public sealed record JobProfileCoreResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 /// <summary>Internal payload used exclusively by the async PDF export pipeline. Not exposed as an API endpoint.</summary>
 public sealed record JobProfilePrintResponse(

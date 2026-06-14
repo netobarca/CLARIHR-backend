@@ -41,7 +41,7 @@ public sealed record CompetencyConductListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions, IHasActivationState;
 
 public sealed record CompetencyConductResponse(
     Guid Id,
@@ -62,7 +62,7 @@ public sealed record CompetencyConductResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions, IHasActivationState;
 
 public sealed record CompetencyConductBehaviorInput(
     Guid BehaviorId,

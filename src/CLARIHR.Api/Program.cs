@@ -67,6 +67,7 @@ builder.Services
         options.Conventions.Add(new ProducesStandardErrorsConvention());
         options.Conventions.Add(new AuthorizationPolicyConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
+        options.Filters.AddService<AllowedActionsResultFilter>();
         options.Filters.AddService<ConditionalRequestResultFilter>();
         options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
     })
@@ -95,6 +96,7 @@ builder.Services
         options.SubstituteApiVersionInUrl = true;
     });
 builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
+builder.Services.AddScoped<AllowedActionsResultFilter>();
 builder.Services.AddScoped<ConditionalRequestResultFilter>();
 builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
 builder.Services.AddScoped<ReportExportDeliveryService>();

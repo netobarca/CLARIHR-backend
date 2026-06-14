@@ -19,7 +19,7 @@ public sealed record CompanyUserSummaryResponse(
     string? LastName,
     IReadOnlyCollection<CompanyUserRoleResponse> Roles,
     UserStatus? Status,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record CompanyUserResponse(
     Guid Id,
@@ -27,13 +27,15 @@ public sealed record CompanyUserResponse(
     string? FirstName,
     string? LastName,
     IReadOnlyCollection<CompanyUserRoleResponse> Roles,
-    UserStatus? Status)
+    UserStatus? Status) : ISupportsAllowedActions
 {
     // Weak ETag for the resource (a hash of the unfiltered projection — see CompanyUserETag). Carried
     // out-of-band to the API layer for the `ETag` header / `If-Match` concurrency check; never serialized
     // into the response body.
     [JsonIgnore]
     public string? WeakETag { get; init; }
+
+    public AllowedActionsResponse? AllowedActions { get; init; }
 }
 
 public sealed record CompanyUserInvitationResponse(

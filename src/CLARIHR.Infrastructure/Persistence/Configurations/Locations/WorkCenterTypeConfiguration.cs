@@ -39,6 +39,10 @@ internal sealed class WorkCenterTypeConfiguration : IEntityTypeConfiguration<Wor
             .HasColumnName("normalized_name")
             .HasMaxLength(150);
 
+        builder.Property(type => type.Description)
+            .HasColumnName("description")
+            .HasMaxLength(500);
+
         builder.Property(type => type.RequiresAddress)
             .HasColumnName("requires_address");
 

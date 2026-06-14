@@ -62,6 +62,7 @@ internal sealed class WorkCenterTypeRepository(ApplicationDbContext dbContext) :
                 type.PublicId,
                 type.Code,
                 type.Name,
+                type.Description,
                 type.RequiresAddress,
                 type.RequiresGeo,
                 type.AllowsBiometric,

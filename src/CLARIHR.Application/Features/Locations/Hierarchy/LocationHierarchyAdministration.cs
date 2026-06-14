@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -17,7 +18,8 @@ public sealed record LocationHierarchyConfigResponse(
     bool IsMultiLevel,
     string DefaultGroupCode,
     string DefaultGroupName,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken,
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record LocationLevelResponse(
     Guid Id,
@@ -26,7 +28,8 @@ public sealed record LocationLevelResponse(
     bool IsActive,
     bool IsRequired,
     bool AllowsWorkCenters,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken,
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record GetLocationHierarchyQuery(Guid CompanyId) : IQuery<LocationHierarchyConfigResponse>;
 

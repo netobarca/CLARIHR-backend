@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using System.ComponentModel.DataAnnotations;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -21,6 +22,7 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 [Route("api/v{version:apiVersion}")]
 [Tags("Competency Framework")]
+[ResourceActions(CompetencyFrameworkPermissionCodes.ResourceKey)]
 public sealed class CompetencyConductsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -17,6 +18,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}/companies/{companyId:guid}/location-hierarchy")]
 [Tags("Location Hierarchy")]
 [AuthorizationPolicySet(LocationPolicies.Read, LocationPolicies.Manage)]
+[ResourceActions("LOCATION_HIERARCHY")]
 public sealed class LocationHierarchyController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
