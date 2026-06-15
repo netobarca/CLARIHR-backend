@@ -37,7 +37,7 @@ public sealed class JobProfileCollectionAdministrationTests
         var profileId = profile.PublicId;
         
         _profileRepository.Profiles[profileId] = profile;
-        _profileRepository.Responses[profileId] = new JobProfileResponse(profileId, _tenantId, "JP-001", "Title", JobProfileStatus.Draft, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, true, [], [], [], [], [], null, [], [], [], profile.ConcurrencyToken, DateTime.UtcNow, null);
+        _profileRepository.Responses[profileId] = new JobProfileResponse(profileId, _tenantId, "JP-001", "Title", JobProfileStatus.Draft, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, true, [], [], [], [], [], null, [], [], [], profile.ConcurrencyToken, DateTime.UtcNow, null);
 
         var handler = new AddJobProfileRequirementCommandHandler(
             _authService,
@@ -855,8 +855,6 @@ public sealed class JobProfileCollectionAdministrationTests
             decisionScope: null,
             assignedResources: null,
             responsibilities: "Responsibilities",
-            benefitsSummary: null,
-            workingConditionSummary: null,
             marketSalaryReference: null,
             valuationNotes: null,
             effectiveFromUtc: null,
@@ -1004,8 +1002,6 @@ public sealed class JobProfileCollectionAdministrationTests
             decisionScope: null,
             assignedResources: null,
             responsibilities: "Responsibilities",
-            benefitsSummary: null,
-            workingConditionSummary: null,
             marketSalaryReference: null,
             valuationNotes: null,
             effectiveFromUtc: null,

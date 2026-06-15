@@ -36,7 +36,7 @@ El recurso raíz: crear, buscar y editar el perfil de puesto, gestionar su ciclo
 | `assignedWorkEquipmentCatalogItemPublicId` | uuid | No | catálogo (equipamiento asignado) |
 | `responsibilityCatalogItemPublicId` | uuid | No | catálogo (responsabilidad) |
 | `responsibilities` | string | No\* | máx 4000; \*requerido para publicar |
-| `decisionScope`, `assignedResources`, `benefitsSummary`, `workingConditionSummary`, `marketSalaryReference`, `valuationNotes` | string | No | máx 4000 c/u |
+| `decisionScope`, `assignedResources`, `marketSalaryReference`, `valuationNotes` | string | No | máx 4000 c/u |
 | `effectiveFromUtc` / `effectiveToUtc` | date-time | No | `from ≤ to` |
 | `allowInlineCatalogCreate` | bool | No | crea catálogos faltantes inline; **requiere también `JobCatalogs.Admin`** (si no → `403 JOB_CATALOG_INLINE_CREATE_FORBIDDEN`) |
 

@@ -331,7 +331,7 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
             reportsToJobProfileId: null, positionCategoryId: null,
             strategicObjectiveCatalogItemId: null, assignedWorkEquipmentCatalogItemId: null,
             responsibilityCatalogItemId: null, decisionScope: null, assignedResources: null,
-            responsibilities: null, benefitsSummary: null, workingConditionSummary: null,
+            responsibilities: null,
             marketSalaryReference: null, valuationNotes: null,
             effectiveFromUtc: null, effectiveToUtc: null, bumpVersion: false);
         dbContext.JobProfiles.Add(profile);

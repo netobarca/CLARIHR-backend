@@ -88,8 +88,6 @@ public sealed class JobProfileCompensationGateTests
             DecisionScope: null,
             AssignedResources: null,
             Responsibilities: null,
-            BenefitsSummary: null,
-            WorkingConditionSummary: null,
             MarketSalaryReference: "Top 25% del mercado regional.",
             ValuationNotes: null,
             EffectiveFromUtc: null,

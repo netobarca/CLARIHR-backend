@@ -39,9 +39,9 @@ public sealed class JobProfileDocumentMapper : IJobProfileDocumentMapper
         sections.Add(BuildRequirements(profile.Requirements));
         sections.Add(BuildCompetencies(profile.Competencies));
         sections.Add(BuildTrainings(profile.Trainings));
-        sections.Add(BuildItemsWithSummary("Beneficios", profile.Benefits, profile.BenefitsSummary,
+        sections.Add(BuildItems("Beneficios", profile.Benefits,
             static b => b.SortOrder, static b => new BulletItem(b.Name, NullIfBlank(b.Notes))));
-        sections.Add(BuildItemsWithSummary("Condiciones laborales", profile.WorkingConditions, profile.WorkingConditionSummary,
+        sections.Add(BuildItems("Condiciones laborales", profile.WorkingConditions,
             static c => c.SortOrder, static c => new BulletItem(c.Name, NullIfBlank(c.Notes))));
 
         var compensation = BuildCompensation(profile.Compensation, profile.MarketSalaryReference);
@@ -167,33 +167,21 @@ public sealed class JobProfileDocumentMapper : IJobProfileDocumentMapper
         ]);
     }
 
-    private static DocumentSection BuildItemsWithSummary<TItem>(
+    private static DocumentSection BuildItems<TItem>(
         string title,
         IReadOnlyCollection<TItem> items,
-        string? summary,
         Func<TItem, int> sortKey,
         Func<TItem, BulletItem> toBullet)
     {
-        var blocks = new List<DocumentBlock>();
-        var hasSummary = !string.IsNullOrWhiteSpace(summary);
-
-        if (hasSummary)
-        {
-            blocks.Add(new MutedTextBlock(summary!));
-        }
-
         if (items.Count == 0)
         {
-            if (!hasSummary)
-            {
-                blocks.Add(new MutedTextBlock(EmptyStateText));
-            }
-
-            return new DocumentSection(title, blocks);
+            return EmptySection(title);
         }
 
-        blocks.Add(new BulletListBlock(items.OrderBy(sortKey).Select(toBullet).ToArray()));
-        return new DocumentSection(title, blocks);
+        return new DocumentSection(title,
+        [
+            new BulletListBlock(items.OrderBy(sortKey).Select(toBullet).ToArray()),
+        ]);
     }
 
     private static DocumentSection? BuildCompensation(

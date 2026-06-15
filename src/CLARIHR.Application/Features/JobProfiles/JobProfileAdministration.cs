@@ -254,8 +254,6 @@ public sealed record JobProfileEntityResponse(
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
-    string? BenefitsSummary,
-    string? WorkingConditionSummary,
     string? MarketSalaryReference,
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
@@ -286,8 +284,6 @@ public sealed record JobProfileResponse(
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
-    string? BenefitsSummary,
-    string? WorkingConditionSummary,
     string? MarketSalaryReference,
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
@@ -327,8 +323,6 @@ public sealed record JobProfileCoreResponse(
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
-    string? BenefitsSummary,
-    string? WorkingConditionSummary,
     string? MarketSalaryReference,
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
@@ -444,8 +438,6 @@ public sealed record CreateJobProfileCommand(
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
-    string? BenefitsSummary,
-    string? WorkingConditionSummary,
     string? MarketSalaryReference,
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
@@ -466,8 +458,6 @@ public sealed record UpdateJobProfileCommand(
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
-    string? BenefitsSummary,
-    string? WorkingConditionSummary,
     string? MarketSalaryReference,
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
@@ -531,8 +521,6 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
         RuleFor(command => command.DecisionScope).MaximumLength(4000);
         RuleFor(command => command.AssignedResources).MaximumLength(4000);
         RuleFor(command => command.Responsibilities).MaximumLength(4000);
-        RuleFor(command => command.BenefitsSummary).MaximumLength(4000);
-        RuleFor(command => command.WorkingConditionSummary).MaximumLength(4000);
         RuleFor(command => command.MarketSalaryReference).MaximumLength(4000);
         RuleFor(command => command.ValuationNotes).MaximumLength(4000);
         RuleFor(command => command.OrgUnitId).NotEmpty();
@@ -575,8 +563,6 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
         RuleFor(command => command.DecisionScope).MaximumLength(4000);
         RuleFor(command => command.AssignedResources).MaximumLength(4000);
         RuleFor(command => command.Responsibilities).MaximumLength(4000);
-        RuleFor(command => command.BenefitsSummary).MaximumLength(4000);
-        RuleFor(command => command.WorkingConditionSummary).MaximumLength(4000);
         RuleFor(command => command.MarketSalaryReference).MaximumLength(4000);
         RuleFor(command => command.ValuationNotes).MaximumLength(4000);
         RuleFor(command => command.OrgUnitId).NotEmpty();
@@ -1060,8 +1046,6 @@ internal sealed class CreateJobProfileCommandHandler(
             command.DecisionScope,
             command.AssignedResources,
             command.Responsibilities,
-            command.BenefitsSummary,
-            command.WorkingConditionSummary,
             command.MarketSalaryReference,
             command.ValuationNotes,
             command.EffectiveFromUtc,
@@ -1334,8 +1318,6 @@ internal sealed class UpdateJobProfileCommandHandler(
                     command.DecisionScope,
                     command.AssignedResources,
                     command.Responsibilities,
-                    command.BenefitsSummary,
-                    command.WorkingConditionSummary,
                     command.MarketSalaryReference,
                     command.ValuationNotes,
                     command.EffectiveFromUtc,
@@ -1600,8 +1582,6 @@ internal sealed class PatchJobProfileCommandHandler(
                     patchState.DecisionScope,
                     patchState.AssignedResources,
                     patchState.Responsibilities,
-                    patchState.BenefitsSummary,
-                    patchState.WorkingConditionSummary,
                     patchState.MarketSalaryReference,
                     patchState.ValuationNotes,
                     patchState.EffectiveFromUtc,
@@ -1696,8 +1676,6 @@ internal sealed class JobProfilePatchState
         DecisionScope = profile.DecisionScope;
         AssignedResources = profile.AssignedResources;
         Responsibilities = profile.Responsibilities;
-        BenefitsSummary = profile.BenefitsSummary;
-        WorkingConditionSummary = profile.WorkingConditionSummary;
         MarketSalaryReference = profile.MarketSalaryReference;
         ValuationNotes = profile.ValuationNotes;
         EffectiveFromUtc = profile.EffectiveFromUtc;
@@ -1724,8 +1702,6 @@ internal sealed class JobProfilePatchState
     public string? DecisionScope { get; set; }
     public string? AssignedResources { get; set; }
     public string? Responsibilities { get; set; }
-    public string? BenefitsSummary { get; set; }
-    public string? WorkingConditionSummary { get; set; }
     public string? MarketSalaryReference { get; set; }
     public string? ValuationNotes { get; set; }
     public DateTime? EffectiveFromUtc { get; set; }
@@ -1801,8 +1777,6 @@ internal static class JobProfilePatchApplier
         AddMaxLength(errors, "decisionScope", state.DecisionScope, 4000);
         AddMaxLength(errors, "assignedResources", state.AssignedResources, 4000);
         AddMaxLength(errors, "responsibilities", state.Responsibilities, 4000);
-        AddMaxLength(errors, "benefitsSummary", state.BenefitsSummary, 4000);
-        AddMaxLength(errors, "workingConditionSummary", state.WorkingConditionSummary, 4000);
         AddMaxLength(errors, "marketSalaryReference", state.MarketSalaryReference, 4000);
         AddMaxLength(errors, "valuationNotes", state.ValuationNotes, 4000);
 
@@ -1906,18 +1880,6 @@ internal static class JobProfilePatchApplier
         if (IsSegment(property, "responsibilities"))
         {
             state.Responsibilities = isRemove ? null : ReadNullableString(value, path);
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "benefitsSummary"))
-        {
-            state.BenefitsSummary = isRemove ? null : ReadNullableString(value, path);
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "workingConditionSummary"))
-        {
-            state.WorkingConditionSummary = isRemove ? null : ReadNullableString(value, path);
             return Result.Success();
         }
 

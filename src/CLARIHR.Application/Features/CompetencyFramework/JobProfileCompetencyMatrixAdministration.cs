@@ -421,8 +421,6 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 profile.DecisionScope,
                 profile.AssignedResources,
                 profile.Responsibilities,
-                profile.BenefitsSummary,
-                profile.WorkingConditionSummary,
                 profile.MarketSalaryReference,
                 profile.ValuationNotes,
                 profile.EffectiveFromUtc,

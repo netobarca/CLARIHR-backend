@@ -56,10 +56,6 @@ public sealed class JobProfile : TenantEntity
 
     public string? Responsibilities { get; private set; }
 
-    public string? BenefitsSummary { get; private set; }
-
-    public string? WorkingConditionSummary { get; private set; }
-
     public string? MarketSalaryReference { get; private set; }
 
     public string? ValuationNotes { get; private set; }
@@ -107,8 +103,6 @@ public sealed class JobProfile : TenantEntity
         string? decisionScope,
         string? assignedResources,
         string? responsibilities,
-        string? benefitsSummary,
-        string? workingConditionSummary,
         string? marketSalaryReference,
         string? valuationNotes,
         DateTime? effectiveFromUtc,
@@ -140,8 +134,6 @@ public sealed class JobProfile : TenantEntity
         DecisionScope = JobProfileNormalization.CleanOptional(decisionScope);
         AssignedResources = JobProfileNormalization.CleanOptional(assignedResources);
         Responsibilities = JobProfileNormalization.CleanOptional(responsibilities);
-        BenefitsSummary = JobProfileNormalization.CleanOptional(benefitsSummary);
-        WorkingConditionSummary = JobProfileNormalization.CleanOptional(workingConditionSummary);
         MarketSalaryReference = JobProfileNormalization.CleanOptional(marketSalaryReference);
         ValuationNotes = JobProfileNormalization.CleanOptional(valuationNotes);
         EffectiveFromUtc = normalizedEffectiveFromUtc;

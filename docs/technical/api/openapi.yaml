@@ -38369,12 +38369,6 @@ components:
         responsibilities:
           type: string
           nullable: true
-        benefitsSummary:
-          type: string
-          nullable: true
-        workingConditionSummary:
-          type: string
-          nullable: true
         marketSalaryReference:
           type: string
           nullable: true
@@ -38437,12 +38431,6 @@ components:
           type: string
           nullable: true
         responsibilities:
-          type: string
-          nullable: true
-        benefitsSummary:
-          type: string
-          nullable: true
-        workingConditionSummary:
           type: string
           nullable: true
         marketSalaryReference:
@@ -41623,12 +41611,6 @@ components:
         responsibilities:
           type: string
           nullable: true
-        benefitsSummary:
-          type: string
-          nullable: true
-        workingConditionSummary:
-          type: string
-          nullable: true
         marketSalaryReference:
           type: string
           nullable: true
@@ -41741,12 +41723,6 @@ components:
           type: string
           nullable: true
         responsibilities:
-          type: string
-          nullable: true
-        benefitsSummary:
-          type: string
-          nullable: true
-        workingConditionSummary:
           type: string
           nullable: true
         marketSalaryReference:

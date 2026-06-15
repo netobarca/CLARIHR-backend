@@ -76,14 +76,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .HasColumnName("responsibilities")
             .HasMaxLength(4000);
 
-        builder.Property(profile => profile.BenefitsSummary)
-            .HasColumnName("benefits_summary")
-            .HasMaxLength(4000);
-
-        builder.Property(profile => profile.WorkingConditionSummary)
-            .HasColumnName("working_condition_summary")
-            .HasMaxLength(4000);
-
         builder.Property(profile => profile.MarketSalaryReference)
             .HasColumnName("market_salary_reference")
             .HasMaxLength(4000);

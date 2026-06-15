@@ -161,8 +161,6 @@ public sealed class JobProfilesController(
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
-                request.BenefitsSummary,
-                request.WorkingConditionSummary,
                 request.MarketSalaryReference,
                 request.ValuationNotes,
                 request.EffectiveFromUtc,
@@ -217,8 +215,6 @@ public sealed class JobProfilesController(
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
-                request.BenefitsSummary,
-                request.WorkingConditionSummary,
                 request.MarketSalaryReference,
                 request.ValuationNotes,
                 request.EffectiveFromUtc,
@@ -283,8 +279,6 @@ public sealed class JobProfilesController(
         public string? DecisionScope { get; set; }
         public string? AssignedResources { get; set; }
         public string? Responsibilities { get; set; }
-        public string? BenefitsSummary { get; set; }
-        public string? WorkingConditionSummary { get; set; }
         public string? MarketSalaryReference { get; set; }
         public string? ValuationNotes { get; set; }
         public DateTime? EffectiveFromUtc { get; set; }

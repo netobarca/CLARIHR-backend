@@ -157,8 +157,6 @@ public sealed class JobProfilePdfExportHandlerTelemetryTests
             DecisionScope: null,
             AssignedResources: null,
             Responsibilities: null,
-            BenefitsSummary: null,
-            WorkingConditionSummary: null,
             MarketSalaryReference: null,
             ValuationNotes: null,
             EffectiveFromUtc: null,

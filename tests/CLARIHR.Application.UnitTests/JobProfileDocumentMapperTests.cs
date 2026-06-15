@@ -85,8 +85,7 @@ public sealed class JobProfileDocumentMapperTests
         Assert.Equal("Recomendado", trainings.Items[0].Notes);
 
         var benefitsBlocks = SectionBlocks(document, "Beneficios");
-        Assert.IsType<MutedTextBlock>(benefitsBlocks[0]);
-        Assert.IsType<BulletListBlock>(benefitsBlocks[1]);
+        Assert.IsType<BulletListBlock>(Assert.Single(benefitsBlocks));
 
         var compensationBlocks = SectionBlocks(document, "Compensación");
         var comp = Assert.IsType<KeyValueBlock>(compensationBlocks[0]);
@@ -98,17 +97,6 @@ public sealed class JobProfileDocumentMapperTests
         var relations = Assert.IsType<TableBlock>(Single(document, "Relaciones"));
         Assert.Equal("Interna", relations.Rows[0][0]);
         Assert.Equal("Externa", relations.Rows[1][0]);
-    }
-
-    [Fact]
-    public void Map_SummaryWithoutItems_KeepsSummaryAndOmitsEmptyState()
-    {
-        var profile = BuildEmptyProfile() with { BenefitsSummary = "Paquete competitivo." };
-
-        var blocks = SectionBlocks(Mapper.Map(BuildPayload(profile)), "Beneficios");
-
-        var only = Assert.Single(blocks);
-        Assert.Equal("Paquete competitivo.", Assert.IsType<MutedTextBlock>(only).Text);
     }
 
     [Fact]
@@ -159,8 +147,6 @@ public sealed class JobProfileDocumentMapperTests
             DecisionScope: null,
             AssignedResources: null,
             Responsibilities: null,
-            BenefitsSummary: null,
-            WorkingConditionSummary: null,
             MarketSalaryReference: null,
             ValuationNotes: null,
             EffectiveFromUtc: null,
@@ -186,8 +172,6 @@ public sealed class JobProfileDocumentMapperTests
             Responsibilities = "Definir el roadmap, gestionar el equipo y reportar al CTO.",
             AssignedResources = "Equipo de 12 personas, presupuesto anual de $1.2M.",
             DecisionScope = "Decisiones de arquitectura y staffing del área.",
-            BenefitsSummary = "Paquete competitivo con beneficios adicionales por desempeño.",
-            WorkingConditionSummary = "Trabajo híbrido, 40 horas semanales.",
             MarketSalaryReference = "Top 25% del mercado regional.",
             EffectiveFromUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             OrgUnitName = "Tecnología",

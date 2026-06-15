@@ -96,8 +96,6 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 profile.DecisionScope,
                 profile.AssignedResources,
                 profile.Responsibilities,
-                profile.BenefitsSummary,
-                profile.WorkingConditionSummary,
                 profile.MarketSalaryReference,
                 profile.ValuationNotes,
                 profile.EffectiveFromUtc,
