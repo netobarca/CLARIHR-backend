@@ -47,6 +47,35 @@ internal sealed class JobCatalogRepository(
             return true;
         }
 
+        // CompetencyFramework references are hard FKs (OnDelete.Restrict) on job_catalog_items, so an
+        // unchecked usage here surfaces as a DbUpdateException (HTTP 500) instead of a clean 409. Cover
+        // every such FK: competency conducts (competency/type/behavior-level), their behaviors
+        // (behavior), and job-profile competency expectations (competency/type/behavior-level).
+        if (await dbContext.CompetencyConducts.AnyAsync(
+                conduct => conduct.CompetencyCatalogItemId == catalogItemId
+                    || conduct.CompetencyTypeCatalogItemId == catalogItemId
+                    || conduct.BehaviorLevelCatalogItemId == catalogItemId,
+                cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.CompetencyConductBehaviors.AnyAsync(
+                behavior => behavior.BehaviorCatalogItemId == catalogItemId,
+                cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.JobProfileCompetencyExpectations.AnyAsync(
+                expectation => expectation.CompetencyCatalogItemId == catalogItemId
+                    || expectation.CompetencyTypeCatalogItemId == catalogItemId
+                    || expectation.BehaviorLevelCatalogItemId == catalogItemId,
+                cancellationToken))
+        {
+            return true;
+        }
+
         return false;
     }
 

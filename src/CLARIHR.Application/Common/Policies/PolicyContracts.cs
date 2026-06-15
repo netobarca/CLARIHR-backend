@@ -51,4 +51,7 @@ public sealed record ResourceActionContext(
     bool SupportsCreate = false,
     bool CreateAllowed = true,
     bool SupportsView = true,
-    bool ViewAllowed = true);
+    bool ViewAllowed = true,
+    bool SupportsPublish = false,
+    bool PublishAllowed = true,
+    IReadOnlyCollection<string>? PublishableStates = null);

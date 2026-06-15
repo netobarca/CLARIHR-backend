@@ -54,4 +54,54 @@ public sealed class ResourceActionPolicyTests
         Assert.False(result.CanInactivate);
         Assert.Contains(AllowedActionReasonCodes.HasDependencies, result.Reasons);
     }
+
+    [Fact]
+    public void ResourceActionPolicyService_WhenPublishableStateAndAllowed_ShouldAllowPublish()
+    {
+        var service = new ResourceActionPolicyService();
+
+        var result = service.Evaluate(new ResourceActionContext(
+            "JOB_PROFILES",
+            State: "Draft",
+            IsActive: true,
+            SupportsPublish: true,
+            PublishAllowed: true,
+            PublishableStates: ["DRAFT"]));
+
+        Assert.True(result.CanPublish);
+    }
+
+    [Fact]
+    public void ResourceActionPolicyService_WhenStateNotPublishable_ShouldBlockPublishAsRestricted()
+    {
+        var service = new ResourceActionPolicyService();
+
+        var result = service.Evaluate(new ResourceActionContext(
+            "JOB_PROFILES",
+            State: "Published",
+            IsActive: true,
+            SupportsPublish: true,
+            PublishAllowed: true,
+            PublishableStates: ["DRAFT"]));
+
+        Assert.False(result.CanPublish);
+        Assert.Contains(AllowedActionReasonCodes.ActionRestricted, result.Reasons);
+    }
+
+    [Fact]
+    public void ResourceActionPolicyService_WhenPublishNotAllowed_ShouldBlockPublishAsNotAuthorized()
+    {
+        var service = new ResourceActionPolicyService();
+
+        var result = service.Evaluate(new ResourceActionContext(
+            "JOB_PROFILES",
+            State: "Draft",
+            IsActive: true,
+            SupportsPublish: true,
+            PublishAllowed: false,
+            PublishableStates: ["DRAFT"]));
+
+        Assert.False(result.CanPublish);
+        Assert.Contains(AllowedActionReasonCodes.NotAuthorized, result.Reasons);
+    }
 }

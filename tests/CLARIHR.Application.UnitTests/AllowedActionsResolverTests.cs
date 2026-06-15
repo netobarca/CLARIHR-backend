@@ -2,6 +2,9 @@ using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.JobProfiles;
+using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Infrastructure.Policies;
 
 namespace CLARIHR.Application.UnitTests;
@@ -103,6 +106,59 @@ public sealed class AllowedActionsResolverTests
         Assert.False(result.CanDelete);
         Assert.Contains(AllowedActionReasonCodes.SystemRecord, result.Reasons);
     }
+
+    [Fact]
+    public void Resolve_JobProfileDraft_WithAdmin_AllowsPublish()
+    {
+        var resolver = CreateResolver(JobProfilePermissionCodes.Admin);
+        var draft = JobProfileListItem(JobProfileStatus.Draft);
+
+        var result = resolver.Resolve(JobProfilePermissionCodes.ResourceKey, draft);
+
+        Assert.NotNull(result);
+        Assert.True(result!.CanPublish);
+        var publish = Assert.Single(result.ActionPermissions, permission => permission.Action == "Publish");
+        Assert.True(publish.Allowed);
+        Assert.Equal(JobProfilePermissionCodes.Admin, publish.PermissionCode);
+    }
+
+    [Fact]
+    public void Resolve_JobProfilePublished_WithAdmin_DoesNotAllowPublish()
+    {
+        var resolver = CreateResolver(JobProfilePermissionCodes.Admin);
+        var published = JobProfileListItem(JobProfileStatus.Published);
+
+        var result = resolver.Resolve(JobProfilePermissionCodes.ResourceKey, published);
+
+        Assert.NotNull(result);
+        Assert.False(result!.CanPublish);
+    }
+
+    [Fact]
+    public void Resolve_JobProfileDraft_WithReadOnly_DoesNotAllowPublish()
+    {
+        var resolver = CreateResolver(JobProfilePermissionCodes.Read);
+        var draft = JobProfileListItem(JobProfileStatus.Draft);
+
+        var result = resolver.Resolve(JobProfilePermissionCodes.ResourceKey, draft);
+
+        Assert.NotNull(result);
+        Assert.False(result!.CanPublish);
+    }
+
+    private static JobProfileListItemResponse JobProfileListItem(JobProfileStatus status) =>
+        new(
+            Id: Guid.NewGuid(),
+            Code: "JP-001",
+            Title: "Title",
+            Status: status,
+            Version: 1,
+            OrgUnitId: null,
+            OrgUnitName: null,
+            IsActive: true,
+            ConcurrencyToken: Guid.NewGuid(),
+            CreatedAtUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ModifiedAtUtc: null);
 
     private static AllowedActionsResolver CreateResolver(params string[] permissions) =>
         new(new StubCurrentUserService(permissions), new ResourceActionPolicyService());

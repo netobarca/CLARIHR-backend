@@ -94,6 +94,22 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         var canView = context.SupportsView && context.ViewAllowed;
         var canCreate = context.SupportsCreate && context.CreateAllowed;
 
+        // Publish is gated by the manage permission (PublishAllowed) AND, when PublishableStates is
+        // provided, by the record being in one of those states (e.g. a JobProfile can only be
+        // published from Draft). An empty set means the state does not constrain publishing.
+        var publishableStates = (context.PublishableStates ?? [])
+            .Select(static state => state.Trim().ToUpperInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var canPublish = context.SupportsPublish
+            && context.PublishAllowed
+            && (publishableStates.Count == 0 || (normalizedState is not null && publishableStates.Contains(normalizedState)));
+        if (context.SupportsPublish && !canPublish)
+        {
+            reasons.Add(context.PublishAllowed
+                ? AllowedActionReasonCodes.ActionRestricted
+                : AllowedActionReasonCodes.NotAuthorized);
+        }
+
         return new AllowedActionsResponse(
             canEdit,
             canDelete,
@@ -106,6 +122,7 @@ internal sealed class ResourceActionPolicyService : IResourceActionPolicyService
         {
             CanView = canView,
             CanCreate = canCreate,
+            CanPublish = canPublish,
         };
     }
 }

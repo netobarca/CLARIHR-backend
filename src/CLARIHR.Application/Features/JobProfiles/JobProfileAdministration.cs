@@ -2777,6 +2777,9 @@ internal static class JobProfilePolicyAdapter
                 ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
+                SupportsPublish: true,
+                PublishAllowed: canManageProfiles,
+                PublishableStates: [JobProfileStatus.Draft.ToString()],
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
@@ -2800,6 +2803,9 @@ internal static class JobProfilePolicyAdapter
                 ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
+                SupportsPublish: true,
+                PublishAllowed: canManageProfiles,
+                PublishableStates: [JobProfileStatus.Draft.ToString()],
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
@@ -2821,6 +2827,9 @@ internal static class JobProfilePolicyAdapter
                 ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
+                SupportsPublish: true,
+                PublishAllowed: canManageProfiles,
+                PublishableStates: [JobProfileStatus.Draft.ToString()],
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
@@ -2843,6 +2852,9 @@ internal static class JobProfilePolicyAdapter
                 ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
+                SupportsPublish: true,
+                PublishAllowed: canManageProfiles,
+                PublishableStates: [JobProfileStatus.Draft.ToString()],
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };

@@ -2,6 +2,7 @@ using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
@@ -10,6 +11,7 @@ using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.JobProfiles;
 
 namespace CLARIHR.Application.Common.Policies;
 
@@ -71,6 +73,12 @@ public sealed class ResourceActionDefinition
     public bool SupportsActivate { get; init; }
 
     public bool SupportsInactivate { get; init; }
+
+    /// <summary>Whether the resource supports a publish transition (e.g. JobProfile Draft → Published).</summary>
+    public bool SupportsPublish { get; init; }
+
+    /// <summary>States from which publishing is allowed (e.g. Draft). Null/empty = no state constraint.</summary>
+    public IReadOnlyCollection<string>? PublishableStates { get; init; }
 
     /// <summary>Reads record state (active/system/dependencies/non-editable states) from the response DTO.</summary>
     public Func<object?, ResourceState>? StateExtractor { get; init; }
@@ -144,7 +152,10 @@ public static class AllowedActionsRegistry
             JobProfilePermissionCodes.Admin,
             JobProfilePermissionCodes.ManageAdministration,
             supportsActivate: false,
-            supportsInactivate: false);
+            supportsInactivate: false,
+            supportsPublish: true,
+            publishableStates: [JobProfileStatus.Draft.ToString()],
+            stateExtractor: JobProfileStateExtractor);
 
         // Job catalogs — writes gated by the catalog-specific code (NOT JobProfiles.Admin),
         // mirroring the JobProfiles.ManageCatalogs policy so we never over-report.
@@ -201,6 +212,17 @@ public static class AllowedActionsRegistry
         _ => new ResourceState(),
     };
 
+    // Surfaces the JobProfile lifecycle status so the resolver can gate publish to Draft (and edits
+    // away from Archived). Mirrors the per-state gating the JobProfilePolicyAdapter applies on reads.
+    private static ResourceState JobProfileStateExtractor(object? dto) => dto switch
+    {
+        JobProfileListItemResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
+        JobProfileResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
+        JobProfileCoreResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
+        JobProfileEntityResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
+        _ => new ResourceState(),
+    };
+
     private static ResourceActionDefinition Policy(
         string resourceKey,
         string readCode,
@@ -209,7 +231,10 @@ public static class AllowedActionsRegistry
         bool supportsDelete = false,
         bool supportsArchive = false,
         bool supportsActivate = true,
-        bool supportsInactivate = true) =>
+        bool supportsInactivate = true,
+        bool supportsPublish = false,
+        IReadOnlyCollection<string>? publishableStates = null,
+        Func<object?, ResourceState>? stateExtractor = null) =>
         new()
         {
             ResourceKey = resourceKey,
@@ -221,6 +246,9 @@ public static class AllowedActionsRegistry
             SupportsArchive = supportsArchive,
             SupportsActivate = supportsActivate,
             SupportsInactivate = supportsInactivate,
+            SupportsPublish = supportsPublish,
+            PublishableStates = publishableStates,
+            StateExtractor = stateExtractor,
         };
 
     private static ResourceActionDefinition Rbac(

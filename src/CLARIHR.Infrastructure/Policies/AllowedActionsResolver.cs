@@ -74,7 +74,10 @@ internal sealed class AllowedActionsResolver(
             SupportsCreate: definition.SupportsCreate,
             CreateAllowed: createAllowed,
             SupportsView: true,
-            ViewAllowed: viewAllowed);
+            ViewAllowed: viewAllowed,
+            SupportsPublish: definition.SupportsPublish,
+            PublishAllowed: lifecycleAllowed,
+            PublishableStates: definition.PublishableStates);
 
         var result = policyService.Evaluate(context);
         return result with { ActionPermissions = BuildActionPermissions(definition, result) };
@@ -124,7 +127,7 @@ internal sealed class AllowedActionsResolver(
         ResourceActionDefinition definition,
         AllowedActionsResponse result)
     {
-        var list = new List<AllowedActionPermissionResponse>(7);
+        var list = new List<AllowedActionPermissionResponse>(8);
 
         Add("View", supported: true, allowed: result.CanView, Code(definition, RbacPermissionAction.Read, isCreate: false));
         Add("Create", definition.SupportsCreate, result.CanCreate, Code(definition, RbacPermissionAction.Create, isCreate: true));
@@ -133,6 +136,7 @@ internal sealed class AllowedActionsResolver(
         Add("Archive", definition.SupportsArchive, result.CanArchive, Code(definition, RbacPermissionAction.Update, isCreate: false));
         Add("Activate", definition.SupportsActivate, result.CanActivate, Code(definition, RbacPermissionAction.Update, isCreate: false));
         Add("Inactivate", definition.SupportsInactivate, result.CanInactivate, Code(definition, RbacPermissionAction.Update, isCreate: false));
+        Add("Publish", definition.SupportsPublish, result.CanPublish, Code(definition, RbacPermissionAction.Update, isCreate: false));
 
         return list;
 

@@ -18,6 +18,10 @@ internal sealed class UnhandledExceptionMiddleware(
     IHostEnvironment hostEnvironment,
     ILogger<UnhandledExceptionMiddleware> logger)
 {
+    // PostgreSQL SQLSTATE for foreign_key_violation — a referential conflict (e.g. deleting a row
+    // still referenced elsewhere) that should degrade to 409 instead of an unexpected 500.
+    private const string PostgresForeignKeyViolationSqlState = "23503";
+
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -42,6 +46,13 @@ internal sealed class UnhandledExceptionMiddleware(
                 var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
                 var isConcurrencyConflict = exception is DbUpdateConcurrencyException;
+                // Safety net: a foreign-key violation not pre-checked as a domain rule (e.g. deleting a
+                // catalog item still referenced elsewhere) bubbles up here as a DbUpdateException whose
+                // inner provider exception carries the PG SQLSTATE. Translate it to a clean 409 so the
+                // client gets a meaningful conflict instead of "unexpected error".
+                var isReferentialConflict = exception is DbUpdateException
+                    && exception.InnerException is System.Data.Common.DbException { SqlState: PostgresForeignKeyViolationSqlState };
+                var isConflict = isConcurrencyConflict || isReferentialConflict;
 
                 using (logger.BeginScope(new Dictionary<string, object>
                 {
@@ -54,7 +65,7 @@ internal sealed class UnhandledExceptionMiddleware(
                 }))
                 {
                     logger.Log(
-                        isConcurrencyConflict ? LogLevel.Warning : LogLevel.Error,
+                        isConflict ? LogLevel.Warning : LogLevel.Error,
                         exception,
                         "Unhandled exception processing request {Method} {Path} | Tenant: {TenantId} | User: {UserId} | TraceId: {TraceIdentifier}",
                         context.Request.Method,
@@ -64,20 +75,39 @@ internal sealed class UnhandledExceptionMiddleware(
                         context.TraceIdentifier);
                 }
 
-                var statusCode = isConcurrencyConflict
+                var statusCode = isConflict
                     ? StatusCodes.Status409Conflict
                     : StatusCodes.Status500InternalServerError;
                 context.Response.StatusCode = statusCode;
 
                 var localizer = context.RequestServices.GetService<IBackendMessageLocalizer>();
-                var title = isConcurrencyConflict
-                    ? "Concurrency conflict"
-                    : localizer?.Localize("common.unexpected", "Unexpected error") ?? "Unexpected error";
-                var detail = isConcurrencyConflict
-                    ? "The resource was modified by another request. Refresh and try again."
-                    : hostEnvironment.IsDevelopment()
-                    ? exception.Message
-                    : localizer?.Localize("common.unexpected", "An unexpected error occurred.") ?? "An unexpected error occurred.";
+
+                string title;
+                string detail;
+                string code;
+                if (isConcurrencyConflict)
+                {
+                    title = "Concurrency conflict";
+                    detail = "The resource was modified by another request. Refresh and try again.";
+                    code = "CONCURRENCY_CONFLICT";
+                }
+                else if (isReferentialConflict)
+                {
+                    title = localizer?.Localize("common.referenced", "Resource in use") ?? "Resource in use";
+                    detail = localizer?.Localize(
+                        "common.referenced.detail",
+                        "The resource cannot be modified or deleted because it is referenced by other records.")
+                        ?? "The resource cannot be modified or deleted because it is referenced by other records.";
+                    code = "REFERENCED_BY_OTHER_RESOURCES";
+                }
+                else
+                {
+                    title = localizer?.Localize("common.unexpected", "Unexpected error") ?? "Unexpected error";
+                    detail = hostEnvironment.IsDevelopment()
+                        ? exception.Message
+                        : localizer?.Localize("common.unexpected", "An unexpected error occurred.") ?? "An unexpected error occurred.";
+                    code = "common.unexpected";
+                }
 
                 var problemDetails = new ProblemDetails
                 {
@@ -87,9 +117,7 @@ internal sealed class UnhandledExceptionMiddleware(
                     Type = $"https://httpstatuses.com/{statusCode}"
                 };
 
-                problemDetails.Extensions["code"] = isConcurrencyConflict
-                    ? "CONCURRENCY_CONFLICT"
-                    : "common.unexpected";
+                problemDetails.Extensions["code"] = code;
                 problemDetails.Extensions["traceId"] = context.TraceIdentifier;
 
                 await problemDetailsService.WriteAsync(new ProblemDetailsContext
