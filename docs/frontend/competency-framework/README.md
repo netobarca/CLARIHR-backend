@@ -50,7 +50,9 @@ Job Catalogs (Fase 10)                Competency Framework
   colección de **behaviors** anidados (categoría `Behavior`).
 - **Competency Matrix**: por cada job profile, ensambla la expectativa — para cada
   (nivel de pirámide × competencia × tipo × nivel de comportamiento) qué conductas y qué evidencia se
-  esperan. Es un **replace completo** (un solo `PUT`).
+  esperan. La terna competencia/tipo/nivel **se deriva de las conductas** del item (no se envía): cada
+  item lleva nivel de pirámide + conductas (≥1, todas de la misma terna) + evidencia. Es un **replace
+  completo** (un solo `PUT`).
 
 ## Convenciones de la familia
 

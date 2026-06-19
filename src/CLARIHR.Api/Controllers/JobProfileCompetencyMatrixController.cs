@@ -46,7 +46,7 @@ public sealed class JobProfileCompetencyMatrixController(
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Replace a job profile's competency matrix",
-        Description = "Replaces the entire competency matrix for the job profile. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors return `400`; matrix-constraint violations (duplicate item tuples, conduct-set mismatches, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.")]
+        Description = "Replaces the entire competency matrix for the job profile. Each item references its competency conducts (`conductPublicIds`, at least one required); the item's competency, competency type and behavior level are derived from those conducts and must not be supplied. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors (including an item with no conducts) return `400`; matrix-constraint violations (duplicate item tuples, conducts of differing competency/type/behavior-level within one item, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<JobProfileCompetencyMatrixResponse>> UpdateJobProfileCompetencyMatrix(
         Guid jobProfilePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -58,9 +58,6 @@ public sealed class JobProfileCompetencyMatrixController(
                 jobProfilePublicId,
                 request.Items?.Select(item => new JobProfileCompetencyMatrixItemInput(
                         item.OccupationalPyramidLevelPublicId,
-                        item.CompetencyPublicId,
-                        item.CompetencyTypePublicId,
-                        item.BehaviorLevelPublicId,
                         item.ConductPublicIds ?? [],
                         item.ExpectedEvidence,
                         item.SortOrder))
@@ -111,9 +108,6 @@ public sealed class JobProfileCompetencyMatrixController(
 
     public sealed record JobProfileCompetencyMatrixItemRequest(
         Guid OccupationalPyramidLevelPublicId,
-        Guid CompetencyPublicId,
-        Guid CompetencyTypePublicId,
-        Guid BehaviorLevelPublicId,
         IReadOnlyCollection<Guid>? ConductPublicIds,
         string? ExpectedEvidence,
         int SortOrder);

@@ -7764,9 +7764,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                         new
                         {
                             occupationalPyramidLevelPublicId = level!.Id,
-                            competencyPublicId = competency.Id,
-                            competencyTypePublicId = competencyType.Id,
-                            behaviorLevelPublicId = behaviorLevel.Id,
                             conductPublicIds = new[] { conductWithBehaviors.Id },
                             expectedEvidence = "Resultados comprobables en objetivos institucionales.",
                             sortOrder = 1
@@ -7887,9 +7884,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                         new
                         {
                             occupationalPyramidLevelPublicId = level1.Id,
-                            competencyPublicId = competency.Id,
-                            competencyTypePublicId = competencyType.Id,
-                            behaviorLevelPublicId = behaviorLevel.Id,
                             conductPublicIds = new[] { conduct1.Id, conduct2.Id },
                             expectedEvidence = "Item 1.",
                             sortOrder = 1
@@ -7897,9 +7891,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                         new
                         {
                             occupationalPyramidLevelPublicId = level2.Id,
-                            competencyPublicId = competency.Id,
-                            competencyTypePublicId = competencyType.Id,
-                            behaviorLevelPublicId = behaviorLevel.Id,
                             conductPublicIds = new[] { conduct1.Id },
                             expectedEvidence = "Item 2.",
                             sortOrder = 2
@@ -7919,6 +7910,93 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var item2 = matrix.Items.Single(item => item.OccupationalPyramidLevelId == level2.Id);
         Assert.Equal(2, item1.Conducts.Count);
         Assert.Single(item2.Conducts);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_MatrixUpdate_ItemWithoutConducts_ShouldReturn400()
+    {
+        // The triple is derived from the conducts, so an item with no conducts has nothing to derive
+        // from and is rejected by validation (no manual-triple fallback exists).
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-NOCOND", "Perfil Sin Conductas");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-NOCOND-1");
+
+        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
+            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            occupationalPyramidLevelPublicId = level.Id,
+                            conductPublicIds = Array.Empty<Guid>(),
+                            expectedEvidence = "Sin conductas.",
+                            sortOrder = 1
+                        }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_MatrixUpdate_ItemWithMismatchedConducts_ShouldReturn409()
+    {
+        // Conducts in one item must share a single competency/type/behavior-level triple; two conducts
+        // of different competencies cannot define the same matrix cell, so the item is a conflict.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-MIX", "Perfil Conductas Mixtas");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-MIX", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-MIX", "Estrategico");
+        var competencyA = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-MIX-A", "Liderazgo");
+        var competencyB = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-MIX-B", "Comunicacion");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-MIX-1");
+
+        var conductA = await CreateCompetencyConductAsync(client, scenario.TenantId, competencyA.Id, competencyType.Id, behaviorLevel.Id, "Conducta A.", 1);
+        var conductB = await CreateCompetencyConductAsync(client, scenario.TenantId, competencyB.Id, competencyType.Id, behaviorLevel.Id, "Conducta B.", 2);
+
+        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
+            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            occupationalPyramidLevelPublicId = level.Id,
+                            conductPublicIds = new[] { conductA.Id, conductB.Id },
+                            expectedEvidence = "Mixtas.",
+                            sortOrder = 1
+                        }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT");
     }
 
     [Fact]
@@ -7957,9 +8035,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                         new
                         {
                             occupationalPyramidLevelPublicId = level.Id,
-                            competencyPublicId = competency.Id,
-                            competencyTypePublicId = competencyType.Id,
-                            behaviorLevelPublicId = behaviorLevel.Id,
                             conductPublicIds = new[] { conduct.Id },
                             expectedEvidence = "Evidencia.",
                             sortOrder = 1
@@ -8094,9 +8169,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                         new
                         {
                             occupationalPyramidLevelPublicId = level!.Id,
-                            competencyPublicId = competency.Id,
-                            competencyTypePublicId = competencyType.Id,
-                            behaviorLevelPublicId = behaviorLevel.Id,
                             conductPublicIds = new[] { conduct.Id },
                             expectedEvidence = "Esperado",
                             sortOrder = 1

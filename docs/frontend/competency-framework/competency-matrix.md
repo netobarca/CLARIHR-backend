@@ -34,10 +34,7 @@ Cada item de `items[]`:
 | Campo | Tipo | Req. | FK / Validación |
 |-------|------|------|-----------------|
 | `occupationalPyramidLevelPublicId` | uuid | Sí | [Occupational Pyramid Level](./occupational-pyramid-levels.md) |
-| `competencyPublicId` | uuid | Sí | Job Catalog `Competency` |
-| `competencyTypePublicId` | uuid | Sí | Job Catalog `CompetencyType` |
-| `behaviorLevelPublicId` | uuid | Sí | Job Catalog `BehaviorLevel` |
-| `conductPublicIds` | uuid[] | No | [Competency Conducts](./competency-conducts.md); máx **50** por item |
+| `conductPublicIds` | uuid[] | Sí | [Competency Conducts](./competency-conducts.md); **mín 1**, máx **50** por item. Todas deben compartir la misma competencia/tipo/behaviorLevel |
 | `expectedEvidence` | string | No | evidencia esperada (texto) |
 | `sortOrder` | int | Sí | ≥ 0 |
 
@@ -46,7 +43,6 @@ Cada item de `items[]`:
   "items": [
     {
       "occupationalPyramidLevelPublicId": "…",
-      "competencyPublicId": "…", "competencyTypePublicId": "…", "behaviorLevelPublicId": "…",
       "conductPublicIds": ["…", "…"],
       "expectedEvidence": "Lidera reuniones de equipo",
       "sortOrder": 1
@@ -54,6 +50,11 @@ Cada item de `items[]`:
   ]
 }
 ```
+
+> La competencia, el tipo y el behavior level del item **no se envían**: se **derivan** de las
+> conductas (`conductPublicIds`). Cada conducta ya define esa terna, y todas las conductas de un item
+> deben compartir la misma (si difieren → `409`). Por eso cada item exige **al menos una conducta**
+> (item sin conductas → `400`). En la respuesta el item sí trae la terna ya resuelta, para mostrarla.
 
 ## Responses
 
@@ -69,9 +70,9 @@ Descarga (query `format`, default `xlsx`). Matriz muy grande → `413`. Rate lim
 
 | `code` / situación | HTTP | Cuándo |
 |--------------------|------|--------|
-| `400` validación | 400 | error estructural/de campos, o `If-Match` faltante |
-| tuplas de item duplicadas / conduct-set inválido / **job profile `Archived`** | 409 | violación de restricción de la matriz |
-| FK inexistente (nivel/competencia/tipo/behaviorLevel/conducta) | 404 | alguna referencia no existe |
+| `400` validación | 400 | error estructural/de campos, `If-Match` faltante, o **item sin conductas** |
+| tuplas de item duplicadas / **conductas de distinta terna en un item** / **job profile `Archived`** | 409 | violación de restricción de la matriz |
+| FK inexistente (nivel / conducta) | 404 | alguna referencia no existe |
 | `CONCURRENCY_CONFLICT` | 409 | `If-Match` (token del perfil) stale |
 
 ## Reglas de negocio
@@ -83,7 +84,9 @@ Descarga (query `format`, default `xlsx`). Matriz muy grande → `413`. Rate lim
 
 ## Guía FE
 
-- Editor de matriz: cargá niveles de pirámide, competencias/tipos/behaviorLevels (Job Catalogs) y
-  conductas; construí la grilla y guardá con un solo `PUT` (replace-all) usando el `concurrencyToken`
-  del perfil.
+- Editor de matriz: cargá los niveles de pirámide y las conductas (el listado de conductas es
+  filtrable por `competencyId`/`competencyTypeId`/`behaviorLevelId`). Por cada item el usuario elige
+  **una o más conductas que compartan terna** — la competencia/tipo/behaviorLevel se **derivan** de
+  ellas, no se piden aparte. Guardá con un solo `PUT` (replace-all) usando el `concurrencyToken` del
+  perfil.
 - Si el perfil está `Archived`, deshabilitá la edición (read-only); el `GET` igual funciona.

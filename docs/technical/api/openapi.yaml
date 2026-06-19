@@ -4989,10 +4989,13 @@ paths:
       tags:
       - Competency Framework
       summary: Replace a job profile's competency matrix
-      description: Replaces the entire competency matrix for the job profile. Requires the current `concurrencyToken` in the
-        `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors return `400`; matrix-constraint
-        violations (duplicate item tuples, conduct-set mismatches, or an `Archived` job profile) return `409`. The refreshed
-        token is returned in the body and the `ETag` header.
+      description: Replaces the entire competency matrix for the job profile. Each item references its competency conducts
+        (`conductPublicIds`, at least one required); the item's competency, competency type and behavior level are derived
+        from those conducts and must not be supplied. Requires the current `concurrencyToken` in the `If-Match` header
+        (missing → `400`, stale → `409`). Structural/field validation errors (including an item with no conducts) return
+        `400`; matrix-constraint violations (duplicate item tuples, conducts of differing competency/type/behavior-level
+        within one item, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the
+        `ETag` header.
       parameters:
       - name: jobProfilePublicId
         in: path
@@ -38180,15 +38183,6 @@ components:
       type: object
       properties:
         occupationalPyramidLevelPublicId:
-          type: string
-          format: uuid
-        competencyPublicId:
-          type: string
-          format: uuid
-        competencyTypePublicId:
-          type: string
-          format: uuid
-        behaviorLevelPublicId:
           type: string
           format: uuid
         conductPublicIds:

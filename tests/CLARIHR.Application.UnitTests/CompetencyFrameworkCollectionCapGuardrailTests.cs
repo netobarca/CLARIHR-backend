@@ -93,14 +93,12 @@ public sealed class CompetencyFrameworkCollectionCapGuardrailTests
 
     private static IReadOnlyCollection<JobProfileCompetencyMatrixItemInput> BuildMatrixItems(int count) =>
         Enumerable.Range(0, count)
-            .Select(_ => BuildItem(conductCount: 0))
+            // Each item now requires at least one conduct, so the items-cap cases stay otherwise-valid.
+            .Select(_ => BuildItem(conductCount: 1))
             .ToArray();
 
     private static JobProfileCompetencyMatrixItemInput BuildItem(int conductCount) =>
         new(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            Guid.NewGuid(),
             Guid.NewGuid(),
             Enumerable.Range(0, conductCount).Select(_ => Guid.NewGuid()).ToArray(),
             ExpectedEvidence: null,

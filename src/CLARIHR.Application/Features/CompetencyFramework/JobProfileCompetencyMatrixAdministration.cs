@@ -75,9 +75,6 @@ public sealed record JobProfileCompetencyMatrixExportRow(
 
 public sealed record JobProfileCompetencyMatrixItemInput(
     Guid OccupationalPyramidLevelId,
-    Guid CompetencyId,
-    Guid CompetencyTypeId,
-    Guid BehaviorLevelId,
     IReadOnlyCollection<Guid> ConductIds,
     string? ExpectedEvidence,
     int SortOrder);
@@ -128,12 +125,11 @@ internal sealed class JobProfileCompetencyMatrixItemInputValidator : AbstractVal
     public JobProfileCompetencyMatrixItemInputValidator()
     {
         RuleFor(item => item.OccupationalPyramidLevelId).NotEmpty();
-        RuleFor(item => item.CompetencyId).NotEmpty();
-        RuleFor(item => item.CompetencyTypeId).NotEmpty();
-        RuleFor(item => item.BehaviorLevelId).NotEmpty();
         RuleFor(item => item.ExpectedEvidence).MaximumLength(1000);
         RuleFor(item => item.SortOrder).GreaterThanOrEqualTo(0);
         RuleFor(item => item.ConductIds)
+            .NotEmpty()
+            .WithMessage("At least one competency conduct is required per matrix item.")
             .Must(static conductIds => conductIds is null || conductIds.Count <= CompetencyFrameworkValidationRules.MaxConductsPerMatrixItem)
             .WithMessage("A maximum of 50 conducts per competency matrix item is allowed.");
         RuleForEach(item => item.ConductIds).NotEqual(Guid.Empty);
@@ -262,27 +258,13 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
         var before = await repository.GetJobProfileCompetencyMatrixResponseAsync(profile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile competency matrix response could not be resolved before update.");
 
-        // Batch-resolve every referenced level / catalog item / conduct up front (one query per
-        // category) so the per-item loop below resolves from memory instead of issuing an N+1
-        // fan-out of one query per item (and per conduct).
+        // Batch-resolve the referenced pyramid levels and conducts up front (one query per category) so
+        // the per-item loop below resolves from memory instead of an N+1 fan-out. The competency / type /
+        // behavior-level triple is no longer supplied by the client: it is derived from each item's
+        // conducts (every conduct already carries its own triple), so nothing else needs resolving here.
         var levelsById = await repository.ResolveActiveOccupationalPyramidLevelsAsync(
             profile.TenantId,
             command.Items.Select(item => item.OccupationalPyramidLevelId).ToArray(),
-            cancellationToken);
-        var competenciesById = await repository.ResolveActiveCatalogItemsAsync(
-            profile.TenantId,
-            JobCatalogCategory.Competency,
-            command.Items.Select(item => item.CompetencyId).ToArray(),
-            cancellationToken);
-        var competencyTypesById = await repository.ResolveActiveCatalogItemsAsync(
-            profile.TenantId,
-            JobCatalogCategory.CompetencyType,
-            command.Items.Select(item => item.CompetencyTypeId).ToArray(),
-            cancellationToken);
-        var behaviorLevelsById = await repository.ResolveActiveCatalogItemsAsync(
-            profile.TenantId,
-            JobCatalogCategory.BehaviorLevel,
-            command.Items.Select(item => item.BehaviorLevelId).ToArray(),
             cancellationToken);
         var conductsById = await repository.ResolveActiveCompetencyConductsAsync(
             profile.TenantId,
@@ -306,64 +288,16 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 return Result<JobProfileCompetencyMatrixResponse>.Failure(levelResolution.Error);
             }
 
-            var competencyResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
-                competenciesById,
-                item.CompetencyId,
-                JobCatalogCategory.Competency,
-                repository,
-                authorizationService,
-                RbacPermissionAction.Update,
-                cancellationToken);
-            if (competencyResolution.IsFailure)
-            {
-                return Result<JobProfileCompetencyMatrixResponse>.Failure(competencyResolution.Error);
-            }
-
-            var typeResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
-                competencyTypesById,
-                item.CompetencyTypeId,
-                JobCatalogCategory.CompetencyType,
-                repository,
-                authorizationService,
-                RbacPermissionAction.Update,
-                cancellationToken);
-            if (typeResolution.IsFailure)
-            {
-                return Result<JobProfileCompetencyMatrixResponse>.Failure(typeResolution.Error);
-            }
-
-            var behaviorLevelResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
-                behaviorLevelsById,
-                item.BehaviorLevelId,
-                JobCatalogCategory.BehaviorLevel,
-                repository,
-                authorizationService,
-                RbacPermissionAction.Update,
-                cancellationToken);
-            if (behaviorLevelResolution.IsFailure)
-            {
-                return Result<JobProfileCompetencyMatrixResponse>.Failure(behaviorLevelResolution.Error);
-            }
-
-            var uniqueKey = $"{levelResolution.Value.Id}:{competencyResolution.Value.Id}:{typeResolution.Value.Id}:{behaviorLevelResolution.Value.Id}";
-            if (!uniqueCombinations.Add(uniqueKey))
-            {
-                return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
-            }
-
-            var expectation = JobProfileCompetencyExpectation.Create(
-                profile.Id,
-                levelResolution.Value.Id,
-                competencyResolution.Value.Id,
-                typeResolution.Value.Id,
-                behaviorLevelResolution.Value.Id,
-                item.ExpectedEvidence,
-                item.SortOrder);
-            expectation.SetTenantId(profile.TenantId);
-
+            // Derive the item's competency / type / behavior-level triple from its conducts. A matrix
+            // item is a single cell of the matrix, so every conduct it lists must share one triple;
+            // a divergent conduct is a matrix-constraint conflict. The validator guarantees >= 1 conduct.
             var conducts = new List<JobProfileCompetencyExpectationConduct>();
             var conductSet = new HashSet<Guid>();
             var conductSort = 0;
+            long competencyCatalogItemId = 0;
+            long competencyTypeCatalogItemId = 0;
+            long behaviorLevelCatalogItemId = 0;
+
             foreach (var conductId in item.ConductIds)
             {
                 if (!conductSet.Add(conductId))
@@ -384,9 +318,15 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 }
 
                 var conduct = conductResolution.Value;
-                if (conduct.CompetencyCatalogItemId != competencyResolution.Value.Id ||
-                    conduct.CompetencyTypeCatalogItemId != typeResolution.Value.Id ||
-                    conduct.BehaviorLevelCatalogItemId != behaviorLevelResolution.Value.Id)
+                if (conductSet.Count == 1)
+                {
+                    competencyCatalogItemId = conduct.CompetencyCatalogItemId;
+                    competencyTypeCatalogItemId = conduct.CompetencyTypeCatalogItemId;
+                    behaviorLevelCatalogItemId = conduct.BehaviorLevelCatalogItemId;
+                }
+                else if (conduct.CompetencyCatalogItemId != competencyCatalogItemId ||
+                    conduct.CompetencyTypeCatalogItemId != competencyTypeCatalogItemId ||
+                    conduct.BehaviorLevelCatalogItemId != behaviorLevelCatalogItemId)
                 {
                     return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
                 }
@@ -396,6 +336,21 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 conducts.Add(link);
             }
 
+            var uniqueKey = $"{levelResolution.Value.Id}:{competencyCatalogItemId}:{competencyTypeCatalogItemId}:{behaviorLevelCatalogItemId}";
+            if (!uniqueCombinations.Add(uniqueKey))
+            {
+                return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+            }
+
+            var expectation = JobProfileCompetencyExpectation.Create(
+                profile.Id,
+                levelResolution.Value.Id,
+                competencyCatalogItemId,
+                competencyTypeCatalogItemId,
+                behaviorLevelCatalogItemId,
+                item.ExpectedEvidence,
+                item.SortOrder);
+            expectation.SetTenantId(profile.TenantId);
             expectation.ReplaceConducts(conducts);
             matrixItems.Add(expectation);
         }
