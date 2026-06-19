@@ -51,8 +51,10 @@ Job Catalogs (Fase 10)                Competency Framework
 - **Competency Matrix**: por cada job profile, ensambla la expectativa — para cada
   (nivel de pirámide × competencia × tipo × nivel de comportamiento) qué conductas y qué evidencia se
   esperan. La terna competencia/tipo/nivel **se deriva de las conductas** del item (no se envía): cada
-  item lleva nivel de pirámide + conductas (≥1, todas de la misma terna) + evidencia. Es un **replace
-  completo** (un solo `PUT`).
+  item lleva nivel de pirámide + conductas (≥1, todas de la misma terna) + evidencia. Se edita **por
+  item** (`POST`/`PUT`/`PATCH`/`DELETE` sobre `…/competency-matrix/items`); cada item tiene su propio
+  `concurrencyToken`. 🔴 El `PUT` masivo `items[]` (replace completo) **se eliminó el 2026-06-18** —
+  ver [competency-matrix-breaking-change-2026-06-15.md](./competency-matrix-breaking-change-2026-06-15.md).
 
 ## Convenciones de la familia
 

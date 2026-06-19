@@ -408,16 +408,6 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == jobProfileId, cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileCompetencyExpectation>> GetExpectationsByJobProfileIdAsync(
-        long jobProfileInternalId,
-        CancellationToken cancellationToken)
-    {
-        return await dbContext.Set<JobProfileCompetencyExpectation>()
-            .Include(expectation => expectation.Conducts)
-            .Where(expectation => expectation.JobProfileId == jobProfileInternalId)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<JobProfileCompetencyMatrixResponse?> GetJobProfileCompetencyMatrixResponseAsync(
         Guid jobProfileId,
         CancellationToken cancellationToken)
@@ -459,6 +449,8 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
              select new
              {
                  ExpectationId = expectation.Id,
+                 ExpectationPublicId = expectation.PublicId,
+                 ExpectationConcurrencyToken = expectation.ConcurrencyToken,
                  expectation.SortOrder,
                  expectation.ExpectedEvidence,
                  LevelId = level.PublicId,
@@ -495,6 +487,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                     .ToArray();
 
                 return new JobProfileCompetencyMatrixItemResponse(
+                    head.ExpectationPublicId,
                     head.LevelId,
                     head.LevelCode,
                     head.LevelName,
@@ -510,7 +503,8 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                     head.BehaviorLevelName,
                     head.ExpectedEvidence,
                     head.SortOrder,
-                    conducts);
+                    conducts,
+                    head.ExpectationConcurrencyToken);
             })
             .ToArray();
 
@@ -523,6 +517,120 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
             profile.ConcurrencyToken,
             items);
     }
+
+    public async Task<JobProfileCompetencyMatrixItemResponse?> GetJobProfileCompetencyMatrixItemResponseAsync(
+        Guid jobProfileId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await
+            (from expectation in dbContext.Set<JobProfileCompetencyExpectation>().AsNoTracking()
+             join profile in dbContext.JobProfiles.AsNoTracking() on expectation.JobProfileId equals profile.Id
+             join level in dbContext.Set<OccupationalPyramidLevel>().AsNoTracking() on expectation.OccupationalPyramidLevelId equals level.Id
+             join competency in dbContext.JobCatalogItems.AsNoTracking() on expectation.CompetencyCatalogItemId equals competency.Id
+             join competencyType in dbContext.JobCatalogItems.AsNoTracking() on expectation.CompetencyTypeCatalogItemId equals competencyType.Id
+             join behaviorLevel in dbContext.JobCatalogItems.AsNoTracking() on expectation.BehaviorLevelCatalogItemId equals behaviorLevel.Id
+             join link in dbContext.Set<JobProfileCompetencyExpectationConduct>().AsNoTracking()
+                 on expectation.Id equals link.JobProfileCompetencyExpectationId into conductLinks
+             from link in conductLinks.DefaultIfEmpty()
+             join conduct in dbContext.Set<CompetencyConduct>().AsNoTracking()
+                 on link.CompetencyConductId equals conduct.Id into conductJoin
+             from conduct in conductJoin.DefaultIfEmpty()
+             where profile.PublicId == jobProfileId && expectation.PublicId == itemId
+             orderby link.SortOrder
+             select new
+             {
+                 ExpectationPublicId = expectation.PublicId,
+                 ExpectationConcurrencyToken = expectation.ConcurrencyToken,
+                 expectation.SortOrder,
+                 expectation.ExpectedEvidence,
+                 LevelId = level.PublicId,
+                 LevelCode = level.Code,
+                 LevelName = level.Name,
+                 level.LevelOrder,
+                 CompetencyId = competency.PublicId,
+                 CompetencyCode = competency.Code,
+                 CompetencyName = competency.Name,
+                 CompetencyTypeId = competencyType.PublicId,
+                 CompetencyTypeCode = competencyType.Code,
+                 CompetencyTypeName = competencyType.Name,
+                 BehaviorLevelId = behaviorLevel.PublicId,
+                 BehaviorLevelCode = behaviorLevel.Code,
+                 BehaviorLevelName = behaviorLevel.Name,
+                 ConductId = conduct != null ? conduct.PublicId : (Guid?)null,
+                 ConductDescription = conduct != null ? conduct.Description : null,
+                 ConductSortOrder = link != null ? link.SortOrder : (int?)null
+             })
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+
+        var head = rows[0];
+        var conducts = rows
+            .Where(row => row.ConductId.HasValue)
+            .OrderBy(row => row.ConductSortOrder ?? 0)
+            .Select(row => new JobProfileCompetencyMatrixItemConductResponse(
+                row.ConductId!.Value,
+                row.ConductDescription!,
+                row.ConductSortOrder ?? 0))
+            .ToArray();
+
+        return new JobProfileCompetencyMatrixItemResponse(
+            head.ExpectationPublicId,
+            head.LevelId,
+            head.LevelCode,
+            head.LevelName,
+            head.LevelOrder,
+            head.CompetencyId,
+            head.CompetencyCode,
+            head.CompetencyName,
+            head.CompetencyTypeId,
+            head.CompetencyTypeCode,
+            head.CompetencyTypeName,
+            head.BehaviorLevelId,
+            head.BehaviorLevelCode,
+            head.BehaviorLevelName,
+            head.ExpectedEvidence,
+            head.SortOrder,
+            conducts,
+            head.ExpectationConcurrencyToken);
+    }
+
+    public Task<JobProfileCompetencyExpectation?> GetExpectationAggregateAsync(
+        long jobProfileInternalId,
+        Guid itemId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<JobProfileCompetencyExpectation>()
+            .Include(expectation => expectation.Conducts)
+            .SingleOrDefaultAsync(
+                expectation => expectation.JobProfileId == jobProfileInternalId && expectation.PublicId == itemId,
+                cancellationToken);
+
+    public Task<int> CountExpectationsByJobProfileIdAsync(
+        long jobProfileInternalId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<JobProfileCompetencyExpectation>()
+            .CountAsync(expectation => expectation.JobProfileId == jobProfileInternalId, cancellationToken);
+
+    public Task<bool> ExpectationTupleExistsAsync(
+        long jobProfileInternalId,
+        long occupationalPyramidLevelInternalId,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long behaviorLevelCatalogItemId,
+        long? excludingExpectationInternalId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<JobProfileCompetencyExpectation>().AnyAsync(expectation =>
+            expectation.JobProfileId == jobProfileInternalId &&
+            expectation.OccupationalPyramidLevelId == occupationalPyramidLevelInternalId &&
+            expectation.CompetencyCatalogItemId == competencyCatalogItemId &&
+            expectation.CompetencyTypeCatalogItemId == competencyTypeCatalogItemId &&
+            expectation.BehaviorLevelCatalogItemId == behaviorLevelCatalogItemId &&
+            (!excludingExpectationInternalId.HasValue || expectation.Id != excludingExpectationInternalId.Value),
+            cancellationToken);
 
     public async Task<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>> GetJobProfileCompetencyMatrixExportRowsAsync(
         Guid jobProfileId,

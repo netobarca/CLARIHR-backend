@@ -4926,8 +4926,8 @@ paths:
       tags:
       - Competency Framework
       summary: Get a job profile's competency matrix
-      description: 'Returns the job profile''s competency matrix as JSON: its items, each item''s conducts, and the current
-        `concurrencyToken` (the job profile''s token) for use in the `If-Match` header of a subsequent matrix replace. A job
+      description: 'Returns the job profile''s competency matrix as JSON: its items and each item''s conducts. Every item carries
+        its own `itemPublicId` and `concurrencyToken` for use in the `If-Match` header of a subsequent per-item update. A job
         profile with no expectations yet returns `200` with an empty `items` array.'
       parameters:
       - name: jobProfilePublicId
@@ -4985,19 +4985,194 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/items:
+    post:
+      tags:
+      - Competency Framework
+      summary: Add a competency matrix item
+      description: 'Creates a single competency matrix item under the job profile. The item references its competency conducts
+        (`conductPublicIds`, at least one required); the item''s competency, competency type and behavior level are derived
+        from those conducts and must not be supplied. Returns `201`; the `Location` header points to the created item and its
+        `concurrencyToken` is returned in the body and the `ETag` header. A duplicate item tuple, conducts of differing competency/type/behavior-level,
+        an `Archived` job profile, or exceeding the per-profile item cap return `409`.'
+      parameters:
+      - name: jobProfilePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/items/{itemPublicId}:
+    get:
+      tags:
+      - Competency Framework
+      summary: Get a single competency matrix item
+      description: Returns one competency matrix item of the job profile with its derived competency / type / behavior-level
+        triple, its conducts, and the current `concurrencyToken` for use in the `If-Match` header of a subsequent update.
+      parameters:
+      - name: jobProfilePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
       - Competency Framework
-      summary: Replace a job profile's competency matrix
-      description: Replaces the entire competency matrix for the job profile. Each item references its competency conducts
-        (`conductPublicIds`, at least one required); the item's competency, competency type and behavior level are derived
-        from those conducts and must not be supplied. Requires the current `concurrencyToken` in the `If-Match` header
-        (missing → `400`, stale → `409`). Structural/field validation errors (including an item with no conducts) return
-        `400`; matrix-constraint violations (duplicate item tuples, conducts of differing competency/type/behavior-level
-        within one item, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the
-        `ETag` header.
+      summary: Replace a competency matrix item
+      description: 'Replaces all fields of an existing competency matrix item. The item references its competency conducts
+        (`conductPublicIds`, at least one required); the competency / type / behavior level are derived from those conducts
+        and must not be supplied. Requires the item''s current `concurrencyToken` in the `If-Match` header (missing → `400`,
+        stale → `409`). Structural/field validation errors (including no conducts) return `400`; matrix-constraint violations
+        (duplicate item tuple, conducts of differing competency/type/behavior-level, or an `Archived` job profile) return `409`.
+        The refreshed token is returned in the body and the `ETag` header.'
       parameters:
       - name: jobProfilePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemPublicId
         in: path
         required: true
         schema:
@@ -5012,26 +5187,229 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateJobProfileCompetencyMatrixRequest'
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
           text/json:
             schema:
-              $ref: '#/components/schemas/UpdateJobProfileCompetencyMatrixRequest'
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/UpdateJobProfileCompetencyMatrixRequest'
+              $ref: '#/components/schemas/MutateJobProfileCompetencyMatrixItemRequest'
       responses:
         '200':
           description: OK
           content:
             text/plain:
               schema:
-                $ref: '#/components/schemas/JobProfileCompetencyMatrixResponse'
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
             application/json:
               schema:
-                $ref: '#/components/schemas/JobProfileCompetencyMatrixResponse'
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
             text/json:
               schema:
-                $ref: '#/components/schemas/JobProfileCompetencyMatrixResponse'
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - Competency Framework
+      summary: Patch a competency matrix item (RFC 6902 JSON Patch)
+      description: 'Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable
+        paths: `/occupationalPyramidLevelPublicId`, `/conductPublicIds`, `/expectedEvidence`, `/sortOrder`. The competency
+        / type / behavior level are re-derived from `conductPublicIds`. Requires the item''s current `concurrencyToken` in
+        the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag`
+        header.'
+      parameters:
+      - name: jobProfilePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/JsonPatchDocumentOfPatchJobProfileCompetencyMatrixItemRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCompetencyMatrixItemResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - Competency Framework
+      summary: Remove a competency matrix item
+      description: Deletes the specified competency matrix item. Requires the item's current `concurrencyToken` in the `If-Match`
+        header (missing → `400`, stale → `409`). Returns the parent job profile's updated concurrency token so the caller can
+        continue mutating the profile without an extra round-trip.
+      parameters:
+      - name: jobProfilePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
         '400':
           description: Bad Request
           content:
@@ -38179,7 +38557,35 @@ components:
           type: integer
           format: int32
       additionalProperties: false
-    JobProfileCompetencyMatrixItemRequest:
+    MutateJobProfileCompetencyMatrixItemRequest:
+      required:
+      - conductPublicIds
+      - occupationalPyramidLevelPublicId
+      - sortOrder
+      type: object
+      properties:
+        occupationalPyramidLevelPublicId:
+          type: string
+          format: uuid
+        conductPublicIds:
+          maxItems: 50
+          minItems: 1
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 'The item''s competency, competency type and behavior level are derived from these conducts; all conducts
+            must share the same competency, competency type and behavior level.'
+        expectedEvidence:
+          maxLength: 1000
+          type: string
+          nullable: true
+        sortOrder:
+          minimum: 0
+          type: integer
+          format: int32
+      additionalProperties: false
+    PatchJobProfileCompetencyMatrixItemRequest:
       type: object
       properties:
         occupationalPyramidLevelPublicId:
@@ -38197,15 +38603,6 @@ components:
         sortOrder:
           type: integer
           format: int32
-      additionalProperties: false
-    UpdateJobProfileCompetencyMatrixRequest:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/JobProfileCompetencyMatrixItemRequest'
-          nullable: true
       additionalProperties: false
     MutateDependentPositionRequest:
       type: object
@@ -40965,7 +41362,7 @@ components:
     JobProfileCompetencyMatrixItemConductResponse:
       type: object
       properties:
-        conductPublicId:
+        conductId:
           type: string
           format: uuid
         description:
@@ -40978,7 +41375,10 @@ components:
     JobProfileCompetencyMatrixItemResponse:
       type: object
       properties:
-        occupationalPyramidLevelPublicId:
+        itemPublicId:
+          type: string
+          format: uuid
+        occupationalPyramidLevelId:
           type: string
           format: uuid
         occupationalPyramidLevelCode:
@@ -40990,7 +41390,7 @@ components:
         occupationalPyramidLevelOrder:
           type: integer
           format: int32
-        competencyPublicId:
+        competencyId:
           type: string
           format: uuid
         competencyCode:
@@ -40999,7 +41399,7 @@ components:
         competencyName:
           type: string
           nullable: true
-        competencyTypePublicId:
+        competencyTypeId:
           type: string
           format: uuid
         competencyTypeCode:
@@ -41008,7 +41408,7 @@ components:
         competencyTypeName:
           type: string
           nullable: true
-        behaviorLevelPublicId:
+        behaviorLevelId:
           type: string
           format: uuid
         behaviorLevelCode:
@@ -41028,11 +41428,14 @@ components:
           items:
             $ref: '#/components/schemas/JobProfileCompetencyMatrixItemConductResponse'
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
       additionalProperties: false
     JobProfileCompetencyMatrixResponse:
       type: object
       properties:
-        jobProfilePublicId:
+        jobProfileId:
           type: string
           format: uuid
         jobProfileCode:
@@ -45982,6 +46385,16 @@ components:
           nullable: true
           readOnly: true
       additionalProperties: false
+    JsonPatchDocumentOfPatchJobProfileCompetencyMatrixItemRequest:
+      type: object
+      properties:
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationOfPatchJobProfileCompetencyMatrixItemRequest'
+          nullable: true
+          readOnly: true
+      additionalProperties: false
     JsonPatchDocumentOfMutateCompetencyRequest:
       type: object
       properties:
@@ -46718,6 +47131,21 @@ components:
           nullable: true
       additionalProperties: false
     OperationOfMutateCompensationRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          nullable: true
+        op:
+          type: string
+          nullable: true
+        from:
+          type: string
+          nullable: true
+        value:
+          nullable: true
+      additionalProperties: false
+    OperationOfPatchJobProfileCompetencyMatrixItemRequest:
       type: object
       properties:
         path:

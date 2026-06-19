@@ -110,6 +110,16 @@ public static class CompetencyFrameworkErrors
         "The requested competency matrix change is not valid for the current state.",
         ErrorType.Conflict);
 
+    public static readonly Error JobProfileCompetencyMatrixItemNotFound = new(
+        "JOB_PROFILE_COMPETENCY_MATRIX_ITEM_NOT_FOUND",
+        "The competency matrix item could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error JobProfileCompetencyMatrixItemLimitReached = new(
+        "JOB_PROFILE_COMPETENCY_MATRIX_ITEM_LIMIT_REACHED",
+        "The job profile already has the maximum number of competency matrix items allowed.",
+        ErrorType.Conflict);
+
     public static readonly Error ConcurrencyConflict = new(
         "CONCURRENCY_CONFLICT",
         "The resource was modified by another request. Refresh and try again.",

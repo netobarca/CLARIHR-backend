@@ -7754,42 +7754,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profileBefore = await profileBeforeResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(profileBefore);
 
-        using var matrixUpdateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level!.Id,
-                            conductPublicIds = new[] { conductWithBehaviors.Id },
-                            expectedEvidence = "Resultados comprobables en objetivos institucionales.",
-                            sortOrder = 1
-                        }
-                    }
-                }),
-                Encoding.UTF8,
-                "application/json")
-        };
-        matrixUpdateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore!.ConcurrencyToken}\"");
-        var matrixUpdateResponse = await client.SendAsync(matrixUpdateRequest);
-        matrixUpdateResponse.EnsureSuccessStatusCode();
-        var matrixUpdated = await matrixUpdateResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
-        Assert.NotNull(matrixUpdated);
-        Assert.Single(matrixUpdated!.Items);
-        var matrixItem = Assert.Single(matrixUpdated.Items);
-        Assert.Equal(level.Id, matrixItem.OccupationalPyramidLevelId);
-        Assert.Equal(competency.Id, matrixItem.CompetencyId);
-        Assert.Single(matrixItem.Conducts);
+        var createdItem = await AddMatrixItemAsync(
+            client,
+            profile.Id,
+            level!.Id,
+            new[] { conductWithBehaviors.Id },
+            "Resultados comprobables en objetivos institucionales.",
+            1);
+        Assert.Equal(level.Id, createdItem.OccupationalPyramidLevelId);
+        Assert.Equal(competency.Id, createdItem.CompetencyId);
+        Assert.Single(createdItem.Conducts);
+        Assert.NotEqual(Guid.Empty, createdItem.ItemPublicId);
 
         var profileAfterResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
         profileAfterResponse.EnsureSuccessStatusCode();
         var profileAfter = await profileAfterResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(profileAfter);
         Assert.True(profileAfter!.Version > profileBefore!.Version);
-        Assert.NotEqual(profileBefore.ConcurrencyToken, profileAfter.ConcurrencyToken);
 
         var csvResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
@@ -7871,40 +7852,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         conduct2Response.EnsureSuccessStatusCode();
         var conduct2 = (await conduct2Response.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
 
-        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
-            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+        await AddMatrixItemAsync(client, profile.Id, level1.Id, new[] { conduct1.Id, conduct2.Id }, "Item 1.", 1);
+        await AddMatrixItemAsync(client, profile.Id, level2.Id, new[] { conduct1.Id }, "Item 2.", 2);
 
-        using var matrixRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level1.Id,
-                            conductPublicIds = new[] { conduct1.Id, conduct2.Id },
-                            expectedEvidence = "Item 1.",
-                            sortOrder = 1
-                        },
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level2.Id,
-                            conductPublicIds = new[] { conduct1.Id },
-                            expectedEvidence = "Item 2.",
-                            sortOrder = 2
-                        }
-                    }
-                }),
-                Encoding.UTF8,
-                "application/json")
-        };
-        matrixRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
-        var matrixResponse = await client.SendAsync(matrixRequest);
-        matrixResponse.EnsureSuccessStatusCode();
-
-        var matrix = (await matrixResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+        var matrix = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix"))
+            .Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
         Assert.Equal(2, matrix.Items.Count);
         var item1 = matrix.Items.Single(item => item.OccupationalPyramidLevelId == level1.Id);
         var item2 = matrix.Items.Single(item => item.OccupationalPyramidLevelId == level2.Id);
@@ -7923,31 +7875,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-NOCOND", "Perfil Sin Conductas");
         var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-NOCOND-1");
 
-        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
-            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
-
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/items", new
         {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level.Id,
-                            conductPublicIds = Array.Empty<Guid>(),
-                            expectedEvidence = "Sin conductas.",
-                            sortOrder = 1
-                        }
-                    }
-                }),
-                Encoding.UTF8,
-                "application/json")
-        };
-        request.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
-
-        var response = await client.SendAsync(request);
+            occupationalPyramidLevelPublicId = level.Id,
+            conductPublicIds = Array.Empty<Guid>(),
+            expectedEvidence = "Sin conductas.",
+            sortOrder = 1
+        });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -7970,31 +7904,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var conductA = await CreateCompetencyConductAsync(client, scenario.TenantId, competencyA.Id, competencyType.Id, behaviorLevel.Id, "Conducta A.", 1);
         var conductB = await CreateCompetencyConductAsync(client, scenario.TenantId, competencyB.Id, competencyType.Id, behaviorLevel.Id, "Conducta B.", 2);
 
-        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
-            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
-
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/items", new
         {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level.Id,
-                            conductPublicIds = new[] { conductA.Id, conductB.Id },
-                            expectedEvidence = "Mixtas.",
-                            sortOrder = 1
-                        }
-                    }
-                }),
-                Encoding.UTF8,
-                "application/json")
-        };
-        request.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
-
-        var response = await client.SendAsync(request);
+            occupationalPyramidLevelPublicId = level.Id,
+            conductPublicIds = new[] { conductA.Id, conductB.Id },
+            expectedEvidence = "Mixtas.",
+            sortOrder = 1
+        });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT");
     }
@@ -8022,34 +7938,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         conductResponse.EnsureSuccessStatusCode();
         var conduct = (await conductResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
 
-        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
-            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+        var created = await AddMatrixItemAsync(client, profile.Id, level.Id, new[] { conduct.Id }, "Evidencia.", 1);
 
-        using var matrixRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level.Id,
-                            conductPublicIds = new[] { conduct.Id },
-                            expectedEvidence = "Evidencia.",
-                            sortOrder = 1
-                        }
-                    }
-                }),
-                Encoding.UTF8,
-                "application/json")
-        };
-        matrixRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
-        var putResponse = await client.SendAsync(matrixRequest);
-        putResponse.EnsureSuccessStatusCode();
-        var putMatrix = (await putResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
-
-        // GET the matrix as JSON — must echo the persisted items and the current token.
+        // GET the matrix as JSON — must echo the persisted items, per-item ids/tokens and the profile token.
         var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix");
         getResponse.EnsureSuccessStatusCode();
         var matrix = (await getResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
@@ -8057,7 +7948,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(level.Id, item.OccupationalPyramidLevelId);
         Assert.Equal(competency.Id, item.CompetencyId);
         Assert.Single(item.Conducts);
-        Assert.Equal(putMatrix.ConcurrencyToken, matrix.ConcurrencyToken);
+        Assert.Equal(created.ItemPublicId, item.ItemPublicId);
+        Assert.Equal(created.ConcurrencyToken, item.ConcurrencyToken);
+        Assert.NotEqual(Guid.Empty, matrix.ConcurrencyToken);
     }
 
     [Fact]
@@ -8087,17 +7980,30 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task CompetencyFramework_MatrixUpdate_WithStaleToken_ShouldReturn409Conflict()
+    public async Task CompetencyFramework_MatrixItemUpdate_WithStaleToken_ShouldReturn409Conflict()
     {
         var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-STALE", "Perfil CF Stale");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-STALE", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-STALE", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-STALE", "Estrategico");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-STALE-1");
+        var conduct = await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, behaviorLevel.Id, "Conducta stale.", 1);
 
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        var item = await AddMatrixItemAsync(client, profile.Id, level.Id, new[] { conduct.Id }, "Evidencia.", 1);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{item.ItemPublicId}")
         {
             Content = new StringContent(
-                JsonSerializer.Serialize(new { items = Array.Empty<object>() }),
+                JsonSerializer.Serialize(new
+                {
+                    occupationalPyramidLevelPublicId = level.Id,
+                    conductPublicIds = new[] { conduct.Id },
+                    expectedEvidence = "Nuevo.",
+                    sortOrder = 1
+                }),
                 Encoding.UTF8,
                 "application/json")
         };
@@ -8108,16 +8014,19 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task CompetencyFramework_MatrixUpdate_WithoutIfMatch_ShouldReturn400()
+    public async Task CompetencyFramework_MatrixItemUpdate_WithoutIfMatch_ShouldReturn400()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-NOMATCH", "Perfil CF NoMatch");
 
-        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{Guid.NewGuid()}", new
         {
-            items = Array.Empty<object>()
+            occupationalPyramidLevelPublicId = Guid.NewGuid(),
+            conductPublicIds = new[] { Guid.NewGuid() },
+            expectedEvidence = "x",
+            sortOrder = 1
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -8130,10 +8039,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-PUT", "Perfil Competencias PUT");
-        var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
-        detailResponse.EnsureSuccessStatusCode();
-        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
-        Assert.NotNull(detail);
 
         var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-PUT-001", "Comunicacion efectiva");
         var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-PUT-001", "Gerencial");
@@ -8159,35 +8064,93 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             "Comunica informacion clara.",
             1);
 
-        using var matrixUpdateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        var competencyItem = await AddMatrixItemAsync(
+            client,
+            profile.Id,
+            level!.Id,
+            new[] { conduct.Id },
+            "Esperado",
+            1);
+        Assert.Equal(competency.Id, competencyItem.CompetencyId);
+        Assert.Equal(behaviorLevel.Id, competencyItem.BehaviorLevelId);
+        Assert.Single(competencyItem.Conducts);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_MatrixItem_CrudRoundTrip_ShouldWork()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-CRUD", "Perfil CRUD Matriz");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-CRUD", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-CRUD", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-CRUD", "Estrategico");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-CRUD-1");
+        var conduct1 = await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, behaviorLevel.Id, "Conducta uno.", 1);
+        var conduct2 = await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, behaviorLevel.Id, "Conducta dos.", 2);
+
+        // POST one item.
+        var created = await AddMatrixItemAsync(client, profile.Id, level.Id, new[] { conduct1.Id }, "Inicial.", 1);
+        Assert.NotEqual(Guid.Empty, created.ItemPublicId);
+        Assert.Single(created.Conducts);
+
+        // GET by id echoes the same id and token.
+        var getItem = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{created.ItemPublicId}"))
+            .Content.ReadFromJsonAsync<JobProfileCompetencyMatrixLineItem>(JsonOptions))!;
+        Assert.Equal(created.ItemPublicId, getItem.ItemPublicId);
+        Assert.Equal(created.ConcurrencyToken, getItem.ConcurrencyToken);
+
+        // PUT replaces the item (two conducts, new evidence) using the item's token.
+        using var putRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{created.ItemPublicId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new
                 {
-                    items = new[]
-                    {
-                        new
-                        {
-                            occupationalPyramidLevelPublicId = level!.Id,
-                            conductPublicIds = new[] { conduct.Id },
-                            expectedEvidence = "Esperado",
-                            sortOrder = 1
-                        }
-                    }
+                    occupationalPyramidLevelPublicId = level.Id,
+                    conductPublicIds = new[] { conduct1.Id, conduct2.Id },
+                    expectedEvidence = "Actualizada.",
+                    sortOrder = 5
                 }),
                 Encoding.UTF8,
                 "application/json")
         };
-        matrixUpdateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{detail!.ConcurrencyToken}\"");
-        var matrixUpdateResponse = await client.SendAsync(matrixUpdateRequest);
-        matrixUpdateResponse.EnsureSuccessStatusCode();
+        putRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+        var putResponse = await client.SendAsync(putRequest);
+        putResponse.EnsureSuccessStatusCode();
+        var updated = (await putResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixLineItem>(JsonOptions))!;
+        Assert.Equal(2, updated.Conducts.Count);
+        Assert.Equal("Actualizada.", updated.ExpectedEvidence);
+        Assert.Equal(5, updated.SortOrder);
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
 
-        var matrix = await matrixUpdateResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
-        Assert.NotNull(matrix);
-        var competencyItem = Assert.Single(matrix!.Items);
-        Assert.Equal(competency.Id, competencyItem.CompetencyId);
-        Assert.Equal(behaviorLevel.Id, competencyItem.BehaviorLevelId);
-        Assert.Single(competencyItem.Conducts);
+        // PATCH (RFC 6902) the evidence + sort order using the refreshed token.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{created.ItemPublicId}")
+        {
+            Content = new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/expectedEvidence\",\"value\":\"Parchada.\"},{\"op\":\"replace\",\"path\":\"/sortOrder\",\"value\":9}]",
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = (await patchResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixLineItem>(JsonOptions))!;
+        Assert.Equal("Parchada.", patched.ExpectedEvidence);
+        Assert.Equal(9, patched.SortOrder);
+        Assert.Equal(2, patched.Conducts.Count);
+
+        // DELETE returns the parent profile token; matrix ends empty.
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{created.ItemPublicId}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        deleteResponse.EnsureSuccessStatusCode();
+        var parent = (await deleteResponse.Content.ReadFromJsonAsync<ParentConcurrencyItem>(JsonOptions))!;
+        Assert.NotEqual(Guid.Empty, parent.ParentConcurrencyToken);
+
+        var matrix = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix"))
+            .Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+        Assert.Empty(matrix.Items);
     }
 
     [Fact]
@@ -12234,6 +12197,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         int SortOrder);
 
     private sealed record JobProfileCompetencyMatrixLineItem(
+        Guid ItemPublicId,
         Guid OccupationalPyramidLevelId,
         string OccupationalPyramidLevelCode,
         string OccupationalPyramidLevelName,
@@ -12249,7 +12213,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string BehaviorLevelName,
         string? ExpectedEvidence,
         int SortOrder,
-        IReadOnlyCollection<JobProfileCompetencyMatrixConductItem> Conducts);
+        IReadOnlyCollection<JobProfileCompetencyMatrixConductItem> Conducts,
+        Guid ConcurrencyToken);
 
     private sealed record JobProfileCompetencyMatrixItem(
         Guid JobProfileId,
@@ -12269,6 +12234,25 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid BehaviorLevelId,
         Guid? ConductId,
         int ItemSortOrder);
+
+    private static async Task<JobProfileCompetencyMatrixLineItem> AddMatrixItemAsync(
+        HttpClient client,
+        Guid jobProfileId,
+        Guid occupationalPyramidLevelId,
+        IEnumerable<Guid> conductIds,
+        string? expectedEvidence,
+        int sortOrder)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{jobProfileId}/competency-matrix/items", new
+        {
+            occupationalPyramidLevelPublicId = occupationalPyramidLevelId,
+            conductPublicIds = conductIds,
+            expectedEvidence,
+            sortOrder
+        });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixLineItem>(JsonOptions))!;
+    }
 
     private sealed record PositionSlotListItem(
         Guid Id,

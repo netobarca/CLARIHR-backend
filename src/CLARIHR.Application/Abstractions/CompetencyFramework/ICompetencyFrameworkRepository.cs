@@ -102,12 +102,31 @@ public interface ICompetencyFrameworkRepository
 
     Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<JobProfileCompetencyExpectation>> GetExpectationsByJobProfileIdAsync(
+    Task<JobProfileCompetencyExpectation?> GetExpectationAggregateAsync(
         long jobProfileInternalId,
+        Guid itemId,
+        CancellationToken cancellationToken);
+
+    Task<int> CountExpectationsByJobProfileIdAsync(
+        long jobProfileInternalId,
+        CancellationToken cancellationToken);
+
+    Task<bool> ExpectationTupleExistsAsync(
+        long jobProfileInternalId,
+        long occupationalPyramidLevelInternalId,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long behaviorLevelCatalogItemId,
+        long? excludingExpectationInternalId,
         CancellationToken cancellationToken);
 
     Task<JobProfileCompetencyMatrixResponse?> GetJobProfileCompetencyMatrixResponseAsync(
         Guid jobProfileId,
+        CancellationToken cancellationToken);
+
+    Task<JobProfileCompetencyMatrixItemResponse?> GetJobProfileCompetencyMatrixItemResponseAsync(
+        Guid jobProfileId,
+        Guid itemId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>> GetJobProfileCompetencyMatrixExportRowsAsync(
