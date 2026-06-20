@@ -25,6 +25,8 @@ Sub‑recurso de **empleo**: la sección **única** de datos laborales del emple
 
 `GET /api/v1/personnel-files/{publicId}/employee-profile` → `200` con el perfil. El `concurrencyToken` que devuelve es el que vas a usar en `If-Match` para el `PUT` cuando el perfil ya existe.
 
+> **Sección aún no creada → `200` con body `null`.** El perfil se crea de forma diferida en el primer `PUT`. Mientras no exista, el `GET` devuelve `200` con cuerpo `null` (no `404`), igual que los demás sub‑recursos de empleado devuelven `200` con un array vacío cuando todavía no hay datos. Un `404` significa que el **archivo de personal** no existe.
+
 ```bash
 curl "$BASE/api/v1/personnel-files/$ID/employee-profile" \
   -H "Authorization: Bearer $TOKEN"
@@ -87,7 +89,7 @@ curl "$BASE/api/v1/personnel-files/$ID/employee-profile" \
 }
 ```
 
-**Errores:** `401`, `403`, `404`, `422` (archivo en `Draft`).
+**Errores:** `401`, `403`, `404` (el archivo de personal no existe), `422` (archivo en `Draft`). Si el archivo existe pero aún no tiene la sección, es `200` con body `null` (ver arriba), **no** `404`.
 
 ---
 

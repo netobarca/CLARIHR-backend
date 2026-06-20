@@ -1495,9 +1495,6 @@
   <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar el elemento solicitado en este expediente de personal.</value>
   </data>
-  <data name="PERSONNEL_FILE_EMPLOYEE_PROFILE_NOT_FOUND" xml:space="preserve">
-    <value>El perfil de empleado aun no ha sido creado para este expediente de personal.</value>
-  </data>
   <data name="PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT" xml:space="preserve">
     <value>La suscripcion fue modificada por otro proceso. Por favor recargue e intente nuevamente.</value>
   </data>

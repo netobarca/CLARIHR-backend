@@ -40,9 +40,12 @@ public sealed class PersonnelFileEmploymentController(
         Summary = "Get a personnel file's employee profile",
         Description = """
             Returns the single employee-profile section of the specified personnel file, including its
-            current `concurrencyToken` for use in the `If-Match` header of a subsequent `PUT`.
+            current `concurrencyToken` for use in the `If-Match` header of a subsequent `PUT`. The section
+            is created lazily on the first `PUT`; until then this returns `200 OK` with a `null` body
+            (consistent with the sibling employee sub-resources, whose lists return an empty array when
+            empty). A `404` means the personnel file itself does not exist.
             """)]
-    public async Task<ActionResult<PersonnelFileEmployeeProfileResponse>> GetEmployeeProfile(
+    public async Task<ActionResult<PersonnelFileEmployeeProfileResponse?>> GetEmployeeProfile(
         Guid publicId,
         CancellationToken cancellationToken = default)
     {

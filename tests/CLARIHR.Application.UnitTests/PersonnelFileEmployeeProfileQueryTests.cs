@@ -11,15 +11,17 @@ namespace CLARIHR.Application.UnitTests;
 /// <summary>
 /// Coverage for <see cref="GetPersonnelFileEmployeeProfileQueryHandler"/>. The employee-profile row is
 /// created lazily on the first PUT upsert, so a finalized employee that has not had its employment data
-/// saved yet legitimately has no profile row. The read must surface that as a 404, never as an unhandled
-/// exception that the API translates into a 500 "common.unexpected".
+/// saved yet legitimately has no profile row. "Not created yet" is a normal empty state, so the read
+/// returns a successful result with a null body (HTTP 200, aligned with the sibling list sub-resources
+/// that return an empty array) — never an unhandled exception that the API translates into a 500
+/// "common.unexpected".
 /// </summary>
 public sealed class PersonnelFileEmployeeProfileQueryTests
 {
     private static readonly Guid TenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     [Fact]
-    public async Task Get_WhenCompletedEmployeeHasNoProfileRow_ReturnsNotFound()
+    public async Task Get_WhenCompletedEmployeeHasNoProfileRow_ReturnsSuccessWithNullBody()
     {
         var personnelFile = CreateCompletedEmployee();
         var handler = CreateHandler(personnelFile, employeeProfile: null);
@@ -28,9 +30,9 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             new GetPersonnelFileEmployeeProfileQuery(personnelFile.PublicId),
             CancellationToken.None);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.NotFound, result.Error.Type);
-        Assert.Equal("PERSONNEL_FILE_EMPLOYEE_PROFILE_NOT_FOUND", result.Error.Code);
+        // "Section not created yet" is a normal empty state: 200 OK with a null body, not a 404.
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value);
     }
 
     [Fact]

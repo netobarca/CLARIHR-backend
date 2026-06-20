@@ -67,7 +67,7 @@ public sealed record UpdatePersonnelFileEmployeeProfileCommand(
     : ICommand<PersonnelFileEmployeeProfileResponse>;
 
 public sealed record GetPersonnelFileEmployeeProfileQuery(Guid PersonnelFileId)
-    : IQuery<PersonnelFileEmployeeProfileResponse>;
+    : IQuery<PersonnelFileEmployeeProfileResponse?>;
 
 internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : AbstractValidator<UpdatePersonnelFileEmployeeProfileCommand>
 {
@@ -182,13 +182,13 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
     IPersonnelFileEmployeeRepository employeeRepository,
     ITenantContext tenantContext)
     : PersonnelFileEmployeeReadQueryHandlerBase,
-      IQueryHandler<GetPersonnelFileEmployeeProfileQuery, PersonnelFileEmployeeProfileResponse>
+      IQueryHandler<GetPersonnelFileEmployeeProfileQuery, PersonnelFileEmployeeProfileResponse?>
 {
-    public async Task<Result<PersonnelFileEmployeeProfileResponse>> Handle(
+    public async Task<Result<PersonnelFileEmployeeProfileResponse?>> Handle(
         GetPersonnelFileEmployeeProfileQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileEmployeeProfileResponse>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileEmployeeProfileResponse?>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -200,16 +200,13 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
         }
 
         var response = await employeeRepository.GetEmployeeProfileAsync(personnelFile!.PublicId, cancellationToken);
-        if (response is null)
-        {
-            // A finalized employee may not have its employee-profile section yet: the row is created
-            // lazily on the first PUT upsert (see UpdatePersonnelFileEmployeeProfileCommandHandler).
-            // "Not created yet" is a normal state, so return 404 instead of throwing an unhandled
-            // InvalidOperationException that would surface to the client as a 500 "common.unexpected".
-            return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.EmployeeProfileNotFound);
-        }
 
-        return Result<PersonnelFileEmployeeProfileResponse>.Success(response);
+        // employee-profile is a 1:1 section created lazily on the first PUT upsert (see
+        // UpdatePersonnelFileEmployeeProfileCommandHandler). "Not created yet" is a normal state, not an
+        // error: return 200 with a null body so the client treats it as "empty section". This mirrors the
+        // sibling employee sub-resources (employment-assignments, contract-history, assets-accesses, ...),
+        // whose list endpoints return 200 with an empty array when there is no data yet.
+        return Result<PersonnelFileEmployeeProfileResponse?>.Success(response);
     }
 }
 
