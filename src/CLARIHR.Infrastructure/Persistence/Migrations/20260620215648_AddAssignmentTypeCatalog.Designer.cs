@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260620215648_AddAssignmentTypeCatalog")]
+    partial class AddAssignmentTypeCatalog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -11240,6 +11243,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<Guid?>("AssignedPositionSlotPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_position_slot_public_id");
+
                     b.Property<string>("BirthCountry")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -11373,6 +11380,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique()
                         .HasDatabaseName("uq_personnel_files__public_id");
+
+                    b.HasIndex("TenantId", "AssignedPositionSlotPublicId")
+                        .HasDatabaseName("ix_personnel_files__tenant_assigned_position_slot");
 
                     b.HasIndex("TenantId", "LinkedUserPublicId")
                         .IsUnique()
@@ -12428,6 +12438,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_employment_active");
 
+                    b.Property<Guid?>("JobProfilePublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_profile_public_id");
+
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
@@ -12450,6 +12464,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<long>("PersonnelFileId")
                         .HasColumnType("bigint")
                         .HasColumnName("personnel_file_id");
+
+                    b.Property<Guid?>("PositionSlotPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("position_slot_public_id");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")

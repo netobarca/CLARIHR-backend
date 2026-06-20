@@ -30,7 +30,8 @@ public sealed record FinalizePersonnelFileResponse(
 public sealed record FinalizePersonnelFileCommand(
     Guid PersonnelFileId,
     Guid ConcurrencyToken,
-    bool CreateUserAccount) : ICommand<FinalizePersonnelFileResponse>;
+    bool CreateUserAccount,
+    Guid? PositionSlotPublicId) : ICommand<FinalizePersonnelFileResponse>;
 
 public sealed record FinalizePersonnelFilePreviewIssueResponse(
     string Code,
@@ -48,7 +49,8 @@ public sealed record FinalizePersonnelFilePreviewResponse(
 
 public sealed record PreviewFinalizePersonnelFileQuery(
     Guid PersonnelFileId,
-    bool CreateUserAccount) : IQuery<FinalizePersonnelFilePreviewResponse>;
+    bool CreateUserAccount,
+    Guid? PositionSlotPublicId) : IQuery<FinalizePersonnelFilePreviewResponse>;
 
 internal sealed class FinalizePersonnelFileCommandValidator : AbstractValidator<FinalizePersonnelFileCommand>
 {
@@ -111,6 +113,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
         var validation = await FinalizePersonnelFileValidationResolver.ValidateAsync(
             tenantId,
             personnelFile,
+            command.PositionSlotPublicId,
             command.CreateUserAccount,
             includeRelatedResourceTenantMismatch: true,
             authorizationService,
@@ -228,6 +231,7 @@ internal sealed class PreviewFinalizePersonnelFileQueryHandler(
         var validation = await FinalizePersonnelFileValidationResolver.ValidateAsync(
             tenantId,
             personnelFile,
+            query.PositionSlotPublicId,
             query.CreateUserAccount,
             includeRelatedResourceTenantMismatch: false,
             authorizationService,
@@ -281,6 +285,7 @@ internal static class FinalizePersonnelFileValidationResolver
     public static async Task<FinalizePersonnelFileValidationResult> ValidateAsync(
         Guid tenantId,
         PersonnelFile personnelFile,
+        Guid? requestedPositionSlotPublicId,
         bool createUserAccount,
         bool includeRelatedResourceTenantMismatch,
         IPersonnelFileAuthorizationService authorizationService,
@@ -307,13 +312,13 @@ internal static class FinalizePersonnelFileValidationResolver
             issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresInstitutionalEmail, "personnel-file", "institutionalEmail"));
         }
 
-        if (!personnelFile.AssignedPositionSlotPublicId.HasValue)
+        if (!requestedPositionSlotPublicId.HasValue)
         {
             issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot, "employment", "assignedPositionSlotPublicId"));
             return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
         }
 
-        var slotPublicId = personnelFile.AssignedPositionSlotPublicId.Value;
+        var slotPublicId = requestedPositionSlotPublicId.Value;
         var slot = await positionSlotRepository.GetByIdAsync(slotPublicId, cancellationToken);
         if (slot is null)
         {

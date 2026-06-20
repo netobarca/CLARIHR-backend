@@ -43,7 +43,6 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.BirthMunicipality).HasColumnName("birth_municipality").HasMaxLength(120);
         builder.Property(file => file.PhotoFilePublicId).HasColumnName("photo_file_public_id");
         builder.Property(file => file.OrgUnitPublicId).HasColumnName("org_unit_public_id");
-        builder.Property(file => file.AssignedPositionSlotPublicId).HasColumnName("assigned_position_slot_public_id");
         builder.Property(file => file.LinkedUserPublicId).HasColumnName("linked_user_public_id");
         builder.Property(file => file.IsActive).HasColumnName("is_active");
         builder.Property(file => file.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
@@ -74,9 +73,6 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
 
         builder.HasIndex(file => new { file.TenantId, file.OrgUnitPublicId })
             .HasDatabaseName("ix_personnel_files__tenant_org_unit");
-
-        builder.HasIndex(file => new { file.TenantId, file.AssignedPositionSlotPublicId })
-            .HasDatabaseName("ix_personnel_files__tenant_assigned_position_slot");
 
         builder.HasIndex(file => new { file.TenantId, file.LinkedUserPublicId })
             .IsUnique()

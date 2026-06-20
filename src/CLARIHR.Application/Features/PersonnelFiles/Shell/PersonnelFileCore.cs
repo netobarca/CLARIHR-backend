@@ -42,7 +42,6 @@ public sealed record PersonnelFileListItemResponse(
     string? ProfessionCode,
     string? ProfessionName,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
     bool IsActive,
     DateTime CreatedAtUtc,
@@ -58,7 +57,6 @@ public sealed record PersonnelFileShellResponse(
     string? PhotoUrl,
     bool IsActive,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -92,7 +90,6 @@ public sealed record PersonnelFileResponse(
     string? BirthMunicipalityName,
     string? PhotoUrl,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
     bool IsActive,
     Guid ConcurrencyToken,
@@ -160,8 +157,7 @@ public sealed record CreatePersonnelFileCommand(
     string? BirthDepartmentCode,
     string? BirthMunicipalityCode,
     Guid? PhotoFilePublicId,
-    Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId)
+    Guid? OrgUnitId)
     : ICommand<PersonnelFileShellResponse>;
 
 public sealed record UpdatePersonnelFileCommand(
@@ -182,7 +178,6 @@ public sealed record UpdatePersonnelFileCommand(
     string? BirthMunicipalityCode,
     Guid? PhotoFilePublicId,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>;
 
@@ -253,10 +248,6 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
         RuleFor(command => command.BirthDate).NotEmpty();
         RuleFor(command => command.PersonalEmail).EmailAddress().When(command => !string.IsNullOrWhiteSpace(command.PersonalEmail));
         RuleFor(command => command.InstitutionalEmail).EmailAddress().When(command => !string.IsNullOrWhiteSpace(command.InstitutionalEmail));
-        RuleFor(command => command.AssignedPositionSlotId)
-            .NotEqual(Guid.Empty)
-            .When(static command => command.AssignedPositionSlotId.HasValue)
-            .OverridePropertyName("assignedPositionSlotPublicId");
         RuleFor(command => command.PersonalPhone)
             .MaximumLength(40)
             .Must(PersonnelFileValidationRules.IsValidPhone)
@@ -292,16 +283,6 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.BirthMunicipalityCode))
             .WithMessage("BirthMunicipalityCode format is invalid.");
-        RuleFor(command => command.AssignedPositionSlotId)
-            .NotNull()
-            .When(static command => command.RecordType == PersonnelFileRecordType.Employee)
-            .WithMessage("AssignedPositionSlotPublicId is required for employee personnel files.")
-            .OverridePropertyName("assignedPositionSlotPublicId");
-        RuleFor(command => command.AssignedPositionSlotId)
-            .Must((command, assignedPositionSlotId) =>
-                command.RecordType != PersonnelFileRecordType.Candidate || !assignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotPublicId is not allowed for candidate personnel files.")
-            .OverridePropertyName("assignedPositionSlotPublicId");
     }
 }
 
@@ -348,20 +329,6 @@ internal sealed class UpdatePersonnelFileCommandValidator : AbstractValidator<Up
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.BirthMunicipalityCode))
             .WithMessage("BirthMunicipalityCode format is invalid.");
-        RuleFor(command => command.AssignedPositionSlotId)
-            .NotEqual(Guid.Empty)
-            .When(static command => command.AssignedPositionSlotId.HasValue)
-            .OverridePropertyName("assignedPositionSlotPublicId");
-        RuleFor(command => command.AssignedPositionSlotId)
-            .NotNull()
-            .When(static command => command.RecordType == PersonnelFileRecordType.Employee)
-            .WithMessage("AssignedPositionSlotPublicId is required for employee personnel files.")
-            .OverridePropertyName("assignedPositionSlotPublicId");
-        RuleFor(command => command.AssignedPositionSlotId)
-            .Must((command, assignedPositionSlotId) =>
-                command.RecordType != PersonnelFileRecordType.Candidate || !assignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotPublicId is not allowed for candidate personnel files.")
-            .OverridePropertyName("assignedPositionSlotPublicId");
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -396,7 +363,6 @@ internal sealed class PersonnelFilePatchState
         BirthMunicipalityCode = file.BirthMunicipality;
         PhotoFilePublicId = file.PhotoFilePublicId;
         OrgUnitPublicId = file.OrgUnitPublicId;
-        AssignedPositionSlotPublicId = file.AssignedPositionSlotPublicId;
         IsActive = file.IsActive;
     }
 
@@ -416,7 +382,6 @@ internal sealed class PersonnelFilePatchState
     public string? BirthMunicipalityCode { get; set; }
     public Guid? PhotoFilePublicId { get; set; }
     public Guid? OrgUnitPublicId { get; set; }
-    public Guid? AssignedPositionSlotPublicId { get; set; }
     public bool IsActive { get; set; }
 
     public static PersonnelFilePatchState From(PersonnelFile file) => new(file);

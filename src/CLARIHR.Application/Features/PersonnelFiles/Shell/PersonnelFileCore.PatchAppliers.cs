@@ -179,12 +179,6 @@ internal static class PersonnelFilePatchApplier
             return Result.Success();
         }
 
-        if (IsAnySegment(property, "assignedPositionSlotPublicId", "assignedPositionSlotId"))
-        {
-            state.AssignedPositionSlotPublicId = isRemove ? null : ReadNullableGuid(value, path);
-            return Result.Success();
-        }
-
         if (IsSegment(property, "isActive"))
         {
             return isRemove

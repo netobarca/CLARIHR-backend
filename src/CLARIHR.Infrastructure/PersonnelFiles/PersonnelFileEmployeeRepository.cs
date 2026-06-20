@@ -36,8 +36,6 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             profile.RetirementDate,
             profile.WorkdayCode,
             profile.PayrollTypeCode,
-            profile.PositionSlotPublicId,
-            profile.JobProfilePublicId,
             profile.OrgUnitPublicId,
             profile.WorkCenterPublicId,
             profile.CostCenterPublicId,
@@ -66,12 +64,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileEmploymentAssignment>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+        // The just-added row is not persisted yet, so an AsNoTracking re-query would exclude it;
+        // map the in-memory entity into the returned set so the new assignment is always present.
+        var persisted = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileEmploymentAssignmentResponse?> UpdateEmploymentAssignmentAsync(
@@ -155,6 +157,43 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == employmentAssignmentPublicId, cancellationToken);
         return item is null ? null : Map(item);
+    }
+
+    public async Task<int> CountOverlappingActiveAssignmentsForSlotAsync(
+        Guid tenantId,
+        Guid positionSlotPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        Guid? excludeAssignmentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
+                && item.PositionSlotPublicId == positionSlotPublicId
+                && item.IsActive
+                && (excludeAssignmentPublicId == null || item.PublicId != excludeAssignmentPublicId)
+                && (endDate == null || item.StartDate <= endDate)
+                && (item.EndDate == null || item.EndDate >= startDate))
+            .CountAsync(cancellationToken);
+
+    public async Task DemoteEmploymentAssignmentsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> assignmentPublicIds,
+        CancellationToken cancellationToken)
+    {
+        if (assignmentPublicIds.Count == 0)
+        {
+            return;
+        }
+
+        var ids = assignmentPublicIds.ToArray();
+        var items = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .Where(item => item.TenantId == tenantId && ids.Contains(item.PublicId))
+            .ToListAsync(cancellationToken);
+        foreach (var item in items)
+        {
+            item.SetPrimary(false);
+        }
     }
 
     public async Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> AddContractHistoryAsync(
@@ -1702,8 +1741,6 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.RetirementDate,
             item.WorkdayCode,
             item.PayrollTypeCode,
-            item.PositionSlotPublicId,
-            item.JobProfilePublicId,
             item.OrgUnitPublicId,
             item.WorkCenterPublicId,
             item.CostCenterPublicId,

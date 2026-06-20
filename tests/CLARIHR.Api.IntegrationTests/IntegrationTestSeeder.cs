@@ -430,6 +430,19 @@ internal static class IntegrationTestSeeder
             ("USD", "US Dollar", 10)
         };
 
+        var assignmentTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("LEY_SALARIOS", "Ley de Salarios", 10),
+            ("CONTRATO", "Contrato", 20),
+            ("INDEFINIDO", "Tiempo indefinido", 30),
+            ("PLAZO_FIJO", "Plazo fijo", 40),
+            ("INTERINO", "Interinato", 50),
+            ("POR_OBRA", "Por obra o servicio", 60),
+            ("AD_HONOREM", "Ad honorem", 70),
+            ("SERVICIOS_PROFESIONALES", "Servicios profesionales", 80),
+            ("RECARGO_FUNCIONES", "Recargo de funciones", 90)
+        };
+
         foreach (var item in languages)
         {
             if (!dbContext.LanguageCatalogItems.Any(entity =>
@@ -493,6 +506,17 @@ internal static class IntegrationTestSeeder
             {
                 var entity = CurrencyCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
                 dbContext.CurrencyCatalogItems.Add(entity);
+            }
+        }
+
+        foreach (var item in assignmentTypes)
+        {
+            if (!dbContext.AssignmentTypeCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = AssignmentTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.AssignmentTypeCatalogItems.Add(entity);
             }
         }
     }

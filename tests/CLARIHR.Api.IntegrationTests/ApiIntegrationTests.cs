@@ -32,7 +32,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Api.IntegrationTests;
 
-public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory factory)
+public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFactory factory)
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();

@@ -134,7 +134,6 @@ internal sealed class CreatePersonnelFileCommandHandler(
         Guid? PhotoFilePublicId,
         bool IsActive,
         Guid? OrgUnitId,
-        Guid? AssignedPositionSlotId,
         Guid? LinkedUserId,
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
@@ -182,8 +181,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
             photoFilePublicId: null,
-            command.OrgUnitId,
-            command.AssignedPositionSlotId);
+            command.OrgUnitId);
         personnelFile.SetTenantId(command.CompanyId);
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -214,8 +212,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
             photoWritePlan.PersistedPhotoFilePublicId,
-            command.OrgUnitId,
-            command.AssignedPositionSlotId);
+            command.OrgUnitId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -260,7 +257,6 @@ internal sealed class CreatePersonnelFileCommandHandler(
             personnelFile.PhotoFilePublicId?.ToString(),
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
             personnelFile.LinkedUserPublicId,
             personnelFile.ConcurrencyToken,
             personnelFile.CreatedUtc,
@@ -276,7 +272,6 @@ internal sealed class CreatePersonnelFileCommandHandler(
             personnelFile.PhotoFilePublicId,
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
             personnelFile.LinkedUserPublicId,
             personnelFile.ConcurrencyToken,
             personnelFile.CreatedUtc,
@@ -401,9 +396,9 @@ internal sealed class PatchPersonnelFileCommandHandler(
             return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
         }
 
-        // Reuse the canonical personal-info validation rules (name/phone/code formats,
-        // record-type position-slot rules) on the patched result so PATCH and PUT validate
-        // identically, instead of maintaining a parallel rule set.
+        // Reuse the canonical personal-info validation rules (name/phone/code formats)
+        // on the patched result so PATCH and PUT validate identically, instead of
+        // maintaining a parallel rule set.
         var candidate = new UpdatePersonnelFileCommand(
             command.PersonnelFileId,
             state.RecordType,
@@ -422,7 +417,6 @@ internal sealed class PatchPersonnelFileCommandHandler(
             state.BirthMunicipalityCode,
             state.PhotoFilePublicId,
             state.OrgUnitPublicId,
-            state.AssignedPositionSlotPublicId,
             command.ConcurrencyToken);
 
         var validation = new UpdatePersonnelFileCommandValidator().Validate(candidate);

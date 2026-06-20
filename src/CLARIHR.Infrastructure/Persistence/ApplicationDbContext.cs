@@ -220,6 +220,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<TrainingTypeCatalogItem> TrainingTypeCatalogItems => Set<TrainingTypeCatalogItem>();
 
+    public DbSet<AssignmentTypeCatalogItem> AssignmentTypeCatalogItems => Set<AssignmentTypeCatalogItem>();
+
     public DbSet<DurationUnitCatalogItem> DurationUnitCatalogItems => Set<DurationUnitCatalogItem>();
 
     public DbSet<ReferenceTypeCatalogItem> ReferenceTypeCatalogItems => Set<ReferenceTypeCatalogItem>();

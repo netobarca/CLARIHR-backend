@@ -94,6 +94,20 @@ internal sealed class TrainingTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class AssignmentTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<AssignmentTypeCatalogItem>
+{
+    public AssignmentTypeCatalogItemConfiguration()
+        : base(
+            "assignment_type_catalog_items",
+            "pk_assignment_type_catalog_items",
+            "uq_assignment_type_catalog_items__public_id",
+            "uq_assignment_type_catalog_items__country_code",
+            "ix_assignment_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class DurationUnitCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<DurationUnitCatalogItem>
 {

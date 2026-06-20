@@ -105,6 +105,34 @@ public sealed class TrainingTypeCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+public sealed class AssignmentTypeCatalogItem : GeneralCatalogItem
+{
+    private AssignmentTypeCatalogItem()
+    {
+    }
+
+    private AssignmentTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static AssignmentTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class DurationUnitCatalogItem : GeneralCatalogItem
 {
     private DurationUnitCatalogItem()

@@ -64,6 +64,19 @@ public interface IPersonnelFileEmployeeRepository
         Guid employmentAssignmentPublicId,
         CancellationToken cancellationToken);
 
+    Task<int> CountOverlappingActiveAssignmentsForSlotAsync(
+        Guid tenantId,
+        Guid positionSlotPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        Guid? excludeAssignmentPublicId,
+        CancellationToken cancellationToken);
+
+    Task DemoteEmploymentAssignmentsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> assignmentPublicIds,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> AddContractHistoryAsync(
         long personnelFileInternalId,
         Guid tenantId,

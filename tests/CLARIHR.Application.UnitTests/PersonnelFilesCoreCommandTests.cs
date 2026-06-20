@@ -48,8 +48,7 @@ public sealed class PersonnelFilesCoreCommandTests
                 BirthDepartmentCode: null,
                 BirthMunicipalityCode: null,
                 PhotoFilePublicId: null,
-                OrgUnitId: null,
-                AssignedPositionSlotId: null),
+                OrgUnitId: null),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -191,8 +190,7 @@ public sealed class PersonnelFilesCoreCommandTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
+            orgUnitPublicId: null);
         file.SetTenantId(TenantId);
         return file;
     }
@@ -293,7 +291,6 @@ public sealed class PersonnelFilesCoreCommandTests
                         file.PhotoFilePublicId?.ToString(),
                         file.IsActive,
                         file.OrgUnitPublicId,
-                        file.AssignedPositionSlotPublicId,
                         file.LinkedUserPublicId,
                         file.ConcurrencyToken,
                         file.CreatedUtc,
@@ -336,7 +333,6 @@ public sealed class PersonnelFilesCoreCommandTests
                         null,
                         file.PhotoFilePublicId?.ToString(),
                         file.OrgUnitPublicId,
-                        file.AssignedPositionSlotPublicId,
                         file.LinkedUserPublicId,
                         file.IsActive,
                         file.ConcurrencyToken,

@@ -224,8 +224,7 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
                     values.BirthDepartmentCode,
                     values.BirthMunicipalityCode,
                     photoWritePlan.PersistedPhotoFilePublicId,
-                    values.OrgUnitId,
-                    values.AssignedPositionSlotId);
+                    values.OrgUnitId);
             }
             catch (InvalidOperationException)
             {

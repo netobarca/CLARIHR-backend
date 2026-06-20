@@ -43,8 +43,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthDepartment,
         string? birthMunicipality,
         Guid? photoFilePublicId,
-        Guid? orgUnitPublicId,
-        Guid? assignedPositionSlotPublicId)
+        Guid? orgUnitPublicId)
     {
         PublicId = publicId;
         RecordType = recordType;
@@ -63,7 +62,6 @@ public sealed class PersonnelFile : TenantEntity
         BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
         PhotoFilePublicId = photoFilePublicId;
         OrgUnitPublicId = orgUnitPublicId;
-        AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -105,8 +103,6 @@ public sealed class PersonnelFile : TenantEntity
     public Guid? PhotoFilePublicId { get; private set; }
 
     public Guid? OrgUnitPublicId { get; private set; }
-
-    public Guid? AssignedPositionSlotPublicId { get; private set; }
 
     public Guid? LinkedUserPublicId { get; private set; }
 
@@ -167,7 +163,6 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
-        Guid? assignedPositionSlotPublicId,
         IReadOnlyCollection<PersonnelFileIdentification>? identifications = null)
     {
         var file = new PersonnelFile(
@@ -187,8 +182,7 @@ public sealed class PersonnelFile : TenantEntity
             birthDepartment,
             birthMunicipality,
             photoFilePublicId,
-            orgUnitPublicId,
-            assignedPositionSlotPublicId);
+            orgUnitPublicId);
 
         if (identifications is not null)
         {
@@ -214,8 +208,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthDepartment,
         string? birthMunicipality,
         Guid? photoFilePublicId,
-        Guid? orgUnitPublicId,
-        Guid? assignedPositionSlotPublicId)
+        Guid? orgUnitPublicId)
     {
         var normalizedInstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
@@ -223,11 +216,6 @@ public sealed class PersonnelFile : TenantEntity
             if (!string.Equals(InstitutionalEmail, normalizedInstitutionalEmail, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("InstitutionalEmail cannot be changed after personnel file completion.");
-            }
-
-            if (AssignedPositionSlotPublicId != assignedPositionSlotPublicId)
-            {
-                throw new InvalidOperationException("AssignedPositionSlotPublicId cannot be changed after personnel file completion.");
             }
         }
 
@@ -246,7 +234,6 @@ public sealed class PersonnelFile : TenantEntity
         BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
         PhotoFilePublicId = photoFilePublicId;
         OrgUnitPublicId = orgUnitPublicId;
-        AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         RefreshConcurrencyToken();
     }
 

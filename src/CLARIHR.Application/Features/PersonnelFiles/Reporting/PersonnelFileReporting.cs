@@ -47,7 +47,6 @@ public sealed record PersonnelFileExportRow(
     string? PersonalPhone,
     string? InstitutionalPhone,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
     bool IsActive,
     DateTime CreatedAtUtc,

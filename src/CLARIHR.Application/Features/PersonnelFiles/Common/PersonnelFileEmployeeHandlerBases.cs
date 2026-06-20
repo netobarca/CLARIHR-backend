@@ -163,8 +163,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
             personnelFile.BirthDepartment,
             personnelFile.BirthMunicipality,
             personnelFile.PhotoFilePublicId,
-            personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId);
+            personnelFile.OrgUnitPublicId);
     }
 }
 

@@ -1561,4 +1561,28 @@
   <data name="validation.message.patch_document_must_include_a_non_remove_operation_for_concurrencytoken" xml:space="preserve">
     <value>El documento patch debe incluir una operacion distinta de remove para ConcurrencyToken.</value>
   </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_REQUIRED" xml:space="preserve">
+    <value>Se requiere una plaza para la asignacion de empleo.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la plaza seleccionada.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_NOT_ASSIGNABLE" xml:space="preserve">
+    <value>La plaza seleccionada esta suspendida o fuera de su vigencia y no puede asignarse.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_CAPACITY_EXCEEDED" xml:space="preserve">
+    <value>La plaza seleccionada no tiene cupo disponible para el periodo solicitado.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_DUPLICATE_POSITION_SLOT" xml:space="preserve">
+    <value>El empleado ya tiene una asignacion activa en esta plaza.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_OVERLAPPING_DATES" xml:space="preserve">
+    <value>El empleado ya tiene una asignacion en esta plaza con un periodo de vigencia que se solapa.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_PRIMARY_REQUIRED" xml:space="preserve">
+    <value>El empleado debe mantener una plaza principal; designe otra principal antes de quitar esta.</value>
+  </data>
+  <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de tipo de asignacion no es valido para el catalogo activo.</value>
+  </data>
 </root>

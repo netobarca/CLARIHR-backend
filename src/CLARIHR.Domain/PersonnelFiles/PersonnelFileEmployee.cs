@@ -20,8 +20,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
         DateTime? retirementDate,
         string? workdayCode,
         string? payrollTypeCode,
-        Guid? positionSlotPublicId,
-        Guid? jobProfilePublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
@@ -43,8 +41,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
             retirementDate,
             workdayCode,
             payrollTypeCode,
-            positionSlotPublicId,
-            jobProfilePublicId,
             orgUnitPublicId,
             workCenterPublicId,
             costCenterPublicId,
@@ -81,10 +77,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
 
     public string? PayrollTypeCode { get; private set; }
 
-    public Guid? PositionSlotPublicId { get; private set; }
-
-    public Guid? JobProfilePublicId { get; private set; }
-
     public Guid? OrgUnitPublicId { get; private set; }
 
     public Guid? WorkCenterPublicId { get; private set; }
@@ -113,8 +105,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
         DateTime? retirementDate,
         string? workdayCode,
         string? payrollTypeCode,
-        Guid? positionSlotPublicId,
-        Guid? jobProfilePublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
@@ -133,8 +123,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
             retirementDate,
             workdayCode,
             payrollTypeCode,
-            positionSlotPublicId,
-            jobProfilePublicId,
             orgUnitPublicId,
             workCenterPublicId,
             costCenterPublicId,
@@ -154,8 +142,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
         DateTime? retirementDate,
         string? workdayCode,
         string? payrollTypeCode,
-        Guid? positionSlotPublicId,
-        Guid? jobProfilePublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
@@ -175,8 +161,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
         RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
         WorkdayCode = PersonnelFileNormalization.CleanOptional(workdayCode);
         PayrollTypeCode = PersonnelFileNormalization.CleanOptional(payrollTypeCode);
-        PositionSlotPublicId = positionSlotPublicId;
-        JobProfilePublicId = jobProfilePublicId;
         OrgUnitPublicId = orgUnitPublicId;
         WorkCenterPublicId = workCenterPublicId;
         CostCenterPublicId = costCenterPublicId;
@@ -296,6 +280,12 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     public void SetActive(bool isActive)
     {
         IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void SetPrimary(bool isPrimary)
+    {
+        IsPrimary = isPrimary;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

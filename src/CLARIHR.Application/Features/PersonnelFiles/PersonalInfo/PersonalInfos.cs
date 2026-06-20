@@ -57,7 +57,6 @@ public sealed record PersonnelFilePersonalInfoResponse(
     string? BirthMunicipalityName,
     string? PhotoUrl,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
     bool IsActive,
     Guid ConcurrencyToken,

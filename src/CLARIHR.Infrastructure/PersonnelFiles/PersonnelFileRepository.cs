@@ -130,7 +130,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.MaritalStatus,
                 file.Profession,
                 file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
                 file.ConcurrencyToken,
@@ -163,7 +162,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.Profession,
                 TryResolveName(professionNames, file.Profession),
                 file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
                 file.CreatedUtc,
@@ -186,7 +184,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 item.PhotoFilePublicId.HasValue ? item.PhotoFilePublicId.Value.ToString() : null,
                 item.IsActive,
                 item.OrgUnitPublicId,
-                item.AssignedPositionSlotPublicId,
                 item.LinkedUserPublicId,
                 item.ConcurrencyToken,
                 item.CreatedUtc,
@@ -279,7 +276,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             TryResolveName(birthMunicipalityNames, file.BirthMunicipality),
             file.PhotoFilePublicId?.ToString(),
             file.OrgUnitPublicId,
-            file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
             file.IsActive,
             file.ConcurrencyToken,
@@ -555,7 +551,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             TryResolveName(birthMunicipalityNames, file.BirthMunicipality),
             file.PhotoFilePublicId?.ToString(),
             file.OrgUnitPublicId,
-            file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
             file.IsActive,
             file.ConcurrencyToken,
@@ -1315,6 +1310,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGE" => await GetCountryScopedCatalogItemsAsync<LanguageCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguage", cancellationToken),
             "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguageLevel", cancellationToken),
             "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumTrainingType", cancellationToken),
+            "CURRICULUMASSIGNMENTTYPE" => await GetCountryScopedCatalogItemsAsync<AssignmentTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumAssignmentType", cancellationToken),
             "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(countryCatalogItemId.Value, "CurriculumDurationUnit", cancellationToken),
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumReferenceType", cancellationToken),
             "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(countryCatalogItemId.Value, "Currency", cancellationToken),
@@ -1386,6 +1382,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGE" => await IsCountryScopedCatalogCodeActiveAsync<LanguageCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMLANGUAGELEVEL" => await IsCountryScopedCatalogCodeActiveAsync<LanguageLevelCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMTRAININGTYPE" => await IsCountryScopedCatalogCodeActiveAsync<TrainingTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CURRICULUMASSIGNMENTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssignmentTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMDURATIONUNIT" => await IsCountryScopedCatalogCodeActiveAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMREFERENCETYPE" => await IsCountryScopedCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRENCY" => await IsCountryScopedCatalogCodeActiveAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
@@ -1508,7 +1505,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.MaritalStatus,
                 file.Profession,
                 file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
                 file.ConcurrencyToken,
@@ -1541,7 +1537,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.Profession,
                 TryResolveName(professionNames, file.Profession),
                 file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
                 file.CreatedUtc,
@@ -1598,7 +1593,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.PersonalPhone,
                 file.InstitutionalPhone,
                 file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
                 file.CreatedUtc,
@@ -2302,15 +2296,19 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         Guid tenantId,
         Guid assignedPositionSlotId,
         CancellationToken cancellationToken) =>
-        await dbContext.Set<PersonnelFile>()
+        // An employee's position is the slot of their PRIMARY ACTIVE employment assignment (the
+        // multi-plaza source of truth), so re-provisioning by slot resolves through that assignment.
+        await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
-            .Where(file =>
-                file.TenantId == tenantId &&
-                file.RecordType == PersonnelFileRecordType.Employee &&
-                file.LifecycleStatus == PersonnelFileLifecycleStatus.Completed &&
-                file.AssignedPositionSlotPublicId == assignedPositionSlotId &&
-                file.LinkedUserPublicId.HasValue)
-            .Select(file => file.LinkedUserPublicId!.Value)
+            .Where(assignment =>
+                assignment.TenantId == tenantId &&
+                assignment.IsActive &&
+                assignment.IsPrimary &&
+                assignment.PositionSlotPublicId == assignedPositionSlotId &&
+                assignment.PersonnelFile.RecordType == PersonnelFileRecordType.Employee &&
+                assignment.PersonnelFile.LifecycleStatus == PersonnelFileLifecycleStatus.Completed &&
+                assignment.PersonnelFile.LinkedUserPublicId.HasValue)
+            .Select(assignment => assignment.PersonnelFile.LinkedUserPublicId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
 

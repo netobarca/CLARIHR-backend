@@ -75,7 +75,7 @@ public sealed class PersonnelFileEmploymentController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new FinalizePersonnelFileCommand(publicId, concurrencyToken, request.CreateUserAccount ?? true),
+            new FinalizePersonnelFileCommand(publicId, concurrencyToken, request.CreateUserAccount ?? true, request.PositionSlotPublicId),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -96,10 +96,11 @@ public sealed class PersonnelFileEmploymentController(
     public async Task<ActionResult<FinalizePersonnelFilePreviewResponse>> PreviewFinalize(
         Guid publicId,
         [FromQuery] bool? createUserAccount = null,
+        [FromQuery] Guid? positionSlotPublicId = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new PreviewFinalizePersonnelFileQuery(publicId, createUserAccount ?? true),
+            new PreviewFinalizePersonnelFileQuery(publicId, createUserAccount ?? true, positionSlotPublicId),
             cancellationToken);
         return this.ToActionResult(result);
     }
@@ -137,8 +138,6 @@ public sealed class PersonnelFileEmploymentController(
                 request.RetirementDate,
                 request.WorkdayCode,
                 request.PayrollTypeCode,
-                request.PositionSlotPublicId,
-                request.JobProfilePublicId,
                 request.OrgUnitPublicId,
                 request.WorkCenterPublicId,
                 request.CostCenterPublicId,

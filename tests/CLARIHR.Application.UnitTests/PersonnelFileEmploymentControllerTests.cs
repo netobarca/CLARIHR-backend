@@ -32,7 +32,7 @@ public sealed class PersonnelFileEmploymentControllerTests
         _ = await controller.Finalize(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            new FinalizePersonnelFileRequest(CreateUserAccount: null),
+            new FinalizePersonnelFileRequest(CreateUserAccount: null, PositionSlotPublicId: null),
             CancellationToken.None);
 
         Assert.NotNull(dispatcher.LastCommand);
@@ -53,7 +53,7 @@ public sealed class PersonnelFileEmploymentControllerTests
         _ = await controller.PreviewFinalize(
             Guid.NewGuid(),
             createUserAccount: null,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(queryDispatcher.LastQuery);
         Assert.True(queryDispatcher.LastQuery!.CreateUserAccount);
@@ -73,7 +73,7 @@ public sealed class PersonnelFileEmploymentControllerTests
         _ = await controller.PreviewFinalize(
             Guid.NewGuid(),
             createUserAccount: false,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(queryDispatcher.LastQuery);
         Assert.False(queryDispatcher.LastQuery!.CreateUserAccount);

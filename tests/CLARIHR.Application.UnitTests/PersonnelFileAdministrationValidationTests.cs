@@ -8,62 +8,14 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class PersonnelFileAdministrationValidationTests
 {
     [Fact]
-    public void CreateValidator_WhenEmployeeMissingAssignedPositionSlot_ShouldAttachErrorToPublicFieldKey()
-    {
-        var validator = new CreatePersonnelFileCommandValidator();
-        var command = CreateCreateCommand(PersonnelFileRecordType.Employee, assignedPositionSlotId: null);
-
-        var result = validator.TestValidate(command);
-
-        Assert.Contains(
-            result.Errors,
-            static error =>
-                error.PropertyName == "assignedPositionSlotPublicId" &&
-                error.ErrorMessage == "AssignedPositionSlotPublicId is required for employee personnel files.");
-        Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
-    }
-
-    [Fact]
-    public void CreateValidator_WhenCandidateProvidesAssignedPositionSlot_ShouldAttachErrorToPublicFieldKey()
-    {
-        var validator = new CreatePersonnelFileCommandValidator();
-        var command = CreateCreateCommand(PersonnelFileRecordType.Candidate, assignedPositionSlotId: Guid.NewGuid());
-
-        var result = validator.TestValidate(command);
-
-        Assert.Contains(
-            result.Errors,
-            static error =>
-                error.PropertyName == "assignedPositionSlotPublicId" &&
-                error.ErrorMessage == "AssignedPositionSlotPublicId is not allowed for candidate personnel files.");
-        Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
-    }
-
-    [Fact]
     public void CreateValidator_WhenIdentificationsAreRemovedFromCreate_ShouldRemainValid()
     {
         var validator = new CreatePersonnelFileCommandValidator();
-        var command = CreateCreateCommand(PersonnelFileRecordType.Candidate, assignedPositionSlotId: null);
+        var command = CreateCreateCommand(PersonnelFileRecordType.Candidate);
 
         var result = validator.TestValidate(command);
 
         Assert.DoesNotContain(result.Errors, static error => error.PropertyName == "Identifications");
-    }
-
-    [Fact]
-    public void UpdatePersonalInfoValidator_WhenEmployeeMissingAssignedPositionSlot_ShouldAttachErrorToPublicFieldKey()
-    {
-        var validator = new UpdatePersonnelFileCommandValidator();
-        var command = CreateUpdateCommand(PersonnelFileRecordType.Employee, assignedPositionSlotId: null);
-
-        var result = validator.TestValidate(command);
-
-        Assert.Contains(
-            result.Errors,
-            static error =>
-                error.PropertyName == "assignedPositionSlotPublicId" &&
-                error.ErrorMessage == "AssignedPositionSlotPublicId is required for employee personnel files.");
-        Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
     }
 
     [Fact]
@@ -96,8 +48,7 @@ public sealed class PersonnelFileAdministrationValidationTests
     }
 
     private static CreatePersonnelFileCommand CreateCreateCommand(
-        PersonnelFileRecordType recordType,
-        Guid? assignedPositionSlotId)
+        PersonnelFileRecordType recordType)
     {
         return new CreatePersonnelFileCommand(
             CompanyId: Guid.NewGuid(),
@@ -116,33 +67,6 @@ public sealed class PersonnelFileAdministrationValidationTests
             BirthDepartmentCode: null,
             BirthMunicipalityCode: null,
             PhotoFilePublicId: null,
-            OrgUnitId: null,
-            AssignedPositionSlotId: assignedPositionSlotId);
-    }
-
-    private static UpdatePersonnelFileCommand CreateUpdateCommand(
-        PersonnelFileRecordType recordType,
-        Guid? assignedPositionSlotId)
-    {
-        return new UpdatePersonnelFileCommand(
-            PersonnelFileId: Guid.NewGuid(),
-            RecordType: recordType,
-            FirstName: "ElNombre",
-            LastName: "ElApellido",
-            BirthDate: new DateTime(1990, 1, 1),
-            MaritalStatusCode: null,
-            ProfessionCode: null,
-            Nationality: null,
-            PersonalEmail: null,
-            InstitutionalEmail: null,
-            PersonalPhone: null,
-            InstitutionalPhone: null,
-            BirthCountryCode: null,
-            BirthDepartmentCode: null,
-            BirthMunicipalityCode: null,
-            PhotoFilePublicId: null,
-            OrgUnitId: null,
-            AssignedPositionSlotId: assignedPositionSlotId,
-            ConcurrencyToken: Guid.NewGuid());
+            OrgUnitId: null);
     }
 }

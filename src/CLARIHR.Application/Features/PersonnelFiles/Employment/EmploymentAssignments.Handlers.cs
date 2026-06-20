@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -17,10 +18,116 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Resolves the cross-feature <see cref="EmploymentAssignmentRules.PositionSlotFacts"/> for an
+/// employment-assignment command: it loads the referenced <c>PositionSlot</c> and counts the active
+/// assignments whose vigencia overlaps the candidate's window (capacity-by-vigencia, RF-005).
+/// </summary>
+internal static class EmploymentAssignmentSlotResolver
+{
+    public static async Task<EmploymentAssignmentRules.PositionSlotFacts?> ResolveAsync(
+        IPositionSlotRepository positionSlotRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        Guid tenantId,
+        Guid? positionSlotPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isActive,
+        Guid? excludeAssignmentPublicId,
+        CancellationToken cancellationToken)
+    {
+        // Only an active assignment that references a slot occupies capacity (P-06).
+        if (!isActive || positionSlotPublicId is not { } slotId)
+        {
+            return null;
+        }
+
+        var slot = await positionSlotRepository.GetByIdAsync(slotId, cancellationToken);
+        if (slot is null)
+        {
+            // A referenced-but-missing slot is mapped to NOT_FOUND by EmploymentAssignmentRules.Evaluate.
+            return null;
+        }
+
+        var overlapping = await employeeRepository.CountOverlappingActiveAssignmentsForSlotAsync(
+            tenantId, slotId, startDate, endDate, excludeAssignmentPublicId, cancellationToken);
+
+        return new EmploymentAssignmentRules.PositionSlotFacts(
+            Exists: true,
+            slot.Status,
+            slot.EffectiveFromUtc,
+            slot.EffectiveToUtc,
+            slot.MaxEmployees,
+            overlapping);
+    }
+}
+
+/// <summary>
+/// Shared multi-position validation for the Update/Patch handlers: it loads the employee's assignments,
+/// resolves the target slot facts, runs <see cref="EmploymentAssignmentRules.Evaluate"/> (slot existence,
+/// assignability, capacity-by-vigencia, same-slot dedup/overlap, single active primary) and, for edits,
+/// enforces that an employee with active plazas always keeps an active primary (RF-002/RF-008). Returns the
+/// other active primaries that must be demoted when the candidate becomes the active primary (P-03).
+/// </summary>
+internal static class EmploymentAssignmentCommandSupport
+{
+    public static async Task<Result<EmploymentAssignmentRules.Evaluation>> ValidateAsync(
+        IPositionSlotRepository positionSlotRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        Guid personnelFilePublicId,
+        Guid tenantId,
+        EmploymentAssignmentRules.Candidate candidate,
+        bool enforcePrimaryRetained,
+        CancellationToken cancellationToken)
+    {
+        var all = (await employeeRepository.GetEmploymentAssignmentsAsync(personnelFilePublicId, cancellationToken))
+            .Select(assignment => new EmploymentAssignmentRules.ExistingAssignment(
+                assignment.Id,
+                assignment.PositionSlotId,
+                assignment.StartDate,
+                assignment.EndDate,
+                assignment.IsPrimary,
+                assignment.IsActive))
+            .ToArray();
+
+        var slotFacts = await EmploymentAssignmentSlotResolver.ResolveAsync(
+            positionSlotRepository,
+            employeeRepository,
+            tenantId,
+            candidate.PositionSlotPublicId,
+            candidate.StartDate,
+            candidate.EndDate,
+            candidate.IsActive,
+            excludeAssignmentPublicId: candidate.PublicId,
+            cancellationToken);
+
+        var evaluation = EmploymentAssignmentRules.Evaluate(candidate, all, slotFacts);
+        if (evaluation.IsFailure)
+        {
+            return evaluation;
+        }
+
+        if (enforcePrimaryRetained)
+        {
+            var others = all.Where(assignment => assignment.PublicId != candidate.PublicId).ToArray();
+            var anyActiveRemains = candidate.IsActive || others.Any(assignment => assignment.IsActive);
+            var anyActivePrimaryRemains = candidate is { IsActive: true, IsPrimary: true }
+                || others.Any(assignment => assignment is { IsActive: true, IsPrimary: true });
+            if (anyActiveRemains && !anyActivePrimaryRemains)
+            {
+                return Result<EmploymentAssignmentRules.Evaluation>.Failure(EmploymentAssignmentErrors.PrimaryRequired);
+            }
+        }
+
+        return evaluation;
+    }
+}
+
 internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -48,22 +155,77 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        var item = command.Item;
+        if (item.PositionSlotId is null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.PositionSlotRequired);
+        }
+
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+            personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, item.AssignmentTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        var existing = (await employeeRepository.GetEmploymentAssignmentsAsync(personnelFile.PublicId, cancellationToken))
+            .Select(assignment => new EmploymentAssignmentRules.ExistingAssignment(
+                assignment.Id,
+                assignment.PositionSlotId,
+                assignment.StartDate,
+                assignment.EndDate,
+                assignment.IsPrimary,
+                assignment.IsActive))
+            .ToArray();
+
+        // First active plaza (or when no other active primary exists) defaults to primary so the
+        // employee always keeps exactly one active principal (RN-03).
+        var hasActivePrimary = existing.Any(assignment => assignment is { IsActive: true, IsPrimary: true });
+        var isPrimary = item.IsPrimary || (item.IsActive && !hasActivePrimary);
+
+        var slotFacts = await EmploymentAssignmentSlotResolver.ResolveAsync(
+            positionSlotRepository,
+            employeeRepository,
+            personnelFile.TenantId,
+            item.PositionSlotId,
+            item.StartDate,
+            item.EndDate,
+            item.IsActive,
+            excludeAssignmentPublicId: null,
+            cancellationToken);
+
+        var candidate = new EmploymentAssignmentRules.Candidate(
+            PublicId: null,
+            item.PositionSlotId,
+            item.StartDate,
+            item.EndDate,
+            isPrimary,
+            item.IsActive);
+
+        var evaluation = EmploymentAssignmentRules.Evaluate(candidate, existing, slotFacts);
+        if (evaluation.IsFailure)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(evaluation.Error);
+        }
+
+        await employeeRepository.DemoteEmploymentAssignmentsAsync(
+            personnelFile.TenantId, evaluation.Value.PrimariesToDemote, cancellationToken);
+
         var entity = PersonnelFileEmploymentAssignment.Create(
-            command.Item.AssignmentTypeCode,
-            command.Item.PositionSlotId,
-            command.Item.OrgUnitId,
-            command.Item.WorkCenterId,
-            command.Item.CostCenterId,
-            command.Item.StartDate,
-            command.Item.EndDate,
-            command.Item.IsPrimary,
-            command.Item.IsActive,
-            command.Item.Notes);
+            item.AssignmentTypeCode,
+            item.PositionSlotId,
+            item.OrgUnitId,
+            item.WorkCenterId,
+            item.CostCenterId,
+            item.StartDate,
+            item.EndDate,
+            isPrimary,
+            item.IsActive,
+            item.Notes);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
         var all = await employeeRepository.AddEmploymentAssignmentAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
-        var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
+        var response = all.SingleOrDefault(created => created.Id == entity.PublicId)
             ?? throw new InvalidOperationException("Personnel file employment assignment response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
 
@@ -89,6 +251,7 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -126,6 +289,37 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
+
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+            personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, command.Item.AssignmentTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        // PUT preserves isActive (mutated only via PATCH), so the candidate keeps the stored active state.
+        var candidate = new EmploymentAssignmentRules.Candidate(
+            command.EmploymentAssignmentPublicId,
+            command.Item.PositionSlotId,
+            command.Item.StartDate,
+            command.Item.EndDate,
+            command.Item.IsPrimary,
+            existing.IsActive);
+
+        var evaluation = await EmploymentAssignmentCommandSupport.ValidateAsync(
+            positionSlotRepository,
+            employeeRepository,
+            personnelFile.PublicId,
+            personnelFile.TenantId,
+            candidate,
+            enforcePrimaryRetained: true,
+            cancellationToken);
+        if (evaluation.IsFailure)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(evaluation.Error);
+        }
+
+        await employeeRepository.DemoteEmploymentAssignmentsAsync(
+            personnelFile.TenantId, evaluation.Value.PrimariesToDemote, cancellationToken);
 
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
         var response = await employeeRepository.UpdateEmploymentAssignmentAsync(
@@ -170,6 +364,7 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -225,6 +420,41 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Success(existing);
         }
+
+        if (state.PositionSlotId is null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.PositionSlotRequired);
+        }
+
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+            personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, state.AssignmentTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        var candidate = new EmploymentAssignmentRules.Candidate(
+            command.EmploymentAssignmentPublicId,
+            state.PositionSlotId,
+            state.StartDate,
+            state.EndDate,
+            state.IsPrimary,
+            state.IsActive);
+
+        var evaluation = await EmploymentAssignmentCommandSupport.ValidateAsync(
+            positionSlotRepository,
+            employeeRepository,
+            personnelFile.PublicId,
+            personnelFile.TenantId,
+            candidate,
+            enforcePrimaryRetained: true,
+            cancellationToken);
+        if (evaluation.IsFailure)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(evaluation.Error);
+        }
+
+        await employeeRepository.DemoteEmploymentAssignmentsAsync(
+            personnelFile.TenantId, evaluation.Value.PrimariesToDemote, cancellationToken);
 
         var input = state.ToInput();
         var response = await employeeRepository.PatchEmploymentAssignmentAsync(
@@ -307,6 +537,20 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // RF-002/RF-008: deleting the only active primary while other active plazas remain would leave the
+        // employee with active assignments but no primary — block it (designate another primary first, P-04).
+        if (existing is { IsActive: true, IsPrimary: true })
+        {
+            var others = (await employeeRepository.GetEmploymentAssignmentsAsync(personnelFile.PublicId, cancellationToken))
+                .Where(assignment => assignment.Id != existing.Id)
+                .ToArray();
+            if (others.Any(assignment => assignment.IsActive)
+                && !others.Any(assignment => assignment is { IsActive: true, IsPrimary: true }))
+            {
+                return Result<PersonnelFileParentConcurrencyResult>.Failure(EmploymentAssignmentErrors.PrimaryRequired);
+            }
         }
 
         var removed = await employeeRepository.DeleteEmploymentAssignmentAsync(command.EmploymentAssignmentPublicId, personnelFile.TenantId, cancellationToken);

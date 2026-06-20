@@ -110,8 +110,7 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid());
+            orgUnitPublicId: null);
         file.SetTenantId(TenantId);
         return file;
     }
@@ -130,8 +129,6 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             RetirementDate: null,
             WorkdayCode: null,
             PayrollTypeCode: null,
-            PositionSlotId: null,
-            JobProfileId: null,
             OrgUnitId: null,
             WorkCenterId: null,
             CostCenterId: null,

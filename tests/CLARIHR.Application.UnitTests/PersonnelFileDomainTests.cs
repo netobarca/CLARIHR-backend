@@ -27,7 +27,6 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoFilePublicId: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -59,7 +58,6 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoFilePublicId: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -83,8 +81,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: Guid.NewGuid(),
-            assignedPositionSlotPublicId: Guid.NewGuid());
+            orgUnitPublicId: Guid.NewGuid());
 
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
     }
@@ -109,7 +106,6 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: " san_salvador_centro ",
             photoFilePublicId: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null,
             identifications:
             [
                 PersonnelFileIdentification.Create(" dui ", "01234567-8", null, null, null, true)
@@ -143,7 +139,6 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoFilePublicId: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -179,8 +174,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null);
+            orgUnitPublicId: null);
         var tenantId = Guid.NewGuid();
         file.SetTenantId(tenantId);
         var initialToken = file.ConcurrencyToken;
@@ -502,8 +496,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid());
+            orgUnitPublicId: null);
 
         var linkedUserId = Guid.NewGuid();
 
@@ -533,8 +526,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid());
+            orgUnitPublicId: null);
 
         var initialToken = file.ConcurrencyToken;
 
@@ -565,8 +557,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid());
+            orgUnitPublicId: null);
         file.Complete(Guid.NewGuid());
 
         Assert.Throws<InvalidOperationException>(() => file.UpdatePersonalInfo(
@@ -585,8 +576,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid()));
+            orgUnitPublicId: null));
     }
 
     [Fact]
@@ -1214,8 +1204,7 @@ public sealed class PersonnelFileDomainTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
+            orgUnitPublicId: null);
         file.SetTenantId(Guid.NewGuid());
         return file;
     }

@@ -38,7 +38,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: true),
+            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: true, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -68,7 +68,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: false),
+            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: false, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -93,7 +93,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: false),
+            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: false, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -121,7 +121,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: false),
+            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: false, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -158,7 +158,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: true),
+            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: true, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -184,7 +184,7 @@ public sealed class FinalizePersonnelFileTests
             new TestUserRepository());
 
         var result = await handler.Handle(
-            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: true),
+            new FinalizePersonnelFileCommand(personnelFile.PublicId, personnelFile.ConcurrencyToken, CreateUserAccount: true, PositionSlotPublicId: slotId),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -247,8 +247,7 @@ public sealed class FinalizePersonnelFileTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: slotId);
+            orgUnitPublicId: null);
         file.SetTenantId(TenantId);
         return file;
     }
@@ -346,7 +345,6 @@ public sealed class FinalizePersonnelFileTests
             null,
             file.PhotoFilePublicId?.ToString(),
             file.OrgUnitPublicId,
-            file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
             file.IsActive,
             file.ConcurrencyToken,
@@ -506,7 +504,6 @@ public sealed class FinalizePersonnelFileTests
                         file.PhotoFilePublicId?.ToString(),
                         file.IsActive,
                         file.OrgUnitPublicId,
-                        file.AssignedPositionSlotPublicId,
                         file.LinkedUserPublicId,
                         file.ConcurrencyToken,
                         file.CreatedUtc,

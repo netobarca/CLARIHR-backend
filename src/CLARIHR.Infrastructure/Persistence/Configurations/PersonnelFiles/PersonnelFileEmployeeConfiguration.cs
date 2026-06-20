@@ -31,8 +31,6 @@ internal sealed class PersonnelFileEmployeeProfileConfiguration : IEntityTypeCon
         builder.Property(item => item.RetirementDate).HasColumnName("retirement_date");
         builder.Property(item => item.WorkdayCode).HasColumnName("workday_code").HasMaxLength(80);
         builder.Property(item => item.PayrollTypeCode).HasColumnName("payroll_type_code").HasMaxLength(80);
-        builder.Property(item => item.PositionSlotPublicId).HasColumnName("position_slot_public_id");
-        builder.Property(item => item.JobProfilePublicId).HasColumnName("job_profile_public_id");
         builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");
         builder.Property(item => item.CostCenterPublicId).HasColumnName("cost_center_public_id");

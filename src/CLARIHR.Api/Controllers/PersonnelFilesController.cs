@@ -79,8 +79,7 @@ public sealed class PersonnelFilesController(
                 request.BirthDepartmentCode,
                 request.BirthMunicipalityCode,
                 request.PhotoFilePublicId,
-                request.OrgUnitPublicId,
-                request.AssignedPositionSlotPublicId),
+                request.OrgUnitPublicId),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -208,7 +207,6 @@ public sealed class PersonnelFilesController(
                 request.BirthMunicipalityCode,
                 request.PhotoFilePublicId,
                 request.OrgUnitPublicId,
-                request.AssignedPositionSlotPublicId,
                 concurrencyToken),
             cancellationToken);
 

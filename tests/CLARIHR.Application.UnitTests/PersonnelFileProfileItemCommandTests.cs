@@ -532,8 +532,7 @@ public sealed class PersonnelFileProfileItemCommandTests
             birthDepartment: null,
             birthMunicipality: null,
             photoFilePublicId: null,
-            orgUnitPublicId: null,
-            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
+            orgUnitPublicId: null);
         file.SetTenantId(TenantId);
         SetEntityId(file, Random.Shared.NextInt64(1, long.MaxValue));
         return file;

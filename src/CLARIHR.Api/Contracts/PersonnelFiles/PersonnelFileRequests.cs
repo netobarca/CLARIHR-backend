@@ -25,7 +25,6 @@ public sealed class CreatePersonnelFileRequest
     public string? BirthMunicipalityCode { get; init; }
     public Guid? PhotoFilePublicId { get; init; }
     public Guid? OrgUnitPublicId { get; init; }
-    public Guid? AssignedPositionSlotPublicId { get; init; }
 
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
@@ -50,8 +49,7 @@ public sealed record UpdatePersonnelFileRequest(
     string? BirthDepartmentCode,
     string? BirthMunicipalityCode,
     Guid? PhotoFilePublicId,
-    Guid? OrgUnitPublicId,
-    Guid? AssignedPositionSlotPublicId);
+    Guid? OrgUnitPublicId);
 
 /// <summary>
 /// JSON Patch (RFC 6902) target for <c>PATCH /personnel-files/{publicId}</c>. The patchable
@@ -76,11 +74,10 @@ public sealed class PatchPersonnelFileRequest
     public string? BirthMunicipalityCode { get; set; }
     public Guid? PhotoFilePublicId { get; set; }
     public Guid? OrgUnitPublicId { get; set; }
-    public Guid? AssignedPositionSlotPublicId { get; set; }
     public bool IsActive { get; set; }
 }
 
-public sealed record FinalizePersonnelFileRequest(bool? CreateUserAccount);
+public sealed record FinalizePersonnelFileRequest(bool? CreateUserAccount, Guid? PositionSlotPublicId);
 
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,
@@ -94,8 +91,6 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     DateTime? RetirementDate,
     string? WorkdayCode,
     string? PayrollTypeCode,
-    Guid? PositionSlotPublicId,
-    Guid? JobProfilePublicId,
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
     Guid? CostCenterPublicId,

@@ -89,6 +89,7 @@ internal sealed class EmploymentAssignmentInputValidator : AbstractValidator<Emp
     public EmploymentAssignmentInputValidator()
     {
         RuleFor(input => input.AssignmentTypeCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.PositionSlotId).NotNull();
         RuleFor(input => input.StartDate).LessThanOrEqualTo(input => input.EndDate!.Value).When(input => input.EndDate.HasValue);
     }
 }
