@@ -6,6 +6,11 @@
 > Empezá por las [Convenciones](./_conventions.md) — reglas transversales (auth, compañía activa,
 > estados Draft/Published/Archived, `If-Match`, JSON Patch, el patrón de sub‑recurso). Cada doc de
 > recurso solo documenta lo específico.
+>
+> 🧪 **¿Querés probar el flujo de punta a punta?** Seguí la
+> [Guía de prueba E2E paso a paso](./e2e-testing-walkthrough.md): crea cada prerrequisito en orden
+> (org unit, categoría, catálogos…), el perfil, sus sub‑recursos, publica, edita publicado y archiva,
+> con los bodies exactos y las pruebas negativas.
 
 ---
 

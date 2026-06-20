@@ -164,6 +164,11 @@ public static class PersonnelFileErrors
         "The personnel file document could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error EmployeeProfileNotFound = new(
+        "PERSONNEL_FILE_EMPLOYEE_PROFILE_NOT_FOUND",
+        "The employee profile has not been created for this personnel file yet.",
+        ErrorType.NotFound);
+
     public static readonly Error DocumentFileRequired = new(
         "PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED",
         "A document file is required.",

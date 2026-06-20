@@ -199,8 +199,15 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
             return failure;
         }
 
-        var response = await employeeRepository.GetEmployeeProfileAsync(personnelFile!.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Employee profile could not be resolved for a completed employee personnel file.");
+        var response = await employeeRepository.GetEmployeeProfileAsync(personnelFile!.PublicId, cancellationToken);
+        if (response is null)
+        {
+            // A finalized employee may not have its employee-profile section yet: the row is created
+            // lazily on the first PUT upsert (see UpdatePersonnelFileEmployeeProfileCommandHandler).
+            // "Not created yet" is a normal state, so return 404 instead of throwing an unhandled
+            // InvalidOperationException that would surface to the client as a 500 "common.unexpected".
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.EmployeeProfileNotFound);
+        }
 
         return Result<PersonnelFileEmployeeProfileResponse>.Success(response);
     }

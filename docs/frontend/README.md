@@ -22,6 +22,12 @@ anteriores.
 > realidad prerequisito de uno "anterior". Esta tabla de fases es el **mapa temático**; ese doc es la
 > **ruta de implementación**.
 
+> 🧪 **¿Querés probar el sistema de punta a punta paso a paso?** Ver
+> [e2e-testing-walkthrough.md](./e2e-testing-walkthrough.md) — runbook ejecutable de **toda la API**:
+> por cada módulo, los requests del camino crítico + qué capturar + cómo validar + negativos, en orden
+> de dependencias. (Job Profiles tiene además su
+> [walkthrough dedicado](./job-profiles/e2e-testing-walkthrough.md).)
+
 | # | Fase | Carpeta | Qué cubre |
 |---|------|---------|-----------|
 | 1 | **Autenticación** | [auth/](./auth/authentication.md) | login, refresh, logout, registro + verificación de email, Google, password reset, aceptar invitación |

@@ -1486,6 +1486,9 @@
   <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
     <value>The requested item could not be found in this personnel file.</value>
   </data>
+  <data name="PERSONNEL_FILE_EMPLOYEE_PROFILE_NOT_FOUND" xml:space="preserve">
+    <value>The employee profile has not been created for this personnel file yet.</value>
+  </data>
   <data name="PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT" xml:space="preserve">
     <value>The subscription was modified by another process. Please reload and try again.</value>
   </data>
