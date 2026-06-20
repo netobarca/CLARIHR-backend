@@ -1129,7 +1129,10 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileCoreResponse>.Failure(authorizationResult.Error);
         }
 
-        var profile = await repository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
+        // Load the full aggregate (Requirements/Functions/DependentPositions included). The published
+        // minimum-requirements and dependency-cycle guards below rely on the persisted child collections,
+        // which the lightweight GetCoreByIdAsync does not hydrate.
+        var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
             return Result<JobProfileCoreResponse>.Failure(
@@ -1280,9 +1283,12 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileCoreResponse>.Failure(mutation.Error);
         }
 
+        // A PUT only mutates the profile core; child collections (requirements, functions, dependent
+        // positions) are managed through their own endpoints. The guards below must therefore evaluate the
+        // persisted aggregate state, not the update mutation (which intentionally carries empty collections).
         if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
                 reportsToInternalIdResult.Value,
-                mutation.Value.DependentPositions))
+                profile.DependentPositions))
         {
             return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
@@ -1291,8 +1297,8 @@ internal sealed class UpdateJobProfileCommandHandler(
             !JobProfileCommandSupport.MeetsPublishedMinimumRequirements(
                 command.Objective,
                 command.Responsibilities,
-                mutation.Value.Requirements,
-                mutation.Value.Functions))
+                profile.Requirements,
+                profile.Functions))
         {
             return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
         }

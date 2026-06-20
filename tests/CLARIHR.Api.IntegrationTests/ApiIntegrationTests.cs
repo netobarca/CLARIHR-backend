@@ -5767,6 +5767,157 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_UpdatePublishedProfile_ShouldAllowEditingPositionCategory()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-PUB", "Direccion Publicada", "Direccion");
+        var category = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
+
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PUB-EDIT");
+
+        // Regression: editing the core of a PUBLISHED profile (here, assigning the position category) via
+        // PUT must succeed. It previously returned 422 JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING because the
+        // guard evaluated the update mutation (which always carries empty collections) instead of the
+        // persisted requirements/functions of the profile.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                code = "JP-PUB-EDIT",
+                title = "Titulo Actualizado",
+                objective = "Objetivo del puesto.",
+                orgUnitPublicId = orgUnit.Id,
+                reportsToJobProfilePublicId = (Guid?)null,
+                positionCategoryPublicId = category.Id,
+                decisionScope = "Operacion",
+                assignedResources = "Recursos",
+                responsibilities = "Responsabilidades del puesto.",
+                marketSalaryReference = "Mercado",
+                valuationNotes = "Notas",
+                effectiveFromUtc = (DateTime?)null,
+                effectiveToUtc = (DateTime?)null,
+                allowInlineCatalogCreate = false
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal(JobProfileStatus.Published, updated!.Status);
+        Assert.Equal("Titulo Actualizado", updated.Title);
+
+        var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{published.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        Assert.NotNull(detail);
+        Assert.Equal(category.Id, detail!.PositionCategoryId);
+        Assert.Equal(JobProfileStatus.Published, detail.Status);
+    }
+
+    [Fact]
+    public async Task JobProfiles_UpdatePublishedProfile_WithoutObjective_ShouldReturnUnprocessableEntity()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-GUARD", "Direccion Guard", "Direccion");
+
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PUB-GUARD");
+
+        // The published guard must still reject an edit that would drop the profile below the publish
+        // minimums (here, clearing the mandatory objective) on a profile that is already Published.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                code = "JP-PUB-GUARD",
+                title = "Titulo",
+                objective = (string?)null,
+                orgUnitPublicId = orgUnit.Id,
+                reportsToJobProfilePublicId = (Guid?)null,
+                decisionScope = "Operacion",
+                assignedResources = "Recursos",
+                responsibilities = "Responsabilidades del puesto.",
+                marketSalaryReference = "Mercado",
+                valuationNotes = "Notas",
+                effectiveFromUtc = (DateTime?)null,
+                effectiveToUtc = (DateTime?)null,
+                allowInlineCatalogCreate = false
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING");
+    }
+
+    private async Task<JobProfileItem> CreatePublishedJobProfileAsync(
+        HttpClient client,
+        Guid tenantId,
+        Guid orgUnitId,
+        string code)
+    {
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/job-profiles", new
+        {
+            code,
+            title = $"{code} Title",
+            objective = "Objetivo del puesto.",
+            orgUnitPublicId = orgUnitId,
+            reportsToJobProfilePublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Recursos",
+            responsibilities = "Responsabilidades del puesto.",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false
+        });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(created);
+
+        // Publishing requires at least one function and one requirement.
+        var functionResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{created!.Id}/functions", new
+        {
+            functionType = "General",
+            description = "Funcion principal del puesto",
+            sortOrder = 1
+        });
+        functionResponse.EnsureSuccessStatusCode();
+
+        var requirementResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{created.Id}/requirements", new
+        {
+            requirementType = "Experience",
+            description = "Experiencia requerida",
+            sortOrder = 1
+        });
+        requirementResponse.EnsureSuccessStatusCode();
+
+        var refetchResponse = await client.GetAsync($"/api/v1/job-profiles/{created.Id}");
+        refetchResponse.EnsureSuccessStatusCode();
+        var refetched = await refetchResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(refetched);
+
+        using var publishRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{created.Id}")
+        {
+            Content = new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{refetched!.ConcurrencyToken}\"");
+        var publishResponse = await client.SendAsync(publishRequest);
+        publishResponse.EnsureSuccessStatusCode();
+        var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(published);
+        Assert.Equal(JobProfileStatus.Published, published!.Status);
+        return published;
+    }
+
+    [Fact]
     public async Task JobProfiles_Create_ShouldReturnLocationHeaderPointingToGetById()
     {
         var scenario = await factory.ResetDatabaseAsync();
