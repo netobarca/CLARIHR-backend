@@ -250,6 +250,12 @@
   <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT" xml:space="preserve">
     <value>The requested competency matrix change is not valid for the current state.</value>
   </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_ITEM_LIMIT_REACHED" xml:space="preserve">
+    <value>The job profile already has the maximum number of competency matrix items allowed.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>The competency matrix item could not be found.</value>
+  </data>
   <data name="JOB_PROFILE_DEPENDENCY_CYCLE" xml:space="preserve">
     <value>This change cannot be saved because it would make the selected job profiles depend on each other in a circular way. Review the reporting profile and dependent positions, then try again.</value>
   </data>
@@ -1383,6 +1389,9 @@
   </data>
   <data name="validation.message.a_maximum_of_50_conducts_per_competency_matrix_item_is_allowed" xml:space="preserve">
     <value>A maximum of 50 conducts per competency matrix item is allowed.</value>
+  </data>
+  <data name="validation.message.at_least_one_competency_conduct_is_required_per_matrix_item" xml:space="preserve">
+    <value>At least one competency conduct is required per matrix item.</value>
   </data>
   <data name="validation.message.effectivetoutc_cannot_be_less_than_effectivefromutc" xml:space="preserve">
     <value>EffectiveToUtc cannot be less than EffectiveFromUtc.</value>

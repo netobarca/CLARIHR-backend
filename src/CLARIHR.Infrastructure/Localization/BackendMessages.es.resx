@@ -250,6 +250,12 @@
   <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT" xml:space="preserve">
     <value>El cambio solicitado de matriz de competencias no es valido para el estado actual.</value>
   </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_ITEM_LIMIT_REACHED" xml:space="preserve">
+    <value>El perfil de puesto ya tiene el numero maximo de elementos de matriz de competencias permitidos.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el elemento de la matriz de competencias.</value>
+  </data>
   <data name="JOB_PROFILE_DEPENDENCY_CYCLE" xml:space="preserve">
     <value>Este cambio no puede guardarse porque haria que los perfiles de puesto seleccionados dependan entre si de forma circular. Revisa el perfil de reporte y las posiciones dependientes, luego intenta nuevamente.</value>
   </data>
@@ -1384,6 +1390,9 @@
   <data name="validation.message.a_maximum_of_50_conducts_per_competency_matrix_item_is_allowed" xml:space="preserve">
     <value>Se permite un maximo de 50 conductas por elemento de la matriz de competencias.</value>
   </data>
+  <data name="validation.message.at_least_one_competency_conduct_is_required_per_matrix_item" xml:space="preserve">
+    <value>Se requiere al menos una conducta por elemento de la matriz de competencias.</value>
+  </data>
   <data name="validation.message.effectivetoutc_cannot_be_less_than_effectivefromutc" xml:space="preserve">
     <value>EffectiveToUtc no puede ser menor que EffectiveFromUtc.</value>
   </data>
@@ -1487,7 +1496,7 @@
     <value>No se pudo encontrar el elemento solicitado en este expediente de personal.</value>
   </data>
   <data name="PERSONNEL_FILE_EMPLOYEE_PROFILE_NOT_FOUND" xml:space="preserve">
-    <value>El perfil de empleado aún no ha sido creado para este expediente de personal.</value>
+    <value>El perfil de empleado aun no ha sido creado para este expediente de personal.</value>
   </data>
   <data name="PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT" xml:space="preserve">
     <value>La suscripcion fue modificada por otro proceso. Por favor recargue e intente nuevamente.</value>
