@@ -108,6 +108,20 @@ internal sealed class AssignmentTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class EmploymentStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<EmploymentStatusCatalogItem>
+{
+    public EmploymentStatusCatalogItemConfiguration()
+        : base(
+            "employment_status_catalog_items",
+            "pk_employment_status_catalog_items",
+            "uq_employment_status_catalog_items__public_id",
+            "uq_employment_status_catalog_items__country_code",
+            "ix_employment_status_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class DurationUnitCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<DurationUnitCatalogItem>
 {

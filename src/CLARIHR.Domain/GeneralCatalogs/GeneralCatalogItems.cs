@@ -133,6 +133,34 @@ public sealed class AssignmentTypeCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+public sealed class EmploymentStatusCatalogItem : GeneralCatalogItem
+{
+    private EmploymentStatusCatalogItem()
+    {
+    }
+
+    private EmploymentStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static EmploymentStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class DurationUnitCatalogItem : GeneralCatalogItem
 {
     private DurationUnitCatalogItem()

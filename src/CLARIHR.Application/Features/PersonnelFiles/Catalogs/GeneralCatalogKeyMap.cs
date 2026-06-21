@@ -25,6 +25,7 @@ public static class GeneralCatalogKeyMap
             ["language-levels"] = PersonnelCurriculumCatalogCategories.LanguageLevel,
             ["training-types"] = PersonnelCurriculumCatalogCategories.TrainingType,
             ["assignment-types"] = PersonnelCurriculumCatalogCategories.AssignmentType,
+            ["employment-statuses"] = PersonnelCurriculumCatalogCategories.EmploymentStatus,
             ["duration-units"] = PersonnelCurriculumCatalogCategories.DurationUnit,
             ["reference-types"] = PersonnelCurriculumCatalogCategories.ReferenceType,
             ["currencies"] = PersonnelCurriculumCatalogCategories.Currency,

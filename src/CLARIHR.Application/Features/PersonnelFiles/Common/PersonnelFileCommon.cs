@@ -83,6 +83,12 @@ public static class PersonnelFilePermissionCodes
 {
     public const string Read = "PersonnelFiles.Read";
     public const string Admin = "PersonnelFiles.Admin";
+
+    /// <summary>
+    /// Dedicated permission (D-10) to authorize the rehire of a "not rehireable" file. Distinct
+    /// from <see cref="Admin"/> (regular manage) so a rehire analyst cannot self-approve the override.
+    /// </summary>
+    public const string AuthorizeRehire = "PersonnelFiles.AuthorizeRehire";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

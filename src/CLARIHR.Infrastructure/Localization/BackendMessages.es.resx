@@ -1561,6 +1561,21 @@
   <data name="validation.message.patch_document_must_include_a_non_remove_operation_for_concurrencytoken" xml:space="preserve">
     <value>El documento patch debe incluir una operacion distinta de remove para ConcurrencyToken.</value>
   </data>
+  <data name="REHIRE_NOT_AN_EMPLOYEE" xml:space="preserve">
+    <value>La recontratacion aplica unicamente a expedientes de empleado.</value>
+  </data>
+  <data name="REHIRE_NOT_RETIRED" xml:space="preserve">
+    <value>Solo se puede recontratar a un empleado retirado con empleo inactivo y un periodo anterior.</value>
+  </data>
+  <data name="REHIRE_PRIOR_PERIOD_OPEN" xml:space="preserve">
+    <value>El periodo laboral anterior debe confirmarse como cerrado o liquidado antes de recontratar.</value>
+  </data>
+  <data name="REHIRE_REQUIRES_AUTHORIZATION" xml:space="preserve">
+    <value>Este expediente esta marcado como no recontratable; un usuario autorizado debe aprobar la recontratacion con una justificacion.</value>
+  </data>
+  <data name="REHIRE_INSTITUTIONAL_EMAIL_IN_USE" xml:space="preserve">
+    <value>El correo institucional anterior ya esta en uso; proporcione un nuevo correo institucional para el empleado recontratado.</value>
+  </data>
   <data name="EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_REQUIRED" xml:space="preserve">
     <value>Se requiere una plaza para la asignacion de empleo.</value>
   </data>
@@ -1584,5 +1599,8 @@
   </data>
   <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de asignacion no es valido para el catalogo activo.</value>
+  </data>
+  <data name="EMPLOYMENT_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de estado de empleo no es valido para el catalogo activo.</value>
   </data>
 </root>

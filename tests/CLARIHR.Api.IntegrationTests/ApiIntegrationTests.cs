@@ -350,6 +350,24 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     }
 
     [Fact]
+    public async Task GeneralCatalogs_GetEmploymentStatuses_ShouldReturnSeededCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var response = await client.GetAsync("/api/v1/general-catalogs/employment-statuses?countryCode=SV");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<PersonnelEducationCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.NotEmpty(payload!);
+        Assert.All(payload!, item => Assert.NotEqual(Guid.Empty, item.Id));
+        Assert.Contains(payload!, item => item.Code == "ACTIVO");
+        Assert.Contains(payload!, item => item.Code == "RETIRADO");
+    }
+
+    [Fact]
     public async Task AccountCompanies_GetLegalRepresentativePositionTitles_ShouldReturnSeededCatalog()
     {
         var scenario = await factory.ResetDatabaseAsync();

@@ -53,7 +53,8 @@ public sealed record UpdatePersonnelFileRequest(
 
 /// <summary>
 /// JSON Patch (RFC 6902) target for <c>PATCH /personnel-files/{publicId}</c>. The patchable
-/// members are the core personal-info fields plus <c>isActive</c>; the concurrency token is
+/// members are the core personal-info fields, <c>isActive</c>, and the rehire-block mark
+/// (<c>isRehireBlocked</c>/<c>rehireBlockedReason</c>, typically set at retirement); the concurrency token is
 /// supplied via the <c>If-Match</c> header, not the document body.
 /// </summary>
 public sealed class PatchPersonnelFileRequest
@@ -75,31 +76,48 @@ public sealed class PatchPersonnelFileRequest
     public Guid? PhotoFilePublicId { get; set; }
     public Guid? OrgUnitPublicId { get; set; }
     public bool IsActive { get; set; }
+
+    /// <summary>Manual "not rehireable" mark (D-11), usually set together with <c>isActive=false</c> at retirement.</summary>
+    public bool IsRehireBlocked { get; set; }
+
+    /// <summary>Optional justification for the rehire block (max 500 chars).</summary>
+    public string? RehireBlockedReason { get; set; }
 }
 
 public sealed record FinalizePersonnelFileRequest(bool? CreateUserAccount, Guid? PositionSlotPublicId);
 
+/// <summary>
+/// Body for <c>POST /personnel-files/{publicId}/rehire</c>. Opens a new employment period on the
+/// retired employee's existing file. <c>concurrencyToken</c> travels in the <c>If-Match</c> header.
+/// <c>newInstitutionalEmail</c> is only required when the previous email was reassigned (D-09);
+/// <c>authorizationReason</c> is required when the file is marked "not rehireable" (D-04).
+/// </summary>
+public sealed record RehireEmployeeRequest(
+    DateTime NewHireDate,
+    string ContractTypeCode,
+    DateTime ContractStartDate,
+    DateTime? ContractEndDate,
+    Guid PositionSlotPublicId,
+    string AssignmentTypeCode,
+    bool? CreateUserAccount,
+    string? NewInstitutionalEmail,
+    bool PriorPeriodClosureConfirmed,
+    string? AuthorizationReason);
+
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,
     string EmploymentStatusCode,
-    bool IsEmploymentActive,
-    string ContractTypeCode,
     DateTime HireDate,
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
     string? RetirementNotes,
-    DateTime? RetirementDate,
-    string? WorkdayCode,
-    string? PayrollTypeCode,
-    Guid? OrgUnitPublicId,
-    Guid? WorkCenterPublicId,
-    Guid? CostCenterPublicId,
-    DateTime? ContractStartDate,
-    DateTime? ContractEndDate,
-    string? VacationConfigurationJson);
+    DateTime? RetirementDate);
 
 public sealed record AddEmploymentAssignmentRequest(
     string AssignmentTypeCode,
+    string? ContractTypeCode,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
     Guid? PositionSlotPublicId,
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
@@ -112,6 +130,9 @@ public sealed record AddEmploymentAssignmentRequest(
 
 public sealed record UpdateEmploymentAssignmentRequest(
     string AssignmentTypeCode,
+    string? ContractTypeCode,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
     Guid? PositionSlotPublicId,
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
@@ -124,6 +145,9 @@ public sealed record UpdateEmploymentAssignmentRequest(
 public sealed class PatchEmploymentAssignmentRequest
 {
     public string AssignmentTypeCode { get; set; } = string.Empty;
+    public string? ContractTypeCode { get; set; }
+    public string? WorkdayCode { get; set; }
+    public string? PayrollTypeCode { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }

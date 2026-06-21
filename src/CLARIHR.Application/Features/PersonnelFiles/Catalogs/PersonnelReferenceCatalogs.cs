@@ -89,6 +89,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string DurationUnit = "CurriculumDurationUnit";
     public const string ReferenceType = "CurriculumReferenceType";
     public const string AssignmentType = "CurriculumAssignmentType";
+    public const string EmploymentStatus = "EmploymentStatus";
     public const string Career = "CurriculumCareer";
     public const string Country = "Country";
     public const string Currency = "Currency";

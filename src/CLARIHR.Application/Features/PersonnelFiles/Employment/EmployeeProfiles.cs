@@ -5,6 +5,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
@@ -17,53 +18,98 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+// Company seniority (antigüedad) is computed on read from HireDate (and RetirementDate when retired),
+// never stored — see EmployeeSeniority.Between. The vacation/disability balances are read-only here and
+// owned by the future vacations/incapacities module (null until that module computes them).
 public sealed record PersonnelFileEmployeeProfileResponse(
     Guid Id,
     string EmployeeCode,
     string EmploymentStatusCode,
-    bool IsEmploymentActive,
-    string ContractTypeCode,
+    string? InstitutionalEmail,
     DateTime HireDate,
+    EmployeeSeniority Seniority,
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
     string? RetirementNotes,
     DateTime? RetirementDate,
-    string? WorkdayCode,
-    string? PayrollTypeCode,
-    Guid? OrgUnitId,
-    Guid? WorkCenterId,
-    Guid? CostCenterId,
-    DateTime? ContractStartDate,
-    DateTime? ContractEndDate,
-    string? VacationConfigurationJson,
+    decimal? VacationDaysAvailable,
+    decimal? DisabilityDaysAvailable,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
+
+public sealed record EmployeeSeniority(int Years, int Months, int Days, int TotalDays)
+{
+    public static readonly EmployeeSeniority None = new(0, 0, 0, 0);
+
+    /// <summary>Calendar seniority between <paramref name="startUtc"/> and <paramref name="asOfUtc"/> (years/months/days + total days).</summary>
+    public static EmployeeSeniority Between(DateTime startUtc, DateTime asOfUtc)
+    {
+        var start = startUtc.Date;
+        var end = asOfUtc.Date;
+        if (end <= start)
+        {
+            return None;
+        }
+
+        var years = end.Year - start.Year;
+        var months = end.Month - start.Month;
+        var days = end.Day - start.Day;
+
+        if (days < 0)
+        {
+            var priorMonth = end.AddMonths(-1);
+            days += DateTime.DaysInMonth(priorMonth.Year, priorMonth.Month);
+            months--;
+        }
+
+        if (months < 0)
+        {
+            months += 12;
+            years--;
+        }
+
+        return new EmployeeSeniority(years, months, days, (int)(end - start).TotalDays);
+    }
+}
 
 public sealed record UpdatePersonnelFileEmployeeProfileCommand(
     Guid PersonnelFileId,
     string EmployeeCode,
     string EmploymentStatusCode,
-    bool IsEmploymentActive,
-    string ContractTypeCode,
     DateTime HireDate,
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
     string? RetirementNotes,
     DateTime? RetirementDate,
-    string? WorkdayCode,
-    string? PayrollTypeCode,
-    Guid? OrgUnitId,
-    Guid? WorkCenterId,
-    Guid? CostCenterId,
-    DateTime? ContractStartDate,
-    DateTime? ContractEndDate,
-    string? VacationConfigurationJson,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileEmployeeProfileResponse>;
 
 public sealed record GetPersonnelFileEmployeeProfileQuery(Guid PersonnelFileId)
     : IQuery<PersonnelFileEmployeeProfileResponse?>;
+
+internal static class EmploymentStatusErrors
+{
+    public static readonly Error StatusCodeInvalid = new(
+        "EMPLOYMENT_STATUS_CODE_INVALID",
+        "The employment status code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+}
+
+internal static class EmployeeProfileResponseEnricher
+{
+    // Derived fields (institutional email from the parent file, computed seniority) are filled in the
+    // application layer — the repository projects only persisted columns.
+    public static PersonnelFileEmployeeProfileResponse Enrich(
+        PersonnelFileEmployeeProfileResponse response,
+        Domain.PersonnelFiles.PersonnelFile personnelFile,
+        IDateTimeProvider dateTimeProvider) =>
+        response with
+        {
+            InstitutionalEmail = personnelFile.InstitutionalEmail,
+            Seniority = EmployeeSeniority.Between(response.HireDate, response.RetirementDate ?? dateTimeProvider.UtcNow)
+        };
+}
 
 internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : AbstractValidator<UpdatePersonnelFileEmployeeProfileCommand>
 {
@@ -72,7 +118,9 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : Abstr
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.EmployeeCode).NotEmpty().MaximumLength(80);
         RuleFor(command => command.EmploymentStatusCode).NotEmpty().MaximumLength(80);
-        RuleFor(command => command.ContractTypeCode).NotEmpty().MaximumLength(80);
+        RuleFor(command => command.RetirementCategoryCode).MaximumLength(80);
+        RuleFor(command => command.RetirementReasonCode).MaximumLength(80);
+        RuleFor(command => command.RetirementNotes).MaximumLength(2000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -91,6 +139,7 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
     IPersonnelFileEmployeeRepository employeeRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
+    IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
       ICommandHandler<UpdatePersonnelFileEmployeeProfileCommand, PersonnelFileEmployeeProfileResponse>
@@ -123,28 +172,28 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
             return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        // EmploymentStatusCode is now a validated catalog code (replaces the former IsEmploymentActive flag).
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+            personnelFile.TenantId, PersonnelCurriculumCatalogCategories.EmploymentStatus, command.EmploymentStatusCode, cancellationToken))
+        {
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.StatusCodeInvalid);
+        }
+
         var entity = PersonnelFileEmployeeProfile.Create(
             command.EmployeeCode,
             command.EmploymentStatusCode,
-            command.IsEmploymentActive,
-            command.ContractTypeCode,
             command.HireDate,
             command.RetirementCategoryCode,
             command.RetirementReasonCode,
             command.RetirementNotes,
-            command.RetirementDate,
-            command.WorkdayCode,
-            command.PayrollTypeCode,
-            command.OrgUnitId,
-            command.WorkCenterId,
-            command.CostCenterId,
-            command.ContractStartDate,
-            command.ContractEndDate,
-            command.VacationConfigurationJson);
+            command.RetirementDate);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
-        var response = await employeeRepository.UpsertEmployeeProfileAsync(entity, cancellationToken);
+        var response = EmployeeProfileResponseEnricher.Enrich(
+            await employeeRepository.UpsertEmployeeProfileAsync(entity, cancellationToken),
+            personnelFile,
+            dateTimeProvider);
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -174,7 +223,8 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IDateTimeProvider dateTimeProvider)
     : PersonnelFileEmployeeReadQueryHandlerBase,
       IQueryHandler<GetPersonnelFileEmployeeProfileQuery, PersonnelFileEmployeeProfileResponse?>
 {
@@ -194,13 +244,16 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
         }
 
         var response = await employeeRepository.GetEmployeeProfileAsync(personnelFile!.PublicId, cancellationToken);
+        var enriched = response is null
+            ? null
+            : EmployeeProfileResponseEnricher.Enrich(response, personnelFile, dateTimeProvider);
 
         // employee-profile is a 1:1 section created lazily on the first PUT upsert (see
         // UpdatePersonnelFileEmployeeProfileCommandHandler). "Not created yet" is a normal state, not an
         // error: return 200 with a null body so the client treats it as "empty section". This mirrors the
         // sibling employee sub-resources (employment-assignments, contract-history, assets-accesses, ...),
         // whose list endpoints return 200 with an empty array when there is no data yet.
-        return Result<PersonnelFileEmployeeProfileResponse?>.Success(response);
+        return Result<PersonnelFileEmployeeProfileResponse?>.Success(enriched);
     }
 }
 

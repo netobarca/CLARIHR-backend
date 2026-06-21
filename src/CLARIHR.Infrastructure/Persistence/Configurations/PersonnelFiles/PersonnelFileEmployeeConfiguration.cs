@@ -8,10 +8,7 @@ internal sealed class PersonnelFileEmployeeProfileConfiguration : IEntityTypeCon
 {
     public void Configure(EntityTypeBuilder<PersonnelFileEmployeeProfile> builder)
     {
-        builder.ToTable("personnel_file_employee_profiles", table =>
-            table.HasCheckConstraint(
-                "ck_personnel_file_employee_profiles__contract_dates",
-                "contract_end_date is null or contract_start_date is null or contract_end_date >= contract_start_date"));
+        builder.ToTable("personnel_file_employee_profiles");
 
         builder.HasKey(item => item.Id).HasName("pk_personnel_file_employee_profiles");
 
@@ -22,21 +19,11 @@ internal sealed class PersonnelFileEmployeeProfileConfiguration : IEntityTypeCon
         builder.Property(item => item.EmployeeCode).HasColumnName("employee_code").HasMaxLength(80);
         builder.Property(item => item.NormalizedEmployeeCode).HasColumnName("normalized_employee_code").HasMaxLength(80);
         builder.Property(item => item.EmploymentStatusCode).HasColumnName("employment_status_code").HasMaxLength(80);
-        builder.Property(item => item.IsEmploymentActive).HasColumnName("is_employment_active");
-        builder.Property(item => item.ContractTypeCode).HasColumnName("contract_type_code").HasMaxLength(80);
         builder.Property(item => item.HireDate).HasColumnName("hire_date");
         builder.Property(item => item.RetirementCategoryCode).HasColumnName("retirement_category_code").HasMaxLength(80);
         builder.Property(item => item.RetirementReasonCode).HasColumnName("retirement_reason_code").HasMaxLength(80);
         builder.Property(item => item.RetirementNotes).HasColumnName("retirement_notes").HasMaxLength(2000);
         builder.Property(item => item.RetirementDate).HasColumnName("retirement_date");
-        builder.Property(item => item.WorkdayCode).HasColumnName("workday_code").HasMaxLength(80);
-        builder.Property(item => item.PayrollTypeCode).HasColumnName("payroll_type_code").HasMaxLength(80);
-        builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
-        builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");
-        builder.Property(item => item.CostCenterPublicId).HasColumnName("cost_center_public_id");
-        builder.Property(item => item.ContractStartDate).HasColumnName("contract_start_date");
-        builder.Property(item => item.ContractEndDate).HasColumnName("contract_end_date");
-        builder.Property(item => item.VacationConfigurationJson).HasColumnName("vacation_configuration_json").HasColumnType("jsonb");
         builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
@@ -77,6 +64,9 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.AssignmentTypeCode).HasColumnName("assignment_type_code").HasMaxLength(80);
+        builder.Property(item => item.ContractTypeCode).HasColumnName("contract_type_code").HasMaxLength(80);
+        builder.Property(item => item.WorkdayCode).HasColumnName("workday_code").HasMaxLength(80);
+        builder.Property(item => item.PayrollTypeCode).HasColumnName("payroll_type_code").HasMaxLength(80);
         builder.Property(item => item.PositionSlotPublicId).HasColumnName("position_slot_public_id");
         builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");

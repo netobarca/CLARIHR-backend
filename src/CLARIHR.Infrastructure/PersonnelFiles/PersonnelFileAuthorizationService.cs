@@ -24,6 +24,49 @@ internal sealed class PersonnelFileAuthorizationService(
     public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureAuthorizedAsync(companyId, manageRequired: true, cancellationToken);
 
+    public async Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken)
+    {
+        if (!currentUserService.IsAuthenticated || !tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(currentUserService.UserId))
+        {
+            return false;
+        }
+
+        if (tenantContext.TenantId.Value != companyId)
+        {
+            return false;
+        }
+
+        // The override requires the dedicated AuthorizeRehire grant (D-10). PersonnelFiles.Admin —
+        // the regular "manage" permission a rehire analyst already holds — is deliberately excluded
+        // so it never implies authorization; the IAM super-admin remains a universal fallback.
+        var requiredClaims = new[]
+        {
+            PersonnelFilePermissionCodes.AuthorizeRehire.ToUpperInvariant(),
+            PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+        };
+
+        var normalizedClaims = currentUserService.Permissions
+            .Select(static permission => permission.Trim().ToUpperInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (requiredClaims.Any(normalizedClaims.Contains))
+        {
+            return true;
+        }
+
+        if (!Guid.TryParse(currentUserService.UserId, out var currentUserPublicId))
+        {
+            return false;
+        }
+
+        return await TenantPermissionGrantEvaluator.HasAnyRequiredPermissionAsync(
+            dbContext,
+            companyId,
+            currentUserPublicId,
+            requiredClaims,
+            cancellationToken);
+    }
+
     public Error TenantMismatch(RbacPermissionAction action) => PersonnelFileErrors.TenantMismatch(action);
 
     private async Task<Result> EnsureAuthorizedAsync(Guid companyId, bool manageRequired, CancellationToken cancellationToken)

@@ -17,6 +17,9 @@ public sealed class PersonnelFileEmploymentAssignmentPatchTests
         new(
             Guid.NewGuid(),
             "PRIMARY",
+            "INDEFINIDO",
+            "DIURNA",
+            "MENSUAL",
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),

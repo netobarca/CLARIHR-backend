@@ -80,6 +80,17 @@ internal sealed class CompanyUserProvisioningService(
 
                 membership.ChangeRole(role.Id);
                 membership.Reactivate();
+
+                // A rehired employee's user was deactivated at retirement (DeactivateCompanyUser),
+                // so reusing the membership alone would leave the user — and therefore the IAM user
+                // (SetActive below keys off user.Status) — inactive. Reactivate the user so the reused
+                // account regains access immediately (D-09 / RF-008). Only the deactivated state is
+                // touched; a PendingActivation user keeps its invitation flow (handled just below).
+                if (user.Status == UserStatus.Inactive)
+                {
+                    user.Reactivate();
+                }
+
                 membershipReused = true;
             }
             else

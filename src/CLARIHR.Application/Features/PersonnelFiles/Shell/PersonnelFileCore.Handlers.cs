@@ -426,6 +426,23 @@ internal sealed class PatchPersonnelFileCommandHandler(
                 ErrorCatalog.Validation(ToValidationDictionary(validation.Errors)));
         }
 
+        // The "not rehireable" mark (D-11/D-18) lives on the root file so it survives the 1:1
+        // employee-profile overwrite a future rehire performs. It is captured here — typically in
+        // the same PATCH that sets isActive=false at retirement — and applied to the tracked
+        // entity so it persists inside the shared personal-info transaction below.
+        if (state.IsRehireBlocked != personnelFile.IsRehireBlocked ||
+            !string.Equals(state.RehireBlockedReason, personnelFile.RehireBlockedReason, StringComparison.Ordinal))
+        {
+            if (state.IsRehireBlocked)
+            {
+                personnelFile.BlockRehire(state.RehireBlockedReason);
+            }
+            else
+            {
+                personnelFile.ClearRehireBlock();
+            }
+        }
+
         // The unified PATCH absorbs the retired /activate and /inactivate endpoints: toggling
         // `isActive` drives the lifecycle transition, which selects the audit event below.
         // Capture the pre-mutation state so the post-mutation auditFactory can classify it.

@@ -207,7 +207,7 @@ public sealed class FinalizePersonnelFileTests
             authorizationService,
             personnelFileRepository,
             positionSlotRepository,
-            provisioningService,
+            new PersonnelFileFinalizationService(provisioningService),
             userRepository,
             auditService,
             tenantContext,
@@ -390,6 +390,8 @@ public sealed class FinalizePersonnelFileTests
         public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
 
         public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+
+        public Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(true);
 
         public Error TenantMismatch(RbacPermissionAction action) =>
             new("TENANT_MISMATCH", "Tenant mismatch.", ErrorType.Forbidden);

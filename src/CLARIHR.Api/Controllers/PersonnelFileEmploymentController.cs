@@ -81,6 +81,71 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/rehire")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RehireEmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Rehire a retired employee",
+        Description = """
+            Reactivates a retired employee's existing personnel file and opens a new employment
+            period (new hire date, contract and position-slot assignment), preserving the prior
+            period as derived history and re-provisioning the user account. Requires the `If-Match`
+            header with the current `concurrencyToken`. A file marked "not rehireable" additionally
+            requires the `PersonnelFiles.AuthorizeRehire` permission and an `authorizationReason`.
+            """)]
+    public async Task<ActionResult<RehireEmployeeResponse>> Rehire(
+        Guid publicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] RehireEmployeeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new RehireEmployeeCommand(
+                publicId,
+                concurrencyToken,
+                request.NewHireDate,
+                request.ContractTypeCode,
+                request.ContractStartDate,
+                request.ContractEndDate,
+                request.PositionSlotPublicId,
+                request.AssignmentTypeCode,
+                request.CreateUserAccount ?? true,
+                request.NewInstitutionalEmail,
+                request.PriorPeriodClosureConfirmed,
+                request.AuthorizationReason),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/employment-periods")]
+    [ProducesResponseType<EmploymentPeriodsTimelineResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get the employment-periods timeline",
+        Description = """
+            Returns the chronological timeline of the employee's employment periods (RF-011),
+            derived from contract history (no dedicated entity). Each rehire adds a period; the
+            active period is flagged with `isCurrent`.
+            """)]
+    public async Task<ActionResult<EmploymentPeriodsTimelineResponse>> GetEmploymentPeriods(
+        Guid publicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetEmploymentPeriodsTimelineQuery(publicId), cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("api/v1/personnel-files/{publicId:guid}/finalize/preview")]
     [ProducesResponseType<FinalizePersonnelFilePreviewResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -129,21 +194,11 @@ public sealed class PersonnelFileEmploymentController(
                 publicId,
                 request.EmployeeCode,
                 request.EmploymentStatusCode,
-                request.IsEmploymentActive,
-                request.ContractTypeCode,
                 request.HireDate,
                 request.RetirementCategoryCode,
                 request.RetirementReasonCode,
                 request.RetirementNotes,
                 request.RetirementDate,
-                request.WorkdayCode,
-                request.PayrollTypeCode,
-                request.OrgUnitPublicId,
-                request.WorkCenterPublicId,
-                request.CostCenterPublicId,
-                request.ContractStartDate,
-                request.ContractEndDate,
-                request.VacationConfigurationJson,
                 concurrencyToken),
             cancellationToken);
 
@@ -213,6 +268,9 @@ public sealed class PersonnelFileEmploymentController(
                 publicId,
                 new EmploymentAssignmentInput(
                     request.AssignmentTypeCode,
+                    request.ContractTypeCode,
+                    request.WorkdayCode,
+                    request.PayrollTypeCode,
                     request.PositionSlotPublicId,
                     request.OrgUnitPublicId,
                     request.WorkCenterPublicId,
@@ -256,6 +314,9 @@ public sealed class PersonnelFileEmploymentController(
                 employmentAssignmentPublicId,
                 new EmploymentAssignmentInput(
                     request.AssignmentTypeCode,
+                    request.ContractTypeCode,
+                    request.WorkdayCode,
+                    request.PayrollTypeCode,
                     request.PositionSlotPublicId,
                     request.OrgUnitPublicId,
                     request.WorkCenterPublicId,

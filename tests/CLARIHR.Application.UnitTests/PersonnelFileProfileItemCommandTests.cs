@@ -562,6 +562,8 @@ public sealed class PersonnelFileProfileItemCommandTests
 
         public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
 
+        public Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(true);
+
         public Error TenantMismatch(RbacPermissionAction action) =>
             new("TENANT_MISMATCH", "Tenant mismatch.", ErrorType.Forbidden);
     }

@@ -73,7 +73,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPositionSlotRepository positionSlotRepository,
-    ICompanyUserProvisioningService companyUserProvisioningService,
+    IPersonnelFileFinalizationService finalizationService,
     IUserRepository userRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -132,34 +132,17 @@ internal sealed class FinalizePersonnelFileCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            CompanyUserResponse? userResponse = null;
-            DateTime? invitationExpiresUtc = null;
-            if (command.CreateUserAccount)
+            var finalization = await finalizationService.ApplyAsync(
+                tenantId,
+                personnelFile,
+                command.CreateUserAccount,
+                validation.ResolvedRoleId,
+                source: "personnel-file-finalization",
+                cancellationToken);
+            if (finalization.IsFailure)
             {
-                var provisioningResult = await companyUserProvisioningService.ProvisionAsync(
-                    new CompanyUserProvisioningRequest(
-                        tenantId,
-                        personnelFile.InstitutionalEmail!,
-                        personnelFile.FirstName,
-                        personnelFile.LastName,
-                        validation.ResolvedRoleId!.Value,
-                        Country: null,
-                        Source: "personnel-file-finalization",
-                        AllowExistingMembershipReuse: true),
-                    cancellationToken);
-                if (provisioningResult.IsFailure)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return Result<FinalizePersonnelFileResponse>.Failure(provisioningResult.Error);
-                }
-
-                personnelFile.Complete(provisioningResult.Value.User.PublicId);
-                userResponse = provisioningResult.Value.UserResponse;
-                invitationExpiresUtc = provisioningResult.Value.InvitationExpiresUtc;
-            }
-            else
-            {
-                personnelFile.CompleteWithoutLinkedUser();
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<FinalizePersonnelFileResponse>.Failure(finalization.Error);
             }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -184,8 +167,8 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             return Result<FinalizePersonnelFileResponse>.Success(
                 new FinalizePersonnelFileResponse(
                     after,
-                    userResponse,
-                    invitationExpiresUtc));
+                    finalization.Value.User,
+                    finalization.Value.InvitationExpiresUtc));
         }
         catch
         {

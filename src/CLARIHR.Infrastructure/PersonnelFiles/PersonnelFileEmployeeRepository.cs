@@ -27,21 +27,11 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         existing.Update(
             profile.EmployeeCode,
             profile.EmploymentStatusCode,
-            profile.IsEmploymentActive,
-            profile.ContractTypeCode,
             profile.HireDate,
             profile.RetirementCategoryCode,
             profile.RetirementReasonCode,
             profile.RetirementNotes,
-            profile.RetirementDate,
-            profile.WorkdayCode,
-            profile.PayrollTypeCode,
-            profile.OrgUnitPublicId,
-            profile.WorkCenterPublicId,
-            profile.CostCenterPublicId,
-            profile.ContractStartDate,
-            profile.ContractEndDate,
-            profile.VacationConfigurationJson);
+            profile.RetirementDate);
 
         return Map(existing);
     }
@@ -80,6 +70,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid employmentAssignmentPublicId,
         Guid tenantId,
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -93,7 +86,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .SingleOrDefaultAsync(x => x.PublicId == employmentAssignmentPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(assignmentTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes);
+        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes);
         return Map(item);
     }
 
@@ -101,6 +94,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid employmentAssignmentPublicId,
         Guid tenantId,
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -116,7 +112,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .SingleOrDefaultAsync(x => x.PublicId == employmentAssignmentPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(assignmentTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes);
+        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -193,6 +189,51 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         foreach (var item in items)
         {
             item.SetPrimary(false);
+        }
+    }
+
+    public async Task CloseActiveEmploymentAssignmentsAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToListAsync(cancellationToken);
+        foreach (var item in items)
+        {
+            // Preserve an already-set end date; only stamp the rehire boundary on still-open rows.
+            if (item.EndDate is null)
+            {
+                item.Close(endDateUtc);
+            }
+            else
+            {
+                item.SetActive(false);
+            }
+        }
+    }
+
+    public async Task CloseActiveContractHistoriesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileContractHistory>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToListAsync(cancellationToken);
+        foreach (var item in items)
+        {
+            if (item.ContractEndDate is null)
+            {
+                item.Close(endDateUtc);
+            }
+            else
+            {
+                item.SetActive(false);
+            }
         }
     }
 
@@ -281,13 +322,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .AsNoTracking()
             .SingleAsync(item => item.PublicId == personnelFileId, cancellationToken);
 
-        var profileOrgUnit = await dbContext.Set<PersonnelFileEmployeeProfile>()
+        // Org unit is no longer stored on the profile; resolve it from the active primary assignment
+        // (the plaza relationship), falling back to the file's own org unit.
+        var primaryAssignmentOrgUnit = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
-            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.IsActive && item.IsPrimary)
+            .OrderBy(item => item.StartDate)
             .Select(item => item.OrgUnitPublicId)
-            .SingleOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var resolvedOrgUnit = profileOrgUnit ?? file.OrgUnitPublicId;
+        var resolvedOrgUnit = primaryAssignmentOrgUnit ?? file.OrgUnitPublicId;
 
         var subordinates = resolvedOrgUnit.HasValue
             ? await dbContext.Set<PersonnelFile>()
@@ -1727,26 +1771,22 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         };
     }
 
+    // InstitutionalEmail and Seniority are derived/enriched in the application layer
+    // (EmployeeProfileResponseEnricher); the balances are owned by the future vacations/incapacities module.
     private static PersonnelFileEmployeeProfileResponse Map(PersonnelFileEmployeeProfile item) =>
         new(
             item.PublicId,
             item.EmployeeCode,
             item.EmploymentStatusCode,
-            item.IsEmploymentActive,
-            item.ContractTypeCode,
+            InstitutionalEmail: null,
             item.HireDate,
+            EmployeeSeniority.None,
             item.RetirementCategoryCode,
             item.RetirementReasonCode,
             item.RetirementNotes,
             item.RetirementDate,
-            item.WorkdayCode,
-            item.PayrollTypeCode,
-            item.OrgUnitPublicId,
-            item.WorkCenterPublicId,
-            item.CostCenterPublicId,
-            item.ContractStartDate,
-            item.ContractEndDate,
-            item.VacationConfigurationJson,
+            VacationDaysAvailable: null,
+            DisabilityDaysAvailable: null,
             item.ConcurrencyToken,
             item.CreatedUtc,
             item.ModifiedUtc);
@@ -1755,6 +1795,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         new(
             item.PublicId,
             item.AssignmentTypeCode,
+            item.ContractTypeCode,
+            item.WorkdayCode,
+            item.PayrollTypeCode,
             item.PositionSlotPublicId,
             item.OrgUnitPublicId,
             item.WorkCenterPublicId,

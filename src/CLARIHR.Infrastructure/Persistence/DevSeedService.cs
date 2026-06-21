@@ -320,6 +320,15 @@ internal sealed class DevSeedService(
             ("RECARGO_FUNCIONES", "Recargo de funciones", 90),
         };
 
+        var employmentStatuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("ACTIVO", "Activo", 10),
+            ("SUSPENDIDO", "Suspendido", 20),
+            ("LICENCIA", "Licencia", 30),
+            ("INCAPACIDAD", "Incapacidad", 40),
+            ("RETIRADO", "Retirado", 50),
+        };
+
         foreach (var item in languages)
         {
             var entity = LanguageCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
@@ -360,6 +369,12 @@ internal sealed class DevSeedService(
         {
             var entity = AssignmentTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.AssignmentTypeCatalogItems.Add(entity);
+        }
+
+        foreach (var item in employmentStatuses)
+        {
+            var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.EmploymentStatusCatalogItems.Add(entity);
         }
     }
 

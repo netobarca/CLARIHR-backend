@@ -186,6 +186,19 @@ internal static class PersonnelFilePatchApplier
                 : SetAndSucceed(() => state.IsActive = ReadBool(value, path));
         }
 
+        if (IsSegment(property, "isRehireBlocked"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsRehireBlocked cannot be removed.")
+                : SetAndSucceed(() => state.IsRehireBlocked = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "rehireBlockedReason"))
+        {
+            state.RehireBlockedReason = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
         return ValidationFailure(path, $"Unsupported patch path '{path}'.");
     }
 

@@ -110,6 +110,15 @@ public sealed class PersonnelFile : TenantEntity
 
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Manual "not rehireable" mark at the person/file level (D-11). It survives the 1:1
+    /// employee-profile overwrite that a rehire performs, so a blocked ex-employee stays
+    /// flagged across employment periods. Set/cleared at retirement via the root PATCH.
+    /// </summary>
+    public bool IsRehireBlocked { get; private set; }
+
+    public string? RehireBlockedReason { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public bool IsCompletedEmployee =>
@@ -836,6 +845,65 @@ public sealed class PersonnelFile : TenantEntity
     public void Inactivate()
     {
         IsActive = false;
+        RefreshConcurrencyToken();
+    }
+
+    /// <summary>
+    /// Flags the file as "not rehireable" (D-11/D-18). The reason is preserved for the
+    /// authorization warning shown when someone later attempts to rehire this person.
+    /// </summary>
+    public void BlockRehire(string? reason)
+    {
+        IsRehireBlocked = true;
+        RehireBlockedReason = PersonnelFileNormalization.CleanOptional(reason);
+        RefreshConcurrencyToken();
+    }
+
+    public void ClearRehireBlock()
+    {
+        IsRehireBlocked = false;
+        RehireBlockedReason = null;
+        RefreshConcurrencyToken();
+    }
+
+    /// <summary>
+    /// Reopens a completed employee file for a new employment period (D-08). Transitions
+    /// <see cref="LifecycleStatus"/> back to <c>Draft</c>, clears <see cref="LinkedUserPublicId"/>
+    /// (so the existing Finalize invariant <c>Draft &amp;&amp; LinkedUserPublicId == null</c> is
+    /// satisfied without relaxing it), and reactivates the file. Intended to run inside the
+    /// atomic rehire transaction, immediately followed by a re-finalization.
+    /// </summary>
+    public void ReopenForRehire()
+    {
+        if (RecordType != PersonnelFileRecordType.Employee)
+        {
+            throw new InvalidOperationException("Only employee files can be reopened for rehire.");
+        }
+
+        if (LifecycleStatus != PersonnelFileLifecycleStatus.Completed)
+        {
+            throw new InvalidOperationException("Only completed files can be reopened for rehire.");
+        }
+
+        LifecycleStatus = PersonnelFileLifecycleStatus.Draft;
+        LinkedUserPublicId = null;
+        IsActive = true;
+        RefreshConcurrencyToken();
+    }
+
+    /// <summary>
+    /// Sets a new institutional email for a rehired employee whose previous one was reassigned
+    /// (D-09 / RN-09). Only valid while the file is reopened (Draft); mirrors the completion guard
+    /// in <see cref="UpdatePersonalInfo"/>.
+    /// </summary>
+    public void SetInstitutionalEmail(string? institutionalEmail)
+    {
+        if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
+        {
+            throw new InvalidOperationException("InstitutionalEmail cannot be changed after personnel file completion.");
+        }
+
+        InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         RefreshConcurrencyToken();
     }
 

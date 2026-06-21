@@ -1561,6 +1561,21 @@
   <data name="validation.message.patch_document_must_include_a_non_remove_operation_for_concurrencytoken" xml:space="preserve">
     <value>Patch document must include a non-remove operation for ConcurrencyToken.</value>
   </data>
+  <data name="REHIRE_NOT_AN_EMPLOYEE" xml:space="preserve">
+    <value>Rehire applies only to employee personnel files.</value>
+  </data>
+  <data name="REHIRE_NOT_RETIRED" xml:space="preserve">
+    <value>Only a retired employee with inactive employment and a prior period can be rehired.</value>
+  </data>
+  <data name="REHIRE_PRIOR_PERIOD_OPEN" xml:space="preserve">
+    <value>The previous employment period must be confirmed as closed or settled before rehiring.</value>
+  </data>
+  <data name="REHIRE_REQUIRES_AUTHORIZATION" xml:space="preserve">
+    <value>This personnel file is marked as not rehireable; an authorized user must approve the rehire with a justification.</value>
+  </data>
+  <data name="REHIRE_INSTITUTIONAL_EMAIL_IN_USE" xml:space="preserve">
+    <value>The previous institutional email is already in use; provide a new institutional email for the rehired employee.</value>
+  </data>
   <data name="EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_REQUIRED" xml:space="preserve">
     <value>A position slot is required for an employment assignment.</value>
   </data>
@@ -1584,5 +1599,8 @@
   </data>
   <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>The assignment type code is not valid for the active catalog.</value>
+  </data>
+  <data name="EMPLOYMENT_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>The employment status code is not valid for the active catalog.</value>
   </data>
 </root>

@@ -11,42 +11,22 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     private PersonnelFileEmployeeProfile(
         string employeeCode,
         string employmentStatusCode,
-        bool isEmploymentActive,
-        string contractTypeCode,
         DateTime hireDate,
         string? retirementCategoryCode,
         string? retirementReasonCode,
         string? retirementNotes,
-        DateTime? retirementDate,
-        string? workdayCode,
-        string? payrollTypeCode,
-        Guid? orgUnitPublicId,
-        Guid? workCenterPublicId,
-        Guid? costCenterPublicId,
-        DateTime? contractStartDate,
-        DateTime? contractEndDate,
-        string? vacationConfigurationJson)
+        DateTime? retirementDate)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
         Update(
             employeeCode,
             employmentStatusCode,
-            isEmploymentActive,
-            contractTypeCode,
             hireDate,
             retirementCategoryCode,
             retirementReasonCode,
             retirementNotes,
-            retirementDate,
-            workdayCode,
-            payrollTypeCode,
-            orgUnitPublicId,
-            workCenterPublicId,
-            costCenterPublicId,
-            contractStartDate,
-            contractEndDate,
-            vacationConfigurationJson);
+            retirementDate);
     }
 
     public long PersonnelFileId { get; private set; }
@@ -57,14 +37,15 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
 
     public string NormalizedEmployeeCode { get; private set; } = string.Empty;
 
+    // Employment status is now a validated catalog code (replaces the former IsEmploymentActive flag).
     public string EmploymentStatusCode { get; private set; } = string.Empty;
 
-    public bool IsEmploymentActive { get; private set; }
-
-    public string ContractTypeCode { get; private set; } = string.Empty;
-
+    // Company-level start date: the anchor for seniority (antigüedad), independent of plazas. A rehire
+    // opens a new period by overwriting it (D-03). Contract data and structure (org/cost/work center)
+    // now live per-plaza on the employment assignment.
     public DateTime HireDate { get; private set; }
 
+    // "Baja" metadata (date + reason), set at retirement and cleared on rehire.
     public string? RetirementCategoryCode { get; private set; }
 
     public string? RetirementReasonCode { get; private set; }
@@ -73,22 +54,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
 
     public DateTime? RetirementDate { get; private set; }
 
-    public string? WorkdayCode { get; private set; }
-
-    public string? PayrollTypeCode { get; private set; }
-
-    public Guid? OrgUnitPublicId { get; private set; }
-
-    public Guid? WorkCenterPublicId { get; private set; }
-
-    public Guid? CostCenterPublicId { get; private set; }
-
-    public DateTime? ContractStartDate { get; private set; }
-
-    public DateTime? ContractEndDate { get; private set; }
-
-    public string? VacationConfigurationJson { get; private set; }
-
     public Guid ConcurrencyToken { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
@@ -96,77 +61,37 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     public static PersonnelFileEmployeeProfile Create(
         string employeeCode,
         string employmentStatusCode,
-        bool isEmploymentActive,
-        string contractTypeCode,
         DateTime hireDate,
         string? retirementCategoryCode,
         string? retirementReasonCode,
         string? retirementNotes,
-        DateTime? retirementDate,
-        string? workdayCode,
-        string? payrollTypeCode,
-        Guid? orgUnitPublicId,
-        Guid? workCenterPublicId,
-        Guid? costCenterPublicId,
-        DateTime? contractStartDate,
-        DateTime? contractEndDate,
-        string? vacationConfigurationJson) =>
+        DateTime? retirementDate) =>
         new(
             employeeCode,
             employmentStatusCode,
-            isEmploymentActive,
-            contractTypeCode,
             hireDate,
             retirementCategoryCode,
             retirementReasonCode,
             retirementNotes,
-            retirementDate,
-            workdayCode,
-            payrollTypeCode,
-            orgUnitPublicId,
-            workCenterPublicId,
-            costCenterPublicId,
-            contractStartDate,
-            contractEndDate,
-            vacationConfigurationJson);
+            retirementDate);
 
     public void Update(
         string employeeCode,
         string employmentStatusCode,
-        bool isEmploymentActive,
-        string contractTypeCode,
         DateTime hireDate,
         string? retirementCategoryCode,
         string? retirementReasonCode,
         string? retirementNotes,
-        DateTime? retirementDate,
-        string? workdayCode,
-        string? payrollTypeCode,
-        Guid? orgUnitPublicId,
-        Guid? workCenterPublicId,
-        Guid? costCenterPublicId,
-        DateTime? contractStartDate,
-        DateTime? contractEndDate,
-        string? vacationConfigurationJson)
+        DateTime? retirementDate)
     {
         EmployeeCode = PersonnelFileNormalization.Clean(employeeCode, nameof(employeeCode));
         NormalizedEmployeeCode = PersonnelFileNormalization.NormalizeCode(employeeCode);
         EmploymentStatusCode = PersonnelFileNormalization.Clean(employmentStatusCode, nameof(employmentStatusCode));
-        IsEmploymentActive = isEmploymentActive;
-        ContractTypeCode = PersonnelFileNormalization.Clean(contractTypeCode, nameof(contractTypeCode));
         HireDate = PersonnelFileNormalization.NormalizeDate(hireDate);
         RetirementCategoryCode = PersonnelFileNormalization.CleanOptional(retirementCategoryCode);
         RetirementReasonCode = PersonnelFileNormalization.CleanOptional(retirementReasonCode);
         RetirementNotes = PersonnelFileNormalization.CleanOptional(retirementNotes);
         RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
-        WorkdayCode = PersonnelFileNormalization.CleanOptional(workdayCode);
-        PayrollTypeCode = PersonnelFileNormalization.CleanOptional(payrollTypeCode);
-        OrgUnitPublicId = orgUnitPublicId;
-        WorkCenterPublicId = workCenterPublicId;
-        CostCenterPublicId = costCenterPublicId;
-        ContractStartDate = PersonnelFileNormalization.NormalizeDate(contractStartDate);
-        ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
-        VacationConfigurationJson = PersonnelFileNormalization.CleanOptional(vacationConfigurationJson);
         ConcurrencyToken = Guid.NewGuid();
     }
 }
@@ -179,6 +104,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     private PersonnelFileEmploymentAssignment(
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -192,6 +120,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
+        ContractTypeCode = PersonnelFileNormalization.CleanOptional(contractTypeCode);
+        WorkdayCode = PersonnelFileNormalization.CleanOptional(workdayCode);
+        PayrollTypeCode = PersonnelFileNormalization.CleanOptional(payrollTypeCode);
         PositionSlotPublicId = positionSlotPublicId;
         OrgUnitPublicId = orgUnitPublicId;
         WorkCenterPublicId = workCenterPublicId;
@@ -208,6 +139,14 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
     public string AssignmentTypeCode { get; private set; } = string.Empty;
+
+    // Per-plaza contract data: each assignment carries its own contract modality and work/payroll setup.
+    // The assignment's StartDate/EndDate double as the contract vigencia (no separate contract date columns).
+    public string? ContractTypeCode { get; private set; }
+
+    public string? WorkdayCode { get; private set; }
+
+    public string? PayrollTypeCode { get; private set; }
 
     public Guid? PositionSlotPublicId { get; private set; }
 
@@ -233,6 +172,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     public static PersonnelFileEmploymentAssignment Create(
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -244,6 +186,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         string? notes) =>
         new(
             assignmentTypeCode,
+            contractTypeCode,
+            workdayCode,
+            payrollTypeCode,
             positionSlotPublicId,
             orgUnitPublicId,
             workCenterPublicId,
@@ -256,6 +201,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     public void Update(
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -267,6 +215,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     {
         ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
+        ContractTypeCode = PersonnelFileNormalization.CleanOptional(contractTypeCode);
+        WorkdayCode = PersonnelFileNormalization.CleanOptional(workdayCode);
+        PayrollTypeCode = PersonnelFileNormalization.CleanOptional(payrollTypeCode);
         PositionSlotPublicId = positionSlotPublicId;
         OrgUnitPublicId = orgUnitPublicId;
         WorkCenterPublicId = workCenterPublicId;
@@ -286,6 +237,14 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     public void SetPrimary(bool isPrimary)
     {
         IsPrimary = isPrimary;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Closes an active assignment of a prior employment period: ends it and deactivates it (RF-004).</summary>
+    public void Close(DateTime endDate)
+    {
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
     }
 }
@@ -361,6 +320,14 @@ public sealed class PersonnelFileContractHistory : TenantEntity
     public void SetActive(bool isActive)
     {
         IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Closes the active contract of a prior employment period: sets its end date and deactivates it (RF-004).</summary>
+    public void Close(DateTime contractEndDate)
+    {
+        ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
+        IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

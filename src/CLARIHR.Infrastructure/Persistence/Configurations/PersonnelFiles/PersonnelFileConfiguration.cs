@@ -45,6 +45,8 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(file => file.LinkedUserPublicId).HasColumnName("linked_user_public_id");
         builder.Property(file => file.IsActive).HasColumnName("is_active");
+        builder.Property(file => file.IsRehireBlocked).HasColumnName("is_rehire_blocked").HasDefaultValue(false);
+        builder.Property(file => file.RehireBlockedReason).HasColumnName("rehire_blocked_reason").HasMaxLength(500);
         builder.Property(file => file.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(file => file.CreatedUtc).HasColumnName("created_utc");
         builder.Property(file => file.ModifiedUtc).HasColumnName("modified_utc");

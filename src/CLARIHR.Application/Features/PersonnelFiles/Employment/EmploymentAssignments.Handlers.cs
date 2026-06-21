@@ -212,6 +212,9 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
 
         var entity = PersonnelFileEmploymentAssignment.Create(
             item.AssignmentTypeCode,
+            item.ContractTypeCode,
+            item.WorkdayCode,
+            item.PayrollTypeCode,
             item.PositionSlotId,
             item.OrgUnitId,
             item.WorkCenterId,
@@ -326,6 +329,9 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             command.EmploymentAssignmentPublicId,
             personnelFile.TenantId,
             command.Item.AssignmentTypeCode,
+            command.Item.ContractTypeCode,
+            command.Item.WorkdayCode,
+            command.Item.PayrollTypeCode,
             command.Item.PositionSlotId,
             command.Item.OrgUnitId,
             command.Item.WorkCenterId,
@@ -461,6 +467,9 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             command.EmploymentAssignmentPublicId,
             personnelFile.TenantId,
             input.AssignmentTypeCode,
+            input.ContractTypeCode,
+            input.WorkdayCode,
+            input.PayrollTypeCode,
             input.PositionSlotId,
             input.OrgUnitId,
             input.WorkCenterId,
@@ -699,6 +708,21 @@ internal static class PersonnelFileEmploymentAssignmentPatchApplier
         if (PersonnelFileTalentPatch.IsSegment(property, "assignmentTypeCode"))
         {
             return Mutate(state, () => state.AssignmentTypeCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "contractTypeCode"))
+        {
+            return Mutate(state, () => state.ContractTypeCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "workdayCode"))
+        {
+            return Mutate(state, () => state.WorkdayCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "payrollTypeCode"))
+        {
+            return Mutate(state, () => state.PayrollTypeCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "positionSlotId"))

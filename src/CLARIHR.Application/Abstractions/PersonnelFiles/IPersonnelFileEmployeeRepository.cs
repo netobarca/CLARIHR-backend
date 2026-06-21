@@ -24,6 +24,9 @@ public interface IPersonnelFileEmployeeRepository
         Guid employmentAssignmentPublicId,
         Guid tenantId,
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -38,6 +41,9 @@ public interface IPersonnelFileEmployeeRepository
         Guid employmentAssignmentPublicId,
         Guid tenantId,
         string assignmentTypeCode,
+        string? contractTypeCode,
+        string? workdayCode,
+        string? payrollTypeCode,
         Guid? positionSlotPublicId,
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
@@ -75,6 +81,23 @@ public interface IPersonnelFileEmployeeRepository
     Task DemoteEmploymentAssignmentsAsync(
         Guid tenantId,
         IReadOnlyCollection<Guid> assignmentPublicIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes every active employment assignment of the file (ends + deactivates) so the prior
+    /// employment period is preserved as derived history before a rehire opens a new one (RF-004).
+    /// </summary>
+    Task CloseActiveEmploymentAssignmentsAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>Closes every active contract of the file before a rehire opens a new one (RF-004).</summary>
+    Task CloseActiveContractHistoriesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> AddContractHistoryAsync(

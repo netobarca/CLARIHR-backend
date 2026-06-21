@@ -1,6 +1,7 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
@@ -47,7 +48,13 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(profile, result.Value);
+        Assert.NotNull(result.Value);
+        Assert.Equal(profile.Id, result.Value!.Id);
+        Assert.Equal(profile.EmployeeCode, result.Value.EmployeeCode);
+        // The handler enriches the persisted row: institutional email from the parent file + computed seniority.
+        Assert.Equal("ana.owner@corp.test", result.Value.InstitutionalEmail);
+        Assert.Equal(0, result.Value.Seniority.Years);
+        Assert.Equal(5, result.Value.Seniority.Months);
     }
 
     [Fact]
@@ -82,7 +89,8 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             new AllowPersonnelFileAuthorizationService(),
             personnelFileRepository,
             employeeRepository,
-            new FixedTenantContext(TenantId));
+            new FixedTenantContext(TenantId),
+            new FixedDateTimeProvider(new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc)));
     }
 
     private static PersonnelFile CreateCompletedEmployee()
@@ -119,22 +127,16 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
         new(
             Id: Guid.NewGuid(),
             EmployeeCode: "EMP-0001",
-            EmploymentStatusCode: "ACTIVE",
-            IsEmploymentActive: true,
-            ContractTypeCode: "PERMANENT",
+            EmploymentStatusCode: "ACTIVO",
+            InstitutionalEmail: null,
             HireDate: new DateTime(2026, 1, 1),
+            Seniority: EmployeeSeniority.None,
             RetirementCategoryCode: null,
             RetirementReasonCode: null,
             RetirementNotes: null,
             RetirementDate: null,
-            WorkdayCode: null,
-            PayrollTypeCode: null,
-            OrgUnitId: null,
-            WorkCenterId: null,
-            CostCenterId: null,
-            ContractStartDate: null,
-            ContractEndDate: null,
-            VacationConfigurationJson: null,
+            VacationDaysAvailable: null,
+            DisabilityDaysAvailable: null,
             ConcurrencyToken: Guid.NewGuid(),
             CreatedAtUtc: new DateTime(2026, 1, 1),
             ModifiedAtUtc: null);
@@ -144,11 +146,18 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
         public Guid? TenantId { get; } = tenantId;
     }
 
+    private sealed class FixedDateTimeProvider(DateTime utcNow) : IDateTimeProvider
+    {
+        public DateTime UtcNow { get; } = utcNow;
+    }
+
     private sealed class AllowPersonnelFileAuthorizationService : IPersonnelFileAuthorizationService
     {
         public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
 
         public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+
+        public Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(true);
 
         public Error TenantMismatch(RbacPermissionAction action) =>
             new("TENANT_MISMATCH", "Tenant mismatch.", ErrorType.Forbidden);

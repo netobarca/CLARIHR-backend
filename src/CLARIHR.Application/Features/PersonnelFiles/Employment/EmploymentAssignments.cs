@@ -20,6 +20,9 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 public sealed record PersonnelFileEmploymentAssignmentResponse(
     Guid EmploymentAssignmentPublicId,
     string AssignmentTypeCode,
+    string? ContractTypeCode,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
     Guid? PositionSlotId,
     Guid? OrgUnitId,
     Guid? WorkCenterId,
@@ -37,6 +40,9 @@ public sealed record PersonnelFileEmploymentAssignmentResponse(
 
 public sealed record EmploymentAssignmentInput(
     string AssignmentTypeCode,
+    string? ContractTypeCode,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
     Guid? PositionSlotId,
     Guid? OrgUnitId,
     Guid? WorkCenterId,
@@ -89,6 +95,9 @@ internal sealed class EmploymentAssignmentInputValidator : AbstractValidator<Emp
     public EmploymentAssignmentInputValidator()
     {
         RuleFor(input => input.AssignmentTypeCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.ContractTypeCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.ContractTypeCode));
+        RuleFor(input => input.WorkdayCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.WorkdayCode));
+        RuleFor(input => input.PayrollTypeCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.PayrollTypeCode));
         RuleFor(input => input.PositionSlotId).NotNull();
         RuleFor(input => input.StartDate).LessThanOrEqualTo(input => input.EndDate!.Value).When(input => input.EndDate.HasValue);
     }
@@ -163,6 +172,9 @@ internal sealed class GetPersonnelFileEmploymentAssignmentByIdQueryValidator : A
 internal sealed class PersonnelFileEmploymentAssignmentPatchState
 {
     public string AssignmentTypeCode { get; set; } = string.Empty;
+    public string? ContractTypeCode { get; set; }
+    public string? WorkdayCode { get; set; }
+    public string? PayrollTypeCode { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
@@ -179,6 +191,9 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
         new()
         {
             AssignmentTypeCode = response.AssignmentTypeCode,
+            ContractTypeCode = response.ContractTypeCode,
+            WorkdayCode = response.WorkdayCode,
+            PayrollTypeCode = response.PayrollTypeCode,
             PositionSlotId = response.PositionSlotId,
             OrgUnitId = response.OrgUnitId,
             WorkCenterId = response.WorkCenterId,
@@ -193,6 +208,9 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
     public EmploymentAssignmentInput ToInput() =>
         new(
             AssignmentTypeCode,
+            ContractTypeCode,
+            WorkdayCode,
+            PayrollTypeCode,
             PositionSlotId,
             OrgUnitId,
             WorkCenterId,

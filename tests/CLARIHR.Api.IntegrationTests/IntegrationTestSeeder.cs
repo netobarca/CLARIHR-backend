@@ -443,6 +443,15 @@ internal static class IntegrationTestSeeder
             ("RECARGO_FUNCIONES", "Recargo de funciones", 90)
         };
 
+        var employmentStatuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("ACTIVO", "Activo", 10),
+            ("SUSPENDIDO", "Suspendido", 20),
+            ("LICENCIA", "Licencia", 30),
+            ("INCAPACIDAD", "Incapacidad", 40),
+            ("RETIRADO", "Retirado", 50)
+        };
+
         foreach (var item in languages)
         {
             if (!dbContext.LanguageCatalogItems.Any(entity =>
@@ -517,6 +526,17 @@ internal static class IntegrationTestSeeder
             {
                 var entity = AssignmentTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
                 dbContext.AssignmentTypeCatalogItems.Add(entity);
+            }
+        }
+
+        foreach (var item in employmentStatuses)
+        {
+            if (!dbContext.EmploymentStatusCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.EmploymentStatusCatalogItems.Add(entity);
             }
         }
     }

@@ -364,6 +364,8 @@ internal sealed class PersonnelFilePatchState
         PhotoFilePublicId = file.PhotoFilePublicId;
         OrgUnitPublicId = file.OrgUnitPublicId;
         IsActive = file.IsActive;
+        IsRehireBlocked = file.IsRehireBlocked;
+        RehireBlockedReason = file.RehireBlockedReason;
     }
 
     public PersonnelFileRecordType RecordType { get; set; }
@@ -383,6 +385,8 @@ internal sealed class PersonnelFilePatchState
     public Guid? PhotoFilePublicId { get; set; }
     public Guid? OrgUnitPublicId { get; set; }
     public bool IsActive { get; set; }
+    public bool IsRehireBlocked { get; set; }
+    public string? RehireBlockedReason { get; set; }
 
     public static PersonnelFilePatchState From(PersonnelFile file) => new(file);
 }
