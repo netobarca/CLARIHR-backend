@@ -40,6 +40,7 @@ public static class GeneralCatalogKeyMap
             ["compensation-concept-types"] = PersonnelCurriculumCatalogCategories.CompensationConceptType,
             ["pay-periods"] = PersonnelCurriculumCatalogCategories.PayPeriod,
             ["calculation-bases"] = PersonnelCurriculumCatalogCategories.CalculationBase,
+            ["payment-methods"] = PersonnelCurriculumCatalogCategories.PaymentMethod,
         };
 
     /// <summary>

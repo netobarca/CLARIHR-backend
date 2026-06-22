@@ -22,6 +22,7 @@
 | Auto-sugerencia ISSS/AFP al crear plaza (D-20) | ✅ Implementado |
 | Tabla de Renta `income-tax-brackets` (config, sin cálculo) | ✅ Implementado |
 | **Rename ruta `employment-assignments` → `assigned-positions`** (D-10) | ✅ Implementado |
+| **Forma de pago por plaza** (`paymentMethodCode` + cuenta bancaria del empleado); elimina `/payment-methods` | ✅ Implementado |
 | Lectura de compensación con `ViewCompensation` + autoservicio del empleado | ✅ Implementado |
 
 > Todas las piezas están implementadas en el backend (build verde, 1847 pruebas unitarias en verde). Esta guía es el contrato vigente.
@@ -176,6 +177,7 @@ Reglas que el backend valida (mostrar al usuario):
 | Periodicidades | `GET /api/v1/general-catalogs/pay-periods?countryCode=SV` | `MENSUAL`, `QUINCENAL`, `SEMANAL`, `UNICA` |
 | Bases de cálculo | `GET /api/v1/general-catalogs/calculation-bases?countryCode=SV` | `SALARIO_BASE`, `SALARIO_BRUTO`, `IBC`, `RUBRO_ESPECIFICO` |
 | Monedas | `GET /api/v1/general-catalogs/currencies?countryCode=SV` | `USD` |
+| Formas de pago | `GET /api/v1/general-catalogs/payment-methods?countryCode=SV` | `TRANSFERENCIA`, `CHEQUE`, `EFECTIVO` |
 
 `compensation-concept-types` response (ítem):
 ```jsonc
@@ -198,6 +200,20 @@ Reglas que el backend valida (mostrar al usuario):
 La gestión de plazas **no cambia de forma**, solo de **ruta**: `…/employment-assignments` → **`…/assigned-positions`** (mismos verbos y body; ver la guía de multi-plaza para reglas de principal/cupo/solape).
 
 Al hacer `POST …/assigned-positions` (crear plaza), el backend, **en la misma operación**, crea los conceptos ISSS/AFP sugeridos para esa plaza. Tras crear la plaza, **refrescá la lista de `compensation-concepts`** para mostrarlos.
+
+### 8.1 Forma de pago de la plaza (vínculo a cuentas bancarias del empleado)
+
+Cada plaza lleva su propia **forma de pago** (campos en el body de `POST`/`PUT` y en `PATCH` de `assigned-positions`):
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `paymentMethodCode` | `string?` (≤80) | método de pago: **código del catálogo** `payment-methods` (`TRANSFERENCIA`/`CHEQUE`/`EFECTIVO`); opcional |
+| `paymentBankAccountPublicId` | `Guid?` | una de las **cuentas bancarias configuradas del empleado** (el `bankAccountPublicId` de `GET …/bank-accounts`); opcional |
+
+- `paymentMethodCode` es un **código de catálogo controlado**: poblá el selector con `GET /api/v1/general-catalogs/payment-methods?countryCode=SV`; un código fuera del catálogo → `422` (campo `paymentMethodCode`).
+- Si se envía `paymentBankAccountPublicId`, **debe** ser una cuenta bancaria existente de ese empleado; si no, `422` con `paymentBankAccountPublicId` → "Bank account does not exist in this personnel file." Poblá el selector con `GET …/bank-accounts`.
+- Ambos campos son **opcionales** y editables por `PATCH` (rutas `/paymentMethodCode`, `/paymentBankAccountPublicId`).
+- ⚠️ **BREAKING:** la forma de pago a **nivel empleado** (`…/payment-methods`) fue **eliminada**; ahora la forma de pago vive **en la plaza** (puede diferir por plaza). Quitá todo uso de `/payment-methods`.
 
 ---
 
@@ -260,6 +276,7 @@ Las mutaciones (`PUT`/`PATCH`/`DELETE`) de conceptos requieren `If-Match: "<conc
 - [ ] Egresos: selector de `deductionClass` (Ley/Interno/Externo); para externos, campos contraparte/referencia.
 - [ ] Tras crear una plaza, **refrescar** conceptos para mostrar ISSS/AFP sugeridos (`isSystemSuggested`).
 - [ ] Cambiar ruta de plazas `employment-assignments` → `assigned-positions`.
+- [ ] **Forma de pago en la plaza**: enviar `paymentMethodCode` + `paymentBankAccountPublicId` (cuenta del empleado) en `assigned-positions`; poblar la cuenta desde `GET …/bank-accounts`. Quitar todo uso de `/payment-methods` (eliminado).
 - [ ] (Admin nómina) Pantalla de **tabla de Renta** con `income-tax-brackets` (GET + PUT por período).
 - [ ] Mapear errores por `code` (§10); mensajes ya vienen localizados ES/EN.
 - [ ] Concurrencia `If-Match` en conceptos.

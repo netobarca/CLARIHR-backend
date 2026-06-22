@@ -115,7 +115,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         DateTime? endDate,
         bool isPrimary,
         bool isActive,
-        string? notes)
+        string? notes,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
@@ -132,6 +134,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         IsPrimary = isPrimary;
         IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
+        PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode);
+        PaymentBankAccountPublicId = paymentBankAccountPublicId;
     }
 
     public long PersonnelFileId { get; private set; }
@@ -147,6 +151,12 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     public string? WorkdayCode { get; private set; }
 
     public string? PayrollTypeCode { get; private set; }
+
+    // Forma de pago de la plaza: método (p. ej. transferencia/cheque/efectivo) + la cuenta bancaria del
+    // empleado a usar (validada contra sus cuentas configuradas). Reemplaza la forma de pago a nivel empleado.
+    public string? PaymentMethodCode { get; private set; }
+
+    public Guid? PaymentBankAccountPublicId { get; private set; }
 
     public Guid? PositionSlotPublicId { get; private set; }
 
@@ -183,7 +193,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         DateTime? endDate,
         bool isPrimary,
         bool isActive,
-        string? notes) =>
+        string? notes,
+        string? paymentMethodCode = null,
+        Guid? paymentBankAccountPublicId = null) =>
         new(
             assignmentTypeCode,
             contractTypeCode,
@@ -197,7 +209,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
             endDate,
             isPrimary,
             isActive,
-            notes);
+            notes,
+            paymentMethodCode,
+            paymentBankAccountPublicId);
 
     public void Update(
         string assignmentTypeCode,
@@ -211,7 +225,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         DateTime startDate,
         DateTime? endDate,
         bool isPrimary,
-        string? notes)
+        string? notes,
+        string? paymentMethodCode = null,
+        Guid? paymentBankAccountPublicId = null)
     {
         ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
@@ -226,6 +242,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
         IsPrimary = isPrimary;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
+        PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode);
+        PaymentBankAccountPublicId = paymentBankAccountPublicId;
     }
 
     public void SetActive(bool isActive)
@@ -398,88 +416,6 @@ public sealed class PersonnelFileAdditionalBenefit : TenantEntity
         bool isActive,
         string? notes) =>
         new(benefitTypeCode, startDate, endDate, isActive, notes);
-}
-
-public sealed class PersonnelFilePaymentMethod : TenantEntity
-{
-    private PersonnelFilePaymentMethod()
-    {
-    }
-
-    private PersonnelFilePaymentMethod(
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        bool isActive,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes)
-    {
-        PublicId = Guid.NewGuid();
-        ConcurrencyToken = Guid.NewGuid();
-        PaymentMethodCode = PersonnelFileNormalization.Clean(paymentMethodCode, nameof(paymentMethodCode));
-        BankAccountPublicId = bankAccountPublicId;
-        IsPrimary = isPrimary;
-        IsActive = isActive;
-        EffectiveFromUtc = PersonnelFileNormalization.NormalizeDate(effectiveFromUtc);
-        EffectiveToUtc = PersonnelFileNormalization.NormalizeDate(effectiveToUtc);
-        Notes = PersonnelFileNormalization.CleanOptional(notes);
-    }
-
-    public long PersonnelFileId { get; private set; }
-
-    public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public string PaymentMethodCode { get; private set; } = string.Empty;
-
-    public Guid? BankAccountPublicId { get; private set; }
-
-    public bool IsPrimary { get; private set; }
-
-    public bool IsActive { get; private set; }
-
-    public DateTime EffectiveFromUtc { get; private set; }
-
-    public DateTime? EffectiveToUtc { get; private set; }
-
-    public string? Notes { get; private set; }
-
-    public Guid ConcurrencyToken { get; private set; }
-
-    public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
-
-    public void Update(
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes)
-    {
-        ConcurrencyToken = Guid.NewGuid();
-        PaymentMethodCode = PersonnelFileNormalization.Clean(paymentMethodCode, nameof(paymentMethodCode));
-        BankAccountPublicId = bankAccountPublicId;
-        IsPrimary = isPrimary;
-        EffectiveFromUtc = PersonnelFileNormalization.NormalizeDate(effectiveFromUtc);
-        EffectiveToUtc = PersonnelFileNormalization.NormalizeDate(effectiveToUtc);
-        Notes = PersonnelFileNormalization.CleanOptional(notes);
-    }
-
-    public void SetActive(bool isActive)
-    {
-        IsActive = isActive;
-        ConcurrencyToken = Guid.NewGuid();
-    }
-
-    public static PersonnelFilePaymentMethod Create(
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        bool isActive,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes) =>
-        new(paymentMethodCode, bankAccountPublicId, isPrimary, isActive, effectiveFromUtc, effectiveToUtc, notes);
 }
 
 public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity

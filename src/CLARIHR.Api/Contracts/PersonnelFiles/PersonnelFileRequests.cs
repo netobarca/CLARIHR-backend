@@ -127,7 +127,9 @@ public sealed record AddEmploymentAssignmentRequest(
     DateTime? EndDate,
     bool IsPrimary,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null);
 
 public sealed record UpdateEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -141,7 +143,9 @@ public sealed record UpdateEmploymentAssignmentRequest(
     DateTime StartDate,
     DateTime? EndDate,
     bool IsPrimary,
-    string? Notes);
+    string? Notes,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null);
 
 public sealed class PatchEmploymentAssignmentRequest
 {
@@ -149,6 +153,8 @@ public sealed class PatchEmploymentAssignmentRequest
     public string? ContractTypeCode { get; set; }
     public string? WorkdayCode { get; set; }
     public string? PayrollTypeCode { get; set; }
+    public string? PaymentMethodCode { get; set; }
+    public Guid? PaymentBankAccountPublicId { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
@@ -337,34 +343,6 @@ public sealed class PatchAdditionalBenefitRequest
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; }
-    public string? Notes { get; set; }
-}
-
-public sealed record AddPaymentMethodRequest(
-    string PaymentMethodCode,
-    Guid? BankAccountPublicId,
-    bool IsPrimary,
-    bool IsActive,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
-    string? Notes);
-
-public sealed record UpdatePaymentMethodRequest(
-    string PaymentMethodCode,
-    Guid? BankAccountPublicId,
-    bool IsPrimary,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
-    string? Notes);
-
-public sealed class PatchPaymentMethodRequest
-{
-    public string PaymentMethodCode { get; set; } = string.Empty;
-    public Guid? BankAccountPublicId { get; set; }
-    public bool IsPrimary { get; set; }
-    public bool IsActive { get; set; }
-    public DateTime EffectiveFromUtc { get; set; }
-    public DateTime? EffectiveToUtc { get; set; }
     public string? Notes { get; set; }
 }
 

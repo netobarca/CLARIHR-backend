@@ -373,6 +373,19 @@ internal sealed class DevSeedService(
             dbContext.AssignmentTypeCatalogItems.Add(entity);
         }
 
+        var paymentMethods = new (string Code, string Name, int SortOrder)[]
+        {
+            ("TRANSFERENCIA", "Transferencia bancaria", 10),
+            ("CHEQUE", "Cheque", 20),
+            ("EFECTIVO", "Efectivo", 30),
+        };
+
+        foreach (var item in paymentMethods)
+        {
+            var entity = PaymentMethodCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.PaymentMethodCatalogItems.Add(entity);
+        }
+
         foreach (var item in employmentStatuses)
         {
             var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);

@@ -67,6 +67,8 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.Property(item => item.ContractTypeCode).HasColumnName("contract_type_code").HasMaxLength(80);
         builder.Property(item => item.WorkdayCode).HasColumnName("workday_code").HasMaxLength(80);
         builder.Property(item => item.PayrollTypeCode).HasColumnName("payroll_type_code").HasMaxLength(80);
+        builder.Property(item => item.PaymentMethodCode).HasColumnName("payment_method_code").HasMaxLength(80);
+        builder.Property(item => item.PaymentBankAccountPublicId).HasColumnName("payment_bank_account_public_id");
         builder.Property(item => item.PositionSlotPublicId).HasColumnName("position_slot_public_id");
         builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");
@@ -156,44 +158,6 @@ internal sealed class PersonnelFileAdditionalBenefitConfiguration : IEntityTypeC
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_additional_benefits__public_id");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.BenefitTypeCode, item.IsActive })
             .HasDatabaseName("ix_personnel_file_additional_benefits__tenant_file_type_active");
-    }
-}
-
-internal sealed class PersonnelFilePaymentMethodConfiguration : IEntityTypeConfiguration<PersonnelFilePaymentMethod>
-{
-    public void Configure(EntityTypeBuilder<PersonnelFilePaymentMethod> builder)
-    {
-        builder.ToTable("personnel_file_payment_methods", table =>
-            table.HasCheckConstraint(
-                "ck_personnel_file_payment_methods__effective_dates",
-                "effective_to_utc is null or effective_to_utc >= effective_from_utc"));
-
-        builder.HasKey(item => item.Id).HasName("pk_personnel_file_payment_methods");
-
-        builder.Property(item => item.Id).HasColumnName("id");
-        builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
-        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
-        builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.PaymentMethodCode).HasColumnName("payment_method_code").HasMaxLength(80);
-        builder.Property(item => item.BankAccountPublicId).HasColumnName("bank_account_public_id");
-        builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
-        builder.Property(item => item.IsActive).HasColumnName("is_active");
-        builder.Property(item => item.EffectiveFromUtc).HasColumnName("effective_from_utc");
-        builder.Property(item => item.EffectiveToUtc).HasColumnName("effective_to_utc");
-        builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
-        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
-        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
-        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
-
-        builder.HasOne(item => item.PersonnelFile)
-            .WithMany()
-            .HasForeignKey(item => item.PersonnelFileId)
-            .OnDelete(DeleteBehavior.Cascade)
-            .HasConstraintName("fk_personnel_file_payment_methods__personnel_file");
-
-        builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_payment_methods__public_id");
-        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.IsActive, item.IsPrimary })
-            .HasDatabaseName("ix_personnel_file_payment_methods__tenant_file_active_primary");
     }
 }
 

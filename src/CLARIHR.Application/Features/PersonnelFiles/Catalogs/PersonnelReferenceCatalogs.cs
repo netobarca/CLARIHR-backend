@@ -98,6 +98,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string CompensationConceptType = "CompensationConceptType";
     public const string PayPeriod = "PayPeriod";
     public const string CalculationBase = "CalculationBase";
+    public const string PaymentMethod = "PaymentMethod";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

@@ -36,6 +36,8 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? endDate,
         bool isPrimary,
         string? notes,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileEmploymentAssignmentResponse?> PatchEmploymentAssignmentAsync(
@@ -53,6 +55,8 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? endDate,
         bool isPrimary,
         string? notes,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);
@@ -244,50 +248,6 @@ public interface IPersonnelFileEmployeeRepository
     Task<PersonnelFileAdditionalBenefitResponse?> GetAdditionalBenefitAsync(
         Guid personnelFileId,
         Guid additionalBenefitPublicId,
-        CancellationToken cancellationToken);
-
-    Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> AddPaymentMethodAsync(
-        long personnelFileInternalId,
-        Guid tenantId,
-        PersonnelFilePaymentMethod entity,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> UpdatePaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> PatchPaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes,
-        bool isActive,
-        bool isActiveMutated,
-        CancellationToken cancellationToken);
-
-    Task<bool> DeletePaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        CancellationToken cancellationToken);
-
-    Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> GetPaymentMethodsAsync(
-        Guid personnelFileId,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> GetPaymentMethodAsync(
-        Guid personnelFileId,
-        Guid paymentMethodPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> AddAuthorizationSubstitutionAsync(

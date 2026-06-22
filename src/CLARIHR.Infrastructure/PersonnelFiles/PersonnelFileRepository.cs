@@ -1319,6 +1319,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATIONCONCEPTTYPE" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(countryCatalogItemId.Value, "CompensationConceptType", cancellationToken),
             "PAYPERIOD" => await GetCountryScopedCatalogItemsAsync<PayPeriodCatalogItem>(countryCatalogItemId.Value, "PayPeriod", cancellationToken),
             "CALCULATIONBASE" => await GetCountryScopedCatalogItemsAsync<CalculationBaseCatalogItem>(countryCatalogItemId.Value, "CalculationBase", cancellationToken),
+            "PAYMENTMETHOD" => await GetCountryScopedCatalogItemsAsync<PaymentMethodCatalogItem>(countryCatalogItemId.Value, "PaymentMethod", cancellationToken),
             _ => []
         };
     }
@@ -1434,6 +1435,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATIONCONCEPTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "PAYPERIOD" => await IsCountryScopedCatalogCodeActiveAsync<PayPeriodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CALCULATIONBASE" => await IsCountryScopedCatalogCodeActiveAsync<CalculationBaseCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "PAYMENTMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<PaymentMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

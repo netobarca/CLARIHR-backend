@@ -279,7 +279,9 @@ public sealed class PersonnelFileEmploymentController(
                     request.EndDate,
                     request.IsPrimary,
                     request.IsActive,
-                    request.Notes)),
+                    request.Notes,
+                    request.PaymentMethodCode,
+                    request.PaymentBankAccountPublicId)),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -325,7 +327,9 @@ public sealed class PersonnelFileEmploymentController(
                     request.EndDate,
                     request.IsPrimary,
                     IsActive: true,
-                    request.Notes),
+                    request.Notes,
+                    request.PaymentMethodCode,
+                    request.PaymentBankAccountPublicId),
                 concurrencyToken),
             cancellationToken);
 

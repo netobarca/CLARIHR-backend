@@ -108,6 +108,20 @@ internal sealed class AssignmentTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class PaymentMethodCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PaymentMethodCatalogItem>
+{
+    public PaymentMethodCatalogItemConfiguration()
+        : base(
+            "payment_method_catalog_items",
+            "pk_payment_method_catalog_items",
+            "uq_payment_method_catalog_items__public_id",
+            "uq_payment_method_catalog_items__country_code",
+            "ix_payment_method_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class EmploymentStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<EmploymentStatusCatalogItem>
 {

@@ -222,6 +222,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<AssignmentTypeCatalogItem> AssignmentTypeCatalogItems => Set<AssignmentTypeCatalogItem>();
 
+    public DbSet<PaymentMethodCatalogItem> PaymentMethodCatalogItems => Set<PaymentMethodCatalogItem>();
+
     public DbSet<EmploymentStatusCatalogItem> EmploymentStatusCatalogItems => Set<EmploymentStatusCatalogItem>();
 
     public DbSet<DurationUnitCatalogItem> DurationUnitCatalogItems => Set<DurationUnitCatalogItem>();
@@ -260,7 +262,6 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileAdditionalBenefit> PersonnelFileAdditionalBenefits => Set<PersonnelFileAdditionalBenefit>();
 
-    public DbSet<PersonnelFilePaymentMethod> PersonnelFilePaymentMethods => Set<PersonnelFilePaymentMethod>();
 
     public DbSet<PersonnelFileAuthorizationSubstitution> PersonnelFileAuthorizationSubstitutions => Set<PersonnelFileAuthorizationSubstitution>();
 
