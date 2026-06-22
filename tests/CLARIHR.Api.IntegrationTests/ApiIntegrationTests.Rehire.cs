@@ -186,7 +186,7 @@ public sealed partial class ApiIntegrationTests
         }
 
         // New active primary assignment on the chosen slot (RF-006/D-16).
-        var assignmentsResponse = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/employment-assignments");
+        var assignmentsResponse = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions");
         assignmentsResponse.EnsureSuccessStatusCode();
         using (var doc = JsonDocument.Parse(await assignmentsResponse.Content.ReadAsStringAsync()))
         {
@@ -197,7 +197,7 @@ public sealed partial class ApiIntegrationTests
         }
 
         // Employee profile reflects the new active period (RF-003): status back to ACTIVO, baja cleared.
-        var profileResponse = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/employee-profile");
+        var profileResponse = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/employment-information");
         profileResponse.EnsureSuccessStatusCode();
         using (var doc = JsonDocument.Parse(await profileResponse.Content.ReadAsStringAsync()))
         {

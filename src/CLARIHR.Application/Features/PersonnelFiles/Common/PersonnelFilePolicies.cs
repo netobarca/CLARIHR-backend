@@ -15,4 +15,10 @@ public static class PersonnelFilePolicies
 {
     public const string Read = "PersonnelFiles.Read";
     public const string Manage = "PersonnelFiles.Manage";
+
+    /// <summary>
+    /// Read policy for compensation sub-resources (D-16). Superset gate: the precise self-service /
+    /// role check lives in the compensation read handlers.
+    /// </summary>
+    public const string ViewCompensation = "PersonnelFiles.ViewCompensation";
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -188,6 +189,55 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
         }
 
         if (!personnelFile!.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for compensation sub-resources (D-16): the caller has the <c>ViewCompensation</c>
+    /// permission (or Admin), OR the caller is the employee reading their own file (self-service).
+    /// Unlike the standard read gate, this does NOT require <c>PersonnelFiles.Read</c>.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForCompensationReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewCompensationAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
         {
             return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
         }

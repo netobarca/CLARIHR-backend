@@ -73,6 +73,14 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
         builder.Property(slot => slot.EffectiveToUtc)
             .HasColumnName("effective_to_utc");
 
+        builder.Property(slot => slot.ConfiguredBaseSalary)
+            .HasColumnName("configured_base_salary")
+            .HasColumnType("numeric(18,2)");
+
+        builder.Property(slot => slot.ConfiguredBaseSalaryCurrencyCode)
+            .HasColumnName("configured_base_salary_currency_code")
+            .HasMaxLength(40);
+
         builder.Property(slot => slot.Notes)
             .HasColumnName("notes")
             .HasMaxLength(2000);

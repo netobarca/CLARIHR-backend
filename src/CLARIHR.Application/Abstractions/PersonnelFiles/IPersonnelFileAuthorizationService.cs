@@ -17,5 +17,14 @@ public interface IPersonnelFileAuthorizationService
     /// </summary>
     Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Role gate for reading compensation (salary/ingresos/egresos) of any file in the tenant (D-16):
+    /// the dedicated <c>PersonnelFiles.ViewCompensation</c> permission, or Admin / IAM super-admin.
+    /// (Employees reading their OWN compensation are allowed by a separate self-service check.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewCompensationAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

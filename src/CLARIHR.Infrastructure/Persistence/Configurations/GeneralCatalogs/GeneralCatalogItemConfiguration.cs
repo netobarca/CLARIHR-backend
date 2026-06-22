@@ -163,3 +163,31 @@ internal sealed class CurrencyCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class PayPeriodCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PayPeriodCatalogItem>
+{
+    public PayPeriodCatalogItemConfiguration()
+        : base(
+            "pay_period_catalog_items",
+            "pk_pay_period_catalog_items",
+            "uq_pay_period_catalog_items__public_id",
+            "uq_pay_period_catalog_items__country_code",
+            "ix_pay_period_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class CalculationBaseCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CalculationBaseCatalogItem>
+{
+    public CalculationBaseCatalogItemConfiguration()
+        : base(
+            "calculation_base_catalog_items",
+            "pk_calculation_base_catalog_items",
+            "uq_calculation_base_catalog_items__public_id",
+            "uq_calculation_base_catalog_items__country_code",
+            "ix_calculation_base_catalog_items__country_active_sort")
+    {
+    }
+}

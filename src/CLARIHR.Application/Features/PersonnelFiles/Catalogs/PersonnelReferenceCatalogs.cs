@@ -95,6 +95,9 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string Currency = "Currency";
     public const string FileDocumentType = "FileDocumentType";
     public const string Bank = "Bank";
+    public const string CompensationConceptType = "CompensationConceptType";
+    public const string PayPeriod = "PayPeriod";
+    public const string CalculationBase = "CalculationBase";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

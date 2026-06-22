@@ -67,7 +67,8 @@ public static class ProvisioningConstants
         new("Locations.Admin", "Administrar ubicaciones y centros de trabajo", "Administracion completa de ubicaciones y centros de trabajo.", LocationsModuleKey, "Locations", "Manage"),
         new("PersonnelFiles.Read", "Leer expedientes de personal", "Consulta de expedientes de personal y curriculum.", PersonnelFilesModuleKey, "PersonnelFiles", "Read"),
         new("PersonnelFiles.Admin", "Administrar expedientes de personal", "Administracion completa de expedientes de personal.", PersonnelFilesModuleKey, "PersonnelFiles", "Manage"),
-        new("PersonnelFiles.AuthorizeRehire", "Autorizar recontratacion", "Autorizar la recontratacion de empleados marcados como no recontratables.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRehire")
+        new("PersonnelFiles.AuthorizeRehire", "Autorizar recontratacion", "Autorizar la recontratacion de empleados marcados como no recontratables.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRehire"),
+        new("PersonnelFiles.ViewCompensation", "Ver compensacion", "Consulta de la compensacion (salario, ingresos y egresos) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompensation")
     ];
 }
 

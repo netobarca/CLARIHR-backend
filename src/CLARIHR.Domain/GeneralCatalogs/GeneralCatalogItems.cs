@@ -244,3 +244,59 @@ public sealed class CurrencyCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+public sealed class PayPeriodCatalogItem : GeneralCatalogItem
+{
+    private PayPeriodCatalogItem()
+    {
+    }
+
+    private PayPeriodCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PayPeriodCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class CalculationBaseCatalogItem : GeneralCatalogItem
+{
+    private CalculationBaseCatalogItem()
+    {
+    }
+
+    private CalculationBaseCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CalculationBaseCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

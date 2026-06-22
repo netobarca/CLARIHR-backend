@@ -37,6 +37,9 @@ public static class GeneralCatalogKeyMap
             ["education-careers"] = PersonnelCurriculumCatalogCategories.Career,
             ["file-document-types"] = PersonnelCurriculumCatalogCategories.FileDocumentType,
             ["banks"] = PersonnelCurriculumCatalogCategories.Bank,
+            ["compensation-concept-types"] = PersonnelCurriculumCatalogCategories.CompensationConceptType,
+            ["pay-periods"] = PersonnelCurriculumCatalogCategories.PayPeriod,
+            ["calculation-bases"] = PersonnelCurriculumCatalogCategories.CalculationBase,
         };
 
     /// <summary>

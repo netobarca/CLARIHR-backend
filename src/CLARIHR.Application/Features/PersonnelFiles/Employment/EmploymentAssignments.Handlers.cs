@@ -230,6 +230,12 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
         var all = await employeeRepository.AddEmploymentAssignmentAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
         var response = all.SingleOrDefault(created => created.Id == entity.PublicId)
             ?? throw new InvalidOperationException("Personnel file employment assignment response could not be resolved after creation.");
+
+        // D-20: when a plaza is created, auto-suggest the statutory (de-ley) deductions (ISSS/AFP) on it,
+        // pre-filled from the catalog defaults. Registered on the unit of work; saved in this transaction.
+        await CompensationConceptSuggestionService.SuggestStatutoryForAssignmentAsync(
+            personnelFileRepository, employeeRepository, personnelFile, entity.PublicId, entity.StartDate, cancellationToken);
+
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);

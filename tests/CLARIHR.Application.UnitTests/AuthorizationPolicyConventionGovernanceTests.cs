@@ -82,6 +82,9 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         PersonnelFilePolicies.Read,
         PersonnelFilePolicies.Manage,
+        // Authn-only superset for compensation reads; the precise gate (ViewCompensation permission or
+        // employee self-service) lives in the compensation read handlers (D-16).
+        PersonnelFilePolicies.ViewCompensation,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

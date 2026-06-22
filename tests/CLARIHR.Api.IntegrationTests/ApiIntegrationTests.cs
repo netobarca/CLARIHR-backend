@@ -3687,24 +3687,33 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     }
 
     [Fact]
-    public async Task PersonnelFileSalaryItems_OnDraftFile_ShouldReturnUnprocessableEntity()
+    public async Task PersonnelFileCompensationConcepts_OnDraftFile_ShouldReturnUnprocessableEntity()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Sofia", "Lara", "DUI", "33445566-7");
 
-        // Same employee-state gate as evaluations: a draft file yields 422, not the pre-fix 409.
-        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/salary-items", new
+        // Same employee-state gate as evaluations: a draft file yields 422 (compensation requires a completed employee).
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/compensation-concepts", new
         {
-            incomeTypeCode = "SUELDO_BASE",
-            salaryRubricCode = "FIJO",
+            assignedPositionPublicId = (Guid?)null,
+            nature = "Ingreso",
+            conceptTypeCode = "SALARIO_BASE",
+            deductionClass = (string?)null,
+            calculationType = "Fixed",
+            value = 1500.00m,
+            calculationBaseCode = (string?)null,
+            employerRate = (decimal?)null,
+            contributionCap = (decimal?)null,
             currencyCode = "USD",
             payPeriodCode = "MENSUAL",
-            amount = 1500.00m,
+            counterpartyName = (string?)null,
+            externalReference = (string?)null,
             startDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             endDate = (DateTime?)null,
-            isActive = true
+            isActive = true,
+            notes = (string?)null
         });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, addResponse.StatusCode);

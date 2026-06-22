@@ -92,6 +92,8 @@ public sealed record PositionSlotResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
+    decimal? ConfiguredBaseSalary = null,
+    string? ConfiguredBaseSalaryCurrencyCode = null,
     AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record PositionSlotGraphNodeResponse(
@@ -223,7 +225,9 @@ public sealed record CreatePositionSlotCommand(
     int OccupiedEmployees,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
-    string? Notes)
+    string? Notes,
+    decimal? ConfiguredBaseSalary = null,
+    string? ConfiguredBaseSalaryCurrencyCode = null)
     : ICommand<PositionSlotResponse>;
 
 public sealed record UpdatePositionSlotCommand(
@@ -237,7 +241,9 @@ public sealed record UpdatePositionSlotCommand(
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     string? Notes,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    decimal? ConfiguredBaseSalary = null,
+    string? ConfiguredBaseSalaryCurrencyCode = null)
     : ICommand<PositionSlotResponse>;
 
 public sealed record UpdatePositionSlotStatusCommand(
@@ -702,6 +708,7 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotCommandSupport.MapDomainValidation(exception));
         }
 
+        slot.SetConfiguredBaseSalary(command.ConfiguredBaseSalary, command.ConfiguredBaseSalaryCurrencyCode);
         slot.SetTenantId(command.CompanyId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -857,6 +864,7 @@ internal sealed class UpdatePositionSlotCommandHandler(
                 command.EffectiveFromUtc,
                 command.EffectiveToUtc,
                 command.Notes);
+            slot.SetConfiguredBaseSalary(command.ConfiguredBaseSalary, command.ConfiguredBaseSalaryCurrencyCode);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)

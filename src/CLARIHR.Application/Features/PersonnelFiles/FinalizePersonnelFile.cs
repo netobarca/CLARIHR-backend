@@ -260,7 +260,7 @@ internal static class FinalizePersonnelFileNavigationKeys
 {
     public const string PersonnelFiles = "personnel-files";
     public const string PersonalInfo = "personal-info";
-    public const string EmployeeProfile = "employee-profile";
+    public const string EmployeeProfile = "employment-information";
 }
 
 internal static class FinalizePersonnelFileValidationResolver

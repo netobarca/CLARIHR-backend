@@ -24,6 +24,18 @@ internal sealed class PersonnelFileAuthorizationService(
     public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureAuthorizedAsync(companyId, manageRequired: true, cancellationToken);
 
+    public Task<Result> EnsureCanViewCompensationAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewCompensation.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
     public async Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken)
     {
         if (!currentUserService.IsAuthenticated || !tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(currentUserService.UserId))
@@ -68,6 +80,53 @@ internal sealed class PersonnelFileAuthorizationService(
     }
 
     public Error TenantMismatch(RbacPermissionAction action) => PersonnelFileErrors.TenantMismatch(action);
+
+    private async Task<Result> EnsureHasAnyClaimAsync(
+        Guid companyId,
+        string[] requiredClaims,
+        RbacPermissionAction action,
+        CancellationToken cancellationToken)
+    {
+        if (!currentUserService.IsAuthenticated || !tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(currentUserService.UserId))
+        {
+            return Result.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        if (tenantContext.TenantId.Value != companyId)
+        {
+            return Result.Failure(PersonnelFileErrors.TenantMismatch(action));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.PersonnelFiles, cancellationToken))
+        {
+            return Result.Failure(PersonnelFileErrors.Forbidden);
+        }
+
+        var normalizedClaims = currentUserService.Permissions
+            .Select(static permission => permission.Trim().ToUpperInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (requiredClaims.Any(normalizedClaims.Contains))
+        {
+            return Result.Success();
+        }
+
+        if (!Guid.TryParse(currentUserService.UserId, out var currentUserPublicId))
+        {
+            return Result.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var isAuthorized = await TenantPermissionGrantEvaluator.HasAnyRequiredPermissionAsync(
+            dbContext,
+            companyId,
+            currentUserPublicId,
+            requiredClaims,
+            cancellationToken);
+
+        return isAuthorized
+            ? Result.Success()
+            : Result.Failure(PersonnelFileErrors.Forbidden);
+    }
 
     private async Task<Result> EnsureAuthorizedAsync(Guid companyId, bool manageRequired, CancellationToken cancellationToken)
     {

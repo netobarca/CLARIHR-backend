@@ -5,6 +5,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.CostCenters;
+using CLARIHR.Domain.Compensation;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
@@ -56,6 +57,7 @@ internal sealed class DevSeedService(
         await SeedRbacAsync(user, company, tenantId, cancellationToken);
         SeedLocations(tenantId);
         SeedGeneralCatalogItems(tenantId);
+        SeedIncomeTaxBrackets(tenantId);
         SeedPersonnelEducationCatalogItems();
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -375,6 +377,111 @@ internal sealed class DevSeedService(
         {
             var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.EmploymentStatusCatalogItems.Add(entity);
+        }
+
+        SeedCompensationCatalogItems(companyCountry);
+    }
+
+    private void SeedIncomeTaxBrackets(Guid tenantId)
+    {
+        // SV monthly ISR retention table (editable — D-19). Quincenal/semanal load with their own values.
+        var effectiveFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthly = new (int Order, decimal Lower, decimal? Upper, decimal FixedFee, decimal Rate, decimal Excess)[]
+        {
+            (1, 0.01m, 472.00m, 0.00m, 0.00m, 0.00m),
+            (2, 472.01m, 895.24m, 17.67m, 10.00m, 472.00m),
+            (3, 895.25m, 2038.10m, 60.00m, 20.00m, 895.24m),
+            (4, 2038.11m, null, 288.57m, 30.00m, 2038.10m),
+        };
+
+        foreach (var item in monthly)
+        {
+            var entity = IncomeTaxWithholdingBracket.Create(
+                "MENSUAL",
+                item.Order,
+                item.Lower,
+                item.Upper,
+                item.FixedFee,
+                item.Rate,
+                item.Excess,
+                effectiveFrom,
+                null,
+                true);
+            entity.SetTenantId(tenantId);
+            dbContext.IncomeTaxWithholdingBrackets.Add(entity);
+        }
+    }
+
+    private void SeedCompensationCatalogItems(SeedCompanyCountry companyCountry)
+    {
+        // Seed SV por defecto (editable en cualquier momento — D-19). Tasas ISSS/AFP y bases son defaults.
+        var conceptTypes = new (string Code, string Name, CompensationNature Nature, bool IsStatutory, DeductionClass? DefaultClass, CompensationCalculationType CalcType, string? BaseCode, decimal? EmployeeRate, decimal? EmployerRate, decimal? Cap, int SortOrder)[]
+        {
+            ("SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10),
+            ("HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20),
+            ("COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30),
+            ("BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40),
+            ("VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50),
+            ("AGUINALDO", "Aguinaldo", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 60),
+            ("OTRO_INGRESO", "Otro ingreso", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 70),
+            ("ISSS", "ISSS", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 3.00m, 7.50m, 1000.00m, 100),
+            ("AFP", "AFP", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 7.25m, 8.75m, null, 110),
+            ("RENTA", "Renta (ISR)", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "SALARIO_BRUTO", null, null, null, 120),
+            ("DANO_EQUIPO", "Dano de equipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 200),
+            ("ANTICIPO", "Anticipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 210),
+            ("PRESTAMO_INTERNO", "Prestamo interno", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 220),
+            ("PRESTAMO_BANCARIO", "Prestamo bancario", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 300),
+            ("EMBARGO", "Embargo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 310),
+            ("CUOTA_ALIMENTICIA", "Cuota alimenticia", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 320),
+            ("OTRO_EXTERNO", "Otro externo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 330),
+        };
+
+        foreach (var item in conceptTypes)
+        {
+            var entity = CompensationConceptTypeCatalogItem.Create(
+                companyCountry.CountryCatalogItemId,
+                companyCountry.CountryCode,
+                item.Code,
+                item.Name,
+                item.Nature,
+                item.IsStatutory,
+                item.DefaultClass,
+                item.CalcType,
+                item.BaseCode,
+                item.EmployeeRate,
+                item.EmployerRate,
+                item.Cap,
+                true,
+                item.SortOrder);
+            dbContext.CompensationConceptTypeCatalogItems.Add(entity);
+        }
+
+        var payPeriods = new (string Code, string Name, int SortOrder)[]
+        {
+            ("MENSUAL", "Mensual", 10),
+            ("QUINCENAL", "Quincenal", 20),
+            ("SEMANAL", "Semanal", 30),
+            ("UNICA", "Unica", 40),
+        };
+
+        foreach (var item in payPeriods)
+        {
+            var entity = PayPeriodCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.PayPeriodCatalogItems.Add(entity);
+        }
+
+        var calculationBases = new (string Code, string Name, int SortOrder)[]
+        {
+            ("SALARIO_BASE", "Salario base", 10),
+            ("SALARIO_BRUTO", "Salario bruto", 20),
+            ("IBC", "Ingreso base de cotizacion", 30),
+            ("RUBRO_ESPECIFICO", "Rubro especifico", 40),
+        };
+
+        foreach (var item in calculationBases)
+        {
+            var entity = CalculationBaseCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.CalculationBaseCatalogItems.Add(entity);
         }
     }
 

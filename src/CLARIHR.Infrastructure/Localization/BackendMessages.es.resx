@@ -1600,6 +1600,36 @@
   <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de asignacion no es valido para el catalogo activo.</value>
   </data>
+  <data name="COMPENSATION_CONCEPT_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de tipo de concepto de compensacion no es valido para el catalogo activo.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_CALCULATION_BASE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una base de calculo para un concepto porcentual.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_CALCULATION_BASE_INVALID" xml:space="preserve">
+    <value>El codigo de base de calculo no es valido para el catalogo activo.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_PERCENTAGE_OUT_OF_RANGE" xml:space="preserve">
+    <value>El porcentaje debe estar entre 0 y 100.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_CURRENCY_INVALID" xml:space="preserve">
+    <value>El codigo de moneda no es valido para el catalogo activo.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_PAY_PERIOD_INVALID" xml:space="preserve">
+    <value>El codigo de periodicidad no es valido para el catalogo activo.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_DEDUCTION_CLASS_REQUIRED" xml:space="preserve">
+    <value>Se requiere una clase de egreso (LEY/INTERNO/EXTERNO) para un concepto de egreso.</value>
+  </data>
+  <data name="COMPENSATION_CONCEPT_ASSIGNED_POSITION_NOT_FOUND" xml:space="preserve">
+    <value>La plaza asignada seleccionada no se encontro para este empleado.</value>
+  </data>
+  <data name="COMPENSATION_BASE_SALARY_ALREADY_ACTIVE" xml:space="preserve">
+    <value>La plaza ya tiene un salario base activo; cierrelo antes de agregar otro.</value>
+  </data>
+  <data name="COMPENSATION_SALARY_OUT_OF_PROFILE_RANGE" xml:space="preserve">
+    <value>El salario negociado esta fuera del rango salarial configurado para la plaza.</value>
+  </data>
   <data name="EMPLOYMENT_STATUS_CODE_INVALID" xml:space="preserve">
     <value>El codigo de estado de empleo no es valido para el catalogo activo.</value>
   </data>

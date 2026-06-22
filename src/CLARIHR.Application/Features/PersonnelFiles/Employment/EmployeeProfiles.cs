@@ -251,7 +251,7 @@ internal sealed class GetPersonnelFileEmployeeProfileQueryHandler(
         // employee-profile is a 1:1 section created lazily on the first PUT upsert (see
         // UpdatePersonnelFileEmployeeProfileCommandHandler). "Not created yet" is a normal state, not an
         // error: return 200 with a null body so the client treats it as "empty section". This mirrors the
-        // sibling employee sub-resources (employment-assignments, contract-history, assets-accesses, ...),
+        // sibling employee sub-resources (assigned-positions, contract-history, assets-accesses, ...),
         // whose list endpoints return 200 with an empty array when there is no data yet.
         return Result<PersonnelFileEmployeeProfileResponse?>.Success(enriched);
     }

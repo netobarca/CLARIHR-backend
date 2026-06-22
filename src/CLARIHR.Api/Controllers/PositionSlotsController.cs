@@ -302,7 +302,9 @@ public sealed class PositionSlotsController(
                 request.OccupiedEmployees,
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
-                request.Notes),
+                request.Notes,
+                request.ConfiguredBaseSalary,
+                request.ConfiguredBaseSalaryCurrencyCode),
             cancellationToken);
 
         // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
@@ -344,7 +346,9 @@ public sealed class PositionSlotsController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.Notes,
-                concurrencyToken),
+                concurrencyToken,
+                request.ConfiguredBaseSalary,
+                request.ConfiguredBaseSalaryCurrencyCode),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
@@ -440,7 +444,9 @@ public sealed class PositionSlotsController(
         int OccupiedEmployees,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
-        string? Notes);
+        string? Notes,
+        decimal? ConfiguredBaseSalary,
+        string? ConfiguredBaseSalaryCurrencyCode);
 
     // PS-A: the concurrency token now travels in the `If-Match` header (not the body), so these
     // request DTOs no longer carry it.
@@ -453,7 +459,9 @@ public sealed class PositionSlotsController(
         int MaxEmployees,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
-        string? Notes);
+        string? Notes,
+        decimal? ConfiguredBaseSalary,
+        string? ConfiguredBaseSalaryCurrencyCode);
 
     public sealed record UpdatePositionSlotStatusRequest(PositionSlotStatus Status);
 

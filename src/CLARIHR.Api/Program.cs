@@ -441,6 +441,12 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // ViewCompensation is an authn-only SUPERSET: the precise gate (the ViewCompensation permission, or
+    // the employee reading their own file) lives in the compensation read handlers, which also support
+    // self-service that a declarative permission policy cannot express (D-16).
+    options.AddPolicy(PersonnelFilePolicies.ViewCompensation, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

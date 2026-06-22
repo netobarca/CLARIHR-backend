@@ -30,16 +30,16 @@ public sealed class PersonnelFileEmploymentController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
-    [HttpGet("api/v1/personnel-files/{publicId:guid}/employee-profile")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/employment-information")]
     [ProducesResponseType<PersonnelFileEmployeeProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     [SwaggerOperation(
-        Summary = "Get a personnel file's employee profile",
+        Summary = "Get a personnel file's employment information",
         Description = """
-            Returns the single employee-profile section of the specified personnel file, including its
+            Returns the single employment-information section of the specified personnel file, including its
             current `concurrencyToken` for use in the `If-Match` header of a subsequent `PUT`. The section
             is created lazily on the first `PUT`; until then this returns `200 OK` with a `null` body
             (consistent with the sibling employee sub-resources, whose lists return an empty array when
@@ -170,15 +170,15 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/employee-profile")]
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/employment-information")]
     [Consumes("application/json")]
     [Produces("application/json")]
     [ProducesResponseType<PersonnelFileEmployeeProfileResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
-        Summary = "Create or replace a personnel file's employee profile",
+        Summary = "Create or replace a personnel file's employment information",
         Description = """
-            Upserts the single employee-profile section of the specified personnel file. When a profile
+            Upserts the single employment-information section of the specified personnel file. When a profile
             already exists, the `If-Match` header with its current `concurrencyToken` is required to
             prevent lost updates; the refreshed token is returned in the `ETag` header. The first
             create requires no `If-Match`.
@@ -205,7 +205,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpGet("api/v1/personnel-files/{publicId:guid}/employment-assignments")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/assigned-positions")]
     [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -224,7 +224,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{publicId:guid}/employment-assignments/{employmentAssignmentPublicId:guid}")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/assigned-positions/{employmentAssignmentPublicId:guid}")]
     [Produces("application/json")]
     [ProducesResponseType<PersonnelFileEmploymentAssignmentResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -246,7 +246,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/personnel-files/{publicId:guid}/employment-assignments")]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/assigned-positions")]
     [Consumes("application/json")]
     [Produces("application/json")]
     [ProducesResponseType<PersonnelFileEmploymentAssignmentResponse>(StatusCodes.Status201Created)]
@@ -289,7 +289,7 @@ public sealed class PersonnelFileEmploymentController(
             value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/employment-assignments/{employmentAssignmentPublicId:guid}")]
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/assigned-positions/{employmentAssignmentPublicId:guid}")]
     [Consumes("application/json")]
     [Produces("application/json")]
     [ProducesResponseType<PersonnelFileEmploymentAssignmentResponse>(StatusCodes.Status200OK)]
@@ -332,7 +332,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/employment-assignments/{employmentAssignmentPublicId:guid}")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/assigned-positions/{employmentAssignmentPublicId:guid}")]
     [Consumes("application/json-patch+json")]
     [Produces("application/json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
@@ -364,7 +364,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpDelete("api/v1/personnel-files/{publicId:guid}/employment-assignments/{employmentAssignmentPublicId:guid}")]
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/assigned-positions/{employmentAssignmentPublicId:guid}")]
     [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(

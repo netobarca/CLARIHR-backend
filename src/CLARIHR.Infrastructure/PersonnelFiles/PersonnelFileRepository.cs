@@ -1316,8 +1316,51 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumReferenceType", cancellationToken),
             "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(countryCatalogItemId.Value, "Currency", cancellationToken),
             "BANK" => await GetCountryScopedCatalogItemsAsync<BankCatalogItem>(countryCatalogItemId.Value, "Bank", cancellationToken),
+            "COMPENSATIONCONCEPTTYPE" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(countryCatalogItemId.Value, "CompensationConceptType", cancellationToken),
+            "PAYPERIOD" => await GetCountryScopedCatalogItemsAsync<PayPeriodCatalogItem>(countryCatalogItemId.Value, "PayPeriod", cancellationToken),
+            "CALCULATIONBASE" => await GetCountryScopedCatalogItemsAsync<CalculationBaseCatalogItem>(countryCatalogItemId.Value, "CalculationBase", cancellationToken),
             _ => []
         };
+    }
+
+    public async Task<IReadOnlyCollection<CompensationConceptTypeResponse>> GetCompensationConceptTypesAsync(
+        string? countryCode,
+        CompensationNature? nature,
+        CancellationToken cancellationToken)
+    {
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
+        {
+            return [];
+        }
+
+        var query = dbContext.Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId.Value);
+
+        if (nature is not null)
+        {
+            query = query.Where(item => item.Nature == nature.Value);
+        }
+
+        return await query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.NormalizedCode)
+            .Select(item => new CompensationConceptTypeResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.Nature,
+                item.IsStatutory,
+                item.DefaultDeductionClass,
+                item.DefaultCalculationType,
+                item.DefaultCalculationBaseCode,
+                item.DefaultEmployeeRate,
+                item.DefaultEmployerRate,
+                item.ContributionCap,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
@@ -1388,6 +1431,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMDURATIONUNIT" => await IsCountryScopedCatalogCodeActiveAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMREFERENCETYPE" => await IsCountryScopedCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRENCY" => await IsCountryScopedCatalogCodeActiveAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "COMPENSATIONCONCEPTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "PAYPERIOD" => await IsCountryScopedCatalogCodeActiveAsync<PayPeriodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CALCULATIONBASE" => await IsCountryScopedCatalogCodeActiveAsync<CalculationBaseCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

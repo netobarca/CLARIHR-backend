@@ -1,5 +1,6 @@
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
@@ -259,35 +260,62 @@ public sealed record AddPersonnelActionRequest(
 
 // ─── Atomic compensation request contracts ────────────────────────────────────
 
-public sealed record AddSalaryItemRequest(
-    string IncomeTypeCode,
-    string SalaryRubricCode,
+public sealed record AddCompensationConceptRequest(
+    Guid? AssignedPositionPublicId,
+    CompensationNature Nature,
+    string ConceptTypeCode,
+    DeductionClass? DeductionClass,
+    CompensationCalculationType CalculationType,
+    decimal Value,
+    string? CalculationBaseCode,
+    decimal? EmployerRate,
+    decimal? ContributionCap,
     string CurrencyCode,
     string PayPeriodCode,
-    decimal Amount,
+    string? CounterpartyName,
+    string? ExternalReference,
     DateTime StartDate,
     DateTime? EndDate,
-    bool IsActive);
+    bool IsActive,
+    string? Notes);
 
-public sealed record UpdateSalaryItemRequest(
-    string IncomeTypeCode,
-    string SalaryRubricCode,
+public sealed record UpdateCompensationConceptRequest(
+    Guid? AssignedPositionPublicId,
+    CompensationNature Nature,
+    string ConceptTypeCode,
+    DeductionClass? DeductionClass,
+    CompensationCalculationType CalculationType,
+    decimal Value,
+    string? CalculationBaseCode,
+    decimal? EmployerRate,
+    decimal? ContributionCap,
     string CurrencyCode,
     string PayPeriodCode,
-    decimal Amount,
+    string? CounterpartyName,
+    string? ExternalReference,
     DateTime StartDate,
-    DateTime? EndDate);
+    DateTime? EndDate,
+    string? Notes);
 
-public sealed class PatchSalaryItemRequest
+public sealed class PatchCompensationConceptRequest
 {
-    public string IncomeTypeCode { get; set; } = string.Empty;
-    public string SalaryRubricCode { get; set; } = string.Empty;
+    public Guid? AssignedPositionPublicId { get; set; }
+    public CompensationNature Nature { get; set; }
+    public string ConceptTypeCode { get; set; } = string.Empty;
+    public DeductionClass? DeductionClass { get; set; }
+    public CompensationCalculationType CalculationType { get; set; }
+    public decimal Value { get; set; }
+    public string? CalculationBaseCode { get; set; }
+    public decimal? EmployerRate { get; set; }
+    public decimal? ContributionCap { get; set; }
     public string CurrencyCode { get; set; } = string.Empty;
     public string PayPeriodCode { get; set; } = string.Empty;
-    public decimal Amount { get; set; }
+    public string? CounterpartyName { get; set; }
+    public string? ExternalReference { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; }
+    public string? Notes { get; set; }
 }
 
 public sealed record AddAdditionalBenefitRequest(

@@ -230,6 +230,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CurrencyCatalogItem> CurrencyCatalogItems => Set<CurrencyCatalogItem>();
 
+    public DbSet<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem> CompensationConceptTypeCatalogItems => Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>();
+
+    public DbSet<PayPeriodCatalogItem> PayPeriodCatalogItems => Set<PayPeriodCatalogItem>();
+
+    public DbSet<CalculationBaseCatalogItem> CalculationBaseCatalogItems => Set<CalculationBaseCatalogItem>();
+
+    public DbSet<CLARIHR.Domain.Compensation.IncomeTaxWithholdingBracket> IncomeTaxWithholdingBrackets => Set<CLARIHR.Domain.Compensation.IncomeTaxWithholdingBracket>();
+
     public DbSet<IdentificationTypeCatalogItem> IdentificationTypeCatalogItems => Set<IdentificationTypeCatalogItem>();
 
     public DbSet<ProfessionCatalogItem> ProfessionCatalogItems => Set<ProfessionCatalogItem>();
@@ -248,7 +256,7 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileContractHistory> PersonnelFileContractHistories => Set<PersonnelFileContractHistory>();
 
-    public DbSet<PersonnelFileSalaryItem> PersonnelFileSalaryItems => Set<PersonnelFileSalaryItem>();
+    public DbSet<PersonnelFileCompensationConcept> PersonnelFileCompensationConcepts => Set<PersonnelFileCompensationConcept>();
 
     public DbSet<PersonnelFileAdditionalBenefit> PersonnelFileAdditionalBenefits => Set<PersonnelFileAdditionalBenefit>();
 

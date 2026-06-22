@@ -10,6 +10,16 @@ public interface IPositionSlotRepository
 
     Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves the salary band of a position slot from its job profile's active tabulator line
+    /// (PositionSlot → JobProfileCompensation → SalaryTabulatorLine). Null when the slot/profile has no
+    /// active tabulator line (no band configured); used to block out-of-range negotiated salaries (R-3).
+    /// </summary>
+    // Default no-op (no band) so test doubles need not implement it; the production repository overrides
+    // it with the real PositionSlot → JobProfileCompensation → SalaryTabulatorLine query.
+    Task<PositionSlotSalaryRange?> GetSalaryRangeAsync(Guid slotPublicId, CancellationToken cancellationToken) =>
+        Task.FromResult<PositionSlotSalaryRange?>(null);
+
     Task<bool> ExistsOutsideTenantAsync(Guid slotId, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingSlotId, CancellationToken cancellationToken);

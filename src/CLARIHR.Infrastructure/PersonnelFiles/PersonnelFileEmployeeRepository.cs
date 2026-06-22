@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -356,14 +357,14 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             subordinates);
     }
 
-    public async Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> AddSalaryItemAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileCompensationConceptResponse>> AddCompensationConceptAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        PersonnelFileSalaryItem entity,
+        PersonnelFileCompensationConcept entity,
         CancellationToken cancellationToken)
     {
-        dbContext.Set<PersonnelFileSalaryItem>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileSalaryItem>()
+        dbContext.Set<PersonnelFileCompensationConcept>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileCompensationConcept>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
             .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate)
@@ -371,43 +372,61 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return all;
     }
 
-    public async Task<PersonnelFileSalaryItemResponse?> UpdateSalaryItemAsync(
-        Guid salaryItemPublicId,
+    public async Task<PersonnelFileCompensationConceptResponse?> UpdateCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
-        string incomeTypeCode,
-        string salaryRubricCode,
+        Guid? assignedPositionPublicId,
+        CompensationNature nature,
+        string conceptTypeCode,
+        DeductionClass? deductionClass,
+        CompensationCalculationType calculationType,
+        decimal value,
+        string? calculationBaseCode,
+        decimal? employerRate,
+        decimal? contributionCap,
         string currencyCode,
         string payPeriodCode,
-        decimal amount,
+        string? counterpartyName,
+        string? externalReference,
         DateTime startDate,
         DateTime? endDate,
+        string? notes,
         CancellationToken cancellationToken)
     {
-        var item = await dbContext.Set<PersonnelFileSalaryItem>()
-            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
+        var item = await dbContext.Set<PersonnelFileCompensationConcept>()
+            .SingleOrDefaultAsync(x => x.PublicId == compensationConceptPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(incomeTypeCode, salaryRubricCode, currencyCode, payPeriodCode, amount, startDate, endDate);
+        item.Update(assignedPositionPublicId, nature, conceptTypeCode, deductionClass, calculationType, value, calculationBaseCode, employerRate, contributionCap, currencyCode, payPeriodCode, counterpartyName, externalReference, startDate, endDate, notes);
         return Map(item);
     }
 
-    public async Task<PersonnelFileSalaryItemResponse?> PatchSalaryItemAsync(
-        Guid salaryItemPublicId,
+    public async Task<PersonnelFileCompensationConceptResponse?> PatchCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
-        string incomeTypeCode,
-        string salaryRubricCode,
+        Guid? assignedPositionPublicId,
+        CompensationNature nature,
+        string conceptTypeCode,
+        DeductionClass? deductionClass,
+        CompensationCalculationType calculationType,
+        decimal value,
+        string? calculationBaseCode,
+        decimal? employerRate,
+        decimal? contributionCap,
         string currencyCode,
         string payPeriodCode,
-        decimal amount,
+        string? counterpartyName,
+        string? externalReference,
         DateTime startDate,
         DateTime? endDate,
+        string? notes,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken)
     {
-        var item = await dbContext.Set<PersonnelFileSalaryItem>()
-            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
+        var item = await dbContext.Set<PersonnelFileCompensationConcept>()
+            .SingleOrDefaultAsync(x => x.PublicId == compensationConceptPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(incomeTypeCode, salaryRubricCode, currencyCode, payPeriodCode, amount, startDate, endDate);
+        item.Update(assignedPositionPublicId, nature, conceptTypeCode, deductionClass, calculationType, value, calculationBaseCode, employerRate, contributionCap, currencyCode, payPeriodCode, counterpartyName, externalReference, startDate, endDate, notes);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -416,22 +435,22 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(item);
     }
 
-    public async Task<bool> DeleteSalaryItemAsync(
-        Guid salaryItemPublicId,
+    public async Task<bool> DeleteCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var item = await dbContext.Set<PersonnelFileSalaryItem>()
-            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
+        var item = await dbContext.Set<PersonnelFileCompensationConcept>()
+            .SingleOrDefaultAsync(x => x.PublicId == compensationConceptPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        dbContext.Set<PersonnelFileSalaryItem>().Remove(item);
+        dbContext.Set<PersonnelFileCompensationConcept>().Remove(item);
         return true;
     }
 
-    public async Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> GetSalaryItemsAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileCompensationConceptResponse>> GetCompensationConceptsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
-        await dbContext.Set<PersonnelFileSalaryItem>()
+        await dbContext.Set<PersonnelFileCompensationConcept>()
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
             .OrderByDescending(item => item.IsActive)
@@ -439,14 +458,14 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
 
-    public async Task<PersonnelFileSalaryItemResponse?> GetSalaryItemAsync(
+    public async Task<PersonnelFileCompensationConceptResponse?> GetCompensationConceptAsync(
         Guid personnelFileId,
-        Guid salaryItemPublicId,
+        Guid compensationConceptPublicId,
         CancellationToken cancellationToken)
     {
-        var item = await dbContext.Set<PersonnelFileSalaryItem>()
+        var item = await dbContext.Set<PersonnelFileCompensationConcept>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == salaryItemPublicId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == compensationConceptPublicId, cancellationToken);
         return item is null ? null : Map(item);
     }
 
@@ -1820,17 +1839,27 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Notes,
             item.ConcurrencyToken);
 
-    private static PersonnelFileSalaryItemResponse Map(PersonnelFileSalaryItem item) =>
+    private static PersonnelFileCompensationConceptResponse Map(PersonnelFileCompensationConcept item) =>
         new(
             item.PublicId,
-            item.IncomeTypeCode,
-            item.SalaryRubricCode,
+            item.AssignedPositionPublicId,
+            item.Nature,
+            item.ConceptTypeCode,
+            item.DeductionClass,
+            item.CalculationType,
+            item.Value,
+            item.CalculationBaseCode,
+            item.EmployerRate,
+            item.ContributionCap,
             item.CurrencyCode,
             item.PayPeriodCode,
-            item.Amount,
+            item.CounterpartyName,
+            item.ExternalReference,
             item.StartDate,
             item.EndDate,
             item.IsActive,
+            item.IsSystemSuggested,
+            item.Notes,
             item.ConcurrencyToken);
 
     private static PersonnelFileAdditionalBenefitResponse Map(PersonnelFileAdditionalBenefit item) =>

@@ -94,6 +94,12 @@ public sealed class PositionSlot : TenantEntity
 
     public string? Notes { get; private set; }
 
+    // §D-02 nivel 2 (R-2): configured/budgeted reference salary of the plaza. Informational only; the
+    // negotiated salary is validated against the job profile's tabulator range, not this value.
+    public decimal? ConfiguredBaseSalary { get; private set; }
+
+    public string? ConfiguredBaseSalaryCurrencyCode { get; private set; }
+
     public bool IsActive { get; private set; }
 
     public Guid ConcurrencyToken { get; private set; }
@@ -229,6 +235,18 @@ public sealed class PositionSlot : TenantEntity
         EnsureStatusConsistency();
         
         IsActive = Status != PositionSlotStatus.Suspended;
+        RefreshConcurrencyToken();
+    }
+
+    /// <summary>
+    /// Sets the plaza's configured (reference/budgeted) base salary — D-02 nivel 2 (R-2). Informational
+    /// only; it does not gate the employee's negotiated salary (that is validated against the job
+    /// profile's tabulator range).
+    /// </summary>
+    public void SetConfiguredBaseSalary(decimal? configuredBaseSalary, string? configuredBaseSalaryCurrencyCode)
+    {
+        ConfiguredBaseSalary = configuredBaseSalary;
+        ConfiguredBaseSalaryCurrencyCode = PositionSlotNormalization.CleanOptional(configuredBaseSalaryCurrencyCode);
         RefreshConcurrencyToken();
     }
 

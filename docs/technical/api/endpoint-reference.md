@@ -368,20 +368,20 @@ Employment (`PersonnelFileEmploymentController`) — sub-resource collections ar
 
 Lifecycle / secciones:
 
-- `GET /api/v1/personnel-files/{publicId}/employee-profile`
-- `PUT /api/v1/personnel-files/{publicId}/employee-profile` (sección 1:1; PUT usa `If-Match`)
+- `GET /api/v1/personnel-files/{publicId}/employment-information`
+- `PUT /api/v1/personnel-files/{publicId}/employment-information` (sección 1:1; PUT usa `If-Match`)
 - `GET /api/v1/personnel-files/{publicId}/finalize/preview`
 - `PATCH /api/v1/personnel-files/{publicId}/finalize`
 - `GET /api/v1/personnel-files/{publicId}/position-hierarchy` (read-only)
 
 Sub-recursos:
 
-- `GET /api/v1/personnel-files/{publicId}/employment-assignments`
-- `GET /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
-- `POST /api/v1/personnel-files/{publicId}/employment-assignments`
-- `PUT /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
-- `PATCH /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/assigned-positions`
+- `GET /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/assigned-positions`
+- `PUT /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/contract-history`
 - `GET /api/v1/personnel-files/{publicId}/contract-history/{contractHistoryPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/contract-history`
@@ -3273,8 +3273,8 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/references`
 - `/api/v1/personnel-files/{id}/finalize/preview`
 - `/api/v1/personnel-files/{id}/finalize`
-- `/api/v1/personnel-files/{id}/employee-profile`
-- `/api/v1/personnel-files/{id}/employment-assignments`
+- `/api/v1/personnel-files/{id}/employment-information`
+- `/api/v1/personnel-files/{id}/assigned-positions`
 - `/api/v1/personnel-files/{id}/contract-history`
 - `/api/v1/personnel-files/{id}/position-hierarchy`
 - `/api/v1/personnel-files/{id}/authorization-substitutions`
@@ -3598,10 +3598,10 @@ Route family:
 
 - `GET /api/v1/personnel-files/{id}/finalize/preview`
 - `POST /api/v1/personnel-files/{id}/finalize`
-- `GET /api/v1/personnel-files/{id}/employee-profile`
-- `PUT /api/v1/personnel-files/{id}/employee-profile`
-- `GET /api/v1/personnel-files/{id}/employment-assignments`
-- `PUT /api/v1/personnel-files/{id}/employment-assignments`
+- `GET /api/v1/personnel-files/{id}/employment-information`
+- `PUT /api/v1/personnel-files/{id}/employment-information`
+- `GET /api/v1/personnel-files/{id}/assigned-positions`
+- `PUT /api/v1/personnel-files/{id}/assigned-positions`
 - `GET /api/v1/personnel-files/{id}/contract-history`
 - `PUT /api/v1/personnel-files/{id}/contract-history`
 - `GET /api/v1/personnel-files/{id}/position-hierarchy`
@@ -3629,7 +3629,7 @@ Observaciones funcionales:
 - Los endpoints `PUT` del bloque devuelven `PersonnelFileSectionResult<T>` para que frontend pueda encadenar mutaciones usando el nuevo `personnelFileConcurrencyToken`.
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
 - la creacion del usuario ya no depende del `employee-profile`; ese subrecurso queda para datos laborales posteriores a `finalize`.
-- `employment-assignments`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
+- `assigned-positions`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
 - `employee-relations` ya no acepta nombres libres: cada item debe referenciar otro expediente existente del mismo tenant mediante `RelatedEmployeePublicId`, y la respuesta devuelve tambien `RelatedEmployeeFullName`.
 - `position-hierarchy` devuelve `ImmediateSupervisorPersonnelFileId`, `ImmediateSupervisorName` y la coleccion de subordinados.
 - `personnel-actions` agrega un evento individual de personal con fechas efectivas, monto opcional, moneda, descripcion y referencia.
@@ -3881,7 +3881,7 @@ Observaciones funcionales:
 - `IAM` y `Auth` aportan autenticacion, roles, permisos y contexto tenant para todo el expediente.
 - `Account companies` aporta la compania activa sobre la que se crea o consulta el expediente.
 - `OrgUnits` alimenta `OrgUnitId` en el expediente base, en `employee-profile`, en asignaciones y en analytics.
-- `Locations` alimenta `WorkCenterId` en `employee-profile` y en `employment-assignments`.
+- `Locations` alimenta `WorkCenterId` en `employee-profile` y en `assigned-positions`.
 - `CostCenters` alimenta `CostCenterId` o `CostCenterCode` dentro de la capa laboral.
 - `Job and competency design` aporta `JobProfiles`, `PositionSlots`, tipos de requerimiento y el contexto de competencias que luego se reflejan en `employee-profile`, jerarquia de posicion y resultados de competencias.
 - `Reports` consume `PERSONNEL_FILES` como `resourceKey` para capacidades de export e impresion.

@@ -1,5 +1,6 @@
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Abstractions.PersonnelFiles;
@@ -141,50 +142,68 @@ public interface IPersonnelFileEmployeeRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> AddSalaryItemAsync(
+    Task<IReadOnlyCollection<PersonnelFileCompensationConceptResponse>> AddCompensationConceptAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        PersonnelFileSalaryItem entity,
+        PersonnelFileCompensationConcept entity,
         CancellationToken cancellationToken);
 
-    Task<PersonnelFileSalaryItemResponse?> UpdateSalaryItemAsync(
-        Guid salaryItemPublicId,
+    Task<PersonnelFileCompensationConceptResponse?> UpdateCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
-        string incomeTypeCode,
-        string salaryRubricCode,
+        Guid? assignedPositionPublicId,
+        CompensationNature nature,
+        string conceptTypeCode,
+        DeductionClass? deductionClass,
+        CompensationCalculationType calculationType,
+        decimal value,
+        string? calculationBaseCode,
+        decimal? employerRate,
+        decimal? contributionCap,
         string currencyCode,
         string payPeriodCode,
-        decimal amount,
+        string? counterpartyName,
+        string? externalReference,
         DateTime startDate,
         DateTime? endDate,
+        string? notes,
         CancellationToken cancellationToken);
 
-    Task<PersonnelFileSalaryItemResponse?> PatchSalaryItemAsync(
-        Guid salaryItemPublicId,
+    Task<PersonnelFileCompensationConceptResponse?> PatchCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
-        string incomeTypeCode,
-        string salaryRubricCode,
+        Guid? assignedPositionPublicId,
+        CompensationNature nature,
+        string conceptTypeCode,
+        DeductionClass? deductionClass,
+        CompensationCalculationType calculationType,
+        decimal value,
+        string? calculationBaseCode,
+        decimal? employerRate,
+        decimal? contributionCap,
         string currencyCode,
         string payPeriodCode,
-        decimal amount,
+        string? counterpartyName,
+        string? externalReference,
         DateTime startDate,
         DateTime? endDate,
+        string? notes,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);
 
-    Task<bool> DeleteSalaryItemAsync(
-        Guid salaryItemPublicId,
+    Task<bool> DeleteCompensationConceptAsync(
+        Guid compensationConceptPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> GetSalaryItemsAsync(
+    Task<IReadOnlyCollection<PersonnelFileCompensationConceptResponse>> GetCompensationConceptsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
-    Task<PersonnelFileSalaryItemResponse?> GetSalaryItemAsync(
+    Task<PersonnelFileCompensationConceptResponse?> GetCompensationConceptAsync(
         Guid personnelFileId,
-        Guid salaryItemPublicId,
+        Guid compensationConceptPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> AddAdditionalBenefitAsync(

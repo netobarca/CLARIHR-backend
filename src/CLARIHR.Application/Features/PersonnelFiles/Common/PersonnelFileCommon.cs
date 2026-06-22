@@ -89,6 +89,13 @@ public static class PersonnelFilePermissionCodes
     /// from <see cref="Admin"/> (regular manage) so a rehire analyst cannot self-approve the override.
     /// </summary>
     public const string AuthorizeRehire = "PersonnelFiles.AuthorizeRehire";
+
+    /// <summary>
+    /// Dedicated permission (D-16) to read compensation data (salary, ingresos/egresos). Lets configurable
+    /// roles view another employee's compensation; the employee can always view their own via the
+    /// self-service check in the compensation read handlers.
+    /// </summary>
+    public const string ViewCompensation = "PersonnelFiles.ViewCompensation";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

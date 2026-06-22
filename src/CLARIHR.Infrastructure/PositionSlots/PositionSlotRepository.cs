@@ -20,6 +20,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
     public Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken) =>
         dbContext.Set<PositionSlot>().SingleOrDefaultAsync(slot => slot.PublicId == slotId, cancellationToken);
 
+    public Task<PositionSlotSalaryRange?> GetSalaryRangeAsync(Guid slotPublicId, CancellationToken cancellationToken) =>
+        (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
+         where slot.PublicId == slotPublicId
+         join compensation in dbContext.JobProfileCompensations.AsNoTracking() on slot.JobProfileId equals compensation.JobProfileId
+         join line in dbContext.SalaryTabulatorLines.AsNoTracking() on compensation.SalaryTabulatorLineId equals line.Id
+         where line.IsActive
+         select new PositionSlotSalaryRange(line.MinAmount, line.MaxAmount, line.CurrencyCode))
+        .FirstOrDefaultAsync(cancellationToken);
+
     public Task<bool> ExistsOutsideTenantAsync(Guid slotId, CancellationToken cancellationToken) =>
         dbContext.Set<PositionSlot>()
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
@@ -159,7 +168,9 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.IsActive,
                 row.Slot.ConcurrencyToken,
                 row.Slot.CreatedUtc,
-                row.Slot.ModifiedUtc))
+                row.Slot.ModifiedUtc,
+                row.Slot.ConfiguredBaseSalary,
+                row.Slot.ConfiguredBaseSalaryCurrencyCode))
             .SingleOrDefaultAsync(cancellationToken);
 
     public Task<int> CountSlotsAsync(Guid tenantId, CancellationToken cancellationToken) =>

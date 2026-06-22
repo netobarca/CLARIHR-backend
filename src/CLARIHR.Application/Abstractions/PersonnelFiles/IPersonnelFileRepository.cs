@@ -1,5 +1,6 @@
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Abstractions.PersonnelFiles;
@@ -193,6 +194,14 @@ public interface IPersonnelFileRepository
         string? countryCode,
         string category,
         CancellationToken cancellationToken);
+
+    // Default no-op so test doubles need not implement it; the production repository overrides it with
+    // the real country-scoped query.
+    Task<IReadOnlyCollection<CompensationConceptTypeResponse>> GetCompensationConceptTypesAsync(
+        string? countryCode,
+        CompensationNature? nature,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<CompensationConceptTypeResponse>>([]);
 
     Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
         string countryCode,

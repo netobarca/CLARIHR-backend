@@ -16,7 +16,7 @@ namespace CLARIHR.Api.IntegrationTests;
 
 /// <summary>
 /// Integration coverage for the multi-position ("múltiples plazas") rules on the
-/// employment-assignments endpoint: first-plaza-defaults-primary + auto-degrade (RF-002),
+/// assigned-positions endpoint: first-plaza-defaults-primary + auto-degrade (RF-002),
 /// capacity-by-vigencia (RF-005) and same-slot dedup (RF-007). A completed employee is seeded
 /// directly (no finalize flow needed); the position slot is built through the existing API helpers.
 /// </summary>
@@ -96,7 +96,7 @@ public sealed partial class ApiIntegrationTests
         var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Ana", "Principal");
 
         var response = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slot.Id, isPrimary: false));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -118,12 +118,12 @@ public sealed partial class ApiIntegrationTests
         var employeeTwo = await SeedCompletedEmployeeAsync(scenario.TenantId, "Dos", "Empleado");
 
         var first = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeOne}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeOne}/assigned-positions",
             EmploymentAssignmentBody(slot.Id));
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
 
         var second = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeTwo}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeTwo}/assigned-positions",
             EmploymentAssignmentBody(slot.Id));
 
         await AssertProblemDetailsAsync(second, HttpStatusCode.UnprocessableEntity, "EMPLOYMENT_ASSIGNMENT_CAPACITY_EXCEEDED");
@@ -141,12 +141,12 @@ public sealed partial class ApiIntegrationTests
         var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Tres", "Empleado");
 
         var first = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slot.Id));
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
 
         var duplicate = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slot.Id));
 
         await AssertProblemDetailsAsync(duplicate, HttpStatusCode.Conflict, "EMPLOYMENT_ASSIGNMENT_OVERLAPPING_DATES");
@@ -165,16 +165,16 @@ public sealed partial class ApiIntegrationTests
         var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Cuatro", "Empleado");
 
         var primaryA = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slotA.Id, isPrimary: true));
         Assert.Equal(HttpStatusCode.Created, primaryA.StatusCode);
 
         var primaryB = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slotB.Id, isPrimary: true));
         Assert.Equal(HttpStatusCode.Created, primaryB.StatusCode);
 
-        var list = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/employment-assignments");
+        var list = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions");
         list.EnsureSuccessStatusCode();
         using var document = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
         var items = document.RootElement.EnumerateArray().ToArray();
@@ -209,7 +209,7 @@ public sealed partial class ApiIntegrationTests
             new[] { new { op = "replace", path = "/isPrimary", value = true } });
         Assert.Equal(HttpStatusCode.OK, patch.StatusCode);
 
-        var list = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/employment-assignments");
+        var list = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions");
         list.EnsureSuccessStatusCode();
         using var document = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
         var items = document.RootElement.EnumerateArray().ToArray();
@@ -280,7 +280,7 @@ public sealed partial class ApiIntegrationTests
         var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Ocho", "Empleado");
 
         var response = await client.PostJsonAsync(
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments",
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
             EmploymentAssignmentBody(slot.Id, assignmentTypeCode: "NOT_A_REAL_TYPE"));
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID");
@@ -328,7 +328,7 @@ public sealed partial class ApiIntegrationTests
 
     private async Task<(Guid Id, Guid Token)> PostAssignmentAsync(HttpClient client, Guid employeeId, object body)
     {
-        var response = await client.PostJsonAsync($"/api/v1/personnel-files/{employeeId}/employment-assignments", body);
+        var response = await client.PostJsonAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions", body);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return (
@@ -340,7 +340,7 @@ public sealed partial class ApiIntegrationTests
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Put,
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments/{assignmentId}")
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions/{assignmentId}")
         {
             Content = JsonContent.Create(body)
         };
@@ -352,7 +352,7 @@ public sealed partial class ApiIntegrationTests
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Patch,
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments/{assignmentId}")
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions/{assignmentId}")
         {
             Content = new StringContent(JsonSerializer.Serialize(operations), Encoding.UTF8, "application/json-patch+json")
         };
@@ -364,7 +364,7 @@ public sealed partial class ApiIntegrationTests
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Delete,
-            $"/api/v1/personnel-files/{employeeId}/employment-assignments/{assignmentId}");
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions/{assignmentId}");
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{token}\"");
         return await client.SendAsync(request);
     }
