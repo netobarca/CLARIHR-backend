@@ -1311,6 +1311,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguageLevel", cancellationToken),
             "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumTrainingType", cancellationToken),
             "CURRICULUMASSIGNMENTTYPE" => await GetCountryScopedCatalogItemsAsync<AssignmentTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumAssignmentType", cancellationToken),
+            "CURRICULUMSUBSTITUTIONTYPE" => await GetCountryScopedCatalogItemsAsync<SubstitutionTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumSubstitutionType", cancellationToken),
             "EMPLOYMENTSTATUS" => await GetCountryScopedCatalogItemsAsync<EmploymentStatusCatalogItem>(countryCatalogItemId.Value, "EmploymentStatus", cancellationToken),
             "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(countryCatalogItemId.Value, "CurriculumDurationUnit", cancellationToken),
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumReferenceType", cancellationToken),
@@ -1320,6 +1321,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "PAYPERIOD" => await GetCountryScopedCatalogItemsAsync<PayPeriodCatalogItem>(countryCatalogItemId.Value, "PayPeriod", cancellationToken),
             "CALCULATIONBASE" => await GetCountryScopedCatalogItemsAsync<CalculationBaseCatalogItem>(countryCatalogItemId.Value, "CalculationBase", cancellationToken),
             "PAYMENTMETHOD" => await GetCountryScopedCatalogItemsAsync<PaymentMethodCatalogItem>(countryCatalogItemId.Value, "PaymentMethod", cancellationToken),
+            "ASSETACCESSTYPE" => await GetCountryScopedCatalogItemsAsync<AssetAccessTypeCatalogItem>(countryCatalogItemId.Value, "AssetAccessType", cancellationToken),
+            "DELIVERYSTATUS" => await GetCountryScopedCatalogItemsAsync<DeliveryStatusCatalogItem>(countryCatalogItemId.Value, "DeliveryStatus", cancellationToken),
             _ => []
         };
     }
@@ -1428,6 +1431,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGELEVEL" => await IsCountryScopedCatalogCodeActiveAsync<LanguageLevelCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMTRAININGTYPE" => await IsCountryScopedCatalogCodeActiveAsync<TrainingTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMASSIGNMENTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssignmentTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CURRICULUMSUBSTITUTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<SubstitutionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "EMPLOYMENTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EmploymentStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMDURATIONUNIT" => await IsCountryScopedCatalogCodeActiveAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMREFERENCETYPE" => await IsCountryScopedCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
@@ -1436,6 +1440,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "PAYPERIOD" => await IsCountryScopedCatalogCodeActiveAsync<PayPeriodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CALCULATIONBASE" => await IsCountryScopedCatalogCodeActiveAsync<CalculationBaseCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "PAYMENTMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<PaymentMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ASSETACCESSTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssetAccessTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "DELIVERYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<DeliveryStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

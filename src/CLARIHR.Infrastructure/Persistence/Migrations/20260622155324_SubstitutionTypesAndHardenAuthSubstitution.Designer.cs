@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622155324_SubstitutionTypesAndHardenAuthSubstitution")]
+    partial class SubstitutionTypesAndHardenAuthSubstitution
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4134,91 +4137,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("files", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssetAccessTypeCatalogItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("code");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<long>("CountryCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("country_catalog_item_id");
-
-                    b.Property<string>("CountryCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)")
-                        .HasColumnName("country_code");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NormalizedCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("normalized_code");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("normalized_name");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_asset_access_type_catalog_items");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_asset_access_type_catalog_items__public_id");
-
-                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
-                        .IsUnique()
-                        .HasDatabaseName("uq_asset_access_type_catalog_items__country_code");
-
-                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_asset_access_type_catalog_items__country_active_sort");
-
-                    b.ToTable("asset_access_type_catalog_items", (string)null);
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssignmentTypeCatalogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -4472,91 +4390,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_currency_catalog_items__country_active_sort");
 
                     b.ToTable("currency_catalog_items", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.DeliveryStatusCatalogItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("code");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<long>("CountryCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("country_catalog_item_id");
-
-                    b.Property<string>("CountryCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)")
-                        .HasColumnName("country_code");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NormalizedCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("normalized_code");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("normalized_name");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_delivery_status_catalog_items");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_delivery_status_catalog_items__public_id");
-
-                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
-                        .IsUnique()
-                        .HasDatabaseName("uq_delivery_status_catalog_items__country_code");
-
-                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_delivery_status_catalog_items__country_active_sort");
-
-                    b.ToTable("delivery_status_catalog_items", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.DurationUnitCatalogItem", b =>
@@ -12463,12 +12296,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "PersonnelFileId", "StartDateUtc", "IsActive")
                         .HasDatabaseName("ix_personnel_file_assets_accesses__tenant_file_start_active");
 
-                    b.ToTable("personnel_file_assets_accesses", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_personnel_file_assets_accesses__dates", "end_date_utc is null or end_date_utc >= start_date_utc");
-
-                            t.HasCheckConstraint("ck_personnel_file_assets_accesses__delivery_date", "delivery_date_utc is null or delivery_date_utc >= start_date_utc");
-                        });
+                    b.ToTable("personnel_file_assets_accesses", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileAssociation", b =>
@@ -16871,17 +16699,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_cost_centers__cost_center_types");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssetAccessTypeCatalogItem", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("CountryCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CountryCatalogItem");
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssignmentTypeCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
@@ -16905,17 +16722,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.CurrencyCatalogItem", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("CountryCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CountryCatalogItem");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.DeliveryStatusCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()

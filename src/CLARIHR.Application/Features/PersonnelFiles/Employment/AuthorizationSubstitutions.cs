@@ -21,9 +21,11 @@ public sealed record PersonnelFileAuthorizationSubstitutionResponse(
     Guid AuthorizationSubstitutionPublicId,
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFileId,
+    Guid SubstitutePositionSlotPublicId,
+    // Snapshot of the substitute's position title at designation time (D-02), for history/UI display.
     string? SubstitutePositionTitle,
     DateTime StartDate,
-    DateTime? EndDate,
+    DateTime EndDate,
     bool IsActive,
     string? Notes,
     Guid ConcurrencyToken)
@@ -35,8 +37,9 @@ public sealed record PersonnelFileAuthorizationSubstitutionResponse(
 public sealed record AuthorizationSubstitutionInput(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFileId,
-    string? SubstitutePositionTitle,
+    Guid SubstitutePositionSlotPublicId,
     DateTime StartDate,
+    // Nullable in the input so a missing end date is rejected by the validator (400) rather than defaulting (D-03).
     DateTime? EndDate,
     bool IsActive,
     string? Notes);
@@ -84,6 +87,8 @@ internal sealed class AuthorizationSubstitutionInputValidator : AbstractValidato
     {
         RuleFor(input => input.SubstitutionTypeCode).NotEmpty().MaximumLength(80);
         RuleFor(input => input.SubstitutePersonnelFileId).NotEmpty();
+        RuleFor(input => input.SubstitutePositionSlotPublicId).NotEmpty();
+        RuleFor(input => input.EndDate).NotNull();
         RuleFor(input => input.StartDate).LessThanOrEqualTo(input => input.EndDate!.Value).When(input => input.EndDate.HasValue);
     }
 }
@@ -158,7 +163,7 @@ internal sealed class PersonnelFileAuthorizationSubstitutionPatchState
 {
     public string SubstitutionTypeCode { get; set; } = string.Empty;
     public Guid SubstitutePersonnelFileId { get; set; }
-    public string? SubstitutePositionTitle { get; set; }
+    public Guid SubstitutePositionSlotId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string? Notes { get; set; }
@@ -171,7 +176,7 @@ internal sealed class PersonnelFileAuthorizationSubstitutionPatchState
         {
             SubstitutionTypeCode = response.SubstitutionTypeCode,
             SubstitutePersonnelFileId = response.SubstitutePersonnelFileId,
-            SubstitutePositionTitle = response.SubstitutePositionTitle,
+            SubstitutePositionSlotId = response.SubstitutePositionSlotPublicId,
             StartDate = response.StartDate,
             EndDate = response.EndDate,
             Notes = response.Notes,
@@ -182,7 +187,7 @@ internal sealed class PersonnelFileAuthorizationSubstitutionPatchState
         new(
             SubstitutionTypeCode,
             SubstitutePersonnelFileId,
-            SubstitutePositionTitle,
+            SubstitutePositionSlotId,
             StartDate,
             EndDate,
             IsActive,

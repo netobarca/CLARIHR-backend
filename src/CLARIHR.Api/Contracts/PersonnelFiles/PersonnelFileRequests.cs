@@ -194,25 +194,25 @@ public sealed class PatchContractHistoryRequest
 public sealed record AddAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
-    string? SubstitutePositionTitle,
+    Guid SubstitutePositionSlotPublicId,
     DateTime StartDate,
-    DateTime? EndDate,
+    DateTime EndDate,
     bool IsActive,
     string? Notes);
 
 public sealed record UpdateAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
-    string? SubstitutePositionTitle,
+    Guid SubstitutePositionSlotPublicId,
     DateTime StartDate,
-    DateTime? EndDate,
+    DateTime EndDate,
     string? Notes);
 
 public sealed class PatchAuthorizationSubstitutionRequest
 {
     public string SubstitutionTypeCode { get; set; } = string.Empty;
     public Guid SubstitutePersonnelFileId { get; set; }
-    public string? SubstitutePositionTitle { get; set; }
+    public Guid SubstitutePositionSlotId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string? Notes { get; set; }

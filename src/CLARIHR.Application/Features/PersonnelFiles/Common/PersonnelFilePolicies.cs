@@ -21,4 +21,13 @@ public static class PersonnelFilePolicies
     /// role check lives in the compensation read handlers.
     /// </summary>
     public const string ViewCompensation = "PersonnelFiles.ViewCompensation";
+
+    /// <summary>
+    /// Write policy for authorization substitutions (D-09): the dedicated
+    /// <c>PersonnelFiles.ManageSubstitutions</c> permission, or Admin / IAM super-admin. Assigned to the
+    /// write verbs of <c>PersonnelFileAuthorizationSubstitutionController</c>; reads use <see cref="Read"/>.
+    /// Kept a superset of the precise <c>EnsureCanManageSubstitutionsAsync</c> handler gate so a legitimate
+    /// manager is never falsely 403'd.
+    /// </summary>
+    public const string ManageSubstitutions = "PersonnelFiles.ManageSubstitutions";
 }

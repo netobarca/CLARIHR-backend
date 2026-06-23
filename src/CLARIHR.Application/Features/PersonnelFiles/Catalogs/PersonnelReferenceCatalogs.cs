@@ -89,6 +89,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string DurationUnit = "CurriculumDurationUnit";
     public const string ReferenceType = "CurriculumReferenceType";
     public const string AssignmentType = "CurriculumAssignmentType";
+    public const string SubstitutionType = "CurriculumSubstitutionType";
     public const string EmploymentStatus = "EmploymentStatus";
     public const string Career = "CurriculumCareer";
     public const string Country = "Country";
@@ -99,6 +100,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string PayPeriod = "PayPeriod";
     public const string CalculationBase = "CalculationBase";
     public const string PaymentMethod = "PaymentMethod";
+    public const string AssetAccessType = "AssetAccessType";
+    public const string DeliveryStatus = "DeliveryStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

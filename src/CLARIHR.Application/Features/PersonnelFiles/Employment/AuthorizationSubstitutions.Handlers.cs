@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -17,10 +18,89 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Shared cross-feature validation for the substitution write handlers (Add/Update/Patch): catalog type code
+/// (RF-002), substitute eligibility (RF-001), the position belonging to one of the substitute's active
+/// assignments + its title snapshot (RF-003/D-02), and the effective-period rules (D-04/D-06/D-07). Mirrors
+/// <see cref="EmploymentAssignmentCommandSupport"/> so each invariant has a single home and the handlers stay thin.
+/// </summary>
+internal static class AuthorizationSubstitutionCommandSupport
+{
+    /// <summary>Successful validation: the resolved position-title snapshot to persist alongside the slot id (D-02).</summary>
+    internal sealed record Validated(string? PositionTitleSnapshot);
+
+    public static async Task<Result<Validated>> ValidateAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        IPositionSlotRepository positionSlotRepository,
+        PersonnelFile titular,
+        AuthorizationSubstitutionInput input,
+        Guid? candidatePublicId,
+        bool isActiveForThisOperation,
+        CancellationToken cancellationToken)
+    {
+        // (RF-002 / D-08) Type code must be an active substitution-types catalog code for the company country.
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                titular.TenantId, PersonnelCurriculumCatalogCategories.SubstitutionType, input.SubstitutionTypeCode, cancellationToken))
+        {
+            return Result<Validated>.Failure(AuthorizationSubstitutionErrors.TypeCodeInvalid);
+        }
+
+        // (RF-001) Substitute must exist, be in the same tenant, and be an active completed employee.
+        var substitute = await personnelFileRepository.GetForAccessCheckAsync(input.SubstitutePersonnelFileId, cancellationToken);
+        if (substitute is null)
+        {
+            // A cross-tenant id is reported as "not eligible" so the response never reveals another tenant's data.
+            return Result<Validated>.Failure(
+                await personnelFileRepository.ExistsOutsideTenantAsync(input.SubstitutePersonnelFileId, cancellationToken)
+                    ? AuthorizationSubstitutionErrors.SubstituteNotEligible
+                    : AuthorizationSubstitutionErrors.SubstituteNotFound);
+        }
+
+        if (!substitute.IsCompletedEmployee || !substitute.IsActive)
+        {
+            return Result<Validated>.Failure(AuthorizationSubstitutionErrors.SubstituteNotEligible);
+        }
+
+        // (RF-003 / D-02) The position must be one of the substitute's ACTIVE employment assignments.
+        var substituteAssignments = await employeeRepository.GetEmploymentAssignmentsAsync(input.SubstitutePersonnelFileId, cancellationToken);
+        var ownsSlot = substituteAssignments.Any(assignment =>
+            assignment.IsActive && assignment.PositionSlotId == input.SubstitutePositionSlotPublicId);
+        if (!ownsSlot)
+        {
+            return Result<Validated>.Failure(AuthorizationSubstitutionErrors.PositionNotOwned);
+        }
+
+        // The assignment response carries no title, so snapshot it from the slot itself (D-02).
+        var slot = await positionSlotRepository.GetByIdAsync(input.SubstitutePositionSlotPublicId, cancellationToken);
+        var titleSnapshot = string.IsNullOrWhiteSpace(slot?.Title) ? slot?.Code : slot.Title;
+
+        // (D-04/D-06/D-07) Effective-period rules: a required end date is guaranteed by the validator, so Value is safe.
+        var titularSubstitutions = (await employeeRepository.GetAuthorizationSubstitutionsAsync(titular.PublicId, cancellationToken))
+            .Select(s => new AuthorizationSubstitutionRules.ExistingSubstitution(s.Id, s.StartDate, s.EndDate, s.IsActive))
+            .ToArray();
+        var substituteAsTitular = (await employeeRepository.GetAuthorizationSubstitutionsAsync(input.SubstitutePersonnelFileId, cancellationToken))
+            .Select(s => new AuthorizationSubstitutionRules.ExistingSubstitution(s.Id, s.StartDate, s.EndDate, s.IsActive))
+            .ToArray();
+
+        var candidate = new AuthorizationSubstitutionRules.Candidate(
+            candidatePublicId,
+            input.StartDate,
+            input.EndDate!.Value,
+            isActiveForThisOperation);
+
+        var evaluation = AuthorizationSubstitutionRules.Evaluate(candidate, titularSubstitutions, substituteAsTitular);
+        return evaluation.IsFailure
+            ? Result<Validated>.Failure(evaluation.Error)
+            : Result<Validated>.Success(new Validated(titleSnapshot));
+    }
+}
+
 internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -31,7 +111,7 @@ internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandHandler(
         AddPersonnelFileAuthorizationSubstitutionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAuthorizationSubstitutionResponse>(
+        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<PersonnelFileAuthorizationSubstitutionResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -57,12 +137,27 @@ internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandHandler(
                 }));
         }
 
+        var validation = await AuthorizationSubstitutionCommandSupport.ValidateAsync(
+            personnelFileRepository,
+            employeeRepository,
+            positionSlotRepository,
+            personnelFile,
+            command.Item,
+            candidatePublicId: null,
+            command.Item.IsActive,
+            cancellationToken);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(validation.Error);
+        }
+
         var entity = PersonnelFileAuthorizationSubstitution.Create(
             command.Item.SubstitutionTypeCode,
             command.Item.SubstitutePersonnelFileId,
-            command.Item.SubstitutePositionTitle,
+            command.Item.SubstitutePositionSlotPublicId,
+            validation.Value.PositionTitleSnapshot,
             command.Item.StartDate,
-            command.Item.EndDate,
+            command.Item.EndDate!.Value,
             command.Item.IsActive,
             command.Item.Notes);
         entity.BindToPersonnelFile(personnelFile.Id);
@@ -95,6 +190,7 @@ internal sealed class UpdatePersonnelFileAuthorizationSubstitutionCommandHandler
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -105,7 +201,7 @@ internal sealed class UpdatePersonnelFileAuthorizationSubstitutionCommandHandler
         UpdatePersonnelFileAuthorizationSubstitutionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAuthorizationSubstitutionResponse>(
+        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<PersonnelFileAuthorizationSubstitutionResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -142,15 +238,31 @@ internal sealed class UpdatePersonnelFileAuthorizationSubstitutionCommandHandler
             return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
-        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH), so the
+        // rules are evaluated against the stored active state.
+        var validation = await AuthorizationSubstitutionCommandSupport.ValidateAsync(
+            personnelFileRepository,
+            employeeRepository,
+            positionSlotRepository,
+            personnelFile,
+            command.Item,
+            command.AuthorizationSubstitutionPublicId,
+            existing.IsActive,
+            cancellationToken);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(validation.Error);
+        }
+
         var response = await employeeRepository.UpdateAuthorizationSubstitutionAsync(
             command.AuthorizationSubstitutionPublicId,
             personnelFile.TenantId,
             command.Item.SubstitutionTypeCode,
             command.Item.SubstitutePersonnelFileId,
-            command.Item.SubstitutePositionTitle,
+            command.Item.SubstitutePositionSlotPublicId,
+            validation.Value.PositionTitleSnapshot,
             command.Item.StartDate,
-            command.Item.EndDate,
+            command.Item.EndDate!.Value,
             command.Item.Notes,
             cancellationToken);
         if (response is null)
@@ -182,6 +294,7 @@ internal sealed class PatchPersonnelFileAuthorizationSubstitutionCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionSlotRepository positionSlotRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -192,7 +305,7 @@ internal sealed class PatchPersonnelFileAuthorizationSubstitutionCommandHandler(
         PatchPersonnelFileAuthorizationSubstitutionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAuthorizationSubstitutionResponse>(
+        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<PersonnelFileAuthorizationSubstitutionResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -248,14 +361,29 @@ internal sealed class PatchPersonnelFileAuthorizationSubstitutionCommandHandler(
         }
 
         var input = state.ToInput();
+        var crossFeatureValidation = await AuthorizationSubstitutionCommandSupport.ValidateAsync(
+            personnelFileRepository,
+            employeeRepository,
+            positionSlotRepository,
+            personnelFile,
+            input,
+            command.AuthorizationSubstitutionPublicId,
+            state.IsActive,
+            cancellationToken);
+        if (crossFeatureValidation.IsFailure)
+        {
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(crossFeatureValidation.Error);
+        }
+
         var response = await employeeRepository.PatchAuthorizationSubstitutionAsync(
             command.AuthorizationSubstitutionPublicId,
             personnelFile.TenantId,
             input.SubstitutionTypeCode,
             input.SubstitutePersonnelFileId,
-            input.SubstitutePositionTitle,
+            input.SubstitutePositionSlotPublicId,
+            crossFeatureValidation.Value.PositionTitleSnapshot,
             input.StartDate,
-            input.EndDate,
+            input.EndDate!.Value,
             input.Notes,
             input.IsActive,
             state.IsActiveMutated,
@@ -299,7 +427,7 @@ internal sealed class DeletePersonnelFileAuthorizationSubstitutionCommandHandler
         DeletePersonnelFileAuthorizationSubstitutionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -461,6 +589,16 @@ internal static class PersonnelFileAuthorizationSubstitutionPatchApplier
             errors["substitutePersonnelFileId"] = ["SubstitutePersonnelFileId is required."];
         }
 
+        if (state.SubstitutePositionSlotId == Guid.Empty)
+        {
+            errors["substitutePositionSlotId"] = ["SubstitutePositionSlotId is required."];
+        }
+
+        if (state.EndDate is null)
+        {
+            errors["endDate"] = ["EndDate is required."];
+        }
+
         return errors.Count == 0
             ? Result.Success()
             : Result.Failure(ErrorCatalog.Validation(errors));
@@ -487,9 +625,11 @@ internal static class PersonnelFileAuthorizationSubstitutionPatchApplier
                 : Mutate(state, () => state.SubstitutePersonnelFileId = PersonnelFileTalentPatch.ReadNullableGuid(value, path) ?? Guid.Empty);
         }
 
-        if (PersonnelFileTalentPatch.IsSegment(property, "substitutePositionTitle"))
+        if (PersonnelFileTalentPatch.IsSegment(property, "substitutePositionSlotId"))
         {
-            return Mutate(state, () => state.SubstitutePositionTitle = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "SubstitutePositionSlotId cannot be removed.")
+                : Mutate(state, () => state.SubstitutePositionSlotId = PersonnelFileTalentPatch.ReadNullableGuid(value, path) ?? Guid.Empty);
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "startDate"))
@@ -501,7 +641,9 @@ internal static class PersonnelFileAuthorizationSubstitutionPatchApplier
 
         if (PersonnelFileTalentPatch.IsSegment(property, "endDate"))
         {
-            return Mutate(state, () => state.EndDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "EndDate cannot be removed.")
+                : Mutate(state, () => state.EndDate = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "notes"))

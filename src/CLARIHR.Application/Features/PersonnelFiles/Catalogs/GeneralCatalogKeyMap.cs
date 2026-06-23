@@ -25,6 +25,7 @@ public static class GeneralCatalogKeyMap
             ["language-levels"] = PersonnelCurriculumCatalogCategories.LanguageLevel,
             ["training-types"] = PersonnelCurriculumCatalogCategories.TrainingType,
             ["assignment-types"] = PersonnelCurriculumCatalogCategories.AssignmentType,
+            ["substitution-types"] = PersonnelCurriculumCatalogCategories.SubstitutionType,
             ["employment-statuses"] = PersonnelCurriculumCatalogCategories.EmploymentStatus,
             ["duration-units"] = PersonnelCurriculumCatalogCategories.DurationUnit,
             ["reference-types"] = PersonnelCurriculumCatalogCategories.ReferenceType,
@@ -41,6 +42,8 @@ public static class GeneralCatalogKeyMap
             ["pay-periods"] = PersonnelCurriculumCatalogCategories.PayPeriod,
             ["calculation-bases"] = PersonnelCurriculumCatalogCategories.CalculationBase,
             ["payment-methods"] = PersonnelCurriculumCatalogCategories.PaymentMethod,
+            ["asset-access-types"] = PersonnelCurriculumCatalogCategories.AssetAccessType,
+            ["delivery-statuses"] = PersonnelCurriculumCatalogCategories.DeliveryStatus,
         };
 
     /// <summary>

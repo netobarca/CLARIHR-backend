@@ -26,5 +26,14 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanViewCompensationAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Write gate for authorization substitutions (D-09): the dedicated
+    /// <c>PersonnelFiles.ManageSubstitutions</c> permission, or Admin / IAM super-admin. Separate from the
+    /// generic manage gate so a non-Admin HR analyst can be granted substitution management on its own.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageSubstitutionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

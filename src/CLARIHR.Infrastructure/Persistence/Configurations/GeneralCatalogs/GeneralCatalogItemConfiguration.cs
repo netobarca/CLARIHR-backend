@@ -122,6 +122,48 @@ internal sealed class PaymentMethodCatalogItemConfiguration
     }
 }
 
+internal sealed class SubstitutionTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<SubstitutionTypeCatalogItem>
+{
+    public SubstitutionTypeCatalogItemConfiguration()
+        : base(
+            "substitution_type_catalog_items",
+            "pk_substitution_type_catalog_items",
+            "uq_substitution_type_catalog_items__public_id",
+            "uq_substitution_type_catalog_items__country_code",
+            "ix_substitution_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class AssetAccessTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<AssetAccessTypeCatalogItem>
+{
+    public AssetAccessTypeCatalogItemConfiguration()
+        : base(
+            "asset_access_type_catalog_items",
+            "pk_asset_access_type_catalog_items",
+            "uq_asset_access_type_catalog_items__public_id",
+            "uq_asset_access_type_catalog_items__country_code",
+            "ix_asset_access_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class DeliveryStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<DeliveryStatusCatalogItem>
+{
+    public DeliveryStatusCatalogItemConfiguration()
+        : base(
+            "delivery_status_catalog_items",
+            "pk_delivery_status_catalog_items",
+            "uq_delivery_status_catalog_items__public_id",
+            "uq_delivery_status_catalog_items__country_code",
+            "ix_delivery_status_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class EmploymentStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<EmploymentStatusCatalogItem>
 {

@@ -443,6 +443,16 @@ internal static class IntegrationTestSeeder
             ("RECARGO_FUNCIONES", "Recargo de funciones", 90)
         };
 
+        var substitutionTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("VACACIONES", "Vacaciones", 10),
+            ("INCAPACIDAD", "Incapacidad", 20),
+            ("PERMISO", "Permiso", 30),
+            ("MISION_OFICIAL", "Misión oficial", 40),
+            ("LICENCIA", "Licencia", 50),
+            ("OTRO", "Otro", 60)
+        };
+
         var employmentStatuses = new (string Code, string Name, int SortOrder)[]
         {
             ("ACTIVO", "Activo", 10),
@@ -526,6 +536,17 @@ internal static class IntegrationTestSeeder
             {
                 var entity = AssignmentTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
                 dbContext.AssignmentTypeCatalogItems.Add(entity);
+            }
+        }
+
+        foreach (var item in substitutionTypes)
+        {
+            if (!dbContext.SubstitutionTypeCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = SubstitutionTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.SubstitutionTypeCatalogItems.Add(entity);
             }
         }
 

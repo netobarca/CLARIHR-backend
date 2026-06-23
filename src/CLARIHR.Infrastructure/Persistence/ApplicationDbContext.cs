@@ -222,6 +222,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<AssignmentTypeCatalogItem> AssignmentTypeCatalogItems => Set<AssignmentTypeCatalogItem>();
 
+    public DbSet<SubstitutionTypeCatalogItem> SubstitutionTypeCatalogItems => Set<SubstitutionTypeCatalogItem>();
+
+    public DbSet<AssetAccessTypeCatalogItem> AssetAccessTypeCatalogItems => Set<AssetAccessTypeCatalogItem>();
+
+    public DbSet<DeliveryStatusCatalogItem> DeliveryStatusCatalogItems => Set<DeliveryStatusCatalogItem>();
+
     public DbSet<PaymentMethodCatalogItem> PaymentMethodCatalogItems => Set<PaymentMethodCatalogItem>();
 
     public DbSet<EmploymentStatusCatalogItem> EmploymentStatusCatalogItems => Set<EmploymentStatusCatalogItem>();

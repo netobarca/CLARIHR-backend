@@ -96,6 +96,14 @@ public static class PersonnelFilePermissionCodes
     /// self-service check in the compensation read handlers.
     /// </summary>
     public const string ViewCompensation = "PersonnelFiles.ViewCompensation";
+
+    /// <summary>
+    /// Dedicated permission (D-09) to manage authorization substitutions (designar/editar/activar/eliminar
+    /// el sustituto de un empleado en ausencia). Separate from <see cref="Admin"/> (generic manage) so an HR
+    /// analyst can be granted substitution management without full personnel administration; reads stay on
+    /// <see cref="Read"/>. Follows the <see cref="ViewCompensation"/> precedent (Admin is a superset).
+    /// </summary>
+    public const string ManageSubstitutions = "PersonnelFiles.ManageSubstitutions";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

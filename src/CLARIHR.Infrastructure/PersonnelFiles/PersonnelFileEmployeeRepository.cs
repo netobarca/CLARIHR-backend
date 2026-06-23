@@ -581,16 +581,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid tenantId,
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         string? notes,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
             .SingleOrDefaultAsync(x => x.PublicId == authorizationSubstitutionPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionTitle, startDate, endDate, notes);
+        item.Update(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionSlotPublicId, substitutePositionTitleSnapshot, startDate, endDate, notes);
         return Map(item);
     }
 
@@ -599,9 +600,10 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid tenantId,
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         string? notes,
         bool isActive,
         bool isActiveMutated,
@@ -610,7 +612,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
             .SingleOrDefaultAsync(x => x.PublicId == authorizationSubstitutionPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionTitle, startDate, endDate, notes);
+        item.Update(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionSlotPublicId, substitutePositionTitleSnapshot, startDate, endDate, notes);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -1791,7 +1793,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.PublicId,
             item.SubstitutionTypeCode,
             item.SubstitutePersonnelFilePublicId,
-            item.SubstitutePositionTitle,
+            item.SubstitutePositionSlotPublicId,
+            item.SubstitutePositionTitleSnapshot,
             item.StartDate,
             item.EndDate,
             item.IsActive,

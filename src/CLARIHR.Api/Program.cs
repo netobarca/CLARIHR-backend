@@ -447,6 +447,17 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ViewCompensation, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // ManageSubstitutions (D-09) — write policy for authorization substitutions, kept a superset of the
+    // precise EnsureCanManageSubstitutionsAsync handler gate (the dedicated permission, or Admin / IAM
+    // super-admin) so a legitimate manager is never falsely 403'd; reads stay on the Read policy.
+    options.AddPolicy(PersonnelFilePolicies.ManageSubstitutions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageSubstitutions,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

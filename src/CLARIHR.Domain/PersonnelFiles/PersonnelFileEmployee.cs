@@ -427,9 +427,10 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
     private PersonnelFileAuthorizationSubstitution(
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         bool isActive,
         string? notes)
     {
@@ -437,7 +438,8 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
         SubstitutionTypeCode = PersonnelFileNormalization.Clean(substitutionTypeCode, nameof(substitutionTypeCode));
         SubstitutePersonnelFilePublicId = substitutePersonnelFilePublicId;
-        SubstitutePositionTitle = PersonnelFileNormalization.CleanOptional(substitutePositionTitle);
+        SubstitutePositionSlotPublicId = substitutePositionSlotPublicId;
+        SubstitutePositionTitleSnapshot = PersonnelFileNormalization.CleanOptional(substitutePositionTitleSnapshot);
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
         IsActive = isActive;
@@ -452,11 +454,16 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
 
     public Guid SubstitutePersonnelFilePublicId { get; private set; }
 
-    public string? SubstitutePositionTitle { get; private set; }
+    // The substitute's position is a reference to one of their ACTIVE position-slot assignments (D-02),
+    // not free text; the title at designation time is snapshotted alongside it for history/UI (RF-003).
+    public Guid SubstitutePositionSlotPublicId { get; private set; }
+
+    public string? SubstitutePositionTitleSnapshot { get; private set; }
 
     public DateTime StartDate { get; private set; }
 
-    public DateTime? EndDate { get; private set; }
+    // End date is mandatory (D-03): no open-ended substitutions.
+    public DateTime EndDate { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -469,25 +476,28 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
     public static PersonnelFileAuthorizationSubstitution Create(
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         bool isActive,
         string? notes) =>
-        new(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionTitle, startDate, endDate, isActive, notes);
+        new(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionSlotPublicId, substitutePositionTitleSnapshot, startDate, endDate, isActive, notes);
 
     public void Update(
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         string? notes)
     {
         ConcurrencyToken = Guid.NewGuid();
         SubstitutionTypeCode = PersonnelFileNormalization.Clean(substitutionTypeCode, nameof(substitutionTypeCode));
         SubstitutePersonnelFilePublicId = substitutePersonnelFilePublicId;
-        SubstitutePositionTitle = PersonnelFileNormalization.CleanOptional(substitutePositionTitle);
+        SubstitutePositionSlotPublicId = substitutePositionSlotPublicId;
+        SubstitutePositionTitleSnapshot = PersonnelFileNormalization.CleanOptional(substitutePositionTitleSnapshot);
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
         Notes = PersonnelFileNormalization.CleanOptional(notes);

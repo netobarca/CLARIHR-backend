@@ -386,6 +386,57 @@ internal sealed class DevSeedService(
             dbContext.PaymentMethodCatalogItems.Add(entity);
         }
 
+        var substitutionTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("VACACIONES", "Vacaciones", 10),
+            ("INCAPACIDAD", "Incapacidad", 20),
+            ("PERMISO", "Permiso", 30),
+            ("MISION_OFICIAL", "Misión oficial", 40),
+            ("LICENCIA", "Licencia", 50),
+            ("OTRO", "Otro", 60),
+        };
+
+        foreach (var item in substitutionTypes)
+        {
+            var entity = SubstitutionTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.SubstitutionTypeCatalogItems.Add(entity);
+        }
+
+        var assetAccessTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("EQUIPO_COMPUTO", "Equipo de cómputo", 10),
+            ("TELEFONO_MOVIL", "Teléfono móvil", 20),
+            ("UNIFORME", "Uniforme", 30),
+            ("LICENCIA_SOFTWARE", "Licencia de software", 40),
+            ("ACCESO_SISTEMA", "Acceso a sistema", 50),
+            ("MOBILIARIO", "Mobiliario", 60),
+            ("HERRAMIENTA", "Herramienta", 70),
+            ("OTRO", "Otro", 80),
+        };
+
+        foreach (var item in assetAccessTypes)
+        {
+            var entity = AssetAccessTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.AssetAccessTypeCatalogItems.Add(entity);
+        }
+
+        var deliveryStatuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("PENDIENTE", "Pendiente", 10),
+            ("ENTREGADO", "Entregado", 20),
+            ("EN_USO", "En uso", 30),
+            ("DEVUELTO", "Devuelto", 40),
+            ("EXTRAVIADO", "Extraviado", 50),
+            ("DANADO", "Dañado", 60),
+            ("NO_APLICA", "No aplica", 70),
+        };
+
+        foreach (var item in deliveryStatuses)
+        {
+            var entity = DeliveryStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.DeliveryStatusCatalogItems.Add(entity);
+        }
+
         foreach (var item in employmentStatuses)
         {
             var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);

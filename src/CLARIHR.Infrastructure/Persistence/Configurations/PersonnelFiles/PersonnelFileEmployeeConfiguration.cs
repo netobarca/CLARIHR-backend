@@ -168,7 +168,7 @@ internal sealed class PersonnelFileAuthorizationSubstitutionConfiguration : IEnt
         builder.ToTable("personnel_file_authorization_substitutions", table =>
             table.HasCheckConstraint(
                 "ck_personnel_file_authorization_substitutions__dates",
-                "end_date is null or end_date >= start_date"));
+                "end_date >= start_date"));
 
         builder.HasKey(item => item.Id).HasName("pk_personnel_file_authorization_substitutions");
 
@@ -178,7 +178,8 @@ internal sealed class PersonnelFileAuthorizationSubstitutionConfiguration : IEnt
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.SubstitutionTypeCode).HasColumnName("substitution_type_code").HasMaxLength(80);
         builder.Property(item => item.SubstitutePersonnelFilePublicId).HasColumnName("substitute_personnel_file_public_id");
-        builder.Property(item => item.SubstitutePositionTitle).HasColumnName("substitute_position_title").HasMaxLength(120);
+        builder.Property(item => item.SubstitutePositionSlotPublicId).HasColumnName("substitute_position_slot_public_id");
+        builder.Property(item => item.SubstitutePositionTitleSnapshot).HasColumnName("substitute_position_title_snapshot").HasMaxLength(120);
         builder.Property(item => item.StartDate).HasColumnName("start_date");
         builder.Property(item => item.EndDate).HasColumnName("end_date");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
@@ -196,6 +197,8 @@ internal sealed class PersonnelFileAuthorizationSubstitutionConfiguration : IEnt
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_authorization_substitutions__public_id");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.SubstitutionTypeCode, item.IsActive })
             .HasDatabaseName("ix_personnel_file_authorization_substitutions__tenant_file_type_active");
+        builder.HasIndex(item => item.SubstitutePositionSlotPublicId)
+            .HasDatabaseName("ix_personnel_file_authorization_substitutions__substitute_slot");
     }
 }
 
@@ -281,7 +284,17 @@ internal sealed class PersonnelFileAssetAccessConfiguration : IEntityTypeConfigu
 {
     public void Configure(EntityTypeBuilder<PersonnelFileAssetAccess> builder)
     {
-        builder.ToTable("personnel_file_assets_accesses");
+        builder.ToTable("personnel_file_assets_accesses", table =>
+        {
+            // (RF-101) Intra-record date coherence as a DB backstop for the application rules; both dates are
+            // optional, so the constraint only bites when present.
+            table.HasCheckConstraint(
+                "ck_personnel_file_assets_accesses__dates",
+                "end_date_utc is null or end_date_utc >= start_date_utc");
+            table.HasCheckConstraint(
+                "ck_personnel_file_assets_accesses__delivery_date",
+                "delivery_date_utc is null or delivery_date_utc >= start_date_utc");
+        });
         builder.HasKey(item => item.Id).HasName("pk_personnel_file_assets_accesses");
 
         builder.Property(item => item.Id).HasColumnName("id");
