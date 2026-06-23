@@ -6,11 +6,12 @@ namespace CLARIHR.Application.UnitTests;
 /// <summary>
 /// Unit coverage for the canonical authorization-substitution JSON Patch surface: the pure
 /// <see cref="PersonnelFileAuthorizationSubstitutionPatchApplier"/> and the
-/// <see cref="PersonnelFileAuthorizationSubstitutionPatchState"/> projection. The substitution's
-/// <c>isActive</c> flag is patchable (replacing the former dedicated <c>/deactivate</c> endpoint),
-/// and the <c>substitutePersonnelFileId</c> target is patchable too (the handler re-runs the
-/// self-substitution guard against the patched state), so the applier must accept boolean and UUID
-/// values and flag the mutation while preserving the business-field validation.
+/// <see cref="PersonnelFileAuthorizationSubstitutionPatchState"/> projection. After the D-01…D-12 hardening
+/// the substitute's position is a reference to one of the substitute's active slots
+/// (<c>substitutePositionSlotId</c>, required, not removable) and the end date is mandatory (D-03, not
+/// removable). The <c>isActive</c> flag stays patchable (replacing the former dedicated <c>/deactivate</c>
+/// endpoint), and the <c>substitutePersonnelFileId</c> target stays patchable too (the handler re-runs the
+/// self-substitution guard against the patched state).
 /// </summary>
 public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
 {
@@ -18,6 +19,7 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
         new(
             Guid.NewGuid(),
             "VACATION",
+            Guid.NewGuid(),
             Guid.NewGuid(),
             "Acting supervisor",
             new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -40,7 +42,8 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
 
         Assert.Equal("VACATION", state.SubstitutionTypeCode);
         Assert.Equal(baseline.SubstitutePersonnelFileId, state.SubstitutePersonnelFileId);
-        Assert.Equal("Acting supervisor", state.SubstitutePositionTitle);
+        Assert.Equal(baseline.SubstitutePositionSlotPublicId, state.SubstitutePositionSlotId);
+        Assert.Equal(baseline.EndDate, state.EndDate);
         Assert.Equal("Covers vacation.", state.Notes);
         Assert.True(state.IsActive);
         Assert.False(state.IsActiveMutated);
@@ -55,7 +58,8 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
 
         Assert.Equal("VACATION", input.SubstitutionTypeCode);
         Assert.Equal(baseline.SubstitutePersonnelFileId, input.SubstitutePersonnelFileId);
-        Assert.Equal("Acting supervisor", input.SubstitutePositionTitle);
+        Assert.Equal(baseline.SubstitutePositionSlotPublicId, input.SubstitutePositionSlotPublicId);
+        Assert.Equal(baseline.EndDate, input.EndDate);
         Assert.True(input.IsActive);
     }
 
@@ -94,6 +98,33 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
         var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
 
         Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Replace("/substitutePersonnelFileId", "not-a-guid")], state).IsFailure);
+    }
+
+    [Fact]
+    public void Apply_ReplaceSubstitutePositionSlotId_Mutates()
+    {
+        var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+        var newSlot = Guid.NewGuid();
+
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Replace("/substitutePositionSlotId", newSlot)], state).IsSuccess);
+        Assert.Equal(newSlot, state.SubstitutePositionSlotId);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_RemoveSubstitutePositionSlotId_Fails()
+    {
+        var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Remove("/substitutePositionSlotId")], state).IsFailure);
+    }
+
+    [Fact]
+    public void Apply_NonGuidForSubstitutePositionSlotId_Fails()
+    {
+        var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Replace("/substitutePositionSlotId", "not-a-guid")], state).IsFailure);
     }
 
     [Fact]
@@ -144,22 +175,22 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
     }
 
     [Fact]
-    public void Apply_RemoveEndDate_ClearsValue()
+    public void Apply_RemoveEndDate_Fails()
     {
+        // D-03: the end date is mandatory and cannot be removed.
         var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Remove("/endDate")], state).IsSuccess);
-        Assert.Null(state.EndDate);
-        Assert.True(state.HasMutation);
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Remove("/endDate")], state).IsFailure);
     }
 
     [Fact]
-    public void Apply_RemoveOptionalSubstitutePositionTitle_ClearsValue()
+    public void Apply_ReplaceEndDate_Mutates()
     {
         var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+        var newEnd = new DateTime(2026, 2, 28, 0, 0, 0, DateTimeKind.Utc);
 
-        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Remove("/substitutePositionTitle")], state).IsSuccess);
-        Assert.Null(state.SubstitutePositionTitle);
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Apply([Replace("/endDate", newEnd)], state).IsSuccess);
+        Assert.Equal(newEnd, state.EndDate);
         Assert.True(state.HasMutation);
     }
 
@@ -252,6 +283,26 @@ public sealed class PersonnelFileAuthorizationSubstitutionPatchTests
     {
         var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
         state.SubstitutePersonnelFileId = Guid.Empty;
+
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_EmptySubstitutePositionSlotId_Fails()
+    {
+        var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+        state.SubstitutePositionSlotId = Guid.Empty;
+
+        Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_MissingEndDate_Fails()
+    {
+        // D-03: a substitution without an end date is invalid (the applier blocks removal; this guards
+        // the state directly in case a caller never set it).
+        var state = PersonnelFileAuthorizationSubstitutionPatchState.From(Baseline());
+        state.EndDate = null;
 
         Assert.True(PersonnelFileAuthorizationSubstitutionPatchApplier.Validate(state).IsFailure);
     }

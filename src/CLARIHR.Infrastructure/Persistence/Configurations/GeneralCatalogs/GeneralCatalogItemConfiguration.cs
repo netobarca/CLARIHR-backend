@@ -9,7 +9,8 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
     string primaryKeyName,
     string publicIdIndexName,
     string countryCodeIndexName,
-    string countryActiveSortIndexName)
+    string countryActiveSortIndexName,
+    IEnumerable<object>? seedData = null)
     : IEntityTypeConfiguration<TCatalogItem>
     where TCatalogItem : GeneralCatalogItem
 {
@@ -49,6 +50,13 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
 
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
+
+        // Most general catalogs are seeded per-country at runtime (DevSeedService); the ones that must
+        // exist in every environment opt in by passing static HasData here (see EmploymentStatusCatalogItem).
+        if (seedData is not null)
+        {
+            builder.HasData(seedData);
+        }
     }
 }
 
@@ -108,6 +116,62 @@ internal sealed class AssignmentTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class PaymentMethodCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PaymentMethodCatalogItem>
+{
+    public PaymentMethodCatalogItemConfiguration()
+        : base(
+            "payment_method_catalog_items",
+            "pk_payment_method_catalog_items",
+            "uq_payment_method_catalog_items__public_id",
+            "uq_payment_method_catalog_items__country_code",
+            "ix_payment_method_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class SubstitutionTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<SubstitutionTypeCatalogItem>
+{
+    public SubstitutionTypeCatalogItemConfiguration()
+        : base(
+            "substitution_type_catalog_items",
+            "pk_substitution_type_catalog_items",
+            "uq_substitution_type_catalog_items__public_id",
+            "uq_substitution_type_catalog_items__country_code",
+            "ix_substitution_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class AssetAccessTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<AssetAccessTypeCatalogItem>
+{
+    public AssetAccessTypeCatalogItemConfiguration()
+        : base(
+            "asset_access_type_catalog_items",
+            "pk_asset_access_type_catalog_items",
+            "uq_asset_access_type_catalog_items__public_id",
+            "uq_asset_access_type_catalog_items__country_code",
+            "ix_asset_access_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class DeliveryStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<DeliveryStatusCatalogItem>
+{
+    public DeliveryStatusCatalogItemConfiguration()
+        : base(
+            "delivery_status_catalog_items",
+            "pk_delivery_status_catalog_items",
+            "uq_delivery_status_catalog_items__public_id",
+            "uq_delivery_status_catalog_items__country_code",
+            "ix_delivery_status_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class EmploymentStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<EmploymentStatusCatalogItem>
 {
@@ -117,7 +181,8 @@ internal sealed class EmploymentStatusCatalogItemConfiguration
             "pk_employment_status_catalog_items",
             "uq_employment_status_catalog_items__public_id",
             "uq_employment_status_catalog_items__country_code",
-            "ix_employment_status_catalog_items__country_active_sort")
+            "ix_employment_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetEmploymentStatusCatalogItems())
     {
     }
 }

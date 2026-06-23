@@ -1311,6 +1311,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguageLevel", cancellationToken),
             "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumTrainingType", cancellationToken),
             "CURRICULUMASSIGNMENTTYPE" => await GetCountryScopedCatalogItemsAsync<AssignmentTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumAssignmentType", cancellationToken),
+            "CURRICULUMSUBSTITUTIONTYPE" => await GetCountryScopedCatalogItemsAsync<SubstitutionTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumSubstitutionType", cancellationToken),
             "EMPLOYMENTSTATUS" => await GetCountryScopedCatalogItemsAsync<EmploymentStatusCatalogItem>(countryCatalogItemId.Value, "EmploymentStatus", cancellationToken),
             "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(countryCatalogItemId.Value, "CurriculumDurationUnit", cancellationToken),
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumReferenceType", cancellationToken),
@@ -1319,6 +1320,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATIONCONCEPTTYPE" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(countryCatalogItemId.Value, "CompensationConceptType", cancellationToken),
             "PAYPERIOD" => await GetCountryScopedCatalogItemsAsync<PayPeriodCatalogItem>(countryCatalogItemId.Value, "PayPeriod", cancellationToken),
             "CALCULATIONBASE" => await GetCountryScopedCatalogItemsAsync<CalculationBaseCatalogItem>(countryCatalogItemId.Value, "CalculationBase", cancellationToken),
+            "PAYMENTMETHOD" => await GetCountryScopedCatalogItemsAsync<PaymentMethodCatalogItem>(countryCatalogItemId.Value, "PaymentMethod", cancellationToken),
+            "ASSETACCESSTYPE" => await GetCountryScopedCatalogItemsAsync<AssetAccessTypeCatalogItem>(countryCatalogItemId.Value, "AssetAccessType", cancellationToken),
+            "DELIVERYSTATUS" => await GetCountryScopedCatalogItemsAsync<DeliveryStatusCatalogItem>(countryCatalogItemId.Value, "DeliveryStatus", cancellationToken),
             _ => []
         };
     }
@@ -1388,6 +1392,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "KINSHIP" => await GetFlatReferenceCatalogItemsAsync<KinshipCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "DEPARTMENT" => await GetFlatReferenceCatalogItemsAsync<DepartmentCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "MUNICIPALITY" => await GetMunicipalityCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
+            "INSURANCETYPE" => await GetFlatReferenceCatalogItemsAsync<InsuranceTypeCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "INSURANCERANGE" => await GetInsuranceRangeCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             _ => []
         };
     }
@@ -1427,6 +1433,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRICULUMLANGUAGELEVEL" => await IsCountryScopedCatalogCodeActiveAsync<LanguageLevelCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMTRAININGTYPE" => await IsCountryScopedCatalogCodeActiveAsync<TrainingTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMASSIGNMENTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssignmentTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CURRICULUMSUBSTITUTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<SubstitutionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "EMPLOYMENTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EmploymentStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMDURATIONUNIT" => await IsCountryScopedCatalogCodeActiveAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMREFERENCETYPE" => await IsCountryScopedCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
@@ -1434,6 +1441,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATIONCONCEPTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "PAYPERIOD" => await IsCountryScopedCatalogCodeActiveAsync<PayPeriodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CALCULATIONBASE" => await IsCountryScopedCatalogCodeActiveAsync<CalculationBaseCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "PAYMENTMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<PaymentMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ASSETACCESSTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssetAccessTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "DELIVERYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<DeliveryStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }
@@ -1467,6 +1477,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "KINSHIP" => IsCountryScopedCatalogCodeActiveAsync<KinshipCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "DEPARTMENT" => IsCountryScopedCatalogCodeActiveAsync<DepartmentCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "MUNICIPALITY" => IsCountryScopedCatalogCodeActiveAsync<MunicipalityCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "INSURANCETYPE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceTypeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "INSURANCERANGE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceRangeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             _ => Task.FromResult(false)
         };
     }
@@ -1491,6 +1503,30 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                   municipality.NormalizedCode == normalizedMunicipalityCode &&
                   department.NormalizedCode == normalizedDepartmentCode
             select municipality.Id;
+
+        return query.AnyAsync(cancellationToken);
+    }
+
+    public Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(
+        string countryCode,
+        string insuranceTypeCode,
+        string insuranceRangeCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedTypeCode = insuranceTypeCode.Trim().ToUpperInvariant();
+        var normalizedRangeCode = insuranceRangeCode.Trim().ToUpperInvariant();
+        var query =
+            from range in dbContext.InsuranceRangeCatalogItems.AsNoTracking()
+            join type in dbContext.InsuranceTypeCatalogItems.AsNoTracking()
+                on range.InsuranceTypeCatalogItemId equals type.Id
+            where range.IsActive &&
+                  type.IsActive &&
+                  range.CountryCode == normalizedCountryCode &&
+                  type.CountryCode == normalizedCountryCode &&
+                  range.NormalizedCode == normalizedRangeCode &&
+                  type.NormalizedCode == normalizedTypeCode
+            select range.Id;
 
         return query.AnyAsync(cancellationToken);
     }
@@ -2430,6 +2466,32 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         if (!string.IsNullOrWhiteSpace(parentCode))
         {
             query = query.Where(item => item.DepartmentCatalogItem != null && item.DepartmentCatalogItem.NormalizedCode == parentCode);
+        }
+
+        return query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelReferenceCatalogItemResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>)task.Result, cancellationToken);
+    }
+
+    private Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetInsuranceRangeCatalogItemsAsync(
+        long countryCatalogItemId,
+        string? parentCode,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.InsuranceRangeCatalogItems
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId && item.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(parentCode))
+        {
+            query = query.Where(item => item.InsuranceTypeCatalogItem != null && item.InsuranceTypeCatalogItem.NormalizedCode == parentCode);
         }
 
         return query

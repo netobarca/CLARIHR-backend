@@ -32,7 +32,9 @@ public sealed record PersonnelFileEmploymentAssignmentResponse(
     bool IsPrimary,
     bool IsActive,
     string? Notes,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null)
 {
     [JsonIgnore]
     public Guid Id => EmploymentAssignmentPublicId;
@@ -51,7 +53,9 @@ public sealed record EmploymentAssignmentInput(
     DateTime? EndDate,
     bool IsPrimary,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null);
 
 public sealed record AddPersonnelFileEmploymentAssignmentCommand(
     Guid PersonnelFileId,
@@ -98,6 +102,7 @@ internal sealed class EmploymentAssignmentInputValidator : AbstractValidator<Emp
         RuleFor(input => input.ContractTypeCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.ContractTypeCode));
         RuleFor(input => input.WorkdayCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.WorkdayCode));
         RuleFor(input => input.PayrollTypeCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.PayrollTypeCode));
+        RuleFor(input => input.PaymentMethodCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.PaymentMethodCode));
         RuleFor(input => input.PositionSlotId).NotNull();
         RuleFor(input => input.StartDate).LessThanOrEqualTo(input => input.EndDate!.Value).When(input => input.EndDate.HasValue);
     }
@@ -175,6 +180,8 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
     public string? ContractTypeCode { get; set; }
     public string? WorkdayCode { get; set; }
     public string? PayrollTypeCode { get; set; }
+    public string? PaymentMethodCode { get; set; }
+    public Guid? PaymentBankAccountPublicId { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
@@ -194,6 +201,8 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
             ContractTypeCode = response.ContractTypeCode,
             WorkdayCode = response.WorkdayCode,
             PayrollTypeCode = response.PayrollTypeCode,
+            PaymentMethodCode = response.PaymentMethodCode,
+            PaymentBankAccountPublicId = response.PaymentBankAccountPublicId,
             PositionSlotId = response.PositionSlotId,
             OrgUnitId = response.OrgUnitId,
             WorkCenterId = response.WorkCenterId,
@@ -219,6 +228,8 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
             EndDate,
             IsPrimary,
             IsActive,
-            Notes);
+            Notes,
+            PaymentMethodCode,
+            PaymentBankAccountPublicId);
 }
 

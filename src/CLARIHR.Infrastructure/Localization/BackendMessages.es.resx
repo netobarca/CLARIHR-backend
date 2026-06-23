@@ -1633,4 +1633,43 @@
   <data name="EMPLOYMENT_STATUS_CODE_INVALID" xml:space="preserve">
     <value>El codigo de estado de empleo no es valido para el catalogo activo.</value>
   </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontro al sustituto seleccionado.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_NOT_ELIGIBLE" xml:space="preserve">
+    <value>El sustituto debe ser un empleado activo y completado de la misma empresa.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de sustitucion no es valido en el catalogo activo.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_POSITION_NOT_OWNED" xml:space="preserve">
+    <value>La plaza seleccionada debe ser una asignacion activa del sustituto.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_PERIOD_OVERLAP" xml:space="preserve">
+    <value>El empleado ya tiene una sustitucion activa con un periodo vigente que se solapa.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_UNAVAILABLE" xml:space="preserve">
+    <value>El sustituto no esta disponible: esta siendo sustituido (ausente) en un periodo que se solapa.</value>
+  </data>
+  <data name="ASSET_ACCESS_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de equipo o acceso no es valido en el catalogo activo.</value>
+  </data>
+  <data name="ASSET_ACCESS_DELIVERY_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El estado de entrega no es valido en el catalogo activo.</value>
+  </data>
+  <data name="ASSET_ACCESS_DATE_RANGE_INVALID" xml:space="preserve">
+    <value>La fecha de baja no puede ser anterior a la fecha de alta.</value>
+  </data>
+  <data name="ASSET_ACCESS_DELIVERY_DATE_INVALID" xml:space="preserve">
+    <value>La fecha de entrega no puede ser anterior a la fecha de alta.</value>
+  </data>
+  <data name="INSURANCE_POLICY_DUPLICATE" xml:space="preserve">
+    <value>El empleado ya tiene un seguro con el mismo número de póliza.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_DUPLICATE" xml:space="preserve">
+    <value>Este seguro ya tiene un beneficiario con el mismo documento.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_ALLOCATION_INVALID" xml:space="preserve">
+    <value>Los beneficiarios principales activos no pueden exceder el 100 % de asignación en este seguro.</value>
+  </data>
 </root>

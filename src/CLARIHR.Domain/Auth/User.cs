@@ -203,6 +203,20 @@ public sealed class User : AuditableEntity
         LastName = AuthNormalization.Clean(lastName, nameof(lastName));
     }
 
+    /// <summary>
+    /// Changes the account's email (and its normalized form, the sign-in identifier). Used when an
+    /// employee's institutional email — which is their account identifier — is edited from the personnel
+    /// file. Uniqueness is enforced by the caller and, as a backstop, by the unique index on the normalized
+    /// email. The credential and account status are preserved, so the employee keeps signing in with the
+    /// same password under the new email.
+    /// </summary>
+    public void ChangeEmail(string email)
+    {
+        var normalizedEmail = AuthNormalization.NormalizeEmail(email);
+        Email = normalizedEmail;
+        NormalizedEmail = normalizedEmail;
+    }
+
     public void SetPendingActivationPassword(string passwordHash)
     {
         if (AuthProvider != AuthProvider.Local)

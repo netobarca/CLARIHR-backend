@@ -43,13 +43,22 @@ internal abstract class PersonnelReferenceCatalogItemConfigurationBase<TCatalogI
             .IsUnique()
             .HasDatabaseName(publicIdIndexName);
 
-        builder.HasIndex(item => new { item.CountryCatalogItemId, item.NormalizedCode })
-            .IsUnique()
-            .HasDatabaseName(countryCodeIndexName);
+        ConfigureUniqueCodeIndex(builder);
 
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
     }
+
+    /// <summary>
+    /// Declares the per-country uniqueness of the catalog code. Most reference catalogs are unique on
+    /// <c>(country, normalized code)</c>; a subclass whose code is scoped to a parent (e.g. an insurance
+    /// range under an insurance type) overrides this to widen the key so the same code may legitimately
+    /// repeat under different parents.
+    /// </summary>
+    protected virtual void ConfigureUniqueCodeIndex(EntityTypeBuilder<TCatalogItem> builder) =>
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName(countryCodeIndexName);
 }
 
 internal sealed class IdentificationTypeCatalogItemConfiguration
@@ -151,4 +160,57 @@ internal sealed class MunicipalityCatalogItemConfiguration
         builder.HasIndex(item => new { item.DepartmentCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName("ix_municipality_catalog_items__department_active_sort");
     }
+}
+
+internal sealed class InsuranceTypeCatalogItemConfiguration
+    : PersonnelReferenceCatalogItemConfigurationBase<InsuranceTypeCatalogItem>
+{
+    public InsuranceTypeCatalogItemConfiguration()
+        : base(
+            "insurance_type_catalog_items",
+            "pk_insurance_type_catalog_items",
+            "uq_insurance_type_catalog_items__public_id",
+            "uq_insurance_type_catalog_items__country_code",
+            "ix_insurance_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class InsuranceRangeCatalogItemConfiguration
+    : PersonnelReferenceCatalogItemConfigurationBase<InsuranceRangeCatalogItem>
+{
+    public InsuranceRangeCatalogItemConfiguration()
+        : base(
+            "insurance_range_catalog_items",
+            "pk_insurance_range_catalog_items",
+            "uq_insurance_range_catalog_items__public_id",
+            "uq_insurance_range_catalog_items__country_code",
+            "ix_insurance_range_catalog_items__country_active_sort")
+    {
+    }
+
+    public override void Configure(EntityTypeBuilder<InsuranceRangeCatalogItem> builder)
+    {
+        base.Configure(builder);
+
+        builder.Property(item => item.InsuranceTypeCatalogItemId)
+            .HasColumnName("insurance_type_catalog_item_id");
+
+        builder.HasOne(item => item.InsuranceTypeCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.InsuranceTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_insurance_range_catalog_items__insurance_type");
+
+        builder.HasIndex(item => new { item.InsuranceTypeCatalogItemId, item.IsActive, item.SortOrder })
+            .HasDatabaseName("ix_insurance_range_catalog_items__type_active_sort");
+    }
+
+    // A range code (BASICO/INTERMEDIO/PREMIUM/…) is scoped to its insurance type, so the same code may
+    // legitimately repeat under different types — the unique key must include the type, not just
+    // (country, code). Keeping the base (country, code) key would reject the second "BASICO".
+    protected override void ConfigureUniqueCodeIndex(EntityTypeBuilder<InsuranceRangeCatalogItem> builder) =>
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.InsuranceTypeCatalogItemId, item.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName("uq_insurance_range_catalog_items__country_code");
 }

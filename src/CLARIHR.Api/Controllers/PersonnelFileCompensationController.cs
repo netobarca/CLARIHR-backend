@@ -365,178 +365,6 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
-    // ─── Payment Methods ──────────────────────────────────────────────────────
-
-    [HttpGet("api/v1/personnel-files/{publicId:guid}/payment-methods")]
-    [Produces("application/json")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Read)]
-    [SwaggerOperation(
-        Summary = "List a personnel file's payment methods",
-        Description = """
-            Returns every payment method recorded for the specified personnel file. Each item
-            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
-            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
-            """)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>> GetPaymentMethods(
-        Guid publicId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePaymentMethodsQuery(publicId), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
-    [Produces("application/json")]
-    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Read)]
-    [SwaggerOperation(
-        Summary = "Get a personnel file payment method by id",
-        Description = """
-            Returns a single payment method of the specified personnel file. The `concurrencyToken`
-            in the response is required in the `If-Match` header of subsequent
-            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
-            """)]
-    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> GetPaymentMethodById(
-        Guid publicId,
-        Guid paymentMethodPublicId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(
-            new GetPersonnelFilePaymentMethodByIdQuery(publicId, paymentMethodPublicId),
-            cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpPost("api/v1/personnel-files/{publicId:guid}/payment-methods")]
-    [Consumes("application/json")]
-    [Produces("application/json")]
-    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status201Created)]
-    [ProducesStandardErrors(StandardErrorSet.Command)]
-    [SwaggerOperation(
-        Summary = "Add a payment method to a personnel file",
-        Description = """
-            Creates a new payment method under the specified personnel file and returns it with a
-            `201 Created` response. The `Location` header points to the created resource and the
-            `ETag` header carries its initial `concurrencyToken`.
-            """)]
-    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> AddPaymentMethod(
-        Guid publicId,
-        [FromBody] AddPaymentMethodRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new AddPersonnelFilePaymentMethodCommand(
-                publicId,
-                new PaymentMethodInput(
-                    request.PaymentMethodCode,
-                    request.BankAccountPublicId,
-                    request.IsPrimary,
-                    request.IsActive,
-                    request.EffectiveFromUtc,
-                    request.EffectiveToUtc,
-                    request.Notes)),
-            cancellationToken);
-
-        return this.ToCreatedAtActionResult(
-            result,
-            nameof(GetPaymentMethodById),
-            value => new { publicId, paymentMethodPublicId = value.PaymentMethodPublicId },
-            value => value.ConcurrencyToken);
-    }
-
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
-    [Consumes("application/json")]
-    [Produces("application/json")]
-    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Command)]
-    [SwaggerOperation(
-        Summary = "Replace a personnel file payment method",
-        Description = """
-            Replaces the business fields of an existing payment method. The active state is
-            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
-            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
-            """)]
-    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> UpdatePaymentMethod(
-        Guid publicId,
-        Guid paymentMethodPublicId,
-        [FromIfMatch] Guid concurrencyToken,
-        [FromBody] UpdatePaymentMethodRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new UpdatePersonnelFilePaymentMethodCommand(
-                publicId,
-                paymentMethodPublicId,
-                new PaymentMethodInput(
-                    request.PaymentMethodCode,
-                    request.BankAccountPublicId,
-                    request.IsPrimary,
-                    IsActive: true,
-                    request.EffectiveFromUtc,
-                    request.EffectiveToUtc,
-                    request.Notes),
-                concurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
-    }
-
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
-    [Consumes("application/json-patch+json")]
-    [Produces("application/json")]
-    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
-    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Command)]
-    [SwaggerOperation(
-        Summary = "Patch a personnel file payment method",
-        Description = """
-            Applies a JSON Patch document (RFC 6902, media type
-            `application/json-patch+json`) to an existing payment method. Supports the business
-            fields and the `isActive` flag. Requires the `If-Match` header with the current
-            `concurrencyToken`; the new token is returned in the `ETag` header.
-            """)]
-    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> PatchPaymentMethod(
-        Guid publicId,
-        Guid paymentMethodPublicId,
-        [FromIfMatch] Guid concurrencyToken,
-        [FromBody] JsonPatchDocument<PatchPaymentMethodRequest> patchDoc,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new PatchPersonnelFilePaymentMethodCommand(
-                publicId,
-                paymentMethodPublicId,
-                concurrencyToken,
-                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFilePaymentMethodPatchOperation(op, path, from, value))),
-            cancellationToken);
-
-        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
-    }
-
-    [HttpDelete("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
-    [SwaggerOperation(
-        Summary = "Remove a payment method from a personnel file",
-        Description = """
-            Deletes the specified payment method. Requires the `If-Match` header with the current
-            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
-            so the caller can keep mutating without an extra round-trip.
-            """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeletePaymentMethod(
-        Guid publicId,
-        Guid paymentMethodPublicId,
-        [FromIfMatch] Guid concurrencyToken,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new DeletePersonnelFilePaymentMethodCommand(publicId, paymentMethodPublicId, concurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
-    }
-
     // ─── Payroll Transactions ─────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/payroll-transactions")]
@@ -989,8 +817,11 @@ public sealed class PersonnelFileCompensationController(
                 new InsuranceBeneficiaryInput(
                     request.FullName,
                     request.DocumentNumber,
+                    request.DocumentTypeCode,
                     request.BirthDate,
-                    request.KinshipCode)),
+                    request.KinshipCode,
+                    request.AllocationPercentage,
+                    request.BeneficiaryType)),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -1028,8 +859,11 @@ public sealed class PersonnelFileCompensationController(
                 new InsuranceBeneficiaryInput(
                     request.FullName,
                     request.DocumentNumber,
+                    request.DocumentTypeCode,
                     request.BirthDate,
-                    request.KinshipCode),
+                    request.KinshipCode,
+                    request.AllocationPercentage,
+                    request.BeneficiaryType),
                 concurrencyToken),
             cancellationToken);
 

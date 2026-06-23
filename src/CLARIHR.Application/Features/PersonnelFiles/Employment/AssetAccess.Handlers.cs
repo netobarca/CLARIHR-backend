@@ -17,6 +17,39 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Shared cross-feature validation for the asset/access write handlers (Add/Update/Patch): catalog-backed
+/// type code (RF-102) and delivery-status code (RF-103), plus intra-record date coherence (RF-101). Mirrors
+/// <see cref="AuthorizationSubstitutionCommandSupport"/> so each invariant has a single home and the handlers stay thin.
+/// </summary>
+internal static class AssetAccessCommandSupport
+{
+    public static async Task<Result> ValidateAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        PersonnelFile titular,
+        AssetAccessInput input,
+        CancellationToken cancellationToken)
+    {
+        // (RF-102) Type code must be an active asset-access-types catalog code for the company country.
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                titular.TenantId, PersonnelCurriculumCatalogCategories.AssetAccessType, input.AssetTypeCode, cancellationToken))
+        {
+            return Result.Failure(AssetAccessErrors.AssetTypeCodeInvalid);
+        }
+
+        // (RF-103) Delivery status is optional; when supplied it must be an active delivery-statuses catalog code.
+        if (!string.IsNullOrWhiteSpace(input.DeliveryStatusCode)
+            && !await personnelFileRepository.CatalogCodeIsActiveAsync(
+                titular.TenantId, PersonnelCurriculumCatalogCategories.DeliveryStatus, input.DeliveryStatusCode, cancellationToken))
+        {
+            return Result.Failure(AssetAccessErrors.DeliveryStatusCodeInvalid);
+        }
+
+        // (RF-101) Intra-record date coherence (end / delivery not earlier than start).
+        return AssetAccessRules.ValidateDates(input.StartDateUtc, input.EndDateUtc, input.DeliveryDateUtc);
+    }
+}
+
 internal sealed class AddPersonnelFileAssetAccessCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
@@ -46,6 +79,13 @@ internal sealed class AddPersonnelFileAssetAccessCommandHandler(
         if (!personnelFile!.IsCompletedEmployee)
         {
             return Result<PersonnelFileAssetAccessResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var validation = await AssetAccessCommandSupport.ValidateAsync(
+            personnelFileRepository, personnelFile, command.Item, cancellationToken);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileAssetAccessResponse>.Failure(validation.Error);
         }
 
         var entity = PersonnelFileAssetAccess.Create(
@@ -124,6 +164,13 @@ internal sealed class UpdatePersonnelFileAssetAccessCommandHandler(
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileAssetAccessResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var validation = await AssetAccessCommandSupport.ValidateAsync(
+            personnelFileRepository, personnelFile, command.Item, cancellationToken);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileAssetAccessResponse>.Failure(validation.Error);
         }
 
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
@@ -225,6 +272,13 @@ internal sealed class PatchPersonnelFileAssetAccessCommandHandler(
         }
 
         var input = state.ToInput();
+        var crossFeatureValidation = await AssetAccessCommandSupport.ValidateAsync(
+            personnelFileRepository, personnelFile, input, cancellationToken);
+        if (crossFeatureValidation.IsFailure)
+        {
+            return Result<PersonnelFileAssetAccessResponse>.Failure(crossFeatureValidation.Error);
+        }
+
         var response = await employeeRepository.PatchAssetAccessAsync(
             command.AssetAccessPublicId,
             personnelFile.TenantId,

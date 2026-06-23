@@ -25,6 +25,7 @@ public static class GeneralCatalogKeyMap
             ["language-levels"] = PersonnelCurriculumCatalogCategories.LanguageLevel,
             ["training-types"] = PersonnelCurriculumCatalogCategories.TrainingType,
             ["assignment-types"] = PersonnelCurriculumCatalogCategories.AssignmentType,
+            ["substitution-types"] = PersonnelCurriculumCatalogCategories.SubstitutionType,
             ["employment-statuses"] = PersonnelCurriculumCatalogCategories.EmploymentStatus,
             ["duration-units"] = PersonnelCurriculumCatalogCategories.DurationUnit,
             ["reference-types"] = PersonnelCurriculumCatalogCategories.ReferenceType,
@@ -40,6 +41,9 @@ public static class GeneralCatalogKeyMap
             ["compensation-concept-types"] = PersonnelCurriculumCatalogCategories.CompensationConceptType,
             ["pay-periods"] = PersonnelCurriculumCatalogCategories.PayPeriod,
             ["calculation-bases"] = PersonnelCurriculumCatalogCategories.CalculationBase,
+            ["payment-methods"] = PersonnelCurriculumCatalogCategories.PaymentMethod,
+            ["asset-access-types"] = PersonnelCurriculumCatalogCategories.AssetAccessType,
+            ["delivery-statuses"] = PersonnelCurriculumCatalogCategories.DeliveryStatus,
         };
 
     /// <summary>
@@ -54,6 +58,8 @@ public static class GeneralCatalogKeyMap
             ["kinships"] = PersonnelReferenceCatalogCategories.Kinship,
             ["departments"] = PersonnelReferenceCatalogCategories.Department,
             ["municipalities"] = PersonnelReferenceCatalogCategories.Municipality,
+            ["insurance-types"] = PersonnelReferenceCatalogCategories.InsuranceType,
+            ["insurance-ranges"] = PersonnelReferenceCatalogCategories.InsuranceRange,
         };
 
     /// <summary>Resolves a <c>general-catalogs</c> wire key to its category; <c>false</c> for an unknown key.</summary>

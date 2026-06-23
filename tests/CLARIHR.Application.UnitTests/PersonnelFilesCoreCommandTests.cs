@@ -380,6 +380,7 @@ public sealed class PersonnelFilesCoreCommandTests
         public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken) => Task.FromResult(true);
         public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) => Task.FromResult(true);
         public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(string countryCode, string departmentCode, string municipalityCode, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(string countryCode, string insuranceTypeCode, string insuranceRangeCode, CancellationToken cancellationToken) => Task.FromResult(true);
         public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();

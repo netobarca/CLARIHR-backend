@@ -21,8 +21,11 @@ public sealed record PersonnelFileInsuranceBeneficiaryResponse(
     Guid BeneficiaryPublicId,
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
     string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType,
     bool IsActive,
     Guid ConcurrencyToken)
 {
@@ -33,8 +36,11 @@ public sealed record PersonnelFileInsuranceBeneficiaryResponse(
 public sealed record InsuranceBeneficiaryInput(
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
-    string KinshipCode);
+    string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType);
 
 public sealed record AddPersonnelFileInsuranceBeneficiaryCommand(
     Guid PersonnelFileId,
@@ -86,6 +92,15 @@ internal sealed class InsuranceBeneficiaryInputValidator : AbstractValidator<Ins
     {
         RuleFor(input => input.FullName).NotEmpty().MaximumLength(200);
         RuleFor(input => input.KinshipCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.DocumentTypeCode).MaximumLength(80);
+        RuleFor(input => input.AllocationPercentage)
+            .InclusiveBetween(0m, 100m)
+            .When(input => input.AllocationPercentage.HasValue);
+        RuleFor(input => input.BeneficiaryType)
+            .Must(static type => string.IsNullOrWhiteSpace(type)
+                || string.Equals(type.Trim(), PersonnelFileInsuranceBeneficiary.TypePrimary, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type.Trim(), PersonnelFileInsuranceBeneficiary.TypeContingent, StringComparison.OrdinalIgnoreCase))
+            .WithMessage($"BeneficiaryType must be '{PersonnelFileInsuranceBeneficiary.TypePrimary}' or '{PersonnelFileInsuranceBeneficiary.TypeContingent}'.");
     }
 }
 
@@ -165,9 +180,13 @@ internal sealed class PersonnelFileInsuranceBeneficiaryPatchState
 {
     public string FullName { get; set; } = string.Empty;
     public string? DocumentNumber { get; set; }
+    public string? DocumentTypeCode { get; set; }
+    public bool DocumentTypeCodeMutated { get; set; }
     public DateTime? BirthDate { get; set; }
     public string KinshipCode { get; set; } = string.Empty;
     public bool KinshipCodeMutated { get; set; }
+    public decimal? AllocationPercentage { get; set; }
+    public string? BeneficiaryType { get; set; }
     public bool IsActive { get; set; }
     public bool IsActiveMutated { get; set; }
     public bool HasMutation { get; set; }
@@ -177,8 +196,11 @@ internal sealed class PersonnelFileInsuranceBeneficiaryPatchState
         {
             FullName = response.FullName,
             DocumentNumber = response.DocumentNumber,
+            DocumentTypeCode = response.DocumentTypeCode,
             BirthDate = response.BirthDate,
             KinshipCode = response.KinshipCode,
+            AllocationPercentage = response.AllocationPercentage,
+            BeneficiaryType = response.BeneficiaryType,
             IsActive = response.IsActive
         };
 
@@ -186,7 +208,10 @@ internal sealed class PersonnelFileInsuranceBeneficiaryPatchState
         new(
             FullName,
             DocumentNumber,
+            DocumentTypeCode,
             BirthDate,
-            KinshipCode);
+            KinshipCode,
+            AllocationPercentage,
+            BeneficiaryType);
 }
 

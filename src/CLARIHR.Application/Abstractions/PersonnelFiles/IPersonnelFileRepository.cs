@@ -231,6 +231,12 @@ public interface IPersonnelFileRepository
         string municipalityCode,
         CancellationToken cancellationToken);
 
+    Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(
+        string countryCode,
+        string insuranceTypeCode,
+        string insuranceRangeCode,
+        CancellationToken cancellationToken);
+
     Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken);
 
     Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken);

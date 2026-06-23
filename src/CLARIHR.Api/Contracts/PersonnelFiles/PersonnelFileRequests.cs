@@ -112,7 +112,10 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
     string? RetirementNotes,
-    DateTime? RetirementDate);
+    DateTime? RetirementDate,
+    // The institutional email is the employee's login. Supply it to change it (record + linked account);
+    // omit/leave null to keep the current one — it cannot be cleared while a login account is linked.
+    string? InstitutionalEmail = null);
 
 public sealed record AddEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -127,7 +130,9 @@ public sealed record AddEmploymentAssignmentRequest(
     DateTime? EndDate,
     bool IsPrimary,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null);
 
 public sealed record UpdateEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -141,7 +146,9 @@ public sealed record UpdateEmploymentAssignmentRequest(
     DateTime StartDate,
     DateTime? EndDate,
     bool IsPrimary,
-    string? Notes);
+    string? Notes,
+    string? PaymentMethodCode = null,
+    Guid? PaymentBankAccountPublicId = null);
 
 public sealed class PatchEmploymentAssignmentRequest
 {
@@ -149,6 +156,8 @@ public sealed class PatchEmploymentAssignmentRequest
     public string? ContractTypeCode { get; set; }
     public string? WorkdayCode { get; set; }
     public string? PayrollTypeCode { get; set; }
+    public string? PaymentMethodCode { get; set; }
+    public Guid? PaymentBankAccountPublicId { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
@@ -188,25 +197,25 @@ public sealed class PatchContractHistoryRequest
 public sealed record AddAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
-    string? SubstitutePositionTitle,
+    Guid SubstitutePositionSlotPublicId,
     DateTime StartDate,
-    DateTime? EndDate,
+    DateTime EndDate,
     bool IsActive,
     string? Notes);
 
 public sealed record UpdateAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
-    string? SubstitutePositionTitle,
+    Guid SubstitutePositionSlotPublicId,
     DateTime StartDate,
-    DateTime? EndDate,
+    DateTime EndDate,
     string? Notes);
 
 public sealed class PatchAuthorizationSubstitutionRequest
 {
     public string SubstitutionTypeCode { get; set; } = string.Empty;
     public Guid SubstitutePersonnelFileId { get; set; }
-    public string? SubstitutePositionTitle { get; set; }
+    public Guid SubstitutePositionSlotId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string? Notes { get; set; }
@@ -340,34 +349,6 @@ public sealed class PatchAdditionalBenefitRequest
     public string? Notes { get; set; }
 }
 
-public sealed record AddPaymentMethodRequest(
-    string PaymentMethodCode,
-    Guid? BankAccountPublicId,
-    bool IsPrimary,
-    bool IsActive,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
-    string? Notes);
-
-public sealed record UpdatePaymentMethodRequest(
-    string PaymentMethodCode,
-    Guid? BankAccountPublicId,
-    bool IsPrimary,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
-    string? Notes);
-
-public sealed class PatchPaymentMethodRequest
-{
-    public string PaymentMethodCode { get; set; } = string.Empty;
-    public Guid? BankAccountPublicId { get; set; }
-    public bool IsPrimary { get; set; }
-    public bool IsActive { get; set; }
-    public DateTime EffectiveFromUtc { get; set; }
-    public DateTime? EffectiveToUtc { get; set; }
-    public string? Notes { get; set; }
-}
-
 public sealed record AddPayrollTransactionRequest(
     string TransactionTypeCode,
     DateTime TransactionDateUtc,
@@ -425,21 +406,30 @@ public sealed class PatchInsuranceRequest
 public sealed record AddInsuranceBeneficiaryRequest(
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
-    string KinshipCode);
+    string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType);
 
 public sealed record UpdateInsuranceBeneficiaryRequest(
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
-    string KinshipCode);
+    string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType);
 
 public sealed class PatchInsuranceBeneficiaryRequest
 {
     public string FullName { get; set; } = string.Empty;
     public string? DocumentNumber { get; set; }
+    public string? DocumentTypeCode { get; set; }
     public DateTime? BirthDate { get; set; }
     public string KinshipCode { get; set; } = string.Empty;
+    public decimal? AllocationPercentage { get; set; }
+    public string? BeneficiaryType { get; set; }
     public bool IsActive { get; set; }
 }
 

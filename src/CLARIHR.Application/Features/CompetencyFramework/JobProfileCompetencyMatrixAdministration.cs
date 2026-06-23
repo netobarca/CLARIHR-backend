@@ -41,7 +41,10 @@ public sealed record JobProfileCompetencyMatrixItemResponse(
     string? ExpectedEvidence,
     int SortOrder,
     IReadOnlyCollection<JobProfileCompetencyMatrixItemConductResponse> Conducts,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken,
+    // PUT/PATCH on this [ResourceActions] controller return this item, so it carries allowedActions like the
+    // sibling matrix response; the centralized AllowedActionsResultFilter populates it when left null.
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record JobProfileCompetencyMatrixResponse(
     Guid JobProfileId,

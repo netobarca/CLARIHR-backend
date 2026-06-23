@@ -1633,4 +1633,43 @@
   <data name="EMPLOYMENT_STATUS_CODE_INVALID" xml:space="preserve">
     <value>The employment status code is not valid for the active catalog.</value>
   </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_NOT_FOUND" xml:space="preserve">
+    <value>The selected substitute could not be found.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_NOT_ELIGIBLE" xml:space="preserve">
+    <value>The selected substitute must be an active, completed employee in the same company.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>The substitution type code is not valid for the active catalog.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_POSITION_NOT_OWNED" xml:space="preserve">
+    <value>The selected position must be an active assignment of the substitute.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_PERIOD_OVERLAP" xml:space="preserve">
+    <value>The employee already has an active substitution with an overlapping effective period.</value>
+  </data>
+  <data name="AUTHORIZATION_SUBSTITUTION_SUBSTITUTE_UNAVAILABLE" xml:space="preserve">
+    <value>The substitute is unavailable: they are being substituted (absent) during an overlapping period.</value>
+  </data>
+  <data name="ASSET_ACCESS_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>The asset/access type code is not valid for the active catalog.</value>
+  </data>
+  <data name="ASSET_ACCESS_DELIVERY_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>The delivery status code is not valid for the active catalog.</value>
+  </data>
+  <data name="ASSET_ACCESS_DATE_RANGE_INVALID" xml:space="preserve">
+    <value>The end date cannot be earlier than the start date.</value>
+  </data>
+  <data name="ASSET_ACCESS_DELIVERY_DATE_INVALID" xml:space="preserve">
+    <value>The delivery date cannot be earlier than the start date.</value>
+  </data>
+  <data name="INSURANCE_POLICY_DUPLICATE" xml:space="preserve">
+    <value>The employee already has an insurance with the same policy number.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_DUPLICATE" xml:space="preserve">
+    <value>This insurance already has a beneficiary with the same document.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_ALLOCATION_INVALID" xml:space="preserve">
+    <value>Active primary beneficiaries cannot exceed 100% allocation for this insurance.</value>
+  </data>
 </root>

@@ -36,6 +36,8 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? endDate,
         bool isPrimary,
         string? notes,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileEmploymentAssignmentResponse?> PatchEmploymentAssignmentAsync(
@@ -53,6 +55,8 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? endDate,
         bool isPrimary,
         string? notes,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);
@@ -246,50 +250,6 @@ public interface IPersonnelFileEmployeeRepository
         Guid additionalBenefitPublicId,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> AddPaymentMethodAsync(
-        long personnelFileInternalId,
-        Guid tenantId,
-        PersonnelFilePaymentMethod entity,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> UpdatePaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> PatchPaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        string paymentMethodCode,
-        Guid? bankAccountPublicId,
-        bool isPrimary,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        string? notes,
-        bool isActive,
-        bool isActiveMutated,
-        CancellationToken cancellationToken);
-
-    Task<bool> DeletePaymentMethodAsync(
-        Guid paymentMethodPublicId,
-        Guid tenantId,
-        CancellationToken cancellationToken);
-
-    Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> GetPaymentMethodsAsync(
-        Guid personnelFileId,
-        CancellationToken cancellationToken);
-
-    Task<PersonnelFilePaymentMethodResponse?> GetPaymentMethodAsync(
-        Guid personnelFileId,
-        Guid paymentMethodPublicId,
-        CancellationToken cancellationToken);
-
     Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> AddAuthorizationSubstitutionAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -301,9 +261,10 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         string? notes,
         CancellationToken cancellationToken);
 
@@ -312,9 +273,10 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
-        string? substitutePositionTitle,
+        Guid substitutePositionSlotPublicId,
+        string? substitutePositionTitleSnapshot,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         string? notes,
         bool isActive,
         bool isActiveMutated,
@@ -533,6 +495,9 @@ public interface IPersonnelFileEmployeeRepository
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileInsuranceBeneficiaryResponse?> PatchInsuranceBeneficiaryAsync(
@@ -544,6 +509,9 @@ public interface IPersonnelFileEmployeeRepository
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);

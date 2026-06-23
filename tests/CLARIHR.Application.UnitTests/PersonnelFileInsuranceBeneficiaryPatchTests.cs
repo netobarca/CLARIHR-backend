@@ -19,8 +19,11 @@ public sealed class PersonnelFileInsuranceBeneficiaryPatchTests
             Guid.NewGuid(),
             "Jane Doe",
             "DOC-1234",
+            "DUI",
             new DateTime(1990, 6, 15, 0, 0, 0, DateTimeKind.Utc),
             "SPOUSE",
+            50m,
+            "PRINCIPAL",
             true,
             Guid.NewGuid());
 
@@ -37,10 +40,14 @@ public sealed class PersonnelFileInsuranceBeneficiaryPatchTests
 
         Assert.Equal("Jane Doe", state.FullName);
         Assert.Equal("DOC-1234", state.DocumentNumber);
+        Assert.Equal("DUI", state.DocumentTypeCode);
+        Assert.Equal(50m, state.AllocationPercentage);
+        Assert.Equal("PRINCIPAL", state.BeneficiaryType);
         Assert.Equal("SPOUSE", state.KinshipCode);
         Assert.True(state.IsActive);
         Assert.False(state.IsActiveMutated);
         Assert.False(state.KinshipCodeMutated);
+        Assert.False(state.DocumentTypeCodeMutated);
         Assert.False(state.HasMutation);
     }
 
@@ -51,6 +58,9 @@ public sealed class PersonnelFileInsuranceBeneficiaryPatchTests
 
         Assert.Equal("Jane Doe", input.FullName);
         Assert.Equal("DOC-1234", input.DocumentNumber);
+        Assert.Equal("DUI", input.DocumentTypeCode);
+        Assert.Equal(50m, input.AllocationPercentage);
+        Assert.Equal("PRINCIPAL", input.BeneficiaryType);
         Assert.Equal("SPOUSE", input.KinshipCode);
     }
 
@@ -140,6 +150,37 @@ public sealed class PersonnelFileInsuranceBeneficiaryPatchTests
 
         Assert.True(PersonnelFileInsuranceBeneficiaryPatchApplier.Apply([Remove("/birthDate")], state).IsSuccess);
         Assert.Null(state.BirthDate);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_ReplaceDocumentTypeCode_FlagsDocumentTypeMutation()
+    {
+        var state = PersonnelFileInsuranceBeneficiaryPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileInsuranceBeneficiaryPatchApplier.Apply([Replace("/documentTypeCode", "PASSPORT")], state).IsSuccess);
+        Assert.Equal("PASSPORT", state.DocumentTypeCode);
+        Assert.True(state.DocumentTypeCodeMutated);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_ReplaceAllocationPercentage_Mutates()
+    {
+        var state = PersonnelFileInsuranceBeneficiaryPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileInsuranceBeneficiaryPatchApplier.Apply([Replace("/allocationPercentage", 75)], state).IsSuccess);
+        Assert.Equal(75m, state.AllocationPercentage);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_ReplaceBeneficiaryType_Mutates()
+    {
+        var state = PersonnelFileInsuranceBeneficiaryPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileInsuranceBeneficiaryPatchApplier.Apply([Replace("/beneficiaryType", "CONTINGENTE")], state).IsSuccess);
+        Assert.Equal("CONTINGENTE", state.BeneficiaryType);
         Assert.True(state.HasMutation);
     }
 

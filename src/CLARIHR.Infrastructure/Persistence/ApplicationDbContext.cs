@@ -222,6 +222,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<AssignmentTypeCatalogItem> AssignmentTypeCatalogItems => Set<AssignmentTypeCatalogItem>();
 
+    public DbSet<SubstitutionTypeCatalogItem> SubstitutionTypeCatalogItems => Set<SubstitutionTypeCatalogItem>();
+
+    public DbSet<AssetAccessTypeCatalogItem> AssetAccessTypeCatalogItems => Set<AssetAccessTypeCatalogItem>();
+
+    public DbSet<DeliveryStatusCatalogItem> DeliveryStatusCatalogItems => Set<DeliveryStatusCatalogItem>();
+
+    public DbSet<PaymentMethodCatalogItem> PaymentMethodCatalogItems => Set<PaymentMethodCatalogItem>();
+
     public DbSet<EmploymentStatusCatalogItem> EmploymentStatusCatalogItems => Set<EmploymentStatusCatalogItem>();
 
     public DbSet<DurationUnitCatalogItem> DurationUnitCatalogItems => Set<DurationUnitCatalogItem>();
@@ -250,6 +258,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<MunicipalityCatalogItem> MunicipalityCatalogItems => Set<MunicipalityCatalogItem>();
 
+    public DbSet<InsuranceTypeCatalogItem> InsuranceTypeCatalogItems => Set<InsuranceTypeCatalogItem>();
+
+    public DbSet<InsuranceRangeCatalogItem> InsuranceRangeCatalogItems => Set<InsuranceRangeCatalogItem>();
+
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
 
     public DbSet<PersonnelFileEmploymentAssignment> PersonnelFileEmploymentAssignments => Set<PersonnelFileEmploymentAssignment>();
@@ -260,7 +272,6 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileAdditionalBenefit> PersonnelFileAdditionalBenefits => Set<PersonnelFileAdditionalBenefit>();
 
-    public DbSet<PersonnelFilePaymentMethod> PersonnelFilePaymentMethods => Set<PersonnelFilePaymentMethod>();
 
     public DbSet<PersonnelFileAuthorizationSubstitution> PersonnelFileAuthorizationSubstitutions => Set<PersonnelFileAuthorizationSubstitution>();
 

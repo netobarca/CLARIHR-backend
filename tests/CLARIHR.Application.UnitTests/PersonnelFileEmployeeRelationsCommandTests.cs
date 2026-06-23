@@ -540,6 +540,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(string countryCode, string departmentCode, string municipalityCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(string countryCode, string insuranceTypeCode, string insuranceRangeCode, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

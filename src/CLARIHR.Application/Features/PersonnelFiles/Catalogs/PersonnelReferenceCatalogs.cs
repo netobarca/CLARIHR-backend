@@ -89,6 +89,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string DurationUnit = "CurriculumDurationUnit";
     public const string ReferenceType = "CurriculumReferenceType";
     public const string AssignmentType = "CurriculumAssignmentType";
+    public const string SubstitutionType = "CurriculumSubstitutionType";
     public const string EmploymentStatus = "EmploymentStatus";
     public const string Career = "CurriculumCareer";
     public const string Country = "Country";
@@ -98,6 +99,9 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string CompensationConceptType = "CompensationConceptType";
     public const string PayPeriod = "PayPeriod";
     public const string CalculationBase = "CalculationBase";
+    public const string PaymentMethod = "PaymentMethod";
+    public const string AssetAccessType = "AssetAccessType";
+    public const string DeliveryStatus = "DeliveryStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation
@@ -197,6 +201,56 @@ internal static class PersonnelReferenceCatalogValidation
             PersonnelReferenceCatalogCategories.Kinship,
             kinshipCode,
             cancellationToken);
+
+    public static Task<Error> ValidateInsuranceTypeCodeAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string fieldName,
+        string insuranceTypeCode,
+        CancellationToken cancellationToken) =>
+        ValidateOptionalReferenceCodeForCompanyAsync(
+            repository,
+            companyId,
+            fieldName,
+            PersonnelReferenceCatalogCategories.InsuranceType,
+            insuranceTypeCode,
+            cancellationToken);
+
+    public static async Task<Error> ValidateInsuranceRangeCodeAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string insuranceTypeCode,
+        string? rangeCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(rangeCode))
+        {
+            return Error.None;
+        }
+
+        var countryCode = await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken);
+        var existsError = await ValidateOptionalReferenceCodeAsync(
+            repository,
+            "rangeCode",
+            countryCode,
+            PersonnelReferenceCatalogCategories.InsuranceRange,
+            rangeCode,
+            cancellationToken);
+        if (existsError != Error.None)
+        {
+            return existsError;
+        }
+
+        var belongs = await repository.ReferenceInsuranceRangeBelongsToTypeAsync(
+            countryCode, insuranceTypeCode, rangeCode, cancellationToken);
+        return belongs
+            ? Error.None
+            : ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["rangeCode"] = ["RangeCode does not belong to the selected insurance type."]
+                });
+    }
 
     private static async Task<Error> ValidateBirthLocationAsync(
         IPersonnelFileRepository repository,

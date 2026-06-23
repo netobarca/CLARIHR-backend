@@ -322,15 +322,6 @@ internal sealed class DevSeedService(
             ("RECARGO_FUNCIONES", "Recargo de funciones", 90),
         };
 
-        var employmentStatuses = new (string Code, string Name, int SortOrder)[]
-        {
-            ("ACTIVO", "Activo", 10),
-            ("SUSPENDIDO", "Suspendido", 20),
-            ("LICENCIA", "Licencia", 30),
-            ("INCAPACIDAD", "Incapacidad", 40),
-            ("RETIRADO", "Retirado", 50),
-        };
-
         foreach (var item in languages)
         {
             var entity = LanguageCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
@@ -373,10 +364,118 @@ internal sealed class DevSeedService(
             dbContext.AssignmentTypeCatalogItems.Add(entity);
         }
 
-        foreach (var item in employmentStatuses)
+        var paymentMethods = new (string Code, string Name, int SortOrder)[]
         {
-            var entity = EmploymentStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
-            dbContext.EmploymentStatusCatalogItems.Add(entity);
+            ("TRANSFERENCIA", "Transferencia bancaria", 10),
+            ("CHEQUE", "Cheque", 20),
+            ("EFECTIVO", "Efectivo", 30),
+        };
+
+        foreach (var item in paymentMethods)
+        {
+            var entity = PaymentMethodCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.PaymentMethodCatalogItems.Add(entity);
+        }
+
+        var substitutionTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("VACACIONES", "Vacaciones", 10),
+            ("INCAPACIDAD", "Incapacidad", 20),
+            ("PERMISO", "Permiso", 30),
+            ("MISION_OFICIAL", "Misión oficial", 40),
+            ("LICENCIA", "Licencia", 50),
+            ("OTRO", "Otro", 60),
+        };
+
+        foreach (var item in substitutionTypes)
+        {
+            var entity = SubstitutionTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.SubstitutionTypeCatalogItems.Add(entity);
+        }
+
+        var assetAccessTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("EQUIPO_COMPUTO", "Equipo de cómputo", 10),
+            ("TELEFONO_MOVIL", "Teléfono móvil", 20),
+            ("UNIFORME", "Uniforme", 30),
+            ("LICENCIA_SOFTWARE", "Licencia de software", 40),
+            ("ACCESO_SISTEMA", "Acceso a sistema", 50),
+            ("MOBILIARIO", "Mobiliario", 60),
+            ("HERRAMIENTA", "Herramienta", 70),
+            ("OTRO", "Otro", 80),
+        };
+
+        foreach (var item in assetAccessTypes)
+        {
+            var entity = AssetAccessTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.AssetAccessTypeCatalogItems.Add(entity);
+        }
+
+        var deliveryStatuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("PENDIENTE", "Pendiente", 10),
+            ("ENTREGADO", "Entregado", 20),
+            ("EN_USO", "En uso", 30),
+            ("DEVUELTO", "Devuelto", 40),
+            ("EXTRAVIADO", "Extraviado", 50),
+            ("DANADO", "Dañado", 60),
+            ("NO_APLICA", "No aplica", 70),
+        };
+
+        foreach (var item in deliveryStatuses)
+        {
+            var entity = DeliveryStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.DeliveryStatusCatalogItems.Add(entity);
+        }
+
+        // employment-statuses are seeded globally via GlobalCatalogSeedData.GetEmploymentStatusCatalogItems()
+        // (HasData) so they exist in every environment and backfill already-provisioned databases — not here,
+        // which would double-insert against the HasData rows on a fresh dev database.
+
+        var insuranceTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("VIDA", "Vida", 10),
+            ("MEDICO_HOSPITALARIO", "Médico hospitalario", 20),
+            ("GASTOS_MEDICOS", "Gastos médicos", 30),
+            ("DENTAL", "Dental", 40),
+            ("VISION", "Visión", 50),
+            ("ACCIDENTES", "Accidentes personales", 60),
+            ("OTRO", "Otro", 70),
+        };
+
+        var insuranceTypeEntities = new Dictionary<string, InsuranceTypeCatalogItem>(StringComparer.Ordinal);
+        foreach (var item in insuranceTypes)
+        {
+            var entity = InsuranceTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.InsuranceTypeCatalogItems.Add(entity);
+            insuranceTypeEntities[item.Code] = entity;
+        }
+
+        // Persist the insurance types so their generated ids are available for the hierarchical ranges
+        // below (same intermediate-save pattern SeedLocations uses for its location-group hierarchy).
+        dbContext.SaveChanges();
+
+        var insuranceRanges = new (string TypeCode, string Code, string Name, int SortOrder)[]
+        {
+            ("VIDA", "BASICO", "Básico", 10),
+            ("VIDA", "INTERMEDIO", "Intermedio", 20),
+            ("VIDA", "PREMIUM", "Premium", 30),
+            ("MEDICO_HOSPITALARIO", "BASICO", "Básico", 10),
+            ("MEDICO_HOSPITALARIO", "INTERMEDIO", "Intermedio", 20),
+            ("MEDICO_HOSPITALARIO", "PREMIUM", "Premium", 30),
+        };
+
+        foreach (var item in insuranceRanges)
+        {
+            var entity = InsuranceRangeCatalogItem.Create(
+                companyCountry.CountryCatalogItemId,
+                companyCountry.CountryCode,
+                item.Code,
+                item.Name,
+                true,
+                item.SortOrder,
+                insuranceTypeEntities[item.TypeCode].Id);
+            dbContext.InsuranceRangeCatalogItems.Add(entity);
         }
 
         SeedCompensationCatalogItems(companyCountry);

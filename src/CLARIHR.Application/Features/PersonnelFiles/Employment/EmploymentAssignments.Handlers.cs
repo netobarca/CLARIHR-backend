@@ -121,6 +121,38 @@ internal static class EmploymentAssignmentCommandSupport
 
         return evaluation;
     }
+
+    /// <summary>
+    /// Validates the plaza's forma de pago: the payment method code (when set) must be an active
+    /// <c>PaymentMethod</c> catalog code, and the bank account (when set) must be one of the employee's
+    /// own configured bank accounts. Returns the validation error, or null when valid / not set.
+    /// </summary>
+    public static async Task<Error?> ValidatePaymentFieldsAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        string? paymentMethodCode,
+        Guid? paymentBankAccountPublicId,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(paymentMethodCode)
+            && !await personnelFileRepository.CatalogCodeIsActiveAsync(
+                tenantId, PersonnelCurriculumCatalogCategories.PaymentMethod, paymentMethodCode, cancellationToken))
+        {
+            return ErrorCatalog.Validation(new Dictionary<string, string[]> { ["paymentMethodCode"] = ["Payment method code is not valid."] });
+        }
+
+        if (paymentBankAccountPublicId is { } bankAccountId)
+        {
+            var bankAccountIds = (await personnelFileRepository.GetBankAccountIdsAsync(personnelFilePublicId, cancellationToken)).ToHashSet();
+            if (!bankAccountIds.Contains(bankAccountId))
+            {
+                return ErrorCatalog.Validation(new Dictionary<string, string[]> { ["paymentBankAccountPublicId"] = ["Bank account does not exist in this personnel file."] });
+            }
+        }
+
+        return null;
+    }
 }
 
 internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
@@ -165,6 +197,13 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, item.AssignmentTypeCode, cancellationToken))
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
+            personnelFileRepository, personnelFile.TenantId, personnelFile.PublicId, item.PaymentMethodCode, item.PaymentBankAccountPublicId, cancellationToken);
+        if (bankAccountError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(bankAccountError);
         }
 
         var existing = (await employeeRepository.GetEmploymentAssignmentsAsync(personnelFile.PublicId, cancellationToken))
@@ -223,7 +262,9 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             item.EndDate,
             isPrimary,
             item.IsActive,
-            item.Notes);
+            item.Notes,
+            item.PaymentMethodCode,
+            item.PaymentBankAccountPublicId);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
@@ -305,6 +346,13 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
         }
 
+        var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
+            personnelFileRepository, personnelFile.TenantId, personnelFile.PublicId, command.Item.PaymentMethodCode, command.Item.PaymentBankAccountPublicId, cancellationToken);
+        if (bankAccountError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(bankAccountError);
+        }
+
         // PUT preserves isActive (mutated only via PATCH), so the candidate keeps the stored active state.
         var candidate = new EmploymentAssignmentRules.Candidate(
             command.EmploymentAssignmentPublicId,
@@ -346,6 +394,8 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             command.Item.EndDate,
             command.Item.IsPrimary,
             command.Item.Notes,
+            command.Item.PaymentMethodCode,
+            command.Item.PaymentBankAccountPublicId,
             cancellationToken);
         if (response is null)
         {
@@ -444,6 +494,13 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
         }
 
+        var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
+            personnelFileRepository, personnelFile.TenantId, personnelFile.PublicId, state.PaymentMethodCode, state.PaymentBankAccountPublicId, cancellationToken);
+        if (bankAccountError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(bankAccountError);
+        }
+
         var candidate = new EmploymentAssignmentRules.Candidate(
             command.EmploymentAssignmentPublicId,
             state.PositionSlotId,
@@ -484,6 +541,8 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             input.EndDate,
             input.IsPrimary,
             input.Notes,
+            input.PaymentMethodCode,
+            input.PaymentBankAccountPublicId,
             input.IsActive,
             state.IsActiveMutated,
             cancellationToken);
@@ -729,6 +788,16 @@ internal static class PersonnelFileEmploymentAssignmentPatchApplier
         if (PersonnelFileTalentPatch.IsSegment(property, "payrollTypeCode"))
         {
             return Mutate(state, () => state.PayrollTypeCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "paymentMethodCode"))
+        {
+            return Mutate(state, () => state.PaymentMethodCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "paymentBankAccountPublicId"))
+        {
+            return Mutate(state, () => state.PaymentBankAccountPublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "positionSlotId"))
