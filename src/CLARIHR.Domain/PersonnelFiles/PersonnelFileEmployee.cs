@@ -900,6 +900,9 @@ public sealed class PersonnelFileInsurance : TenantEntity
 
 public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
 {
+    public const string TypePrimary = "PRINCIPAL";
+    public const string TypeContingent = "CONTINGENTE";
+
     private PersonnelFileInsuranceBeneficiary()
     {
     }
@@ -907,15 +910,21 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
     private PersonnelFileInsuranceBeneficiary(
         string fullName,
         string? documentNumber,
+        string? documentTypeCode,
         DateTime? birthDate,
-        string kinshipCode)
+        string kinshipCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
         FullName = PersonnelFileNormalization.Clean(fullName, nameof(fullName));
         DocumentNumber = PersonnelFileNormalization.CleanOptional(documentNumber);
+        DocumentTypeCode = PersonnelFileNormalization.CleanOptional(documentTypeCode);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         KinshipCode = PersonnelFileNormalization.Clean(kinshipCode, nameof(kinshipCode));
+        AllocationPercentage = allocationPercentage;
+        BeneficiaryType = NormalizeBeneficiaryType(beneficiaryType);
         IsActive = true;
     }
 
@@ -927,9 +936,15 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
 
     public string? DocumentNumber { get; private set; }
 
+    public string? DocumentTypeCode { get; private set; }
+
     public DateTime? BirthDate { get; private set; }
 
     public string KinshipCode { get; private set; } = string.Empty;
+
+    public decimal? AllocationPercentage { get; private set; }
+
+    public string? BeneficiaryType { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -940,14 +955,20 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
     public void Update(
         string fullName,
         string? documentNumber,
+        string? documentTypeCode,
         DateTime? birthDate,
-        string kinshipCode)
+        string kinshipCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType)
     {
         ConcurrencyToken = Guid.NewGuid();
         FullName = PersonnelFileNormalization.Clean(fullName, nameof(fullName));
         DocumentNumber = PersonnelFileNormalization.CleanOptional(documentNumber);
+        DocumentTypeCode = PersonnelFileNormalization.CleanOptional(documentTypeCode);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         KinshipCode = PersonnelFileNormalization.Clean(kinshipCode, nameof(kinshipCode));
+        AllocationPercentage = allocationPercentage;
+        BeneficiaryType = NormalizeBeneficiaryType(beneficiaryType);
     }
 
     public void SetActive(bool isActive)
@@ -959,9 +980,15 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
     public static PersonnelFileInsuranceBeneficiary Create(
         string fullName,
         string? documentNumber,
+        string? documentTypeCode,
         DateTime? birthDate,
-        string kinshipCode) =>
-        new(fullName, documentNumber, birthDate, kinshipCode);
+        string kinshipCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType) =>
+        new(fullName, documentNumber, documentTypeCode, birthDate, kinshipCode, allocationPercentage, beneficiaryType);
+
+    private static string? NormalizeBeneficiaryType(string? beneficiaryType) =>
+        string.IsNullOrWhiteSpace(beneficiaryType) ? null : beneficiaryType.Trim().ToUpperInvariant();
 }
 
 public sealed class PersonnelFileMedicalClaim : TenantEntity

@@ -1663,4 +1663,13 @@
   <data name="ASSET_ACCESS_DELIVERY_DATE_INVALID" xml:space="preserve">
     <value>La fecha de entrega no puede ser anterior a la fecha de alta.</value>
   </data>
+  <data name="INSURANCE_POLICY_DUPLICATE" xml:space="preserve">
+    <value>El empleado ya tiene un seguro con el mismo número de póliza.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_DUPLICATE" xml:space="preserve">
+    <value>Este seguro ya tiene un beneficiario con el mismo documento.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_ALLOCATION_INVALID" xml:space="preserve">
+    <value>Los beneficiarios principales activos no pueden exceder el 100 % de asignación en este seguro.</value>
+  </data>
 </root>

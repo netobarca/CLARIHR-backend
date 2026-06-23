@@ -30,4 +30,10 @@ public static class PersonnelFilePolicies
     /// manager is never falsely 403'd.
     /// </summary>
     public const string ManageSubstitutions = "PersonnelFiles.ManageSubstitutions";
+
+    /// <summary>
+    /// Read policy for insurance sub-resources. Authn-only superset: the precise role check
+    /// (ViewInsurance / Admin) lives in the insurance read handlers (no self-service in this phase).
+    /// </summary>
+    public const string ViewInsurance = "PersonnelFiles.ViewInsurance";
 }

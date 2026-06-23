@@ -69,7 +69,8 @@ public static class ProvisioningConstants
         new("PersonnelFiles.Admin", "Administrar expedientes de personal", "Administracion completa de expedientes de personal.", PersonnelFilesModuleKey, "PersonnelFiles", "Manage"),
         new("PersonnelFiles.AuthorizeRehire", "Autorizar recontratacion", "Autorizar la recontratacion de empleados marcados como no recontratables.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRehire"),
         new("PersonnelFiles.ViewCompensation", "Ver compensacion", "Consulta de la compensacion (salario, ingresos y egresos) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompensation"),
-        new("PersonnelFiles.ManageSubstitutions", "Gestionar sustituciones", "Designar y administrar el sustituto de un empleado durante su ausencia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSubstitutions")
+        new("PersonnelFiles.ManageSubstitutions", "Gestionar sustituciones", "Designar y administrar el sustituto de un empleado durante su ausencia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSubstitutions"),
+        new("PersonnelFiles.ViewInsurance", "Ver seguros", "Consulta de los seguros y beneficiarios de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewInsurance")
     ];
 }
 

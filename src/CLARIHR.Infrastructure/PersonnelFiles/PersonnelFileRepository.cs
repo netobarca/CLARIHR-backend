@@ -1392,6 +1392,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "KINSHIP" => await GetFlatReferenceCatalogItemsAsync<KinshipCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "DEPARTMENT" => await GetFlatReferenceCatalogItemsAsync<DepartmentCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "MUNICIPALITY" => await GetMunicipalityCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
+            "INSURANCETYPE" => await GetFlatReferenceCatalogItemsAsync<InsuranceTypeCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "INSURANCERANGE" => await GetInsuranceRangeCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             _ => []
         };
     }
@@ -1475,6 +1477,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "KINSHIP" => IsCountryScopedCatalogCodeActiveAsync<KinshipCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "DEPARTMENT" => IsCountryScopedCatalogCodeActiveAsync<DepartmentCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "MUNICIPALITY" => IsCountryScopedCatalogCodeActiveAsync<MunicipalityCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "INSURANCETYPE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceTypeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "INSURANCERANGE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceRangeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             _ => Task.FromResult(false)
         };
     }
@@ -1499,6 +1503,30 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                   municipality.NormalizedCode == normalizedMunicipalityCode &&
                   department.NormalizedCode == normalizedDepartmentCode
             select municipality.Id;
+
+        return query.AnyAsync(cancellationToken);
+    }
+
+    public Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(
+        string countryCode,
+        string insuranceTypeCode,
+        string insuranceRangeCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedTypeCode = insuranceTypeCode.Trim().ToUpperInvariant();
+        var normalizedRangeCode = insuranceRangeCode.Trim().ToUpperInvariant();
+        var query =
+            from range in dbContext.InsuranceRangeCatalogItems.AsNoTracking()
+            join type in dbContext.InsuranceTypeCatalogItems.AsNoTracking()
+                on range.InsuranceTypeCatalogItemId equals type.Id
+            where range.IsActive &&
+                  type.IsActive &&
+                  range.CountryCode == normalizedCountryCode &&
+                  type.CountryCode == normalizedCountryCode &&
+                  range.NormalizedCode == normalizedRangeCode &&
+                  type.NormalizedCode == normalizedTypeCode
+            select range.Id;
 
         return query.AnyAsync(cancellationToken);
     }
@@ -2438,6 +2466,32 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         if (!string.IsNullOrWhiteSpace(parentCode))
         {
             query = query.Where(item => item.DepartmentCatalogItem != null && item.DepartmentCatalogItem.NormalizedCode == parentCode);
+        }
+
+        return query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelReferenceCatalogItemResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>)task.Result, cancellationToken);
+    }
+
+    private Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetInsuranceRangeCatalogItemsAsync(
+        long countryCatalogItemId,
+        string? parentCode,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.InsuranceRangeCatalogItems
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId && item.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(parentCode))
+        {
+            query = query.Where(item => item.InsuranceTypeCatalogItem != null && item.InsuranceTypeCatalogItem.NormalizedCode == parentCode);
         }
 
         return query

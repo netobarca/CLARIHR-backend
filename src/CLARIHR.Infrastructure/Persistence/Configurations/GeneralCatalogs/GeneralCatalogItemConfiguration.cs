@@ -9,7 +9,8 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
     string primaryKeyName,
     string publicIdIndexName,
     string countryCodeIndexName,
-    string countryActiveSortIndexName)
+    string countryActiveSortIndexName,
+    IEnumerable<object>? seedData = null)
     : IEntityTypeConfiguration<TCatalogItem>
     where TCatalogItem : GeneralCatalogItem
 {
@@ -49,6 +50,13 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
 
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
+
+        // Most general catalogs are seeded per-country at runtime (DevSeedService); the ones that must
+        // exist in every environment opt in by passing static HasData here (see EmploymentStatusCatalogItem).
+        if (seedData is not null)
+        {
+            builder.HasData(seedData);
+        }
     }
 }
 
@@ -173,7 +181,8 @@ internal sealed class EmploymentStatusCatalogItemConfiguration
             "pk_employment_status_catalog_items",
             "uq_employment_status_catalog_items__public_id",
             "uq_employment_status_catalog_items__country_code",
-            "ix_employment_status_catalog_items__country_active_sort")
+            "ix_employment_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetEmploymentStatusCatalogItems())
     {
     }
 }

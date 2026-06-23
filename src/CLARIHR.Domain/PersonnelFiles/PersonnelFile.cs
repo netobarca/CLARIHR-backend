@@ -907,6 +907,19 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    /// <summary>
+    /// Changes the institutional email of a completed employee from the employment-information section.
+    /// This is the sanctioned post-completion edit path — unlike <see cref="SetInstitutionalEmail"/>
+    /// (draft/rehire only) and <see cref="UpdatePersonalInfo"/> (blocks post-completion changes). Because
+    /// the institutional email is the linked account's sign-in identifier, the caller is responsible for the
+    /// uniqueness check and for re-syncing that account's email.
+    /// </summary>
+    public void ChangeInstitutionalEmail(string? institutionalEmail)
+    {
+        InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
+        RefreshConcurrencyToken();
+    }
+
     private void SetName(string firstName, string lastName)
     {
         FirstName = PersonnelFileNormalization.Clean(firstName, nameof(firstName));

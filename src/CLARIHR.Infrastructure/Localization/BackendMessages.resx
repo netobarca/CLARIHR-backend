@@ -1663,4 +1663,13 @@
   <data name="ASSET_ACCESS_DELIVERY_DATE_INVALID" xml:space="preserve">
     <value>The delivery date cannot be earlier than the start date.</value>
   </data>
+  <data name="INSURANCE_POLICY_DUPLICATE" xml:space="preserve">
+    <value>The employee already has an insurance with the same policy number.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_DUPLICATE" xml:space="preserve">
+    <value>This insurance already has a beneficiary with the same document.</value>
+  </data>
+  <data name="INSURANCE_BENEFICIARY_ALLOCATION_INVALID" xml:space="preserve">
+    <value>Active primary beneficiaries cannot exceed 100% allocation for this insurance.</value>
+  </data>
 </root>

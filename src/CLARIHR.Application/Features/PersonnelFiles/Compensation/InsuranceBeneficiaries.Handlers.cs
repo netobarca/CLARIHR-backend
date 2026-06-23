@@ -55,6 +55,13 @@ internal sealed class AddPersonnelFileInsuranceBeneficiaryCommandHandler(
             return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(kinshipValidation);
         }
 
+        var beneficiaryError = await InsuranceBeneficiaryCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, command.InsurancePublicId, null, true, command.Item, cancellationToken);
+        if (beneficiaryError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(beneficiaryError);
+        }
+
         var response = await employeeRepository.AddInsuranceBeneficiaryAsync(
             personnelFile.PublicId, command.InsurancePublicId, personnelFile.TenantId, command.Item, cancellationToken);
         if (response is null)
@@ -132,6 +139,13 @@ internal sealed class UpdatePersonnelFileInsuranceBeneficiaryCommandHandler(
             return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        var beneficiaryError = await InsuranceBeneficiaryCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, command.InsurancePublicId, command.BeneficiaryPublicId, existing.IsActive, command.Item, cancellationToken);
+        if (beneficiaryError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(beneficiaryError);
+        }
+
         var response = await employeeRepository.UpdateInsuranceBeneficiaryAsync(
             personnelFile.PublicId,
             command.InsurancePublicId,
@@ -141,6 +155,9 @@ internal sealed class UpdatePersonnelFileInsuranceBeneficiaryCommandHandler(
             command.Item.DocumentNumber,
             command.Item.BirthDate,
             command.Item.KinshipCode,
+            command.Item.DocumentTypeCode,
+            command.Item.AllocationPercentage,
+            command.Item.BeneficiaryType,
             cancellationToken);
         if (response is null)
         {
@@ -153,7 +170,7 @@ internal sealed class UpdatePersonnelFileInsuranceBeneficiaryCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance beneficiary for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance beneficiary for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -239,6 +256,13 @@ internal sealed class PatchPersonnelFileInsuranceBeneficiaryCommandHandler(
         }
 
         var input = state.ToInput();
+        var beneficiaryError = await InsuranceBeneficiaryCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, command.InsurancePublicId, command.BeneficiaryPublicId, state.IsActive, input, cancellationToken);
+        if (beneficiaryError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(beneficiaryError);
+        }
+
         var response = await employeeRepository.PatchInsuranceBeneficiaryAsync(
             personnelFile.PublicId,
             command.InsurancePublicId,
@@ -248,6 +272,9 @@ internal sealed class PatchPersonnelFileInsuranceBeneficiaryCommandHandler(
             input.DocumentNumber,
             input.BirthDate,
             input.KinshipCode,
+            input.DocumentTypeCode,
+            input.AllocationPercentage,
+            input.BeneficiaryType,
             state.IsActive,
             state.IsActiveMutated,
             cancellationToken);
@@ -262,7 +289,7 @@ internal sealed class PatchPersonnelFileInsuranceBeneficiaryCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance beneficiary for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance beneficiary for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -332,7 +359,7 @@ internal sealed class DeletePersonnelFileInsuranceBeneficiaryCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance beneficiary for {personnelFile.FullName}.", null, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance beneficiary for {personnelFile.FullName}.", existing, null, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -359,7 +386,7 @@ internal sealed class GetPersonnelFileInsuranceBeneficiariesQueryHandler(
         GetPersonnelFileInsuranceBeneficiariesQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForInsuranceReadAsync<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -387,7 +414,7 @@ internal sealed class GetPersonnelFileInsuranceBeneficiaryByIdQueryHandler(
         GetPersonnelFileInsuranceBeneficiaryByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileInsuranceBeneficiaryResponse>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForInsuranceReadAsync<PersonnelFileInsuranceBeneficiaryResponse>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -493,6 +520,25 @@ internal static class PersonnelFileInsuranceBeneficiaryPatchApplier
             });
         }
 
+        if (PersonnelFileTalentPatch.IsSegment(property, "documentTypeCode"))
+        {
+            return Mutate(state, () =>
+            {
+                state.DocumentTypeCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path);
+                state.DocumentTypeCodeMutated = true;
+            });
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "allocationPercentage"))
+        {
+            return Mutate(state, () => state.AllocationPercentage = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "beneficiaryType"))
+        {
+            return Mutate(state, () => state.BeneficiaryType = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
         if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
         {
             return isRemove
@@ -512,6 +558,53 @@ internal static class PersonnelFileInsuranceBeneficiaryPatchApplier
         apply();
         state.HasMutation = true;
         return Result.Success();
+    }
+}
+
+internal static class InsuranceBeneficiaryCommandValidation
+{
+    public static async Task<Error> ValidateAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        PersonnelFile personnelFile,
+        Guid insurancePublicId,
+        Guid? candidateBeneficiaryPublicId,
+        bool candidateIsActive,
+        InsuranceBeneficiaryInput item,
+        CancellationToken cancellationToken)
+    {
+        // Document type from the existing IdentificationType catalog (D-10).
+        if (!string.IsNullOrWhiteSpace(item.DocumentTypeCode))
+        {
+            var documentTypeError = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
+                personnelFileRepository, personnelFile.TenantId, item.DocumentTypeCode!, cancellationToken);
+            if (documentTypeError != Error.None)
+            {
+                return documentTypeError;
+            }
+        }
+
+        var siblings = (await employeeRepository.GetInsuranceBeneficiariesAsync(personnelFile.PublicId, insurancePublicId, cancellationToken))
+            .Select(beneficiary => new InsuranceRules.ExistingBeneficiary(
+                beneficiary.Id,
+                InsuranceRules.NormalizeDocumentKey(beneficiary.DocumentTypeCode, beneficiary.DocumentNumber),
+                beneficiary.IsActive,
+                InsuranceRules.IsPrimary(beneficiary.BeneficiaryType),
+                beneficiary.AllocationPercentage))
+            .ToArray();
+
+        // Anti-duplicate beneficiary per insurance (D-13).
+        var duplicateCheck = InsuranceRules.CheckBeneficiaryUnique(
+            candidateBeneficiaryPublicId, item.DocumentTypeCode, item.DocumentNumber, siblings);
+        if (duplicateCheck.IsFailure)
+        {
+            return duplicateCheck.Error;
+        }
+
+        // Primary-beneficiary allocation cap ≤ 100% (D-09).
+        var allocationCheck = InsuranceRules.CheckPrimaryAllocation(
+            candidateBeneficiaryPublicId, candidateIsActive, item.BeneficiaryType, item.AllocationPercentage, siblings);
+        return allocationCheck.IsFailure ? allocationCheck.Error : Error.None;
     }
 }
 

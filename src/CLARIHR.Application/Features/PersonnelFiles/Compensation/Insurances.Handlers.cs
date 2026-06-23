@@ -48,6 +48,13 @@ internal sealed class AddPersonnelFileInsuranceCommandHandler(
             return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        var validationError = await InsuranceCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, null, command.Item, cancellationToken);
+        if (validationError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(validationError);
+        }
+
         var insurance = PersonnelFileInsurance.Create(
             command.Item.InsuranceCode,
             command.Item.EmployeeContribution,
@@ -127,6 +134,13 @@ internal sealed class UpdatePersonnelFileInsuranceCommandHandler(
             return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        var validationError = await InsuranceCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, command.InsurancePublicId, command.Item, cancellationToken);
+        if (validationError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(validationError);
+        }
+
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
         var response = await employeeRepository.UpdateInsuranceAsync(
             command.InsurancePublicId,
@@ -152,7 +166,7 @@ internal sealed class UpdatePersonnelFileInsuranceCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -227,6 +241,13 @@ internal sealed class PatchPersonnelFileInsuranceCommandHandler(
         }
 
         var input = state.ToInput();
+        var validationError = await InsuranceCommandValidation.ValidateAsync(
+            personnelFileRepository, employeeRepository, personnelFile, command.InsurancePublicId, input, cancellationToken);
+        if (validationError != Error.None)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(validationError);
+        }
+
         var response = await employeeRepository.PatchInsuranceAsync(
             command.InsurancePublicId,
             personnelFile.TenantId,
@@ -253,7 +274,7 @@ internal sealed class PatchPersonnelFileInsuranceCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -321,7 +342,7 @@ internal sealed class DeletePersonnelFileInsuranceCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance for {personnelFile.FullName}.", null, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance for {personnelFile.FullName}.", existing, null, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -348,7 +369,7 @@ internal sealed class GetPersonnelFileInsurancesQueryHandler(
         GetPersonnelFileInsurancesQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<IReadOnlyCollection<PersonnelFileInsuranceResponse>>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForInsuranceReadAsync<IReadOnlyCollection<PersonnelFileInsuranceResponse>>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -376,7 +397,7 @@ internal sealed class GetPersonnelFileInsuranceByIdQueryHandler(
         GetPersonnelFileInsuranceByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileInsuranceResponse>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForInsuranceReadAsync<PersonnelFileInsuranceResponse>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -436,6 +457,26 @@ internal static class PersonnelFileInsurancePatchApplier
         if (string.IsNullOrWhiteSpace(state.InsuranceCode))
         {
             errors["insuranceCode"] = ["InsuranceCode is required."];
+        }
+
+        if (state.EmployeeContribution is < 0m)
+        {
+            errors["employeeContribution"] = ["EmployeeContribution cannot be negative."];
+        }
+
+        if (state.EmployerContribution is < 0m)
+        {
+            errors["employerContribution"] = ["EmployerContribution cannot be negative."];
+        }
+
+        if (state.InsuredAmount is < 0m)
+        {
+            errors["insuredAmount"] = ["InsuredAmount cannot be negative."];
+        }
+
+        if (state.StartDateUtc is { } start && state.EndDateUtc is { } end && start > end)
+        {
+            errors["startDateUtc"] = ["StartDateUtc must be on or before EndDateUtc."];
         }
 
         return errors.Count == 0
@@ -516,6 +557,57 @@ internal static class PersonnelFileInsurancePatchApplier
         apply();
         state.HasMutation = true;
         return Result.Success();
+    }
+}
+
+internal static class InsuranceCommandValidation
+{
+    public static async Task<Error> ValidateAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        PersonnelFile personnelFile,
+        Guid? candidateInsurancePublicId,
+        InsuranceInput item,
+        CancellationToken cancellationToken)
+    {
+        // Insurance name from the country catalog (D-02).
+        var typeError = await PersonnelReferenceCatalogValidation.ValidateInsuranceTypeCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, "insuranceCode", item.InsuranceCode, cancellationToken);
+        if (typeError != Error.None)
+        {
+            return typeError;
+        }
+
+        // Range from the country catalog: optional and must belong to the selected insurance (D-03).
+        var rangeError = await PersonnelReferenceCatalogValidation.ValidateInsuranceRangeCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, item.InsuranceCode, item.RangeCode, cancellationToken);
+        if (rangeError != Error.None)
+        {
+            return rangeError;
+        }
+
+        // Currency from the ISO-4217 catalog (D-12).
+        if (!string.IsNullOrWhiteSpace(item.CurrencyCode))
+        {
+            var currencyError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+                personnelFileRepository,
+                personnelFile.TenantId,
+                "currencyCode",
+                PersonnelCurriculumCatalogCategories.Currency,
+                item.CurrencyCode!,
+                cancellationToken);
+            if (currencyError != Error.None)
+            {
+                return currencyError;
+            }
+        }
+
+        // Anti-duplicate policy per employee (D-13); multiple insurances are otherwise allowed (D-05).
+        var siblings = (await employeeRepository.GetInsurancesAsync(personnelFile.PublicId, cancellationToken))
+            .Select(existing => new InsuranceRules.ExistingInsurance(existing.Id, InsuranceRules.NormalizePolicy(existing.PolicyNumber)))
+            .ToArray();
+        var policyCheck = InsuranceRules.CheckPolicyUnique(candidateInsurancePublicId, item.PolicyNumber, siblings);
+        return policyCheck.IsFailure ? policyCheck.Error : Error.None;
     }
 }
 

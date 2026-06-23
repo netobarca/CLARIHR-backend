@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260623034233_InsuranceCatalogsAndBeneficiaryAllocation")]
+    partial class InsuranceCatalogsAndBeneficiaryAllocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4727,88 +4730,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_employment_status_catalog_items__country_active_sort");
 
                     b.ToTable("employment_status_catalog_items", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = -9100L,
-                            Code = "ACTIVO",
-                            ConcurrencyToken = new Guid("c4d7577e-331a-5533-8b0b-b9a7cdd392dc"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Activo",
-                            NormalizedCode = "ACTIVO",
-                            NormalizedName = "ACTIVO",
-                            PublicId = new Guid("de6c6a77-a1d2-3e50-7606-712700c0198f"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9101L,
-                            Code = "SUSPENDIDO",
-                            ConcurrencyToken = new Guid("2104a7a7-9b59-4d77-1740-c4b7ba9f237b"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Suspendido",
-                            NormalizedCode = "SUSPENDIDO",
-                            NormalizedName = "SUSPENDIDO",
-                            PublicId = new Guid("0972caa2-abf8-50a7-6a2f-412ffc98f22e"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9102L,
-                            Code = "LICENCIA",
-                            ConcurrencyToken = new Guid("11447e54-0e54-c672-7cec-80d12845bf6f"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Licencia",
-                            NormalizedCode = "LICENCIA",
-                            NormalizedName = "LICENCIA",
-                            PublicId = new Guid("b2bf570f-8494-c823-6fdc-7ec70f55e224"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9103L,
-                            Code = "INCAPACIDAD",
-                            ConcurrencyToken = new Guid("29f5810e-0e56-3fed-28aa-a4e96d8f7802"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Incapacidad",
-                            NormalizedCode = "INCAPACIDAD",
-                            NormalizedName = "INCAPACIDAD",
-                            PublicId = new Guid("cd8c2dc0-c49c-fa04-007e-f4c9efce6b81"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9104L,
-                            Code = "RETIRADO",
-                            ConcurrencyToken = new Guid("b3e25e1c-5aaf-28f4-3489-fbddaf9aa982"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Retirado",
-                            NormalizedCode = "RETIRADO",
-                            NormalizedName = "RETIRADO",
-                            PublicId = new Guid("3bb07083-2fc1-9309-26ba-1ec4fae5e4c6"),
-                            SortOrder = 50
-                        });
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.LanguageCatalogItem", b =>

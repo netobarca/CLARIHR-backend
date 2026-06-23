@@ -181,7 +181,10 @@ public sealed class PersonnelFileEmploymentController(
             Upserts the single employment-information section of the specified personnel file. When a profile
             already exists, the `If-Match` header with its current `concurrencyToken` is required to
             prevent lost updates; the refreshed token is returned in the `ETag` header. The first
-            create requires no `If-Match`.
+            create requires no `If-Match`. Supplying `institutionalEmail` changes the employee's institutional
+            email — which is the linked sign-in account's identifier, so the account is re-synced to it; omit it
+            (or send `null`) to leave it unchanged. A `409` is returned when the email already belongs to
+            another account.
             """)]
     public async Task<ActionResult<PersonnelFileEmployeeProfileResponse>> UpdateEmployeeProfile(
         Guid publicId,
@@ -199,7 +202,8 @@ public sealed class PersonnelFileEmploymentController(
                 request.RetirementReasonCode,
                 request.RetirementNotes,
                 request.RetirementDate,
-                concurrencyToken),
+                concurrencyToken,
+                request.InstitutionalEmail),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);

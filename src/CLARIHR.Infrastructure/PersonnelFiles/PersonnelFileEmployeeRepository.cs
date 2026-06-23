@@ -1059,7 +1059,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 cancellationToken);
         if (insurance is null) return null;
 
-        var entity = PersonnelFileInsuranceBeneficiary.Create(item.FullName, item.DocumentNumber, item.BirthDate, item.KinshipCode);
+        var entity = PersonnelFileInsuranceBeneficiary.Create(item.FullName, item.DocumentNumber, item.DocumentTypeCode, item.BirthDate, item.KinshipCode, item.AllocationPercentage, item.BeneficiaryType);
         entity.SetTenantId(tenantId);
         entity.BindToInsurance(insurance.Id);
         dbContext.Set<PersonnelFileInsuranceBeneficiary>().Add(entity);
@@ -1103,6 +1103,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
@@ -1113,7 +1116,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                     && x.TenantId == tenantId,
                 cancellationToken);
         if (item is null) return null;
-        item.Update(fullName, documentNumber, birthDate, kinshipCode);
+        item.Update(fullName, documentNumber, documentTypeCode, birthDate, kinshipCode, allocationPercentage, beneficiaryType);
         return Map(item);
     }
 
@@ -1126,6 +1129,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken)
@@ -1138,7 +1144,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                     && x.TenantId == tenantId,
                 cancellationToken);
         if (item is null) return null;
-        item.Update(fullName, documentNumber, birthDate, kinshipCode);
+        item.Update(fullName, documentNumber, documentTypeCode, birthDate, kinshipCode, allocationPercentage, beneficiaryType);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -1870,8 +1876,11 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                     beneficiary.PublicId,
                     beneficiary.FullName,
                     beneficiary.DocumentNumber,
+                    beneficiary.DocumentTypeCode,
                     beneficiary.BirthDate,
                     beneficiary.KinshipCode,
+                    beneficiary.AllocationPercentage,
+                    beneficiary.BeneficiaryType,
                     beneficiary.IsActive,
                     beneficiary.ConcurrencyToken))
                 .ToArray(),
@@ -1882,8 +1891,11 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.PublicId,
             item.FullName,
             item.DocumentNumber,
+            item.DocumentTypeCode,
             item.BirthDate,
             item.KinshipCode,
+            item.AllocationPercentage,
+            item.BeneficiaryType,
             item.IsActive,
             item.ConcurrencyToken);
 

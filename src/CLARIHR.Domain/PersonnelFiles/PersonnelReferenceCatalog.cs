@@ -173,4 +173,6 @@ public static class PersonnelReferenceCatalogCategories
     public const string Kinship = "Kinship";
     public const string Department = "Department";
     public const string Municipality = "Municipality";
+    public const string InsuranceType = "InsuranceType";
+    public const string InsuranceRange = "InsuranceRange";
 }

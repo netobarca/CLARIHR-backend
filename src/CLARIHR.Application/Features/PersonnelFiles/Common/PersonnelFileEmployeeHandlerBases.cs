@@ -51,6 +51,30 @@ internal static class PersonnelFileEmployeeAudits
                 Before: null,
                 After: after),
             cancellationToken);
+
+    /// <summary>
+    /// Overload that records the previous state as well, so the audit entry carries a before/after diff
+    /// (e.g. insurance edits/deletions — D-15). Used by update/patch/delete handlers; create keeps the
+    /// before-less overload.
+    /// </summary>
+    public static async Task LogUpdateAsync(
+        IAuditService auditService,
+        PersonnelFile personnelFile,
+        string summary,
+        object? before,
+        object? after,
+        CancellationToken cancellationToken) =>
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.PersonnelFileUpdated,
+                AuditEntityTypes.PersonnelFile,
+                personnelFile.PublicId,
+                personnelFile.FullName,
+                AuditActions.Update,
+                summary,
+                Before: before,
+                After: after),
+            cancellationToken);
 }
 
 internal abstract class PersonnelFileEmployeeCommandHandlerBase
@@ -279,6 +303,47 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
             {
                 return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
             }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for insurance sub-resources: the caller has the dedicated <c>ViewInsurance</c>
+    /// permission (or Admin). Unlike the compensation read gate, there is NO self-service branch in
+    /// this phase (D-11): the employee cannot read their own insurances.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForInsuranceReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (!(await authorizationService.EnsureCanViewInsuranceAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
         }
 
         if (!personnelFile.IsCompletedEmployee)

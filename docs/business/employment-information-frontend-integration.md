@@ -18,7 +18,8 @@
 3. **`employmentStatusCode` ya no es texto libre**: debe venir de un **catálogo nuevo** → `GET /api/v1/general-catalogs/employment-statuses?countryCode=SV`. Enviar un código inválido devuelve `422 EMPLOYMENT_STATUS_CODE_INVALID`.
 4. **Desapareció el booleano `isEmploymentActive`.** El estado activo/baja ahora se deriva del **`employmentStatusCode`** (p. ej. `RETIRADO` = baja) y/o de `retirementDate`.
 5. **La antigüedad la calcula el backend** y viene en la respuesta como objeto `seniority { years, months, days, totalDays }`. El FE ya no necesita calcularla.
-6. **Nuevos campos de solo lectura en la respuesta**: `institutionalEmail` (viene del expediente) y `seniority`. Y `vacationDaysAvailable` / `disabilityDaysAvailable` que **por ahora siempre son `null`** (los gestionará el futuro módulo de vacaciones/incapacidades).
+6. **`institutionalEmail` ahora es editable** desde el `PUT` (antes era solo lectura): es el correo de **login** del empleado, así que cambiarlo re-sincroniza su cuenta. Omitir/`null` = sin cambios; `409 PERSONNEL_FILE_LINKED_USER_CONFLICT` si el correo ya está en uso. Ver §3.2.
+7. **Nuevos campos de solo lectura en la respuesta**: `seniority`, y `vacationDaysAvailable` / `disabilityDaysAvailable` que **por ahora siempre son `null`** (los gestionará el futuro módulo de vacaciones/incapacidades).
 
 > ⚠️ Son **cambios incompatibles** de contrato (incluido el renombre de la ruta). No hay migración de datos: los campos viejos desaparecen. El FE debe ajustar URL, requests y lecturas.
 
@@ -76,7 +77,8 @@ EmploymentInformation {                   EmploymentAssignment (plaza principal 
   "retirementCategoryCode": null,            // metadatos de baja (opcionales)
   "retirementReasonCode": null,
   "retirementNotes": null,
-  "retirementDate": null
+  "retirementDate": null,
+  "institutionalEmail": "ana.perez@empresa.test"  // ← EDITABLE: mándalo para cambiarlo; omítelo/null para dejarlo igual
 }
 ```
 
@@ -87,7 +89,7 @@ EmploymentInformation {                   EmploymentAssignment (plaza principal 
   "id": "…",
   "employeeCode": "EMP-0001",
   "employmentStatusCode": "ACTIVO",
-  "institutionalEmail": "ana.perez@empresa.test",  // ← NUEVO, solo lectura (viene del expediente)
+  "institutionalEmail": "ana.perez@empresa.test",  // ← editable vía el PUT (es el login del empleado)
   "hireDate": "2024-03-01T00:00:00Z",
   "seniority": {                                    // ← NUEVO, solo lectura (lo calcula el backend)
     "years": 2, "months": 3, "days": 20, "totalDays": 842
@@ -111,7 +113,7 @@ EmploymentInformation {                   EmploymentAssignment (plaza principal 
 - Quitar del formulario los campos de contrato/estructura. Esos datos se editan ahora en la **pantalla de plazas (employment-assignments)**.
 - Mostrar `seniority` directamente (no recalcular). Si querés un texto: `"{years}a {months}m {days}d"`.
 - Tratar `vacationDaysAvailable` / `disabilityDaysAvailable` `null` como "no disponible" (—). No asumas `0`.
-- `institutionalEmail` es **solo lectura** acá (se define en el alta/finalización y es inmutable tras completar el expediente).
+- `institutionalEmail` ahora es **editable** desde este `PUT`. Es el identificador de la **cuenta de inicio de sesión** del empleado, así que al cambiarlo el backend actualiza también esa cuenta (el empleado inicia sesión con el nuevo correo, misma contraseña). Mándalo para cambiarlo; **omítelo o `null` para dejarlo igual** (no se puede vaciar mientras haya cuenta vinculada). Si el correo ya pertenece a otra cuenta devuelve `409 PERSONNEL_FILE_LINKED_USER_CONFLICT`; si no es un email válido, `422`.
 
 ---
 
@@ -132,6 +134,8 @@ Respuesta (mismo shape que los demás general-catalogs):
   { "id":"…", "category":"EmploymentStatus", "code":"RETIRADO",    "name":"Retirado",    "isSystem":false, "isActive":true, "sortOrder":50 }
 ]
 ```
+
+> Para `SV` este catálogo viene **sembrado por defecto** (ACTIVO/SUSPENDIDO/LICENCIA/INCAPACIDAD/RETIRADO) en todos los ambientes vía migración; el endpoint ya no responde `404`. Si un ambiente venía sin estos datos, se rellenan al aplicar las migraciones.
 
 **Acciones FE:**
 - Poblar el dropdown de "Estado del Empleado" con este endpoint (usar `code` para enviar, `name` para mostrar, `sortOrder` para ordenar).
@@ -236,7 +240,7 @@ El endpoint `POST /api/v1/personnel-files/{id}/rehire` y su body **no cambiaron*
 - [ ] **Estado del empleado**: cambiar el input libre por un dropdown alimentado de `GET …/general-catalogs/employment-statuses?countryCode=SV`. Manejar `422 EMPLOYMENT_STATUS_CODE_INVALID`.
 - [ ] **Eliminar** cualquier uso del booleano `isEmploymentActive`; derivar activo/baja desde `employmentStatusCode` (`RETIRADO`) / `retirementDate`.
 - [ ] **Antigüedad**: leer y mostrar `seniority` (objeto) en vez de calcular desde `hireDate`.
-- [ ] **Correo institucional**: mostrarlo como **solo lectura**.
+- [ ] **Correo institucional**: permitir **editarlo** en el formulario y mandarlo en el `PUT`. Manejar `409 PERSONNEL_FILE_LINKED_USER_CONFLICT` (correo en uso) y `422` (formato). Avisar al usuario que cambia el correo de **inicio de sesión** del empleado.
 - [ ] **Días de vacaciones/incapacidad**: leer `vacationDaysAvailable` / `disabilityDaysAvailable`, tolerar `null` (mostrar "—").
 - [ ] **Contrato y estructura (UO/CC/CT)**: mover su edición/visualización a la pantalla de **employment-assignments**; leerlos de la **plaza principal activa**.
 - [ ] **Plazas**: (opcional) agregar inputs para `contractTypeCode` / `workdayCode` / `payrollTypeCode` en el alta/edición de la asignación.

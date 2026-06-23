@@ -218,3 +218,77 @@ public sealed class MunicipalityCatalogItem : PersonnelReferenceCatalogItemBase
         RefreshConcurrencyToken();
     }
 }
+
+public sealed class InsuranceTypeCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private InsuranceTypeCatalogItem()
+    {
+    }
+
+    private InsuranceTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static InsuranceTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class InsuranceRangeCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private InsuranceRangeCatalogItem()
+    {
+    }
+
+    private InsuranceRangeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder,
+        long insuranceTypeCatalogItemId)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+        SetInsuranceType(insuranceTypeCatalogItemId);
+    }
+
+    public long InsuranceTypeCatalogItemId { get; private set; }
+
+    public InsuranceTypeCatalogItem? InsuranceTypeCatalogItem { get; private set; }
+
+    public static InsuranceRangeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder,
+        long insuranceTypeCatalogItemId) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder, insuranceTypeCatalogItemId);
+
+    private void SetInsuranceType(long insuranceTypeCatalogItemId)
+    {
+        if (insuranceTypeCatalogItemId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(insuranceTypeCatalogItemId), "Insurance type catalog item id cannot be zero.");
+        }
+
+        InsuranceTypeCatalogItemId = insuranceTypeCatalogItemId;
+        RefreshConcurrencyToken();
+    }
+}

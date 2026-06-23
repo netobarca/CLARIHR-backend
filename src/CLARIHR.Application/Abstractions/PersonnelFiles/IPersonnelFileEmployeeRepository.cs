@@ -495,6 +495,9 @@ public interface IPersonnelFileEmployeeRepository
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileInsuranceBeneficiaryResponse?> PatchInsuranceBeneficiaryAsync(
@@ -506,6 +509,9 @@ public interface IPersonnelFileEmployeeRepository
         string? documentNumber,
         DateTime? birthDate,
         string kinshipCode,
+        string? documentTypeCode,
+        decimal? allocationPercentage,
+        string? beneficiaryType,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);

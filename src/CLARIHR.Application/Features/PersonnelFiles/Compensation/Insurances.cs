@@ -92,6 +92,15 @@ internal sealed class InsuranceInputValidator : AbstractValidator<InsuranceInput
     public InsuranceInputValidator()
     {
         RuleFor(input => input.InsuranceCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.RangeCode).MaximumLength(80);
+        RuleFor(input => input.PolicyNumber).MaximumLength(120);
+        RuleFor(input => input.CurrencyCode).MaximumLength(40);
+        RuleFor(input => input.EmployeeContribution).GreaterThanOrEqualTo(0m).When(input => input.EmployeeContribution.HasValue);
+        RuleFor(input => input.EmployerContribution).GreaterThanOrEqualTo(0m).When(input => input.EmployerContribution.HasValue);
+        RuleFor(input => input.InsuredAmount).GreaterThanOrEqualTo(0m).When(input => input.InsuredAmount.HasValue);
+        RuleFor(input => input.StartDateUtc)
+            .LessThanOrEqualTo(input => input.EndDateUtc!.Value)
+            .When(input => input.StartDateUtc.HasValue && input.EndDateUtc.HasValue);
     }
 }
 

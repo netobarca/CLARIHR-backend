@@ -164,6 +164,43 @@ internal static class GlobalCatalogSeedData
             ModifiedUtc = SeededAtUtc
         };
 
+    // Country-scoped employment-status catalog (general-catalogs key `employment-statuses`). Seeded here
+    // — like the bank catalog above — so it lands in EVERY environment through the migration pipeline
+    // (MigrateAsync) and backfills already-provisioned databases, instead of only fresh dev databases via
+    // DevSeedService (whose idempotency guard short-circuits once the dev user exists, which is exactly why
+    // the endpoint was returning 404). SV only for this phase; mirrors the codes consumed by the frontend.
+    public static IEnumerable<object> GetEmploymentStatusCatalogItems() =>
+    [
+        CreateEmploymentStatusSeed(-9100L, "SV", "ACTIVO", "Activo", 10),
+        CreateEmploymentStatusSeed(-9101L, "SV", "SUSPENDIDO", "Suspendido", 20),
+        CreateEmploymentStatusSeed(-9102L, "SV", "LICENCIA", "Licencia", 30),
+        CreateEmploymentStatusSeed(-9103L, "SV", "INCAPACIDAD", "Incapacidad", 40),
+        CreateEmploymentStatusSeed(-9104L, "SV", "RETIRADO", "Retirado", 50)
+    ];
+
+    private static object CreateEmploymentStatusSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("EMPLOYMENT_STATUS_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("EMPLOYMENT_STATUS_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
     private static long ResolveCountryId(string countryCode) =>
         CLARIHR.Domain.Locations.CountryCatalog.Items
             .Single(item => string.Equals(item.Code, countryCode, StringComparison.OrdinalIgnoreCase))

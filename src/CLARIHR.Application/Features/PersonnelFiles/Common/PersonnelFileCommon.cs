@@ -104,6 +104,13 @@ public static class PersonnelFilePermissionCodes
     /// <see cref="Read"/>. Follows the <see cref="ViewCompensation"/> precedent (Admin is a superset).
     /// </summary>
     public const string ManageSubstitutions = "PersonnelFiles.ManageSubstitutions";
+
+    /// <summary>
+    /// Dedicated permission to read insurance data (insurances + beneficiaries, which carry PII and
+    /// insured amounts). Lets configurable roles view another employee's insurances; Admin is a superset.
+    /// No self-service in this phase (the employee cannot view their own insurances).
+    /// </summary>
+    public const string ViewInsurance = "PersonnelFiles.ViewInsurance";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

@@ -817,8 +817,11 @@ public sealed class PersonnelFileCompensationController(
                 new InsuranceBeneficiaryInput(
                     request.FullName,
                     request.DocumentNumber,
+                    request.DocumentTypeCode,
                     request.BirthDate,
-                    request.KinshipCode)),
+                    request.KinshipCode,
+                    request.AllocationPercentage,
+                    request.BeneficiaryType)),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -856,8 +859,11 @@ public sealed class PersonnelFileCompensationController(
                 new InsuranceBeneficiaryInput(
                     request.FullName,
                     request.DocumentNumber,
+                    request.DocumentTypeCode,
                     request.BirthDate,
-                    request.KinshipCode),
+                    request.KinshipCode,
+                    request.AllocationPercentage,
+                    request.BeneficiaryType),
                 concurrencyToken),
             cancellationToken);
 

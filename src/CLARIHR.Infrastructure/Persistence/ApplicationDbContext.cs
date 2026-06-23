@@ -258,6 +258,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<MunicipalityCatalogItem> MunicipalityCatalogItems => Set<MunicipalityCatalogItem>();
 
+    public DbSet<InsuranceTypeCatalogItem> InsuranceTypeCatalogItems => Set<InsuranceTypeCatalogItem>();
+
+    public DbSet<InsuranceRangeCatalogItem> InsuranceRangeCatalogItems => Set<InsuranceRangeCatalogItem>();
+
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
 
     public DbSet<PersonnelFileEmploymentAssignment> PersonnelFileEmploymentAssignments => Set<PersonnelFileEmploymentAssignment>();

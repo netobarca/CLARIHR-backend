@@ -112,7 +112,10 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
     string? RetirementNotes,
-    DateTime? RetirementDate);
+    DateTime? RetirementDate,
+    // The institutional email is the employee's login. Supply it to change it (record + linked account);
+    // omit/leave null to keep the current one — it cannot be cleared while a login account is linked.
+    string? InstitutionalEmail = null);
 
 public sealed record AddEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -403,21 +406,30 @@ public sealed class PatchInsuranceRequest
 public sealed record AddInsuranceBeneficiaryRequest(
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
-    string KinshipCode);
+    string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType);
 
 public sealed record UpdateInsuranceBeneficiaryRequest(
     string FullName,
     string? DocumentNumber,
+    string? DocumentTypeCode,
     DateTime? BirthDate,
-    string KinshipCode);
+    string KinshipCode,
+    decimal? AllocationPercentage,
+    string? BeneficiaryType);
 
 public sealed class PatchInsuranceBeneficiaryRequest
 {
     public string FullName { get; set; } = string.Empty;
     public string? DocumentNumber { get; set; }
+    public string? DocumentTypeCode { get; set; }
     public DateTime? BirthDate { get; set; }
     public string KinshipCode { get; set; } = string.Empty;
+    public decimal? AllocationPercentage { get; set; }
+    public string? BeneficiaryType { get; set; }
     public bool IsActive { get; set; }
 }
 

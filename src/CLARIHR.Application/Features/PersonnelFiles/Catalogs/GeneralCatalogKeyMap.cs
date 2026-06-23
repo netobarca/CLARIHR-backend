@@ -58,6 +58,8 @@ public static class GeneralCatalogKeyMap
             ["kinships"] = PersonnelReferenceCatalogCategories.Kinship,
             ["departments"] = PersonnelReferenceCatalogCategories.Department,
             ["municipalities"] = PersonnelReferenceCatalogCategories.Municipality,
+            ["insurance-types"] = PersonnelReferenceCatalogCategories.InsuranceType,
+            ["insurance-ranges"] = PersonnelReferenceCatalogCategories.InsuranceRange,
         };
 
     /// <summary>Resolves a <c>general-catalogs</c> wire key to its category; <c>false</c> for an unknown key.</summary>

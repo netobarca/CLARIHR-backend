@@ -386,6 +386,9 @@ internal sealed class PersonnelFileInsuranceBeneficiaryConfiguration : IEntityTy
         builder.Property(item => item.DocumentNumber).HasColumnName("document_number").HasMaxLength(80);
         builder.Property(item => item.BirthDate).HasColumnName("birth_date");
         builder.Property(item => item.KinshipCode).HasColumnName("kinship_code").HasMaxLength(80);
+        builder.Property(item => item.DocumentTypeCode).HasColumnName("document_type_code").HasMaxLength(80);
+        builder.Property(item => item.AllocationPercentage).HasColumnName("allocation_percentage").HasColumnType("numeric(5,2)");
+        builder.Property(item => item.BeneficiaryType).HasColumnName("beneficiary_type").HasMaxLength(40);
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");

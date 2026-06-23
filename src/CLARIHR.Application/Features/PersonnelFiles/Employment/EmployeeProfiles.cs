@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -82,7 +83,10 @@ public sealed record UpdatePersonnelFileEmployeeProfileCommand(
     string? RetirementReasonCode,
     string? RetirementNotes,
     DateTime? RetirementDate,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    // The institutional email is the employee's login account identifier. When supplied and changed, the
+    // handler re-syncs the linked account so sign-in stays consistent (full edit). Null leaves it unchanged.
+    string? InstitutionalEmail = null)
     : ICommand<PersonnelFileEmployeeProfileResponse>;
 
 public sealed record GetPersonnelFileEmployeeProfileQuery(Guid PersonnelFileId)
@@ -122,6 +126,10 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : Abstr
         RuleFor(command => command.RetirementReasonCode).MaximumLength(80);
         RuleFor(command => command.RetirementNotes).MaximumLength(2000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.InstitutionalEmail)
+            .MaximumLength(256)
+            .EmailAddress()
+            .When(command => !string.IsNullOrWhiteSpace(command.InstitutionalEmail));
     }
 }
 
@@ -137,6 +145,7 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IUserRepository userRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IDateTimeProvider dateTimeProvider,
@@ -177,6 +186,31 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
             personnelFile.TenantId, PersonnelCurriculumCatalogCategories.EmploymentStatus, command.EmploymentStatusCode, cancellationToken))
         {
             return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.StatusCodeInvalid);
+        }
+
+        // Institutional-email edit (record + login): the institutional email is the employee's account
+        // identifier, so a change is applied to BOTH the file and the linked sign-in account to keep them
+        // consistent. Only act when a new value is supplied that actually differs; omitting it (null) leaves
+        // the current email untouched — it cannot be cleared while a login account is linked.
+        var requestedInstitutionalEmail = command.InstitutionalEmail?.Trim();
+        if (!string.IsNullOrWhiteSpace(requestedInstitutionalEmail) &&
+            !string.Equals(requestedInstitutionalEmail, personnelFile.InstitutionalEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            // Uniqueness: no other account may already own this email (mirrors the finalize/rehire guard;
+            // the unique index on the normalized email is the backstop against a concurrent claim).
+            var conflictingUser = await userRepository.GetByEmailAsync(requestedInstitutionalEmail, cancellationToken);
+            if (conflictingUser is not null && conflictingUser.PublicId != personnelFile.LinkedUserPublicId)
+            {
+                return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.LinkedUserConflict);
+            }
+
+            personnelFile.ChangeInstitutionalEmail(requestedInstitutionalEmail);
+
+            if (personnelFile.LinkedUserPublicId is { } linkedUserPublicId)
+            {
+                var linkedUser = await userRepository.GetByPublicIdAsync(linkedUserPublicId, cancellationToken);
+                linkedUser?.ChangeEmail(requestedInstitutionalEmail);
+            }
         }
 
         var entity = PersonnelFileEmployeeProfile.Create(

@@ -158,6 +158,7 @@ public sealed class PersonnelReferenceCatalogValidationTests
         private readonly HashSet<string> _activeCountries = new(StringComparer.Ordinal);
         private readonly HashSet<string> _activeReferenceCodes = new(StringComparer.Ordinal);
         private readonly HashSet<string> _municipalityDepartmentLinks = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _insuranceTypeRangeLinks = new(StringComparer.Ordinal);
 
         public void AddActiveCountry(string countryCode) => _activeCountries.Add(Normalize(countryCode));
 
@@ -166,6 +167,9 @@ public sealed class PersonnelReferenceCatalogValidationTests
 
         public void AddMunicipalityDepartment(string countryCode, string departmentCode, string municipalityCode) =>
             _municipalityDepartmentLinks.Add($"{Normalize(countryCode)}|{Normalize(departmentCode)}|{Normalize(municipalityCode)}");
+
+        public void AddInsuranceTypeRange(string countryCode, string insuranceTypeCode, string insuranceRangeCode) =>
+            _insuranceTypeRangeLinks.Add($"{Normalize(countryCode)}|{Normalize(insuranceTypeCode)}|{Normalize(insuranceRangeCode)}");
 
         public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken) =>
             Task.FromResult(_activeCountries.Contains(Normalize(countryCode)));
@@ -183,6 +187,13 @@ public sealed class PersonnelReferenceCatalogValidationTests
             string municipalityCode,
             CancellationToken cancellationToken) =>
             Task.FromResult(_municipalityDepartmentLinks.Contains($"{Normalize(countryCode)}|{Normalize(departmentCode)}|{Normalize(municipalityCode)}"));
+
+        public Task<bool> ReferenceInsuranceRangeBelongsToTypeAsync(
+            string countryCode,
+            string insuranceTypeCode,
+            string insuranceRangeCode,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(_insuranceTypeRangeLinks.Contains($"{Normalize(countryCode)}|{Normalize(insuranceTypeCode)}|{Normalize(insuranceRangeCode)}"));
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
         public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
