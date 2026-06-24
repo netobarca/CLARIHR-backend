@@ -14,7 +14,7 @@
 
 0. **El endpoint se renombró**: `…/employee-profile` → **`…/employment-information`**. El concepto pasa de "Perfil/Ficha del Empleado" a **"Información Laboral"**. Hay que actualizar la URL en el FE.
 1. **La Información Laboral del empleado (`employment-information`) se adelgazó.** Ahora **solo** maneja: código de empleado, **estado del empleado** (catálogo), fecha de ingreso, antigüedad (calculada), correo institucional (lectura) y los días vigentes de vacaciones/incapacidad (lectura, aún nulos). Todo lo demás salió de esta sección.
-2. **Los datos de contrato y de estructura salieron de aquí y viven por plaza** en las **employment-assignments**: `contractTypeCode`, `workdayCode`, `payrollTypeCode`, y `orgUnitId` / `workCenterId` / `costCenterId`.
+2. **Los datos de contrato y de estructura salieron de aquí y viven por plaza** en las **assigned-positions**: `contractTypeCode`, `workdayCode`, `payrollTypeCode`, y `orgUnitId` / `workCenterId` / `costCenterId`.
 3. **`employmentStatusCode` ya no es texto libre**: debe venir de un **catálogo nuevo** → `GET /api/v1/general-catalogs/employment-statuses?countryCode=SV`. Enviar un código inválido devuelve `422 EMPLOYMENT_STATUS_CODE_INVALID`.
 4. **Desapareció el booleano `isEmploymentActive`.** El estado activo/baja ahora se deriva del **`employmentStatusCode`** (p. ej. `RETIRADO` = baja) y/o de `retirementDate`.
 5. **La antigüedad la calcula el backend** y viene en la respuesta como objeto `seniority { years, months, days, totalDays }`. El FE ya no necesita calcularla.
@@ -58,7 +58,7 @@ EmploymentInformation {                   EmploymentAssignment (plaza principal 
 
 ## 3. Endpoint — `GET` / `PUT /api/v1/personnel-files/{id}/employment-information`
 
-> Renombrado desde `…/employee-profile`. El prefijo `personnel-files` y los demás sub-recursos (datos personales, direcciones, aficiones, beneficiarios, employment-assignments, etc.) **no cambian**.
+> Renombrado desde `…/employee-profile`. El prefijo `personnel-files` y los demás sub-recursos (datos personales, direcciones, aficiones, beneficiarios, assigned-positions, etc.) **no cambian**.
 
 ### 3.1 Request del `PUT` (`UpdatePersonnelFileEmployeeProfileRequest`)
 
@@ -110,7 +110,7 @@ EmploymentInformation {                   EmploymentAssignment (plaza principal 
 
 **Acciones FE:**
 - Actualizar la URL del endpoint a `…/employment-information`.
-- Quitar del formulario los campos de contrato/estructura. Esos datos se editan ahora en la **pantalla de plazas (employment-assignments)**.
+- Quitar del formulario los campos de contrato/estructura. Esos datos se editan ahora en la **pantalla de plazas (assigned-positions)**.
 - Mostrar `seniority` directamente (no recalcular). Si querés un texto: `"{years}a {months}m {days}d"`.
 - Tratar `vacationDaysAvailable` / `disabilityDaysAvailable` `null` como "no disponible" (—). No asumas `0`.
 - `institutionalEmail` ahora es **editable** desde este `PUT`. Es el identificador de la **cuenta de inicio de sesión** del empleado, así que al cambiarlo el backend actualiza también esa cuenta (el empleado inicia sesión con el nuevo correo, misma contraseña). Mándalo para cambiarlo; **omítelo o `null` para dejarlo igual** (no se puede vaciar mientras haya cuenta vinculada). Si el correo ya pertenece a otra cuenta devuelve `409 PERSONNEL_FILE_LINKED_USER_CONFLICT`; si no es un email válido, `422`.
@@ -156,7 +156,7 @@ Respuesta (mismo shape que los demás general-catalogs):
 
 Para obtener la plaza principal activa:
 ```
-GET /api/v1/personnel-files/{id}/employment-assignments
+GET /api/v1/personnel-files/{id}/assigned-positions
 → filtrar item.isPrimary === true && item.isActive === true
 ```
 
@@ -164,12 +164,12 @@ GET /api/v1/personnel-files/{id}/employment-assignments
 
 ## 6. Employment-assignments — campos de contrato nuevos (ADITIVO)
 
-Las plazas (`employment-assignments`) **ganaron 3 campos opcionales** de contrato. Es aditivo: lo que ya enviabas sigue funcionando.
+Las plazas (`assigned-positions`) **ganaron 3 campos opcionales** de contrato. Es aditivo: lo que ya enviabas sigue funcionando.
 
 **Request (`POST` / `PUT` / `PATCH`):** ahora acepta `contractTypeCode`, `workdayCode`, `payrollTypeCode` (todos opcionales, máx. 80 chars).
 
 ```jsonc
-// POST /api/v1/personnel-files/{id}/employment-assignments
+// POST /api/v1/personnel-files/{id}/assigned-positions
 {
   "assignmentTypeCode": "INDEFINIDO",   // ya existía (catálogo assignment-types)
   "contractTypeCode": "INDEFINIDO",     // ← NUEVO (opcional, texto libre por ahora)
@@ -196,8 +196,8 @@ Las plazas (`employment-assignments`) **ganaron 3 campos opcionales** de contrat
   "contractTypeCode": "INDEFINIDO",   // ← NUEVO
   "workdayCode": "DIURNA",            // ← NUEVO
   "payrollTypeCode": "MENSUAL",       // ← NUEVO
-  "positionSlotId": "…",
-  "orgUnitId": "…", "workCenterId": "…", "costCenterId": "…",
+  "positionSlotPublicId": "…",
+  "orgUnitPublicId": "…", "workCenterPublicId": "…", "costCenterPublicId": "…",
   "startDate": "…", "endDate": null,
   "isPrimary": true, "isActive": true,
   "notes": null,
@@ -242,6 +242,6 @@ El endpoint `POST /api/v1/personnel-files/{id}/rehire` y su body **no cambiaron*
 - [ ] **Antigüedad**: leer y mostrar `seniority` (objeto) en vez de calcular desde `hireDate`.
 - [ ] **Correo institucional**: permitir **editarlo** en el formulario y mandarlo en el `PUT`. Manejar `409 PERSONNEL_FILE_LINKED_USER_CONFLICT` (correo en uso) y `422` (formato). Avisar al usuario que cambia el correo de **inicio de sesión** del empleado.
 - [ ] **Días de vacaciones/incapacidad**: leer `vacationDaysAvailable` / `disabilityDaysAvailable`, tolerar `null` (mostrar "—").
-- [ ] **Contrato y estructura (UO/CC/CT)**: mover su edición/visualización a la pantalla de **employment-assignments**; leerlos de la **plaza principal activa**.
+- [ ] **Contrato y estructura (UO/CC/CT)**: mover su edición/visualización a la pantalla de **assigned-positions**; leerlos de la **plaza principal activa**.
 - [ ] **Plazas**: (opcional) agregar inputs para `contractTypeCode` / `workdayCode` / `payrollTypeCode` en el alta/edición de la asignación.
 - [ ] Revisar pantallas de **recontratación**: post-rehire el estado es `ACTIVO` (no `isEmploymentActive`); y la nav key del finalize es `employment-information`.

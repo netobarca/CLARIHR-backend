@@ -12,7 +12,7 @@
 
 ## 1. TL;DR (qué cambió y qué tenés que hacer)
 
-1. **La plaza de un empleado ahora vive en UN solo lugar: la colección de "employment-assignments"** (asignaciones de plaza). Un empleado puede tener **varias plazas activas**: una **principal** (`isPrimary: true`) y varias **secundarias**.
+1. **La plaza de un empleado ahora vive en UN solo lugar: la colección de "assigned-positions"** (asignaciones de plaza). Un empleado puede tener **varias plazas activas**: una **principal** (`isPrimary: true`) y varias **secundarias**.
 2. **Se eliminaron campos** que el FE quizá enviaba/leía:
    - Del **expediente** (personnel-file): `assignedPositionSlotPublicId` (ya no existe en requests ni responses).
    - Del **perfil laboral** (employee-profile): `positionSlotPublicId` y `jobProfilePublicId` (ya no existen).
@@ -61,7 +61,7 @@ El rol IAM del empleado se deriva de la plaza **principal** (en la finalización
                                                 │ COMPLETED    │     con el ROL de esa plaza
                                                 └──────┬───────┘
                                                        │ POST/PUT/PATCH/DELETE
-                                                       │ employment-assignments  (solo si COMPLETED)
+                                                       │ assigned-positions  (solo si COMPLETED)
                                                        ▼
                                                 Gestión de plazas:
                                                  - agregar secundarias
@@ -72,7 +72,7 @@ El rol IAM del empleado se deriva de la plaza **principal** (en la finalización
 **Puntos clave para el FE:**
 - El **alta del expediente ya NO captura una plaza**. No mandes `assignedPositionSlotPublicId` al crear/editar el expediente (ya no existe el campo).
 - La **plaza principal se elige en la pantalla de finalización** (es lo que define el rol del usuario). El FE debe pedir `positionSlotPublicId` ahí.
-- **Las employment-assignments solo se pueden crear/editar cuando el empleado está COMPLETED** (un `POST` sobre un Draft responde `422`). Esto ya era así.
+- **Las assigned-positions solo se pueden crear/editar cuando el empleado está COMPLETED** (un `POST` sobre un Draft responde `422`). Esto ya era así.
 - Tras finalizar, la pantalla de "plazas del empleado" gestiona las asignaciones (principal + secundarias).
 
 ---
@@ -89,7 +89,7 @@ El rol IAM del empleado se deriva de la plaza **principal** (en la finalización
 | `GET /personnel-files/{id}/employee-profile` | **eliminados** `positionSlotId` y `jobProfileId` de la respuesta | dejar de leerlos |
 | `PATCH /personnel-files/{id}/finalize` | **agregado** `positionSlotPublicId` (requerido) al body | enviarlo |
 | `GET /personnel-files/{id}/finalize/preview` | **agregado** query param `positionSlotPublicId` | enviarlo para preview correcto |
-| `POST/PUT /personnel-files/{id}/employment-assignments` | `positionSlotPublicId` ahora **obligatorio**; `assignmentTypeCode` debe ser del **catálogo** | validar |
+| `POST/PUT /personnel-files/{id}/assigned-positions` | `positionSlotPublicId` ahora **obligatorio**; `assignmentTypeCode` debe ser del **catálogo** | validar |
 
 ---
 
@@ -132,19 +132,19 @@ El rol IAM del empleado se deriva de la plaza **principal** (en la finalización
 
 > **Recomendación UX:** en la pantalla de finalización, pedí la **plaza principal** (selector de PositionSlot) y, opcionalmente, llamá al `preview` con esa plaza antes de confirmar.
 
-### 5.3 Gestionar plazas (employment-assignments)
+### 5.3 Gestionar plazas (assigned-positions)
 
-Base: `/api/v1/personnel-files/{publicId}/employment-assignments` · **solo sobre empleado COMPLETED**
+Base: `/api/v1/personnel-files/{publicId}/assigned-positions` · **solo sobre empleado COMPLETED**
 **Permisos:** `GET` → `PersonnelFiles.Read` · escrituras → `PersonnelFiles.Manage`.
 
 | Método | Ruta | Notas |
 |---|---|---|
-| `GET` | `/employment-assignments` | lista (principal primero) |
-| `POST` | `/employment-assignments` | crear (sin `If-Match`) → `201` + `ETag` |
-| `GET` | `/employment-assignments/{id}` | detalle |
-| `PUT` | `/employment-assignments/{id}` | reemplaza campos; **preserva `isActive`**; `If-Match` |
-| `PATCH` | `/employment-assignments/{id}` | JSON-Patch (incluye `/isActive`); `If-Match` |
-| `DELETE` | `/employment-assignments/{id}` | `If-Match` |
+| `GET` | `/assigned-positions` | lista (principal primero) |
+| `POST` | `/assigned-positions` | crear (sin `If-Match`) → `201` + `ETag` |
+| `GET` | `/assigned-positions/{id}` | detalle |
+| `PUT` | `/assigned-positions/{id}` | reemplaza campos; **preserva `isActive`**; `If-Match` |
+| `PATCH` | `/assigned-positions/{id}` | JSON-Patch (incluye `/isActive`); `If-Match` |
+| `DELETE` | `/assigned-positions/{id}` | `If-Match` |
 
 **Body (`POST`/`PUT`):**
 
@@ -248,7 +248,7 @@ Todas las respuestas de error son **ProblemDetails** con `status`, `title`/`deta
 - [ ] **Perfil laboral (employee-profile):** quitar `positionSlotPublicId` y `jobProfilePublicId` del request y de la respuesta.
 - [ ] **Onboarding:** quitar el campo "plaza" del alta del empleado (ya no se captura ahí).
 - [ ] **Finalización:** agregar selector de **plaza principal** y enviar `positionSlotPublicId` en el `PATCH /finalize` (y en el query del `preview`).
-- [ ] **Pantalla de plazas del empleado:** consumir `employment-assignments` como fuente única; soportar principal + secundarias.
+- [ ] **Pantalla de plazas del empleado:** consumir `assigned-positions` como fuente única; soportar principal + secundarias.
 - [ ] **Form de plaza:** `positionSlotPublicId` obligatorio; `assignmentTypeCode` desde el catálogo `assignment-types` (select).
 - [ ] **Cambiar principal:** implementar como "marcar otra como principal" (el backend degrada la anterior). Refrescar lista.
 - [ ] **Quitar/desactivar principal:** manejar `EMPLOYMENT_ASSIGNMENT_PRIMARY_REQUIRED` (guiar al usuario a designar otra principal primero).

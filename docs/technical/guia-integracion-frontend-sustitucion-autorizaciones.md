@@ -95,10 +95,10 @@ Semilla SV:
 El "puesto" debe ser una **plaza de una asignación activa del sustituto**. Una vez elegido el sustituto, cargar sus asignaciones:
 
 ```
-GET /api/v1/personnel-files/{substitutePersonnelFileId}/employment-assignments
+GET /api/v1/personnel-files/{substitutePersonnelFileId}/assigned-positions
 ```
 
-- Filtrar por `isActive == true`; cada asignación expone `positionSlotId` (el valor a enviar en `substitutePositionSlotPublicId`).
+- Filtrar por `isActive == true`; cada asignación expone `positionSlotPublicId` (el valor a enviar en `substitutePositionSlotPublicId`).
 - **Default = plaza principal** del sustituto: si hay una sola plaza activa, autoseleccionarla; si hay varias, RRHH elige.
 - El título legible de cada plaza se obtiene del módulo de Plazas (`PositionSlots`) si se necesita una etiqueta; el backend, al guardar, persiste el snapshot del título y lo devuelve en `substitutePositionTitle`.
 
@@ -194,7 +194,7 @@ Devuelve **200** con `{ "parentConcurrencyToken": "…" }` (token refrescado del
 
 1. Abrir el expediente del **titular** (debe estar **completado**; si no, el alta dará `PERSONNEL_FILE_STATE_RULE_VIOLATION`).
 2. **Buscar y seleccionar al sustituto** (selector con búsqueda por nombre, no GUID).
-3. Cargar las **plazas activas del sustituto** (`GET …/employment-assignments`, filtrar `isActive`). Autoseleccionar la principal si hay una sola.
+3. Cargar las **plazas activas del sustituto** (`GET …/assigned-positions`, filtrar `isActive`). Autoseleccionar la principal si hay una sola.
 4. Seleccionar **tipo** del catálogo `substitution-types`.
 5. Capturar **fecha inicio** y **fecha fin (obligatoria)**.
 6. Enviar POST. Manejar errores según §8.
