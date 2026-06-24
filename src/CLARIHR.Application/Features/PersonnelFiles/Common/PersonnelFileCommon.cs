@@ -124,6 +124,21 @@ public static class PersonnelFilePermissionCodes
     /// superset. Employees may register (create) their OWN claims via a separate self-service check (D-09).
     /// </summary>
     public const string ManageMedicalClaims = "PersonnelFiles.ManageMedicalClaims";
+
+    /// <summary>
+    /// Dedicated permission to read position-competency results ("Competencias del puesto" — evaluation
+    /// scores and gaps, sensitive talent data). Lets configurable roles view another employee's competencies;
+    /// Admin is a superset. The employee can always view their own via the self-service check in the
+    /// competency read handlers (D-09).
+    /// </summary>
+    public const string ViewCompetencies = "PersonnelFiles.ViewCompetencies";
+
+    /// <summary>
+    /// Dedicated permission to manage (record/edit/delete) position-competency results. Separate from
+    /// <see cref="Admin"/> so an HR analyst can be granted competency management without full personnel
+    /// administration; reads stay on <see cref="ViewCompetencies"/>. Admin is a superset.
+    /// </summary>
+    public const string ManageCompetencies = "PersonnelFiles.ManageCompetencies";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

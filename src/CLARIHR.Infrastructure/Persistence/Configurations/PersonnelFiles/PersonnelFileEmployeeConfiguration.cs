@@ -1,3 +1,5 @@
+using CLARIHR.Domain.CompetencyFramework;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -545,8 +547,9 @@ internal sealed class PersonnelFilePositionCompetencyResultConfiguration : IEnti
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.CompetencyCode).HasColumnName("competency_code").HasMaxLength(80);
-        builder.Property(item => item.DesiredBehaviors).HasColumnName("desired_behaviors").HasMaxLength(2000);
+        builder.Property(item => item.CompetencyCatalogItemId).HasColumnName("competency_catalog_item_id");
+        builder.Property(item => item.CompetencyTypeCatalogItemId).HasColumnName("competency_type_catalog_item_id");
+        builder.Property(item => item.JobProfileCompetencyExpectationId).HasColumnName("job_profile_competency_expectation_id");
         builder.Property(item => item.ExpectedScore).HasColumnName("expected_score").HasColumnType("numeric(18,2)");
         builder.Property(item => item.AchievedScore).HasColumnName("achieved_score").HasColumnType("numeric(18,2)");
         builder.Property(item => item.GapScore).HasColumnName("gap_score").HasColumnType("numeric(18,2)");
@@ -564,9 +567,29 @@ internal sealed class PersonnelFilePositionCompetencyResultConfiguration : IEnti
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_personnel_file_position_competency_results__personnel_file");
 
+        builder.HasOne<JobCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.CompetencyCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_position_competency_results__competency_catalog_item");
+
+        builder.HasOne<JobCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.CompetencyTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_position_competency_results__competency_type_catalog_item");
+
+        builder.HasOne<JobProfileCompetencyExpectation>()
+            .WithMany()
+            .HasForeignKey(item => item.JobProfileCompetencyExpectationId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .HasConstraintName("fk_personnel_file_position_competency_results__expectation");
+
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_position_competency_results__public_id");
-        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.CompetencyCode })
-            .HasDatabaseName("ix_personnel_file_position_competency_results__tenant_file_competency");
+
+        // History (decision D-07): multiple dated evaluations per competency; ordered by evaluation date.
+        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.CompetencyCatalogItemId, item.EvaluationDateUtc })
+            .HasDatabaseName("ix_personnel_file_position_competency_results__tenant_file_competency_date");
     }
 }
 

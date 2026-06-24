@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
+using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
@@ -30,6 +31,7 @@ internal sealed class CompanyProvisioningService(
     ICompanyPreferenceRepository companyPreferenceRepository,
     ILocationSeedService locationSeedService,
     IOrgStructureCatalogSeedService orgStructureCatalogSeedService,
+    ICompetencyFrameworkSeedService competencyFrameworkSeedService,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider) : ICompanyProvisioningService
@@ -148,6 +150,7 @@ internal sealed class CompanyProvisioningService(
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
         await locationSeedService.InitializeDefaultsAsync(company.PublicId, country.Code, country.Name, cancellationToken);
         await orgStructureCatalogSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
+        await competencyFrameworkSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
 
         return Result<ProvisionedCompanyResult>.Success(new ProvisionedCompanyResult(
             company.PublicId,

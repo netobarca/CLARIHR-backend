@@ -1690,4 +1690,28 @@
   <data name="MEDICAL_CLAIM_STATUS_CODE_INVALID" xml:space="preserve">
     <value>The claim status code is not valid for the active catalog.</value>
   </data>
+  <data name="POSITION_COMPETENCY_EXPECTATION_INVALID" xml:space="preserve">
+    <value>The selected competency expectation does not exist for this company.</value>
+  </data>
+  <data name="POSITION_COMPETENCY_NOT_IN_PROFILE" xml:space="preserve">
+    <value>The competency is not part of the competency matrix of the employee's assigned position.</value>
+  </data>
+  <data name="POSITION_COMPETENCY_SCALE_NOT_CONFIGURED" xml:space="preserve">
+    <value>No active competency rating scale is configured for the company.</value>
+  </data>
+  <data name="POSITION_COMPETENCY_SCORE_OUT_OF_RANGE" xml:space="preserve">
+    <value>The achieved score is outside the company's active competency rating scale.</value>
+  </data>
+  <data name="validation.message.numeric_scale_min_value_must_be_less_than_max_value" xml:space="preserve">
+    <value>Numeric scale min value must be less than max value.</value>
+  </data>
+  <data name="validation.message.numeric_scales_must_not_define_discrete_levels" xml:space="preserve">
+    <value>Numeric scales must not define discrete levels.</value>
+  </data>
+  <data name="validation.message.discrete_scales_require_at_least_two_levels" xml:space="preserve">
+    <value>Discrete scales require at least two levels.</value>
+  </data>
+  <data name="validation.message.discrete_scale_levels_must_have_distinct_values" xml:space="preserve">
+    <value>Discrete scale levels must have distinct values.</value>
+  </data>
 </root>

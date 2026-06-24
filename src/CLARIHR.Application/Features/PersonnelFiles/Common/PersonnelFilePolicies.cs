@@ -51,4 +51,19 @@ public static class PersonnelFilePolicies
     /// self-service employee creating their own claim is not blocked at the API layer.
     /// </summary>
     public const string ManageMedicalClaims = "PersonnelFiles.ManageMedicalClaims";
+
+    /// <summary>
+    /// Read policy for position-competency sub-resources ("Competencias del puesto"). Authn-only superset:
+    /// the precise check (ViewCompetencies / Admin, or the employee reading their own competencies) lives in
+    /// the competency read handlers (self-service, D-09).
+    /// </summary>
+    public const string ViewCompetencies = "PersonnelFiles.ViewCompetencies";
+
+    /// <summary>
+    /// Write policy for position-competency sub-resources (D-08): the dedicated
+    /// <c>PersonnelFiles.ManageCompetencies</c> permission, or Admin / IAM super-admin. Writes are HR-only
+    /// (CLARIHR is the source of truth — D-01); self-service is read-only. Kept a superset of the precise
+    /// <c>EnsureCanManageCompetenciesAsync</c> handler gate so a legitimate manager is never falsely 403'd.
+    /// </summary>
+    public const string ManageCompetencies = "PersonnelFiles.ManageCompetencies";
 }

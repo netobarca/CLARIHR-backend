@@ -61,8 +61,10 @@ public sealed class CompetencyFrameworkDomainTests
     [Fact]
     public void JobProfileCompetencyExpectation_ReplaceConducts_ShouldRefreshConcurrencyToken()
     {
-        var expectation = JobProfileCompetencyExpectation.Create(1, 2, 3, 4, 5, " Evidencia ", 0);
+        var expectation = JobProfileCompetencyExpectation.Create(1, 2, 3, 4, 5, " Evidencia ", 4m, 0);
         var beforeToken = expectation.ConcurrencyToken;
+
+        Assert.Equal(4m, expectation.ExpectedValue);
 
         expectation.ReplaceConducts(
         [

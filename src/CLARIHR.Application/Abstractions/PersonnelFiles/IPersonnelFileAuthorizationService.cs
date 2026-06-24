@@ -62,5 +62,22 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageMedicalClaimsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Role gate for reading position-competency results (evaluation scores/gaps): the dedicated
+    /// <c>PersonnelFiles.ViewCompetencies</c> permission, or Admin / IAM super-admin. (Employees reading their
+    /// OWN competencies are allowed by a separate self-service check — D-09.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewCompetenciesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for position-competency results (D-08): the dedicated <c>PersonnelFiles.ManageCompetencies</c>
+    /// permission, or Admin / IAM super-admin. Writes are HR-only (CLARIHR is the source of truth — D-01).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageCompetenciesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

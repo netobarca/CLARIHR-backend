@@ -533,35 +533,26 @@ public sealed class PatchPerformanceEvaluationRequest
 }
 
 public sealed record AddPositionCompetencyResultRequest(
-    string CompetencyCode,
-    string? DesiredBehaviors,
-    decimal? ExpectedScore,
-    decimal? AchievedScore,
-    decimal? GapScore,
-    DateTime? EvaluationDateUtc,
+    Guid ExpectationPublicId,
+    decimal AchievedScore,
+    DateTime EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc);
 
 public sealed record UpdatePositionCompetencyResultRequest(
-    string CompetencyCode,
-    string? DesiredBehaviors,
-    decimal? ExpectedScore,
-    decimal? AchievedScore,
-    decimal? GapScore,
-    DateTime? EvaluationDateUtc,
+    Guid ExpectationPublicId,
+    decimal AchievedScore,
+    DateTime EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc);
 
 public sealed class PatchPositionCompetencyResultRequest
 {
-    public string CompetencyCode { get; set; } = string.Empty;
-    public string? DesiredBehaviors { get; set; }
-    public decimal? ExpectedScore { get; set; }
-    public decimal? AchievedScore { get; set; }
-    public decimal? GapScore { get; set; }
-    public DateTime? EvaluationDateUtc { get; set; }
+    public Guid ExpectationPublicId { get; set; }
+    public decimal AchievedScore { get; set; }
+    public DateTime EvaluationDateUtc { get; set; }
     public string? SourceSystem { get; set; }
     public string? SourceReference { get; set; }
     public DateTime? SourceSyncedUtc { get; set; }

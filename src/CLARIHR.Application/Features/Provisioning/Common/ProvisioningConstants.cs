@@ -72,7 +72,9 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ManageSubstitutions", "Gestionar sustituciones", "Designar y administrar el sustituto de un empleado durante su ausencia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSubstitutions"),
         new("PersonnelFiles.ViewInsurance", "Ver seguros", "Consulta de los seguros y beneficiarios de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewInsurance"),
         new("PersonnelFiles.ViewMedicalClaims", "Ver reclamos de seguro medico", "Consulta de los reclamos de seguro medico (incluye el diagnostico, dato de salud) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewMedicalClaims"),
-        new("PersonnelFiles.ManageMedicalClaims", "Gestionar reclamos de seguro medico", "Crear, editar y eliminar los reclamos de seguro medico de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageMedicalClaims")
+        new("PersonnelFiles.ManageMedicalClaims", "Gestionar reclamos de seguro medico", "Crear, editar y eliminar los reclamos de seguro medico de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageMedicalClaims"),
+        new("PersonnelFiles.ViewCompetencies", "Ver competencias del puesto", "Consulta de las competencias del puesto del empleado (notas esperadas/alcanzadas y brechas).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompetencies"),
+        new("PersonnelFiles.ManageCompetencies", "Gestionar competencias del puesto", "Registrar, editar y eliminar las evaluaciones de competencias del puesto de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCompetencies")
     ];
 }
 

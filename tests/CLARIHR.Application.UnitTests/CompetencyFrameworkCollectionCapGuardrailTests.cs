@@ -75,6 +75,7 @@ public sealed class CompetencyFrameworkCollectionCapGuardrailTests
             Guid.NewGuid(),
             Enumerable.Range(0, conductCount).Select(_ => Guid.NewGuid()).ToArray(),
             ExpectedEvidence: null,
+            ExpectedValue: null,
             SortOrder: 0);
 
     private static IReadOnlyCollection<CompetencyConductBehaviorInput> BuildBehaviors(int count) =>

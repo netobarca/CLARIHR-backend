@@ -453,6 +453,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                  ExpectationConcurrencyToken = expectation.ConcurrencyToken,
                  expectation.SortOrder,
                  expectation.ExpectedEvidence,
+                 expectation.ExpectedValue,
                  LevelId = level.PublicId,
                  LevelCode = level.Code,
                  LevelName = level.Name,
@@ -502,6 +503,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                     head.BehaviorLevelCode,
                     head.BehaviorLevelName,
                     head.ExpectedEvidence,
+                    head.ExpectedValue,
                     head.SortOrder,
                     conducts,
                     head.ExpectationConcurrencyToken);
@@ -544,6 +546,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                  ExpectationConcurrencyToken = expectation.ConcurrencyToken,
                  expectation.SortOrder,
                  expectation.ExpectedEvidence,
+                 expectation.ExpectedValue,
                  LevelId = level.PublicId,
                  LevelCode = level.Code,
                  LevelName = level.Name,
@@ -594,6 +597,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
             head.BehaviorLevelCode,
             head.BehaviorLevelName,
             head.ExpectedEvidence,
+            head.ExpectedValue,
             head.SortOrder,
             conducts,
             head.ExpectationConcurrencyToken);
@@ -676,6 +680,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                  conduct != null ? conduct.Description : null,
                  link != null ? link.SortOrder : null,
                  expectation.ExpectedEvidence,
+                 expectation.ExpectedValue,
                  expectation.SortOrder);
 
         if (maxRows.HasValue)
@@ -686,4 +691,37 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
         return await query
             .ToArrayAsync(cancellationToken);
     }
+
+    public Task<CompetencyExpectationReference?> GetExpectationReferenceAsync(
+        Guid tenantId,
+        Guid expectationPublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<JobProfileCompetencyExpectation>()
+            .AsNoTracking()
+            .Where(expectation => expectation.TenantId == tenantId && expectation.PublicId == expectationPublicId)
+            .Select(expectation => new CompetencyExpectationReference(
+                expectation.Id,
+                expectation.JobProfileId,
+                expectation.CompetencyCatalogItemId,
+                expectation.CompetencyTypeCatalogItemId,
+                expectation.ExpectedValue))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<CompetencyRatingScale?> GetActiveRatingScaleAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<CompetencyRatingScale>()
+            .AsNoTracking()
+            .Include(scale => scale.Levels)
+            .FirstOrDefaultAsync(scale => scale.TenantId == tenantId && scale.IsActive, cancellationToken);
+
+    public Task<CompetencyRatingScale?> GetActiveRatingScaleForUpdateAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<CompetencyRatingScale>()
+            .Include(scale => scale.Levels)
+            .FirstOrDefaultAsync(scale => scale.TenantId == tenantId && scale.IsActive, cancellationToken);
+
+    public void AddCompetencyRatingScale(CompetencyRatingScale scale) =>
+        dbContext.Set<CompetencyRatingScale>().Add(scale);
 }

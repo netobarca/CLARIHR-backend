@@ -78,6 +78,7 @@ public sealed class JobProfileCompetencyMatrixController(
                 request.OccupationalPyramidLevelPublicId,
                 request.ConductPublicIds ?? [],
                 request.ExpectedEvidence,
+                request.ExpectedValue,
                 request.SortOrder),
             cancellationToken);
 
@@ -108,6 +109,7 @@ public sealed class JobProfileCompetencyMatrixController(
                 request.OccupationalPyramidLevelPublicId,
                 request.ConductPublicIds ?? [],
                 request.ExpectedEvidence,
+                request.ExpectedValue,
                 request.SortOrder,
                 concurrencyToken),
             cancellationToken);
@@ -201,6 +203,7 @@ public sealed class JobProfileCompetencyMatrixController(
         Guid OccupationalPyramidLevelPublicId,
         IReadOnlyCollection<Guid>? ConductPublicIds,
         string? ExpectedEvidence,
+        decimal? ExpectedValue,
         int SortOrder);
 
     public sealed class PatchJobProfileCompetencyMatrixItemRequest
@@ -210,6 +213,8 @@ public sealed class JobProfileCompetencyMatrixController(
         public IReadOnlyCollection<Guid> ConductPublicIds { get; set; } = [];
 
         public string? ExpectedEvidence { get; set; }
+
+        public decimal? ExpectedValue { get; set; }
 
         public int SortOrder { get; set; }
     }

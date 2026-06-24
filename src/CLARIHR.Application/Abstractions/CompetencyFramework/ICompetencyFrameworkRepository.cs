@@ -133,4 +133,34 @@ public interface ICompetencyFrameworkRepository
         Guid jobProfileId,
         int? maxRows,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves a competency matrix expectation by public id for the tenant, returning the internal references
+    /// needed to record an employee competency result (competency, type, the owning job profile and the expected
+    /// value on the company scale). Null when it does not exist for the tenant.
+    /// </summary>
+    Task<CompetencyExpectationReference?> GetExpectationReferenceAsync(
+        Guid tenantId,
+        Guid expectationPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns the company's active competency rating scale (with its levels), or null when none is configured.</summary>
+    Task<CompetencyRatingScale?> GetActiveRatingScaleAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked load (with levels) of the company's active competency rating scale, for in-place redefinition.</summary>
+    Task<CompetencyRatingScale?> GetActiveRatingScaleForUpdateAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    void AddCompetencyRatingScale(CompetencyRatingScale scale);
 }
+
+/// <summary>Internal references of a competency matrix expectation, used to record an employee competency result.</summary>
+public sealed record CompetencyExpectationReference(
+    long ExpectationInternalId,
+    long JobProfileInternalId,
+    long CompetencyCatalogItemId,
+    long CompetencyTypeCatalogItemId,
+    decimal? ExpectedValue);

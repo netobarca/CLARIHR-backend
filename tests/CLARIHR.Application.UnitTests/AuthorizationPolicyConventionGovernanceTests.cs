@@ -93,6 +93,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // medical-claim handlers (MedicalClaimsController).
         PersonnelFilePolicies.ViewMedicalClaims,
         PersonnelFilePolicies.ManageMedicalClaims,
+        // Position competencies ("Competencias del puesto", D-08/D-09): authn-only read superset (self-service
+        // in the handlers) + dedicated write policy; the precise gate (ViewCompetencies / ManageCompetencies
+        // permission, or the employee reading their own) lives in the competency handlers
+        // (PersonnelFileCompetencyController).
+        PersonnelFilePolicies.ViewCompetencies,
+        PersonnelFilePolicies.ManageCompetencies,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

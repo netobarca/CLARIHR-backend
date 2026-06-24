@@ -311,6 +311,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<JobProfileCompetencyExpectationConduct> JobProfileCompetencyExpectationConducts => Set<JobProfileCompetencyExpectationConduct>();
 
+    public DbSet<CompetencyRatingScale> CompetencyRatingScales => Set<CompetencyRatingScale>();
+
+    public DbSet<CompetencyRatingScaleLevel> CompetencyRatingScaleLevels => Set<CompetencyRatingScaleLevel>();
+
     public DbSet<SalaryTabulatorLine> SalaryTabulatorLines => Set<SalaryTabulatorLine>();
 
     public DbSet<SalaryTabulatorChangeRequest> SalaryTabulatorChangeRequests => Set<SalaryTabulatorChangeRequest>();

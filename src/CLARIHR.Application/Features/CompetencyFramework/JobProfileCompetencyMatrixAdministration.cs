@@ -39,6 +39,7 @@ public sealed record JobProfileCompetencyMatrixItemResponse(
     string BehaviorLevelCode,
     string BehaviorLevelName,
     string? ExpectedEvidence,
+    decimal? ExpectedValue,
     int SortOrder,
     IReadOnlyCollection<JobProfileCompetencyMatrixItemConductResponse> Conducts,
     Guid ConcurrencyToken,
@@ -79,6 +80,7 @@ public sealed record JobProfileCompetencyMatrixExportRow(
     string? ConductDescription,
     int? ConductSortOrder,
     string? ExpectedEvidence,
+    decimal? ExpectedValue,
     int ItemSortOrder);
 
 public sealed record GetJobProfileCompetencyMatrixQuery(Guid JobProfileId)
@@ -95,6 +97,7 @@ public sealed record AddJobProfileCompetencyMatrixItemCommand(
     Guid OccupationalPyramidLevelId,
     IReadOnlyCollection<Guid> ConductIds,
     string? ExpectedEvidence,
+    decimal? ExpectedValue,
     int SortOrder)
     : ICommand<JobProfileCompetencyMatrixItemResponse>;
 
@@ -104,6 +107,7 @@ public sealed record UpdateJobProfileCompetencyMatrixItemCommand(
     Guid OccupationalPyramidLevelId,
     IReadOnlyCollection<Guid> ConductIds,
     string? ExpectedEvidence,
+    decimal? ExpectedValue,
     int SortOrder,
     Guid ConcurrencyToken)
     : ICommand<JobProfileCompetencyMatrixItemResponse>;
@@ -391,6 +395,7 @@ internal sealed class AddJobProfileCompetencyMatrixItemCommandHandler(
             resolved.Conducts.CompetencyTypeCatalogItemId,
             resolved.Conducts.BehaviorLevelCatalogItemId,
             command.ExpectedEvidence,
+            command.ExpectedValue,
             command.SortOrder);
         expectation.SetTenantId(profile.TenantId);
         expectation.ReplaceConducts(resolved.Conducts.Links);
@@ -507,6 +512,7 @@ internal sealed class UpdateJobProfileCompetencyMatrixItemCommandHandler(
                 resolved.Conducts.CompetencyTypeCatalogItemId,
                 resolved.Conducts.BehaviorLevelCatalogItemId,
                 command.ExpectedEvidence,
+                command.ExpectedValue,
                 command.SortOrder);
             profile.BumpVersion();
 
@@ -636,6 +642,7 @@ internal sealed class PatchJobProfileCompetencyMatrixItemCommandHandler(
                 resolved.Conducts.CompetencyTypeCatalogItemId,
                 resolved.Conducts.BehaviorLevelCatalogItemId,
                 patchState.ExpectedEvidence,
+                patchState.ExpectedValue,
                 patchState.SortOrder);
             profile.BumpVersion();
 
@@ -892,6 +899,7 @@ internal sealed class JobProfileCompetencyMatrixItemPatchState
     public Guid OccupationalPyramidLevelId { get; set; }
     public List<Guid> ConductIds { get; set; } = [];
     public string? ExpectedEvidence { get; set; }
+    public decimal? ExpectedValue { get; set; }
     public int SortOrder { get; set; }
     public bool HasMutation { get; set; }
 
@@ -901,6 +909,7 @@ internal sealed class JobProfileCompetencyMatrixItemPatchState
             OccupationalPyramidLevelId = response.OccupationalPyramidLevelId,
             ConductIds = response.Conducts.Select(conduct => conduct.ConductId).ToList(),
             ExpectedEvidence = response.ExpectedEvidence,
+            ExpectedValue = response.ExpectedValue,
             SortOrder = response.SortOrder
         };
 }
@@ -1019,6 +1028,13 @@ internal static class JobProfileCompetencyMatrixItemPatchApplier
             return Result.Success();
         }
 
+        if (IsSegment(property, "expectedValue"))
+        {
+            state.ExpectedValue = isRemove ? null : ReadNullableDecimal(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
         if (IsSegment(property, "sortOrder"))
         {
             if (isRemove)
@@ -1115,6 +1131,28 @@ internal static class JobProfileCompetencyMatrixItemPatchApplier
         }
 
         throw new MatrixItemPatchValueException(path, "Value must be an integer.");
+    }
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) &&
+            decimal.TryParse(raw, global::System.Globalization.NumberStyles.Number, global::System.Globalization.CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new MatrixItemPatchValueException(path, "Value must be a number or null.");
     }
 
     private static Result ValidationFailure(string path, string message) =>

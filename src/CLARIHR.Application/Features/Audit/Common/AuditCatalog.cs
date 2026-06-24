@@ -124,6 +124,7 @@ public static class AuditEventTypes
     public const string CompetencyConductInactivated = "COMPETENCY_CONDUCT_INACTIVATED";
     public const string CompetencyBehaviorLinked = "COMPETENCY_BEHAVIOR_LINKED";
     public const string JobProfileCompetencyMatrixUpdated = "JOB_PROFILE_COMPETENCY_MATRIX_UPDATED";
+    public const string CompetencyRatingScaleUpdated = "COMPETENCY_RATING_SCALE_UPDATED";
     public const string SalaryTabulatorRequestCreated = "SALARY_TABULATOR_REQUEST_CREATED";
     public const string SalaryTabulatorRequestUpdated = "SALARY_TABULATOR_REQUEST_UPDATED";
     public const string SalaryTabulatorRequestSubmitted = "SALARY_TABULATOR_REQUEST_SUBMITTED";
@@ -294,6 +295,7 @@ public static class AuditEventTypes
         CompetencyConductInactivated,
         CompetencyBehaviorLinked,
         JobProfileCompetencyMatrixUpdated,
+        CompetencyRatingScaleUpdated,
         SalaryTabulatorRequestCreated,
         SalaryTabulatorRequestUpdated,
         SalaryTabulatorRequestSubmitted,
@@ -378,6 +380,7 @@ public static class AuditEntityTypes
     public const string LegalRepresentative = "LegalRepresentative";
     public const string PersonnelFile = "PersonnelFile";
     public const string OccupationalPyramidLevel = "OccupationalPyramidLevel";
+    public const string CompetencyRatingScale = "CompetencyRatingScale";
     public const string CompetencyConduct = "CompetencyConduct";
     public const string JobProfileCompetencyMatrix = "JobProfileCompetencyMatrix";
     public const string SalaryTabulatorChangeRequest = "SalaryTabulatorChangeRequest";
@@ -421,6 +424,7 @@ public static class AuditEntityTypes
         PersonnelFile,
         OccupationalPyramidLevel,
         CompetencyConduct,
+        CompetencyRatingScale,
         JobProfileCompetencyMatrix,
         SalaryTabulatorChangeRequest,
         SalaryTabulatorLine,
