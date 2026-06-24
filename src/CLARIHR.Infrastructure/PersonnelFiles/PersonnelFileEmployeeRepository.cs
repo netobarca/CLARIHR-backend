@@ -1190,44 +1190,26 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     public async Task<PersonnelFileMedicalClaimResponse?> UpdateMedicalClaimAsync(
         Guid medicalClaimPublicId,
         Guid tenantId,
-        Guid? insurancePublicId,
-        string? accountNumber,
-        string claimTypeCode,
-        string? diagnosis,
-        decimal? claimAmount,
-        string? currencyCode,
-        decimal? paidAmount,
-        int? responseTimeDays,
-        string? notes,
-        DateTime claimDateUtc,
-        string? sourceSystem,
-        string? sourceReference,
-        DateTime? sourceSyncedUtc,
+        MedicalClaimInput input,
+        string? insuranceNameSnapshot,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileMedicalClaim>()
             .SingleOrDefaultAsync(x => x.PublicId == medicalClaimPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(insurancePublicId, accountNumber, claimTypeCode, diagnosis, claimAmount, currencyCode, paidAmount, responseTimeDays, notes, claimDateUtc, sourceSystem, sourceReference, sourceSyncedUtc);
+        ApplyMedicalClaimInput(item, input, insuranceNameSnapshot, patientNameSnapshot, kinshipCodeSnapshot);
         return Map(item);
     }
 
     public async Task<PersonnelFileMedicalClaimResponse?> PatchMedicalClaimAsync(
         Guid medicalClaimPublicId,
         Guid tenantId,
-        Guid? insurancePublicId,
-        string? accountNumber,
-        string claimTypeCode,
-        string? diagnosis,
-        decimal? claimAmount,
-        string? currencyCode,
-        decimal? paidAmount,
-        int? responseTimeDays,
-        string? notes,
-        DateTime claimDateUtc,
-        string? sourceSystem,
-        string? sourceReference,
-        DateTime? sourceSyncedUtc,
+        MedicalClaimInput input,
+        string? insuranceNameSnapshot,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken)
@@ -1235,7 +1217,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileMedicalClaim>()
             .SingleOrDefaultAsync(x => x.PublicId == medicalClaimPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(insurancePublicId, accountNumber, claimTypeCode, diagnosis, claimAmount, currencyCode, paidAmount, responseTimeDays, notes, claimDateUtc, sourceSystem, sourceReference, sourceSyncedUtc);
+        ApplyMedicalClaimInput(item, input, insuranceNameSnapshot, patientNameSnapshot, kinshipCodeSnapshot);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -1243,6 +1225,33 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
 
         return Map(item);
     }
+
+    private static void ApplyMedicalClaimInput(
+        PersonnelFileMedicalClaim item,
+        MedicalClaimInput input,
+        string? insuranceNameSnapshot,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot) =>
+        item.Update(
+            input.InsurancePublicId,
+            insuranceNameSnapshot,
+            input.AccountNumber,
+            input.ClaimantType,
+            input.BeneficiaryPublicId,
+            patientNameSnapshot,
+            kinshipCodeSnapshot,
+            input.ClaimTypeCode,
+            input.Diagnosis,
+            input.ClaimAmount,
+            input.CurrencyCode,
+            input.PaidAmount,
+            input.Notes,
+            input.ClaimDateUtc,
+            input.ResolutionDateUtc,
+            input.ClaimStatusCode,
+            input.SourceSystem,
+            input.SourceReference,
+            input.SourceSyncedUtc);
 
     public async Task<bool> DeleteMedicalClaimAsync(
         Guid medicalClaimPublicId,
@@ -1276,6 +1285,71 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == medicalClaimPublicId, cancellationToken);
         return item is null ? null : Map(item);
     }
+
+    public async Task<long?> GetMedicalClaimInternalIdAsync(
+        Guid personnelFileId,
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileMedicalClaim>()
+            .AsNoTracking()
+            .Where(claim => claim.PersonnelFile.PublicId == personnelFileId && claim.PublicId == medicalClaimPublicId)
+            .Select(claim => (long?)claim.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task AddMedicalClaimDocumentAsync(
+        MedicalClaimDocument entity,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.Set<MedicalClaimDocument>().AddAsync(entity, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<MedicalClaimDocumentResponse>> GetMedicalClaimDocumentsAsync(
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<MedicalClaimDocument>()
+            .AsNoTracking()
+            .Where(document => document.MedicalClaim.PublicId == medicalClaimPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .Select(document => MapMedicalClaimDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<MedicalClaimDocumentResponse?> GetMedicalClaimDocumentAsync(
+        Guid medicalClaimPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<MedicalClaimDocument>()
+            .AsNoTracking()
+            .Where(document => document.MedicalClaim.PublicId == medicalClaimPublicId && document.PublicId == documentPublicId)
+            .Select(document => MapMedicalClaimDocument(document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<MedicalClaimDocument?> GetMedicalClaimDocumentEntityAsync(
+        Guid medicalClaimPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<MedicalClaimDocument>()
+            .SingleOrDefaultAsync(
+                document => document.MedicalClaim.PublicId == medicalClaimPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static MedicalClaimDocumentResponse MapMedicalClaimDocument(MedicalClaimDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Code : null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.Observations,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.IsActive,
+            document.ConcurrencyToken,
+            document.CreatedUtc,
+            document.ModifiedUtc);
 
     public async Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
         long personnelFileInternalId,
@@ -1903,7 +1977,12 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         new(
             item.PublicId,
             item.InsurancePublicId,
+            item.InsuranceNameSnapshot,
             item.AccountNumber,
+            item.ClaimantType,
+            item.BeneficiaryPublicId,
+            item.PatientNameSnapshot,
+            item.KinshipCodeSnapshot,
             item.ClaimTypeCode,
             item.Diagnosis,
             item.ClaimAmount,
@@ -1912,6 +1991,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.ResponseTimeDays,
             item.Notes,
             item.ClaimDateUtc,
+            item.ResolutionDateUtc,
+            item.ClaimStatusCode,
             item.SourceSystem,
             item.SourceReference,
             item.SourceSyncedUtc,

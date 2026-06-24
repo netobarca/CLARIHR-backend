@@ -36,4 +36,19 @@ public static class PersonnelFilePolicies
     /// (ViewInsurance / Admin) lives in the insurance read handlers (no self-service in this phase).
     /// </summary>
     public const string ViewInsurance = "PersonnelFiles.ViewInsurance";
+
+    /// <summary>
+    /// Read policy for medical-claim sub-resources. Authn-only superset: the precise check
+    /// (ViewMedicalClaims / Admin, or the employee reading their own claims) lives in the medical-claim read
+    /// handlers (self-service, D-09).
+    /// </summary>
+    public const string ViewMedicalClaims = "PersonnelFiles.ViewMedicalClaims";
+
+    /// <summary>
+    /// Write policy for medical-claim sub-resources. Authn-only superset: the precise check
+    /// (ManageMedicalClaims / Admin, or the employee creating their own claim) lives in the medical-claim
+    /// write handlers (self-service create, D-09). Kept authn-only — NOT a RequireAssertion — so a
+    /// self-service employee creating their own claim is not blocked at the API layer.
+    /// </summary>
+    public const string ManageMedicalClaims = "PersonnelFiles.ManageMedicalClaims";
 }

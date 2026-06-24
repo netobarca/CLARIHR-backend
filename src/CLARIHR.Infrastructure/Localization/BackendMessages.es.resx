@@ -1096,6 +1096,12 @@
   <data name="validation.message.at_least_one_of_speaks_writes_or_reads_must_be_true" xml:space="preserve">
     <value>Al menos uno de Speaks, Writes o Reads debe ser verdadero.</value>
   </data>
+  <data name="validation.message.claimanttype_must_be_titular_or_beneficiario" xml:space="preserve">
+    <value>El tipo de reclamante debe ser TITULAR o BENEFICIARIO.</value>
+  </data>
+  <data name="validation.message.claimdateutc_must_not_be_in_the_future" xml:space="preserve">
+    <value>La fecha del reclamo no puede ser futura.</value>
+  </data>
   <data name="validation.message.base_monthly_fee_cannot_exceed_2_decimal_places" xml:space="preserve">
     <value>La tarifa mensual base no puede exceder 2 decimales.</value>
   </data>
@@ -1671,5 +1677,17 @@
   </data>
   <data name="INSURANCE_BENEFICIARY_ALLOCATION_INVALID" xml:space="preserve">
     <value>Los beneficiarios principales activos no pueden exceder el 100 % de asignación en este seguro.</value>
+  </data>
+  <data name="MEDICAL_CLAIM_INSURANCE_NOT_FOUND" xml:space="preserve">
+    <value>El seguro seleccionado no existe para este empleado.</value>
+  </data>
+  <data name="MEDICAL_CLAIM_BENEFICIARY_NOT_OWNED" xml:space="preserve">
+    <value>El beneficiario seleccionado no pertenece al seguro del reclamo.</value>
+  </data>
+  <data name="MEDICAL_CLAIM_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de reclamo no es válido en el catálogo activo.</value>
+  </data>
+  <data name="MEDICAL_CLAIM_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El estado del reclamo no es válido en el catálogo activo.</value>
   </data>
 </root>

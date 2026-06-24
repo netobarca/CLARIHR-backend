@@ -434,52 +434,71 @@ public sealed class PatchInsuranceBeneficiaryRequest
 }
 
 public sealed record AddMedicalClaimRequest(
-    Guid? InsurancePublicId,
+    Guid InsurancePublicId,
     string? AccountNumber,
+    string ClaimantType,
+    Guid? BeneficiaryPublicId,
     string ClaimTypeCode,
     string? Diagnosis,
     decimal? ClaimAmount,
     string? CurrencyCode,
     decimal? PaidAmount,
-    int? ResponseTimeDays,
     string? Notes,
     DateTime ClaimDateUtc,
+    DateTime? ResolutionDateUtc,
+    string? ClaimStatusCode,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc);
 
 public sealed record UpdateMedicalClaimRequest(
-    Guid? InsurancePublicId,
+    Guid InsurancePublicId,
     string? AccountNumber,
+    string ClaimantType,
+    Guid? BeneficiaryPublicId,
     string ClaimTypeCode,
     string? Diagnosis,
     decimal? ClaimAmount,
     string? CurrencyCode,
     decimal? PaidAmount,
-    int? ResponseTimeDays,
     string? Notes,
     DateTime ClaimDateUtc,
+    DateTime? ResolutionDateUtc,
+    string? ClaimStatusCode,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc);
 
 public sealed class PatchMedicalClaimRequest
 {
-    public Guid? InsurancePublicId { get; set; }
+    public Guid InsurancePublicId { get; set; }
     public string? AccountNumber { get; set; }
+    public string ClaimantType { get; set; } = string.Empty;
+    public Guid? BeneficiaryPublicId { get; set; }
     public string ClaimTypeCode { get; set; } = string.Empty;
     public string? Diagnosis { get; set; }
     public decimal? ClaimAmount { get; set; }
     public string? CurrencyCode { get; set; }
     public decimal? PaidAmount { get; set; }
-    public int? ResponseTimeDays { get; set; }
     public string? Notes { get; set; }
     public DateTime ClaimDateUtc { get; set; }
+    public DateTime? ResolutionDateUtc { get; set; }
+    public string? ClaimStatusCode { get; set; }
     public string? SourceSystem { get; set; }
     public string? SourceReference { get; set; }
     public DateTime? SourceSyncedUtc { get; set; }
     public bool IsActive { get; set; }
 }
+
+public sealed record AddMedicalClaimDocumentRequest(
+    Guid FilePublicId,
+    Guid DocumentTypeCatalogItemPublicId,
+    string? Observations);
+
+public sealed record UpdateMedicalClaimDocumentRequest(
+    Guid? FilePublicId,
+    Guid DocumentTypeCatalogItemPublicId,
+    string? Observations);
 
 public sealed record AddPerformanceEvaluationRequest(
     string EvaluatorName,

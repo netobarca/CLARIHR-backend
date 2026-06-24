@@ -44,5 +44,23 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanViewInsuranceAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Role gate for reading medical claims (diagnosis = special-category health data, D-08): the dedicated
+    /// <c>PersonnelFiles.ViewMedicalClaims</c> permission, or Admin / IAM super-admin. (Employees reading their
+    /// OWN claims are allowed by a separate self-service check — D-09.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewMedicalClaimsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for medical claims (D-08): the dedicated <c>PersonnelFiles.ManageMedicalClaims</c> permission,
+    /// or Admin / IAM super-admin. (Employees registering their OWN claims are allowed by a separate
+    /// self-service check — D-09.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageMedicalClaimsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

@@ -411,8 +411,13 @@ internal sealed class PersonnelFileMedicalClaimConfiguration : IEntityTypeConfig
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.InsurancePublicId).HasColumnName("insurance_public_id");
+        builder.Property(item => item.InsurancePublicId).HasColumnName("insurance_public_id").IsRequired();
+        builder.Property(item => item.InsuranceNameSnapshot).HasColumnName("insurance_name_snapshot").HasMaxLength(120);
         builder.Property(item => item.AccountNumber).HasColumnName("account_number").HasMaxLength(120);
+        builder.Property(item => item.ClaimantType).HasColumnName("claimant_type").HasMaxLength(40).IsRequired();
+        builder.Property(item => item.BeneficiaryPublicId).HasColumnName("beneficiary_public_id");
+        builder.Property(item => item.PatientNameSnapshot).HasColumnName("patient_name_snapshot").HasMaxLength(260);
+        builder.Property(item => item.KinshipCodeSnapshot).HasColumnName("kinship_code_snapshot").HasMaxLength(80);
         builder.Property(item => item.ClaimTypeCode).HasColumnName("claim_type_code").HasMaxLength(80);
         builder.Property(item => item.Diagnosis).HasColumnName("diagnosis").HasMaxLength(1000);
         builder.Property(item => item.ClaimAmount).HasColumnName("claim_amount").HasColumnType("numeric(18,2)");
@@ -421,6 +426,8 @@ internal sealed class PersonnelFileMedicalClaimConfiguration : IEntityTypeConfig
         builder.Property(item => item.ResponseTimeDays).HasColumnName("response_time_days");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
         builder.Property(item => item.ClaimDateUtc).HasColumnName("claim_date_utc");
+        builder.Property(item => item.ResolutionDateUtc).HasColumnName("resolution_date_utc");
+        builder.Property(item => item.ClaimStatusCode).HasColumnName("claim_status_code").HasMaxLength(80);
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
@@ -437,6 +444,58 @@ internal sealed class PersonnelFileMedicalClaimConfiguration : IEntityTypeConfig
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_medical_claims__public_id");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.ClaimDateUtc, item.ClaimTypeCode })
             .HasDatabaseName("ix_personnel_file_medical_claims__tenant_file_date_type");
+        builder.HasIndex(item => item.InsurancePublicId)
+            .HasDatabaseName("ix_personnel_file_medical_claims__insurance_public_id");
+    }
+}
+
+internal sealed class MedicalClaimDocumentConfiguration : IEntityTypeConfiguration<MedicalClaimDocument>
+{
+    public void Configure(EntityTypeBuilder<MedicalClaimDocument> builder)
+    {
+        builder.ToTable("medical_claim_documents");
+
+        builder.HasKey(item => item.Id).HasName("pk_medical_claim_documents");
+
+        builder.Property(item => item.Id).HasColumnName("id");
+        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
+        builder.Property(item => item.MedicalClaimId).HasColumnName("medical_claim_id");
+        builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.DocumentTypeCatalogItemId).HasColumnName("document_type_catalog_item_id");
+        builder.Property(item => item.FilePublicId).HasColumnName("file_public_id");
+        builder.Property(item => item.Observations).HasColumnName("observations").HasMaxLength(2000);
+        builder.Property(item => item.FileName).HasColumnName("file_name").HasMaxLength(260);
+        builder.Property(item => item.ContentType).HasColumnName("content_type").HasMaxLength(200);
+        builder.Property(item => item.SizeBytes).HasColumnName("size_bytes");
+        builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
+        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasOne(item => item.MedicalClaim)
+            .WithMany()
+            .HasForeignKey(item => item.MedicalClaimId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_medical_claim_documents__medical_claim");
+
+        builder.HasOne(item => item.DocumentTypeCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.DocumentTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_medical_claim_documents__document_type_catalog_item");
+
+        builder.HasIndex(item => item.PublicId)
+            .IsUnique()
+            .HasDatabaseName("uq_medical_claim_documents__public_id");
+
+        builder.HasIndex(item => new { item.TenantId, item.MedicalClaimId, item.IsActive })
+            .HasDatabaseName("ix_medical_claim_documents__tenant_claim_active");
+
+        builder.HasIndex(item => item.DocumentTypeCatalogItemId)
+            .HasDatabaseName("ix_medical_claim_documents__document_type_catalog_item_id");
+
+        builder.HasIndex(item => item.FilePublicId)
+            .HasDatabaseName("ix_medical_claim_documents__file_public_id");
     }
 }
 

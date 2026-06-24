@@ -200,6 +200,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileDocument> PersonnelFileDocuments => Set<PersonnelFileDocument>();
 
+    public DbSet<MedicalClaimDocument> MedicalClaimDocuments => Set<MedicalClaimDocument>();
+
 
     public DbSet<PersonnelFileObservation> PersonnelFileObservations => Set<PersonnelFileObservation>();
 
@@ -223,6 +225,10 @@ public sealed class ApplicationDbContext(
     public DbSet<AssignmentTypeCatalogItem> AssignmentTypeCatalogItems => Set<AssignmentTypeCatalogItem>();
 
     public DbSet<SubstitutionTypeCatalogItem> SubstitutionTypeCatalogItems => Set<SubstitutionTypeCatalogItem>();
+
+    public DbSet<MedicalClaimTypeCatalogItem> MedicalClaimTypeCatalogItems => Set<MedicalClaimTypeCatalogItem>();
+
+    public DbSet<MedicalClaimStatusCatalogItem> MedicalClaimStatusCatalogItems => Set<MedicalClaimStatusCatalogItem>();
 
     public DbSet<AssetAccessTypeCatalogItem> AssetAccessTypeCatalogItems => Set<AssetAccessTypeCatalogItem>();
 

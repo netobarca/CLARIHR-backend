@@ -463,6 +463,16 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Medical claims (D-08/D-09) — authn-only SUPERSETS for BOTH read and write. The precise gate (the
+    // ViewMedicalClaims/ManageMedicalClaims permission or Admin, OR the employee acting on their own claims)
+    // lives in the medical-claim handlers. Kept authn-only — NOT a RequireAssertion — so a self-service
+    // employee reading or creating their own claim is never blocked at the API layer (a RequireAssertion
+    // would 403 them before the handler's self-service branch runs).
+    options.AddPolicy(PersonnelFilePolicies.ViewMedicalClaims, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageMedicalClaims, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

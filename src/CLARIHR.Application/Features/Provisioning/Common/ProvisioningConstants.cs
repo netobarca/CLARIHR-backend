@@ -70,7 +70,9 @@ public static class ProvisioningConstants
         new("PersonnelFiles.AuthorizeRehire", "Autorizar recontratacion", "Autorizar la recontratacion de empleados marcados como no recontratables.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRehire"),
         new("PersonnelFiles.ViewCompensation", "Ver compensacion", "Consulta de la compensacion (salario, ingresos y egresos) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompensation"),
         new("PersonnelFiles.ManageSubstitutions", "Gestionar sustituciones", "Designar y administrar el sustituto de un empleado durante su ausencia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSubstitutions"),
-        new("PersonnelFiles.ViewInsurance", "Ver seguros", "Consulta de los seguros y beneficiarios de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewInsurance")
+        new("PersonnelFiles.ViewInsurance", "Ver seguros", "Consulta de los seguros y beneficiarios de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewInsurance"),
+        new("PersonnelFiles.ViewMedicalClaims", "Ver reclamos de seguro medico", "Consulta de los reclamos de seguro medico (incluye el diagnostico, dato de salud) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewMedicalClaims"),
+        new("PersonnelFiles.ManageMedicalClaims", "Gestionar reclamos de seguro medico", "Crear, editar y eliminar los reclamos de seguro medico de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageMedicalClaims")
     ];
 }
 

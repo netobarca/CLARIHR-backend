@@ -428,6 +428,43 @@ internal sealed class DevSeedService(
             dbContext.DeliveryStatusCatalogItems.Add(entity);
         }
 
+        var medicalClaimTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("AMBULATORIO", "Ambulatorio", 10),
+            ("HOSPITALARIO", "Hospitalario", 20),
+            ("EMERGENCIA", "Emergencia", 30),
+            ("FARMACIA", "Farmacia", 40),
+            ("LABORATORIO", "Laboratorio", 50),
+            ("DENTAL", "Dental", 60),
+            ("OFTALMOLOGICO", "Oftalmológico", 70),
+            ("MATERNIDAD", "Maternidad", 80),
+            ("OTRO", "Otro", 90),
+        };
+
+        foreach (var item in medicalClaimTypes)
+        {
+            var entity = MedicalClaimTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.MedicalClaimTypeCatalogItems.Add(entity);
+        }
+
+        var medicalClaimStatuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("PRESENTADO", "Presentado", 10),
+            ("EN_REVISION", "En revisión", 20),
+            ("PENDIENTE_DOCUMENTACION", "Pendiente de documentación", 30),
+            ("APROBADO", "Aprobado", 40),
+            ("RECHAZADO", "Rechazado", 50),
+            ("PAGADO", "Pagado", 60),
+            ("PAGO_PARCIAL", "Pago parcial", 70),
+            ("ANULADO", "Anulado", 80),
+        };
+
+        foreach (var item in medicalClaimStatuses)
+        {
+            var entity = MedicalClaimStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.MedicalClaimStatusCatalogItems.Add(entity);
+        }
+
         // employment-statuses are seeded globally via GlobalCatalogSeedData.GetEmploymentStatusCatalogItems()
         // (HasData) so they exist in every environment and backfill already-provisioned databases — not here,
         // which would double-insert against the HasData rows on a fresh dev database.

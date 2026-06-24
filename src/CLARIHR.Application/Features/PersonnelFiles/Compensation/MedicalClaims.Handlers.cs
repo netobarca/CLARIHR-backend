@@ -1,26 +1,105 @@
-using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
-using CLARIHR.Application.Common.JsonPatch;
-using CLARIHR.Application.Common.Pagination;
-using CLARIHR.Application.Features.Audit.Common;
-using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
-using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Resolved snapshot values for a medical-claim write, produced after validating the insurance,
+/// beneficiary, catalogs and resolving the default currency.
+/// </summary>
+internal sealed record MedicalClaimResolved(
+    string? InsuranceName,
+    string? PatientName,
+    string? KinshipCode,
+    string? CurrencyCode);
+
+/// <summary>
+/// Cross-aggregate validation + snapshot resolution shared by the medical-claim write handlers
+/// (database-backed, so it lives outside the pure <see cref="MedicalClaimRules"/> module):
+/// insurance is mandatory and must belong to the employee (D-03); the beneficiary, when the claimant is a
+/// beneficiary, must belong to that insurance (D-02); the claim type and status must be active catalog codes
+/// (D-04/D-10); the currency defaults from the company preference when omitted (D-05).
+/// </summary>
+internal static class MedicalClaimWriteSupport
+{
+    public static async Task<Result<MedicalClaimResolved>> ResolveAndValidateAsync(
+        MedicalClaimInput input,
+        PersonnelFile personnelFile,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        IPersonnelFileRepository personnelFileRepository,
+        ICompanyPreferenceRepository companyPreferenceRepository,
+        CancellationToken cancellationToken)
+    {
+        // 1) Insurance: mandatory, must exist for THIS employee. GetInsuranceAsync already filters by
+        //    personnel file, so a null result means "not found or not owned". Snapshot its name (the code).
+        var insurance = await employeeRepository.GetInsuranceAsync(personnelFile.PublicId, input.InsurancePublicId, cancellationToken);
+        if (insurance is null)
+        {
+            return Result<MedicalClaimResolved>.Failure(MedicalClaimErrors.InsuranceNotFound);
+        }
+
+        // 2) Patient: when the claimant is a beneficiary, it must belong to that insurance. Snapshot it.
+        string? patientName = null;
+        string? kinshipCode = null;
+        if (string.Equals(input.ClaimantType?.Trim(), MedicalClaimClaimantTypes.Beneficiario, StringComparison.OrdinalIgnoreCase))
+        {
+            if (input.BeneficiaryPublicId is not { } beneficiaryId || beneficiaryId == Guid.Empty)
+            {
+                return Result<MedicalClaimResolved>.Failure(MedicalClaimErrors.BeneficiaryNotOwned);
+            }
+
+            var beneficiary = await employeeRepository.GetInsuranceBeneficiaryAsync(
+                personnelFile.PublicId, input.InsurancePublicId, beneficiaryId, cancellationToken);
+            if (beneficiary is null)
+            {
+                return Result<MedicalClaimResolved>.Failure(MedicalClaimErrors.BeneficiaryNotOwned);
+            }
+
+            patientName = beneficiary.FullName;
+            kinshipCode = beneficiary.KinshipCode;
+        }
+
+        // 3) Catalogs: claim type (mandatory) and status (optional) must be active for the tenant/country.
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.MedicalClaimType, input.ClaimTypeCode, cancellationToken))
+        {
+            return Result<MedicalClaimResolved>.Failure(MedicalClaimErrors.TypeCodeInvalid);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.ClaimStatusCode)
+            && !await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.MedicalClaimStatus, input.ClaimStatusCode!, cancellationToken))
+        {
+            return Result<MedicalClaimResolved>.Failure(MedicalClaimErrors.StatusCodeInvalid);
+        }
+
+        // 4) Currency: default from the company preference (by country) when omitted and an amount is present.
+        var currency = input.CurrencyCode;
+        if (string.IsNullOrWhiteSpace(currency) && (input.ClaimAmount.HasValue || input.PaidAmount.HasValue))
+        {
+            var preference = await companyPreferenceRepository.GetByTenantIdAsync(personnelFile.TenantId, cancellationToken);
+            currency = preference?.CurrencyCode;
+        }
+
+        return Result<MedicalClaimResolved>.Success(new MedicalClaimResolved(insurance.InsuranceCode, patientName, kinshipCode, currency));
+    }
+}
+
 internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
+    ICurrentUserService currentUserService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -31,11 +110,12 @@ internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
         AddPersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+        // Self-service create (D-09): the dedicated manage permission OR the employee on their own file.
+        var (failure, personnelFile) = await LoadForCreateOwnOrManageMedicalClaimAsync<PersonnelFileMedicalClaimResponse>(
             command.PersonnelFileId,
-            Guid.Empty,
             tenantContext,
             authorizationService,
+            currentUserService,
             personnelFileRepository,
             cancellationToken);
         if (failure is not null)
@@ -48,17 +128,31 @@ internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
             return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        var resolveResult = await MedicalClaimWriteSupport.ResolveAndValidateAsync(
+            command.Item, personnelFile, employeeRepository, personnelFileRepository, companyPreferenceRepository, cancellationToken);
+        if (resolveResult.IsFailure)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(resolveResult.Error);
+        }
+
+        var resolved = resolveResult.Value;
         var entity = PersonnelFileMedicalClaim.Create(
             command.Item.InsurancePublicId,
+            resolved.InsuranceName,
             command.Item.AccountNumber,
+            command.Item.ClaimantType,
+            command.Item.BeneficiaryPublicId,
+            resolved.PatientName,
+            resolved.KinshipCode,
             command.Item.ClaimTypeCode,
             command.Item.Diagnosis,
             command.Item.ClaimAmount,
-            command.Item.CurrencyCode,
+            resolved.CurrencyCode,
             command.Item.PaidAmount,
-            command.Item.ResponseTimeDays,
             command.Item.Notes,
             command.Item.ClaimDateUtc,
+            command.Item.ResolutionDateUtc,
+            command.Item.ClaimStatusCode,
             command.Item.SourceSystem,
             command.Item.SourceReference,
             command.Item.SourceSyncedUtc);
@@ -92,6 +186,7 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -102,7 +197,8 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
         UpdatePersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+        // Edits are manager-only (D-09): dedicated manage permission, no self-service.
+        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<PersonnelFileMedicalClaimResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -130,23 +226,23 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
             return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        var resolveResult = await MedicalClaimWriteSupport.ResolveAndValidateAsync(
+            command.Item, personnelFile, employeeRepository, personnelFileRepository, companyPreferenceRepository, cancellationToken);
+        if (resolveResult.IsFailure)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(resolveResult.Error);
+        }
+
+        var resolved = resolveResult.Value;
+
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
         var response = await employeeRepository.UpdateMedicalClaimAsync(
             command.MedicalClaimPublicId,
             personnelFile.TenantId,
-            command.Item.InsurancePublicId,
-            command.Item.AccountNumber,
-            command.Item.ClaimTypeCode,
-            command.Item.Diagnosis,
-            command.Item.ClaimAmount,
-            command.Item.CurrencyCode,
-            command.Item.PaidAmount,
-            command.Item.ResponseTimeDays,
-            command.Item.Notes,
-            command.Item.ClaimDateUtc,
-            command.Item.SourceSystem,
-            command.Item.SourceReference,
-            command.Item.SourceSyncedUtc,
+            command.Item with { CurrencyCode = resolved.CurrencyCode },
+            resolved.InsuranceName,
+            resolved.PatientName,
+            resolved.KinshipCode,
             cancellationToken);
         if (response is null)
         {
@@ -159,7 +255,7 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated medical claim for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated medical claim for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -177,6 +273,7 @@ internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -187,7 +284,7 @@ internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
         PatchPersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<PersonnelFileMedicalClaimResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -234,22 +331,21 @@ internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
         }
 
         var input = state.ToInput();
+        var resolveResult = await MedicalClaimWriteSupport.ResolveAndValidateAsync(
+            input, personnelFile, employeeRepository, personnelFileRepository, companyPreferenceRepository, cancellationToken);
+        if (resolveResult.IsFailure)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(resolveResult.Error);
+        }
+
+        var resolved = resolveResult.Value;
         var response = await employeeRepository.PatchMedicalClaimAsync(
             command.MedicalClaimPublicId,
             personnelFile.TenantId,
-            input.InsurancePublicId,
-            input.AccountNumber,
-            input.ClaimTypeCode,
-            input.Diagnosis,
-            input.ClaimAmount,
-            input.CurrencyCode,
-            input.PaidAmount,
-            input.ResponseTimeDays,
-            input.Notes,
-            input.ClaimDateUtc,
-            input.SourceSystem,
-            input.SourceReference,
-            input.SourceSyncedUtc,
+            input with { CurrencyCode = resolved.CurrencyCode },
+            resolved.InsuranceName,
+            resolved.PatientName,
+            resolved.KinshipCode,
             state.IsActive,
             state.IsActiveMutated,
             cancellationToken);
@@ -264,7 +360,7 @@ internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched medical claim for {personnelFile.FullName}.", response, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched medical claim for {personnelFile.FullName}.", existing, response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -292,7 +388,7 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
         DeletePersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -332,7 +428,7 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted medical claim for {personnelFile.FullName}.", null, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted medical claim for {personnelFile.FullName}.", existing, null, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -349,6 +445,7 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
 
 internal sealed class GetPersonnelFileMedicalClaimsQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
+    ICurrentUserService currentUserService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     ITenantContext tenantContext)
@@ -359,10 +456,11 @@ internal sealed class GetPersonnelFileMedicalClaimsQueryHandler(
         GetPersonnelFileMedicalClaimsQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForMedicalClaimReadAsync<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
+            currentUserService,
             personnelFileRepository,
             cancellationToken);
         if (failure is not null)
@@ -377,6 +475,7 @@ internal sealed class GetPersonnelFileMedicalClaimsQueryHandler(
 
 internal sealed class GetPersonnelFileMedicalClaimByIdQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
+    ICurrentUserService currentUserService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     ITenantContext tenantContext)
@@ -387,10 +486,11 @@ internal sealed class GetPersonnelFileMedicalClaimByIdQueryHandler(
         GetPersonnelFileMedicalClaimByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileMedicalClaimResponse>(
+        var (failure, personnelFile) = await LoadCompletedEmployeeForMedicalClaimReadAsync<PersonnelFileMedicalClaimResponse>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
+            currentUserService,
             personnelFileRepository,
             cancellationToken);
         if (failure is not null)
@@ -444,9 +544,30 @@ internal static class PersonnelFileMedicalClaimPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
+        if (state.InsurancePublicId == Guid.Empty)
+        {
+            errors["insurancePublicId"] = ["InsurancePublicId is required."];
+        }
+
         if (string.IsNullOrWhiteSpace(state.ClaimTypeCode))
         {
             errors["claimTypeCode"] = ["ClaimTypeCode is required."];
+        }
+
+        if (!MedicalClaimClaimantTypes.IsValid(state.ClaimantType))
+        {
+            errors["claimantType"] = ["ClaimantType must be TITULAR or BENEFICIARIO."];
+        }
+
+        if (string.Equals(state.ClaimantType?.Trim(), MedicalClaimClaimantTypes.Beneficiario, StringComparison.OrdinalIgnoreCase)
+            && (state.BeneficiaryPublicId is null || state.BeneficiaryPublicId == Guid.Empty))
+        {
+            errors["beneficiaryPublicId"] = ["BeneficiaryPublicId is required when the claimant is a beneficiary."];
+        }
+
+        if (state.ResolutionDateUtc is { } resolution && resolution < state.ClaimDateUtc)
+        {
+            errors["resolutionDateUtc"] = ["ResolutionDateUtc must not be before ClaimDateUtc."];
         }
 
         return errors.Count == 0
@@ -465,12 +586,35 @@ internal static class PersonnelFileMedicalClaimPatchApplier
 
         if (PersonnelFileTalentPatch.IsSegment(property, "insurancePublicId"))
         {
-            return Mutate(state, () => state.InsurancePublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
+            if (isRemove)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(path, "InsurancePublicId cannot be removed.");
+            }
+
+            var insuranceId = PersonnelFileTalentPatch.ReadNullableGuid(value, path);
+            if (insuranceId is null || insuranceId == Guid.Empty)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(path, "InsurancePublicId is required.");
+            }
+
+            return Mutate(state, () => state.InsurancePublicId = insuranceId.Value);
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "accountNumber"))
         {
             return Mutate(state, () => state.AccountNumber = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "claimantType"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "ClaimantType cannot be removed.")
+                : Mutate(state, () => state.ClaimantType = PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "beneficiaryPublicId"))
+        {
+            return Mutate(state, () => state.BeneficiaryPublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "claimTypeCode"))
@@ -498,11 +642,6 @@ internal static class PersonnelFileMedicalClaimPatchApplier
             return Mutate(state, () => state.PaidAmount = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
         }
 
-        if (PersonnelFileTalentPatch.IsSegment(property, "responseTimeDays"))
-        {
-            return Mutate(state, () => state.ResponseTimeDays = isRemove ? null : PersonnelFileTalentPatch.ReadNullableInt(value, path));
-        }
-
         if (PersonnelFileTalentPatch.IsSegment(property, "notes"))
         {
             return Mutate(state, () => state.Notes = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
@@ -513,6 +652,16 @@ internal static class PersonnelFileMedicalClaimPatchApplier
             return isRemove
                 ? PersonnelFileTalentPatch.ValidationFailure(path, "ClaimDateUtc cannot be removed.")
                 : Mutate(state, () => state.ClaimDateUtc = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "resolutionDateUtc"))
+        {
+            return Mutate(state, () => state.ResolutionDateUtc = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "claimStatusCode"))
+        {
+            return Mutate(state, () => state.ClaimStatusCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "sourceSystem"))
@@ -551,4 +700,3 @@ internal static class PersonnelFileMedicalClaimPatchApplier
         return Result.Success();
     }
 }
-

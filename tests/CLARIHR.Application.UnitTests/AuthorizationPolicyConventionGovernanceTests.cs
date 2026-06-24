@@ -88,6 +88,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // Write policy for authorization substitutions (D-09); the precise gate is the dedicated
         // EnsureCanManageSubstitutionsAsync handler check (PersonnelFileAuthorizationSubstitutionController).
         PersonnelFilePolicies.ManageSubstitutions,
+        // Authn-only supersets for medical claims (D-08/D-09); the precise gate (ViewMedicalClaims /
+        // ManageMedicalClaims permission, or the employee acting on their own claims) lives in the
+        // medical-claim handlers (MedicalClaimsController).
+        PersonnelFilePolicies.ViewMedicalClaims,
+        PersonnelFilePolicies.ManageMedicalClaims,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

@@ -26,6 +26,8 @@ public static class GeneralCatalogKeyMap
             ["training-types"] = PersonnelCurriculumCatalogCategories.TrainingType,
             ["assignment-types"] = PersonnelCurriculumCatalogCategories.AssignmentType,
             ["substitution-types"] = PersonnelCurriculumCatalogCategories.SubstitutionType,
+            ["medical-claim-types"] = PersonnelCurriculumCatalogCategories.MedicalClaimType,
+            ["medical-claim-status"] = PersonnelCurriculumCatalogCategories.MedicalClaimStatus,
             ["employment-statuses"] = PersonnelCurriculumCatalogCategories.EmploymentStatus,
             ["duration-units"] = PersonnelCurriculumCatalogCategories.DurationUnit,
             ["reference-types"] = PersonnelCurriculumCatalogCategories.ReferenceType,

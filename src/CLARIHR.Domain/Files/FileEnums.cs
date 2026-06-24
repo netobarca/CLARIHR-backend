@@ -15,7 +15,8 @@ public enum FilePurpose
     PersonnelDocument,
     ReportExport,
     CompanyLogo,
-    Attachment
+    Attachment,
+    MedicalClaimDocument
 }
 
 public enum StorageProvider

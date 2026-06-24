@@ -998,44 +998,67 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
     }
 
     private PersonnelFileMedicalClaim(
-        Guid? insurancePublicId,
+        Guid insurancePublicId,
+        string? insuranceNameSnapshot,
         string? accountNumber,
+        string claimantType,
+        Guid? beneficiaryPublicId,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         string claimTypeCode,
         string? diagnosis,
         decimal? claimAmount,
         string? currencyCode,
         decimal? paidAmount,
-        int? responseTimeDays,
         string? notes,
         DateTime claimDateUtc,
+        DateTime? resolutionDateUtc,
+        string? claimStatusCode,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
-        InsurancePublicId = insurancePublicId;
-        AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
-        ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
-        Diagnosis = PersonnelFileNormalization.CleanOptional(diagnosis);
-        ClaimAmount = claimAmount;
-        CurrencyCode = PersonnelFileNormalization.CleanOptional(currencyCode);
-        PaidAmount = paidAmount;
-        ResponseTimeDays = responseTimeDays;
-        Notes = PersonnelFileNormalization.CleanOptional(notes);
-        ClaimDateUtc = PersonnelFileNormalization.NormalizeDate(claimDateUtc);
-        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
-        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
-        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+        Apply(
+            insurancePublicId,
+            insuranceNameSnapshot,
+            accountNumber,
+            claimantType,
+            beneficiaryPublicId,
+            patientNameSnapshot,
+            kinshipCodeSnapshot,
+            claimTypeCode,
+            diagnosis,
+            claimAmount,
+            currencyCode,
+            paidAmount,
+            notes,
+            claimDateUtc,
+            resolutionDateUtc,
+            claimStatusCode,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
     }
 
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid? InsurancePublicId { get; private set; }
+    public Guid InsurancePublicId { get; private set; }
+
+    public string? InsuranceNameSnapshot { get; private set; }
 
     public string? AccountNumber { get; private set; }
+
+    public string ClaimantType { get; private set; } = MedicalClaimClaimantTypes.Titular;
+
+    public Guid? BeneficiaryPublicId { get; private set; }
+
+    public string? PatientNameSnapshot { get; private set; }
+
+    public string? KinshipCodeSnapshot { get; private set; }
 
     public string ClaimTypeCode { get; private set; } = string.Empty;
 
@@ -1053,6 +1076,10 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
 
     public DateTime ClaimDateUtc { get; private set; }
 
+    public DateTime? ResolutionDateUtc { get; private set; }
+
+    public string? ClaimStatusCode { get; private set; }
+
     public string? SourceSystem { get; private set; }
 
     public string? SourceReference { get; private set; }
@@ -1066,34 +1093,47 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
-        Guid? insurancePublicId,
+        Guid insurancePublicId,
+        string? insuranceNameSnapshot,
         string? accountNumber,
+        string claimantType,
+        Guid? beneficiaryPublicId,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         string claimTypeCode,
         string? diagnosis,
         decimal? claimAmount,
         string? currencyCode,
         decimal? paidAmount,
-        int? responseTimeDays,
         string? notes,
         DateTime claimDateUtc,
+        DateTime? resolutionDateUtc,
+        string? claimStatusCode,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
         ConcurrencyToken = Guid.NewGuid();
-        InsurancePublicId = insurancePublicId;
-        AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
-        ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
-        Diagnosis = PersonnelFileNormalization.CleanOptional(diagnosis);
-        ClaimAmount = claimAmount;
-        CurrencyCode = PersonnelFileNormalization.CleanOptional(currencyCode);
-        PaidAmount = paidAmount;
-        ResponseTimeDays = responseTimeDays;
-        Notes = PersonnelFileNormalization.CleanOptional(notes);
-        ClaimDateUtc = PersonnelFileNormalization.NormalizeDate(claimDateUtc);
-        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
-        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
-        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+        Apply(
+            insurancePublicId,
+            insuranceNameSnapshot,
+            accountNumber,
+            claimantType,
+            beneficiaryPublicId,
+            patientNameSnapshot,
+            kinshipCodeSnapshot,
+            claimTypeCode,
+            diagnosis,
+            claimAmount,
+            currencyCode,
+            paidAmount,
+            notes,
+            claimDateUtc,
+            resolutionDateUtc,
+            claimStatusCode,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
     }
 
     public void SetActive(bool isActive)
@@ -1102,34 +1142,234 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public static PersonnelFileMedicalClaim Create(
-        Guid? insurancePublicId,
+    /// <summary>
+    /// Derives the response time in days from the claim and resolution dates (decision D-07).
+    /// Returns null when there is no resolution date or it precedes the claim date.
+    /// </summary>
+    public static int? DeriveResponseTimeDays(DateTime claimDateUtc, DateTime? resolutionDateUtc) =>
+        resolutionDateUtc is { } resolution && resolution.Date >= claimDateUtc.Date
+            ? (int)(resolution.Date - claimDateUtc.Date).TotalDays
+            : null;
+
+    private void Apply(
+        Guid insurancePublicId,
+        string? insuranceNameSnapshot,
         string? accountNumber,
+        string claimantType,
+        Guid? beneficiaryPublicId,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         string claimTypeCode,
         string? diagnosis,
         decimal? claimAmount,
         string? currencyCode,
         decimal? paidAmount,
-        int? responseTimeDays,
         string? notes,
         DateTime claimDateUtc,
+        DateTime? resolutionDateUtc,
+        string? claimStatusCode,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        InsurancePublicId = insurancePublicId;
+        InsuranceNameSnapshot = PersonnelFileNormalization.CleanOptional(insuranceNameSnapshot);
+        AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
+        ClaimantType = MedicalClaimClaimantTypes.Normalize(claimantType);
+        BeneficiaryPublicId = ClaimantType == MedicalClaimClaimantTypes.Beneficiario ? beneficiaryPublicId : null;
+        PatientNameSnapshot = PersonnelFileNormalization.CleanOptional(patientNameSnapshot);
+        KinshipCodeSnapshot = NormalizeOptionalCode(kinshipCodeSnapshot);
+        ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
+        Diagnosis = PersonnelFileNormalization.CleanOptional(diagnosis);
+        ClaimAmount = claimAmount;
+        CurrencyCode = NormalizeOptionalCode(currencyCode);
+        PaidAmount = paidAmount;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+        ClaimDateUtc = PersonnelFileNormalization.NormalizeDate(claimDateUtc);
+        ResolutionDateUtc = PersonnelFileNormalization.NormalizeDate(resolutionDateUtc);
+        ResponseTimeDays = DeriveResponseTimeDays(ClaimDateUtc, ResolutionDateUtc);
+        ClaimStatusCode = NormalizeOptionalCode(claimStatusCode);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
+
+    private static string? NormalizeOptionalCode(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpperInvariant();
+
+    public static PersonnelFileMedicalClaim Create(
+        Guid insurancePublicId,
+        string? insuranceNameSnapshot,
+        string? accountNumber,
+        string claimantType,
+        Guid? beneficiaryPublicId,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
+        string claimTypeCode,
+        string? diagnosis,
+        decimal? claimAmount,
+        string? currencyCode,
+        decimal? paidAmount,
+        string? notes,
+        DateTime claimDateUtc,
+        DateTime? resolutionDateUtc,
+        string? claimStatusCode,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc) =>
         new(
             insurancePublicId,
+            insuranceNameSnapshot,
             accountNumber,
+            claimantType,
+            beneficiaryPublicId,
+            patientNameSnapshot,
+            kinshipCodeSnapshot,
             claimTypeCode,
             diagnosis,
             claimAmount,
             currencyCode,
             paidAmount,
-            responseTimeDays,
             notes,
             claimDateUtc,
+            resolutionDateUtc,
+            claimStatusCode,
             sourceSystem,
             sourceReference,
             sourceSyncedUtc);
+}
+
+/// <summary>
+/// Constrained claimant-type codes for a medical claim (decision D-02). Modelled as a constrained
+/// string set — like beneficiary type — instead of a country-scoped catalog, since the values are fixed.
+/// </summary>
+public static class MedicalClaimClaimantTypes
+{
+    public const string Titular = "TITULAR";
+    public const string Beneficiario = "BENEFICIARIO";
+
+    public static readonly IReadOnlyCollection<string> All = new[] { Titular, Beneficiario };
+
+    public static bool IsValid(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && All.Contains(value.Trim().ToUpperInvariant());
+
+    public static string Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? Titular : value.Trim().ToUpperInvariant();
+}
+
+/// <summary>
+/// Supporting document attached to a medical claim (decision D-11 / RF-012). Mirrors
+/// <see cref="PersonnelFileDocument"/> and reuses the shared file-storage subsystem
+/// (<c>StoredFile</c> / <c>IFileStorageProvider</c> / <c>FilePurpose.MedicalClaimDocument</c>).
+/// </summary>
+public sealed class MedicalClaimDocument : TenantEntity
+{
+    private MedicalClaimDocument()
+    {
+    }
+
+    private MedicalClaimDocument(
+        Guid publicId,
+        long documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations)
+    {
+        if (documentTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+        }
+
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
+        PublicId = publicId;
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
+        FilePublicId = filePublicId;
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
+        Observations = PersonnelFileNormalization.CleanOptional(observations);
+        IsActive = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public long MedicalClaimId { get; private set; }
+
+    public PersonnelFileMedicalClaim MedicalClaim { get; private set; } = null!;
+
+    public long DocumentTypeCatalogItemId { get; private set; }
+
+    public DocumentTypeCatalogs.DocumentTypeCatalogItem? DocumentTypeCatalogItem { get; private set; }
+
+    public Guid FilePublicId { get; private set; }
+
+    public string? Observations { get; private set; }
+
+    public string FileName { get; private set; } = string.Empty;
+
+    public string ContentType { get; private set; } = string.Empty;
+
+    public int SizeBytes { get; private set; }
+
+    public bool IsActive { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public void BindToMedicalClaim(long medicalClaimId) => MedicalClaimId = medicalClaimId;
+
+    public static MedicalClaimDocument Create(
+        Guid publicId,
+        long documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations) =>
+        new(publicId, documentTypeCatalogItemId, filePublicId, fileName, contentType, sizeBytes, observations);
+
+    public void ReplaceFileReference(
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes)
+    {
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
+        FilePublicId = filePublicId;
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void UpdateMetadata(
+        long documentTypeCatalogItemId,
+        string? observations)
+    {
+        if (documentTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+        }
+
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
+        Observations = PersonnelFileNormalization.CleanOptional(observations);
+        IsActive = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void Inactivate()
+    {
+        IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFilePerformanceEvaluation : TenantEntity

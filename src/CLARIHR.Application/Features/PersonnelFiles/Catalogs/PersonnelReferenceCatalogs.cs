@@ -90,6 +90,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string ReferenceType = "CurriculumReferenceType";
     public const string AssignmentType = "CurriculumAssignmentType";
     public const string SubstitutionType = "CurriculumSubstitutionType";
+    public const string MedicalClaimType = "CurriculumMedicalClaimType";
+    public const string MedicalClaimStatus = "CurriculumMedicalClaimStatus";
     public const string EmploymentStatus = "EmploymentStatus";
     public const string Career = "CurriculumCareer";
     public const string Country = "Country";

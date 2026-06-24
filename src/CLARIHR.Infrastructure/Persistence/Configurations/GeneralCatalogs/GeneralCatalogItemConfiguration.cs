@@ -144,6 +144,34 @@ internal sealed class SubstitutionTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class MedicalClaimTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<MedicalClaimTypeCatalogItem>
+{
+    public MedicalClaimTypeCatalogItemConfiguration()
+        : base(
+            "medical_claim_type_catalog_items",
+            "pk_medical_claim_type_catalog_items",
+            "uq_medical_claim_type_catalog_items__public_id",
+            "uq_medical_claim_type_catalog_items__country_code",
+            "ix_medical_claim_type_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class MedicalClaimStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<MedicalClaimStatusCatalogItem>
+{
+    public MedicalClaimStatusCatalogItemConfiguration()
+        : base(
+            "medical_claim_status_catalog_items",
+            "pk_medical_claim_status_catalog_items",
+            "uq_medical_claim_status_catalog_items__public_id",
+            "uq_medical_claim_status_catalog_items__country_code",
+            "ix_medical_claim_status_catalog_items__country_active_sort")
+    {
+    }
+}
+
 internal sealed class AssetAccessTypeCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<AssetAccessTypeCatalogItem>
 {

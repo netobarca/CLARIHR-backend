@@ -111,6 +111,19 @@ public static class PersonnelFilePermissionCodes
     /// No self-service in this phase (the employee cannot view their own insurances).
     /// </summary>
     public const string ViewInsurance = "PersonnelFiles.ViewInsurance";
+
+    /// <summary>
+    /// Dedicated permission to read medical claims, whose diagnosis is special-category health data (D-08).
+    /// Lets configurable roles view another employee's claims; Admin is a superset. Employees may read their
+    /// OWN claims via a separate self-service check (D-09).
+    /// </summary>
+    public const string ViewMedicalClaims = "PersonnelFiles.ViewMedicalClaims";
+
+    /// <summary>
+    /// Dedicated permission to manage (create/edit/delete) medical claims of any employee (D-08). Admin is a
+    /// superset. Employees may register (create) their OWN claims via a separate self-service check (D-09).
+    /// </summary>
+    public const string ManageMedicalClaims = "PersonnelFiles.ManageMedicalClaims";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

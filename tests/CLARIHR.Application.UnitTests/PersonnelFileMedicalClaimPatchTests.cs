@@ -1,37 +1,43 @@
 using System.Text.Json;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.UnitTests;
 
 /// <summary>
 /// Unit coverage for the canonical medical-claim JSON Patch surface: the pure
 /// <see cref="PersonnelFileMedicalClaimPatchApplier"/> and the
-/// <see cref="PersonnelFileMedicalClaimPatchState"/> projection. The medical claim's business
-/// <c>Input</c>/<c>PUT</c> contract does not carry <c>isActive</c>, but the patch surface still
-/// supports toggling it (replacing the former dedicated <c>/deactivate</c> endpoint), so the
-/// applier must accept boolean values and flag the mutation while preserving the business-field
-/// validation the Add/Update commands run.
+/// <see cref="PersonnelFileMedicalClaimPatchState"/> projection. After the Fase-1 hardening the insurance is
+/// mandatory (non-removable), the claimant dimension and resolution/status fields are patchable, and the
+/// response time is derived (no longer a patch segment).
 /// </summary>
 public sealed class PersonnelFileMedicalClaimPatchTests
 {
     private static PersonnelFileMedicalClaimResponse Baseline() =>
         new(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            "ACC-100",
-            "OUTPATIENT",
-            "Routine checkup.",
-            1200.00m,
-            "USD",
-            900.00m,
-            5,
-            "Reimbursed via payroll.",
-            new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            "LEGACY",
-            "REF-1",
-            new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc),
-            true,
-            Guid.NewGuid());
+            Guid.NewGuid(),                                                 // MedicalClaimPublicId
+            Guid.NewGuid(),                                                 // InsuranceId
+            "SEGURO-VIDA",                                                  // InsuranceName
+            "ACC-100",                                                      // AccountNumber
+            MedicalClaimClaimantTypes.Titular,                             // ClaimantType
+            null,                                                           // BeneficiaryPublicId
+            null,                                                           // PatientName
+            null,                                                           // KinshipCode
+            "AMBULATORIO",                                                  // ClaimTypeCode
+            "Routine checkup.",                                             // Diagnosis
+            1200.00m,                                                       // ClaimAmount
+            "USD",                                                          // CurrencyCode
+            900.00m,                                                        // PaidAmount
+            5,                                                              // ResponseTimeDays (derived)
+            "Reimbursed via payroll.",                                      // Notes
+            new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc),           // ClaimDateUtc
+            new DateTime(2026, 3, 6, 0, 0, 0, DateTimeKind.Utc),           // ResolutionDateUtc
+            "PRESENTADO",                                                   // ClaimStatusCode
+            "LEGACY",                                                       // SourceSystem
+            "REF-1",                                                        // SourceReference
+            new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc),           // SourceSyncedUtc
+            true,                                                           // IsActive
+            Guid.NewGuid());                                                // ConcurrencyToken
 
     private static PersonnelFileMedicalClaimPatchOperation Replace<T>(string path, T value) =>
         new("replace", path, null, JsonSerializer.SerializeToElement(value));
@@ -45,10 +51,12 @@ public sealed class PersonnelFileMedicalClaimPatchTests
         var baseline = Baseline();
         var state = PersonnelFileMedicalClaimPatchState.From(baseline);
 
-        Assert.Equal("OUTPATIENT", state.ClaimTypeCode);
+        Assert.Equal("AMBULATORIO", state.ClaimTypeCode);
         Assert.Equal(baseline.InsuranceId, state.InsurancePublicId);
+        Assert.Equal(MedicalClaimClaimantTypes.Titular, state.ClaimantType);
         Assert.Equal(1200.00m, state.ClaimAmount);
-        Assert.Equal(5, state.ResponseTimeDays);
+        Assert.Equal(baseline.ResolutionDateUtc, state.ResolutionDateUtc);
+        Assert.Equal("PRESENTADO", state.ClaimStatusCode);
         Assert.True(state.IsActive);
         Assert.False(state.IsActiveMutated);
         Assert.False(state.HasMutation);
@@ -60,11 +68,13 @@ public sealed class PersonnelFileMedicalClaimPatchTests
         var baseline = Baseline();
         var input = PersonnelFileMedicalClaimPatchState.From(baseline).ToInput();
 
-        Assert.Equal("OUTPATIENT", input.ClaimTypeCode);
+        Assert.Equal("AMBULATORIO", input.ClaimTypeCode);
         Assert.Equal(baseline.InsuranceId, input.InsurancePublicId);
+        Assert.Equal(MedicalClaimClaimantTypes.Titular, input.ClaimantType);
         Assert.Equal(1200.00m, input.ClaimAmount);
         Assert.Equal("USD", input.CurrencyCode);
-        Assert.Equal(5, input.ResponseTimeDays);
+        Assert.Equal(baseline.ResolutionDateUtc, input.ResolutionDateUtc);
+        Assert.Equal("PRESENTADO", input.ClaimStatusCode);
     }
 
     [Fact]
@@ -72,9 +82,33 @@ public sealed class PersonnelFileMedicalClaimPatchTests
     {
         var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/claimTypeCode", "INPATIENT")], state).IsSuccess);
-        Assert.Equal("INPATIENT", state.ClaimTypeCode);
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/claimTypeCode", "HOSPITALARIO")], state).IsSuccess);
+        Assert.Equal("HOSPITALARIO", state.ClaimTypeCode);
         Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_ReplaceClaimantTypeAndBeneficiary_Mutates()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        var beneficiaryId = Guid.NewGuid();
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply(
+            [Replace("/claimantType", "BENEFICIARIO"), Replace("/beneficiaryPublicId", beneficiaryId)], state).IsSuccess);
+        Assert.Equal("BENEFICIARIO", state.ClaimantType);
+        Assert.Equal(beneficiaryId, state.BeneficiaryPublicId);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_ReplaceResolutionDateAndStatus_Mutates()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply(
+            [Replace("/resolutionDateUtc", new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)), Replace("/claimStatusCode", "PAGADO")], state).IsSuccess);
+        Assert.Equal(new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), state.ResolutionDateUtc);
+        Assert.Equal("PAGADO", state.ClaimStatusCode);
     }
 
     [Fact]
@@ -87,12 +121,12 @@ public sealed class PersonnelFileMedicalClaimPatchTests
     }
 
     [Fact]
-    public void Apply_ReplaceResponseTimeDays_AcceptsInteger()
+    public void Apply_ReplaceResponseTimeDays_Fails_BecauseDerived()
     {
         var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/responseTimeDays", 12)], state).IsSuccess);
-        Assert.Equal(12, state.ResponseTimeDays);
+        // responseTimeDays is derived (D-07) and is no longer a patchable segment.
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/responseTimeDays", 12)], state).IsFailure);
     }
 
     [Fact]
@@ -103,26 +137,6 @@ public sealed class PersonnelFileMedicalClaimPatchTests
         Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/isActive", false)], state).IsSuccess);
         Assert.False(state.IsActive);
         Assert.True(state.IsActiveMutated);
-        Assert.True(state.HasMutation);
-    }
-
-    [Fact]
-    public void Apply_ReplaceIsActiveTrue_MutatesAndFlagsActiveChange()
-    {
-        var state = PersonnelFileMedicalClaimPatchState.From(Baseline() with { IsActive = false });
-
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/isActive", true)], state).IsSuccess);
-        Assert.True(state.IsActive);
-        Assert.True(state.IsActiveMutated);
-    }
-
-    [Fact]
-    public void Apply_BusinessFieldOnly_DoesNotFlagActiveChange()
-    {
-        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
-
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/claimAmount", 1m)], state).IsSuccess);
-        Assert.False(state.IsActiveMutated);
         Assert.True(state.HasMutation);
     }
 
@@ -163,13 +177,21 @@ public sealed class PersonnelFileMedicalClaimPatchTests
     }
 
     [Fact]
-    public void Apply_RemoveOptionalInsurancePublicId_ClearsValue()
+    public void Apply_RemoveOptionalResolutionDate_ClearsValue()
     {
         var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Remove("/insurancePublicId")], state).IsSuccess);
-        Assert.Null(state.InsurancePublicId);
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Remove("/resolutionDateUtc")], state).IsSuccess);
+        Assert.Null(state.ResolutionDateUtc);
         Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_RemoveInsurancePublicId_Fails_BecauseRequired()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Remove("/insurancePublicId")], state).IsFailure);
     }
 
     [Fact]
@@ -208,19 +230,19 @@ public sealed class PersonnelFileMedicalClaimPatchTests
     }
 
     [Fact]
-    public void Apply_NonIntegerForResponseTimeDays_Fails()
-    {
-        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
-
-        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/responseTimeDays", "not-an-int")], state).IsFailure);
-    }
-
-    [Fact]
     public void Apply_NonGuidForInsurancePublicId_Fails()
     {
         var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
 
         Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/insurancePublicId", "not-a-guid")], state).IsFailure);
+    }
+
+    [Fact]
+    public void Apply_EmptyGuidForInsurancePublicId_Fails()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Apply([Replace("/insurancePublicId", Guid.Empty)], state).IsFailure);
     }
 
     [Fact]
@@ -268,6 +290,53 @@ public sealed class PersonnelFileMedicalClaimPatchTests
     {
         var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
         state.ClaimTypeCode = " ";
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_EmptyInsurancePublicId_Fails()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        state.InsurancePublicId = Guid.Empty;
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_BeneficiaryClaimantWithoutBeneficiary_Fails()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        state.ClaimantType = MedicalClaimClaimantTypes.Beneficiario;
+        state.BeneficiaryPublicId = null;
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_BeneficiaryClaimantWithBeneficiary_Succeeds()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        state.ClaimantType = MedicalClaimClaimantTypes.Beneficiario;
+        state.BeneficiaryPublicId = Guid.NewGuid();
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsSuccess);
+    }
+
+    [Fact]
+    public void Validate_InvalidClaimantType_Fails()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        state.ClaimantType = "OTHER";
+
+        Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_ResolutionBeforeClaim_Fails()
+    {
+        var state = PersonnelFileMedicalClaimPatchState.From(Baseline());
+        state.ResolutionDateUtc = state.ClaimDateUtc.AddDays(-1);
 
         Assert.True(PersonnelFileMedicalClaimPatchApplier.Validate(state).IsFailure);
     }

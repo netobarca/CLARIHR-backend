@@ -174,6 +174,95 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
         return (null, personnelFile);
     }
 
+    /// <summary>
+    /// Manage gate for medical claims (D-08): identical to <see cref="LoadForManageSubstitutionsAsync{TResponse}"/>
+    /// but enforces the dedicated <c>PersonnelFiles.ManageMedicalClaims</c> permission. Used by update/patch/delete
+    /// (third-party management only — no self-service). Item-level optimistic concurrency is enforced by each
+    /// command's own If-Match token, so callers pass <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageMedicalClaimsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageMedicalClaimsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Create gate for medical claims (D-09 self-service): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageMedicalClaims</c> permission (or Admin), OR the caller is the employee
+    /// registering a claim on their own file (self-service). This is the only self-service write path in
+    /// the codebase; edits/deletions remain manager-only (see <see cref="LoadForManageMedicalClaimsAsync{TResponse}"/>).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForCreateOwnOrManageMedicalClaimAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageMedicalClaimsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canManageByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        return (null, personnelFile);
+    }
+
     protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForReadAsync<TResponse>(
         Guid personnelFileId,
         ITenantContext tenantContext,
@@ -344,6 +433,56 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
         if (!(await authorizationService.EnsureCanViewInsuranceAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess)
         {
             return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for medical-claim sub-resources (D-08 / D-09): the caller has the dedicated
+    /// <c>ViewMedicalClaims</c> permission (or Admin), OR the caller is the employee reading their own claims
+    /// (self-service). Diagnosis is health data: without the permission and without being the owner the caller
+    /// gets 403 (no masking). Mirrors the compensation read gate.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForMedicalClaimReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewMedicalClaimsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
         }
 
         if (!personnelFile.IsCompletedEmployee)

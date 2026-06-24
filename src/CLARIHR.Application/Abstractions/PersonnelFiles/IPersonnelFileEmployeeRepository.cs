@@ -532,37 +532,19 @@ public interface IPersonnelFileEmployeeRepository
     Task<PersonnelFileMedicalClaimResponse?> UpdateMedicalClaimAsync(
         Guid medicalClaimPublicId,
         Guid tenantId,
-        Guid? insurancePublicId,
-        string? accountNumber,
-        string claimTypeCode,
-        string? diagnosis,
-        decimal? claimAmount,
-        string? currencyCode,
-        decimal? paidAmount,
-        int? responseTimeDays,
-        string? notes,
-        DateTime claimDateUtc,
-        string? sourceSystem,
-        string? sourceReference,
-        DateTime? sourceSyncedUtc,
+        MedicalClaimInput input,
+        string? insuranceNameSnapshot,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileMedicalClaimResponse?> PatchMedicalClaimAsync(
         Guid medicalClaimPublicId,
         Guid tenantId,
-        Guid? insurancePublicId,
-        string? accountNumber,
-        string claimTypeCode,
-        string? diagnosis,
-        decimal? claimAmount,
-        string? currencyCode,
-        decimal? paidAmount,
-        int? responseTimeDays,
-        string? notes,
-        DateTime claimDateUtc,
-        string? sourceSystem,
-        string? sourceReference,
-        DateTime? sourceSyncedUtc,
+        MedicalClaimInput input,
+        string? insuranceNameSnapshot,
+        string? patientNameSnapshot,
+        string? kinshipCodeSnapshot,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);
@@ -579,6 +561,30 @@ public interface IPersonnelFileEmployeeRepository
     Task<PersonnelFileMedicalClaimResponse?> GetMedicalClaimAsync(
         Guid personnelFileId,
         Guid medicalClaimPublicId,
+        CancellationToken cancellationToken);
+
+    Task<long?> GetMedicalClaimInternalIdAsync(
+        Guid personnelFileId,
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken);
+
+    Task AddMedicalClaimDocumentAsync(
+        MedicalClaimDocument entity,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<MedicalClaimDocumentResponse>> GetMedicalClaimDocumentsAsync(
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken);
+
+    Task<MedicalClaimDocumentResponse?> GetMedicalClaimDocumentAsync(
+        Guid medicalClaimPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken);
+
+    Task<MedicalClaimDocument?> GetMedicalClaimDocumentEntityAsync(
+        Guid medicalClaimPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(

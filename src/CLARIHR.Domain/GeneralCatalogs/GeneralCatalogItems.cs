@@ -161,6 +161,62 @@ public sealed class SubstitutionTypeCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+public sealed class MedicalClaimTypeCatalogItem : GeneralCatalogItem
+{
+    private MedicalClaimTypeCatalogItem()
+    {
+    }
+
+    private MedicalClaimTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static MedicalClaimTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class MedicalClaimStatusCatalogItem : GeneralCatalogItem
+{
+    private MedicalClaimStatusCatalogItem()
+    {
+    }
+
+    private MedicalClaimStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static MedicalClaimStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class AssetAccessTypeCatalogItem : GeneralCatalogItem
 {
     private AssetAccessTypeCatalogItem()
