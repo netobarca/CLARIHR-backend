@@ -165,6 +165,7 @@ public static class DependencyInjection
         services.AddScoped<ICostCenterAuthorizationService, CostCenterAuthorizationService>();
         services.AddScoped<ICompetencyFrameworkRepository, CompetencyFrameworkRepository>();
         services.AddScoped<ICompetencyFrameworkAuthorizationService, CompetencyFrameworkAuthorizationService>();
+        services.AddScoped<ICompetencyFrameworkSeedService, CompetencyFrameworkSeedService>();
         services.AddScoped<ILegalRepresentativeRepository, LegalRepresentativeRepository>();
         services.AddScoped<ILegalRepresentativeAuthorizationService, LegalRepresentativeAuthorizationService>();
         services.AddScoped<LegalRepresentativePositionTitleCatalogSeedService>();

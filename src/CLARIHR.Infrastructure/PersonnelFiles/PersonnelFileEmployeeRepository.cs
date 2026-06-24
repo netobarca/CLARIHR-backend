@@ -2,7 +2,10 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.CompetencyFramework;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -1419,30 +1422,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return item is null ? null : Map(item);
     }
 
-    public async Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> AddPositionCompetencyResultAsync(
-        long personnelFileInternalId,
-        Guid tenantId,
-        PersonnelFilePositionCompetencyResult entity,
-        CancellationToken cancellationToken)
-    {
+    public void AddPositionCompetencyResult(PersonnelFilePositionCompetencyResult entity) =>
         dbContext.Set<PersonnelFilePositionCompetencyResult>().Add(entity);
-        var all = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
-            .OrderBy(item => item.CompetencyCode)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
-    }
 
-    public async Task<PersonnelFilePositionCompetencyResultResponse?> UpdatePositionCompetencyResultAsync(
+    public async Task<bool> UpdatePositionCompetencyResultAsync(
         Guid itemPublicId,
         Guid tenantId,
-        string competencyCode,
-        string? desiredBehaviors,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
         decimal? expectedScore,
-        decimal? achievedScore,
-        decimal? gapScore,
-        DateTime? evaluationDateUtc,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc,
@@ -1450,9 +1441,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     {
         var item = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
             .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return null;
-        item.Update(competencyCode, desiredBehaviors, expectedScore, achievedScore, gapScore, evaluationDateUtc, sourceSystem, sourceReference, sourceSyncedUtc);
-        return Map(item);
+        if (item is null) return false;
+        item.Update(
+            competencyCatalogItemId,
+            competencyTypeCatalogItemId,
+            jobProfileCompetencyExpectationId,
+            expectedScore,
+            achievedScore,
+            evaluationDateUtc,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
+        return true;
     }
 
     public async Task<bool> DeletePositionCompetencyResultAsync(
@@ -1470,23 +1470,204 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     public async Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> GetPositionCompetencyResultsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
-        await dbContext.Set<PersonnelFilePositionCompetencyResult>()
-            .AsNoTracking()
-            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
-            .OrderBy(item => item.CompetencyCode)
-            .Select(item => Map(item))
+        await ProjectPositionCompetencyResults(
+                dbContext.Set<PersonnelFilePositionCompetencyResult>()
+                    .AsNoTracking()
+                    .Where(item => item.PersonnelFile.PublicId == personnelFileId))
+            .OrderBy(response => response.CompetencyCode)
+            .ThenByDescending(response => response.EvaluationDateUtc)
             .ToArrayAsync(cancellationToken);
 
     public async Task<PersonnelFilePositionCompetencyResultResponse?> GetPositionCompetencyResultAsync(
         Guid personnelFileId,
         Guid positionCompetencyResultPublicId,
+        CancellationToken cancellationToken) =>
+        await ProjectPositionCompetencyResults(
+                dbContext.Set<PersonnelFilePositionCompetencyResult>()
+                    .AsNoTracking()
+                    .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == positionCompetencyResultPublicId))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<long?> GetActiveAssignedJobProfileInternalIdAsync(
+        Guid personnelFilePublicId,
         CancellationToken cancellationToken)
     {
-        var item = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
+        var slotPublicId = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == positionCompetencyResultPublicId, cancellationToken);
-        return item is null ? null : Map(item);
+            .Where(assignment => assignment.PersonnelFile.PublicId == personnelFilePublicId
+                && assignment.IsActive
+                && assignment.IsPrimary
+                && assignment.PositionSlotPublicId != null)
+            .Select(assignment => assignment.PositionSlotPublicId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (slotPublicId is null || slotPublicId == Guid.Empty)
+        {
+            return null;
+        }
+
+        return await dbContext.Set<PositionSlot>()
+            .AsNoTracking()
+            .Where(slot => slot.PublicId == slotPublicId.Value)
+            .Select(slot => (long?)slot.JobProfileId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<EmployeePositionCompetenciesResponse> GetEmployeePositionCompetenciesAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var jobProfileInternalId = await GetActiveAssignedJobProfileInternalIdAsync(personnelFilePublicId, cancellationToken);
+        if (jobProfileInternalId is null)
+        {
+            return new EmployeePositionCompetenciesResponse(personnelFilePublicId, null, null, null, false, []);
+        }
+
+        var profile = await dbContext.Set<JobProfile>()
+            .AsNoTracking()
+            .Where(item => item.Id == jobProfileInternalId.Value)
+            .Select(item => new { item.PublicId, item.Code, item.Title })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var expectations = await (
+            from expectation in dbContext.Set<JobProfileCompetencyExpectation>().AsNoTracking()
+            join competency in dbContext.Set<JobCatalogItem>().AsNoTracking() on expectation.CompetencyCatalogItemId equals competency.Id
+            join competencyType in dbContext.Set<JobCatalogItem>().AsNoTracking() on expectation.CompetencyTypeCatalogItemId equals competencyType.Id
+            join behaviorLevel in dbContext.Set<JobCatalogItem>().AsNoTracking() on expectation.BehaviorLevelCatalogItemId equals behaviorLevel.Id
+            join level in dbContext.Set<OccupationalPyramidLevel>().AsNoTracking() on expectation.OccupationalPyramidLevelId equals level.Id
+            where expectation.JobProfileId == jobProfileInternalId.Value
+            orderby competencyType.Name, expectation.SortOrder
+            select new
+            {
+                ExpectationInternalId = expectation.Id,
+                ExpectationPublicId = expectation.PublicId,
+                CompetencyPublicId = competency.PublicId,
+                CompetencyCode = competency.Code,
+                CompetencyName = competency.Name,
+                CompetencyTypePublicId = competencyType.PublicId,
+                CompetencyTypeCode = competencyType.Code,
+                CompetencyTypeName = competencyType.Name,
+                LevelPublicId = level.PublicId,
+                LevelCode = level.Code,
+                LevelName = level.Name,
+                level.LevelOrder,
+                BehaviorLevelPublicId = behaviorLevel.PublicId,
+                BehaviorLevelCode = behaviorLevel.Code,
+                BehaviorLevelName = behaviorLevel.Name,
+                expectation.ExpectedEvidence,
+                expectation.ExpectedValue
+            })
+            .ToListAsync(cancellationToken);
+
+        var expectationInternalIds = expectations.Select(item => item.ExpectationInternalId).ToArray();
+
+        var conducts = await (
+            from link in dbContext.Set<JobProfileCompetencyExpectationConduct>().AsNoTracking()
+            join conduct in dbContext.Set<CompetencyConduct>().AsNoTracking() on link.CompetencyConductId equals conduct.Id
+            where expectationInternalIds.Contains(link.JobProfileCompetencyExpectationId)
+            orderby link.SortOrder
+            select new { link.JobProfileCompetencyExpectationId, conduct.Description })
+            .ToListAsync(cancellationToken);
+        var conductsByExpectation = conducts
+            .GroupBy(item => item.JobProfileCompetencyExpectationId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.Description).ToList());
+
+        var results = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.JobProfileCompetencyExpectationId != null)
+            .Select(item => new
+            {
+                item.PublicId,
+                ExpectationInternalId = item.JobProfileCompetencyExpectationId!.Value,
+                item.ExpectedScore,
+                item.AchievedScore,
+                item.GapScore,
+                item.EvaluationDateUtc
+            })
+            .ToListAsync(cancellationToken);
+        var resultsByExpectation = results
+            .GroupBy(item => item.ExpectationInternalId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.EvaluationDateUtc).ToList());
+
+        var groups = expectations
+            .GroupBy(item => new { item.CompetencyTypePublicId, item.CompetencyTypeCode, item.CompetencyTypeName })
+            .Select(group => new EmployeePositionCompetencyTypeGroupResponse(
+                group.Key.CompetencyTypePublicId,
+                group.Key.CompetencyTypeCode,
+                group.Key.CompetencyTypeName,
+                group.Select(expectation =>
+                {
+                    var history = resultsByExpectation.TryGetValue(expectation.ExpectationInternalId, out var rows)
+                        ? rows
+                        : [];
+                    var current = history.FirstOrDefault();
+                    return new EmployeePositionCompetencyResponse(
+                        expectation.ExpectationPublicId,
+                        expectation.CompetencyPublicId,
+                        expectation.CompetencyCode,
+                        expectation.CompetencyName,
+                        expectation.LevelPublicId,
+                        expectation.LevelCode,
+                        expectation.LevelName,
+                        expectation.LevelOrder,
+                        expectation.BehaviorLevelPublicId,
+                        expectation.BehaviorLevelCode,
+                        expectation.BehaviorLevelName,
+                        expectation.ExpectedEvidence,
+                        expectation.ExpectedValue,
+                        current?.AchievedScore,
+                        current?.GapScore,
+                        current?.EvaluationDateUtc,
+                        conductsByExpectation.TryGetValue(expectation.ExpectationInternalId, out var descriptions)
+                            ? descriptions
+                            : [],
+                        history
+                            .Select(row => new EmployeePositionCompetencyHistoryEntryResponse(
+                                row.PublicId,
+                                row.ExpectedScore,
+                                row.AchievedScore,
+                                row.GapScore,
+                                row.EvaluationDateUtc))
+                            .ToArray());
+                }).ToArray()))
+            .ToArray();
+
+        return new EmployeePositionCompetenciesResponse(
+            personnelFilePublicId,
+            profile?.PublicId,
+            profile?.Code,
+            profile?.Title,
+            true,
+            groups);
+    }
+
+    private IQueryable<PersonnelFilePositionCompetencyResultResponse> ProjectPositionCompetencyResults(
+        IQueryable<PersonnelFilePositionCompetencyResult> source) =>
+        from item in source
+        join competency in dbContext.Set<JobCatalogItem>().AsNoTracking()
+            on item.CompetencyCatalogItemId equals competency.Id
+        join competencyType in dbContext.Set<JobCatalogItem>().AsNoTracking()
+            on item.CompetencyTypeCatalogItemId equals competencyType.Id
+        join expectation in dbContext.Set<JobProfileCompetencyExpectation>().AsNoTracking()
+            on item.JobProfileCompetencyExpectationId equals expectation.Id into expectationJoin
+        from expectation in expectationJoin.DefaultIfEmpty()
+        select new PersonnelFilePositionCompetencyResultResponse(
+            item.PublicId,
+            expectation != null ? expectation.PublicId : (Guid?)null,
+            competency.PublicId,
+            competency.Code,
+            competency.Name,
+            competencyType.PublicId,
+            competencyType.Code,
+            competencyType.Name,
+            item.ExpectedScore,
+            item.AchievedScore,
+            item.GapScore,
+            item.EvaluationDateUtc,
+            item.SourceSystem,
+            item.SourceReference,
+            item.SourceSyncedUtc,
+            item.ConcurrencyToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> AddSelectionContestAsync(
         long personnelFileInternalId,
@@ -2007,20 +2188,6 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Score,
             item.QualitativeScoreCode,
             item.Comment,
-            item.SourceSystem,
-            item.SourceReference,
-            item.SourceSyncedUtc,
-            item.ConcurrencyToken);
-
-    private static PersonnelFilePositionCompetencyResultResponse Map(PersonnelFilePositionCompetencyResult item) =>
-        new(
-            item.PublicId,
-            item.CompetencyCode,
-            item.DesiredBehaviors,
-            item.ExpectedScore,
-            item.AchievedScore,
-            item.GapScore,
-            item.EvaluationDateUtc,
             item.SourceSystem,
             item.SourceReference,
             item.SourceSyncedUtc,

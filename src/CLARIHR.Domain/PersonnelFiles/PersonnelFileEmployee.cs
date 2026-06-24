@@ -1472,44 +1472,51 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
     }
 
     private PersonnelFilePositionCompetencyResult(
-        string competencyCode,
-        string? desiredBehaviors,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
         decimal? expectedScore,
-        decimal? achievedScore,
-        decimal? gapScore,
-        DateTime? evaluationDateUtc,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        Apply(
+            competencyCatalogItemId,
+            competencyTypeCatalogItemId,
+            jobProfileCompetencyExpectationId,
+            expectedScore,
+            achievedScore,
+            evaluationDateUtc,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
-        CompetencyCode = PersonnelFileNormalization.Clean(competencyCode, nameof(competencyCode));
-        DesiredBehaviors = PersonnelFileNormalization.CleanOptional(desiredBehaviors);
-        ExpectedScore = expectedScore;
-        AchievedScore = achievedScore;
-        GapScore = gapScore;
-        EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
-        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
-        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
-        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
     }
 
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public string CompetencyCode { get; private set; } = string.Empty;
+    // The competency being evaluated, referenced from the competency framework (decision D-03/D-12): the
+    // competency itself, its type (gestión/organizacional/técnica) and the matrix expectation it was scored
+    // against. ExpectedScore is the snapshot of the matrix ExpectedValue at evaluation time, so historical
+    // rows keep their gap even if the matrix later changes.
+    public long CompetencyCatalogItemId { get; private set; }
 
-    public string? DesiredBehaviors { get; private set; }
+    public long CompetencyTypeCatalogItemId { get; private set; }
+
+    public long? JobProfileCompetencyExpectationId { get; private set; }
 
     public decimal? ExpectedScore { get; private set; }
 
-    public decimal? AchievedScore { get; private set; }
+    public decimal AchievedScore { get; private set; }
 
     public decimal? GapScore { get; private set; }
 
-    public DateTime? EvaluationDateUtc { get; private set; }
+    public DateTime EvaluationDateUtc { get; private set; }
 
     public string? SourceSystem { get; private set; }
 
@@ -1522,48 +1529,83 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
-        string competencyCode,
-        string? desiredBehaviors,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
         decimal? expectedScore,
-        decimal? achievedScore,
-        decimal? gapScore,
-        DateTime? evaluationDateUtc,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        Apply(
+            competencyCatalogItemId,
+            competencyTypeCatalogItemId,
+            jobProfileCompetencyExpectationId,
+            expectedScore,
+            achievedScore,
+            evaluationDateUtc,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
         ConcurrencyToken = Guid.NewGuid();
-        CompetencyCode = PersonnelFileNormalization.Clean(competencyCode, nameof(competencyCode));
-        DesiredBehaviors = PersonnelFileNormalization.CleanOptional(desiredBehaviors);
+    }
+
+    public static PersonnelFilePositionCompetencyResult Create(
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
+        decimal? expectedScore,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc) =>
+        new(
+            competencyCatalogItemId,
+            competencyTypeCatalogItemId,
+            jobProfileCompetencyExpectationId,
+            expectedScore,
+            achievedScore,
+            evaluationDateUtc,
+            sourceSystem,
+            sourceReference,
+            sourceSyncedUtc);
+
+    private void Apply(
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
+        decimal? expectedScore,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        if (competencyCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(competencyCatalogItemId), "Competency catalog item id must be greater than zero.");
+        }
+
+        if (competencyTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(competencyTypeCatalogItemId), "Competency type catalog item id must be greater than zero.");
+        }
+
+        CompetencyCatalogItemId = competencyCatalogItemId;
+        CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
+        JobProfileCompetencyExpectationId = jobProfileCompetencyExpectationId;
         ExpectedScore = expectedScore;
         AchievedScore = achievedScore;
-        GapScore = gapScore;
+        // Decision D-05: the gap is computed (expected − achieved), never supplied; null when no expected exists.
+        GapScore = expectedScore.HasValue ? expectedScore.Value - achievedScore : null;
         EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
         SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
         SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
         SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
     }
-
-    public static PersonnelFilePositionCompetencyResult Create(
-        string competencyCode,
-        string? desiredBehaviors,
-        decimal? expectedScore,
-        decimal? achievedScore,
-        decimal? gapScore,
-        DateTime? evaluationDateUtc,
-        string? sourceSystem,
-        string? sourceReference,
-        DateTime? sourceSyncedUtc) =>
-        new(
-            competencyCode,
-            desiredBehaviors,
-            expectedScore,
-            achievedScore,
-            gapScore,
-            evaluationDateUtc,
-            sourceSystem,
-            sourceReference,
-            sourceSyncedUtc);
 }
 
 public sealed class PersonnelFileSelectionContest : TenantEntity

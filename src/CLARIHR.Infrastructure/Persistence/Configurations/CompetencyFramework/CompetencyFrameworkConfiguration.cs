@@ -240,6 +240,10 @@ internal sealed class JobProfileCompetencyExpectationConfiguration : IEntityType
             .HasColumnName("expected_evidence")
             .HasMaxLength(1000);
 
+        builder.Property(expectation => expectation.ExpectedValue)
+            .HasColumnName("expected_value")
+            .HasColumnType("numeric(18,2)");
+
         builder.Property(expectation => expectation.SortOrder).HasColumnName("sort_order");
 
         builder.Property(expectation => expectation.ConcurrencyToken)
@@ -347,5 +351,133 @@ internal sealed class JobProfileCompetencyExpectationConductConfiguration : IEnt
             .HasForeignKey(conduct => conduct.CompetencyConductId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profile_competency_expectation_conducts__competency_conduct");
+    }
+}
+
+internal sealed class CompetencyRatingScaleConfiguration : IEntityTypeConfiguration<CompetencyRatingScale>
+{
+    public void Configure(EntityTypeBuilder<CompetencyRatingScale> builder)
+    {
+        builder.ToTable("competency_rating_scales");
+
+        builder.HasKey(scale => scale.Id)
+            .HasName("pk_competency_rating_scales");
+
+        builder.Property(scale => scale.Id).HasColumnName("id");
+        builder.Property(scale => scale.PublicId).HasColumnName("public_id");
+        builder.Property(scale => scale.TenantId).HasColumnName("tenant_id");
+
+        builder.Property(scale => scale.Code)
+            .HasColumnName("code")
+            .HasMaxLength(50);
+
+        builder.Property(scale => scale.NormalizedCode)
+            .HasColumnName("normalized_code")
+            .HasMaxLength(50);
+
+        builder.Property(scale => scale.Name)
+            .HasColumnName("name")
+            .HasMaxLength(120);
+
+        builder.Property(scale => scale.NormalizedName)
+            .HasColumnName("normalized_name")
+            .HasMaxLength(120);
+
+        builder.Property(scale => scale.ScaleType)
+            .HasColumnName("scale_type")
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.Property(scale => scale.MinValue)
+            .HasColumnName("min_value")
+            .HasColumnType("numeric(18,2)");
+
+        builder.Property(scale => scale.MaxValue)
+            .HasColumnName("max_value")
+            .HasColumnType("numeric(18,2)");
+
+        builder.Property(scale => scale.Decimals)
+            .HasColumnName("decimals");
+
+        builder.Property(scale => scale.IsActive)
+            .HasColumnName("is_active");
+
+        builder.Property(scale => scale.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
+        builder.Property(scale => scale.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(scale => scale.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasIndex(scale => scale.PublicId)
+            .IsUnique()
+            .HasDatabaseName("uq_competency_rating_scales__public_id");
+
+        builder.HasIndex(scale => new { scale.TenantId, scale.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName("uq_competency_rating_scales__tenant_code");
+
+        // At most one active scale per tenant (single source of truth for expected/achieved scoring).
+        builder.HasIndex(scale => scale.TenantId)
+            .IsUnique()
+            .HasFilter("is_active = true")
+            .HasDatabaseName("uq_competency_rating_scales__tenant_active");
+
+        builder.HasMany(scale => scale.Levels)
+            .WithOne(level => level.CompetencyRatingScale)
+            .HasForeignKey(level => level.CompetencyRatingScaleId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_competency_rating_scale_levels__scale");
+
+        builder.Navigation(scale => scale.Levels).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class CompetencyRatingScaleLevelConfiguration : IEntityTypeConfiguration<CompetencyRatingScaleLevel>
+{
+    public void Configure(EntityTypeBuilder<CompetencyRatingScaleLevel> builder)
+    {
+        builder.ToTable("competency_rating_scale_levels");
+
+        builder.HasKey(level => level.Id)
+            .HasName("pk_competency_rating_scale_levels");
+
+        builder.Property(level => level.Id).HasColumnName("id");
+        builder.Property(level => level.PublicId).HasColumnName("public_id");
+        builder.Property(level => level.TenantId).HasColumnName("tenant_id");
+        builder.Property(level => level.CompetencyRatingScaleId).HasColumnName("competency_rating_scale_id");
+
+        builder.Property(level => level.Code)
+            .HasColumnName("code")
+            .HasMaxLength(20);
+
+        builder.Property(level => level.NormalizedCode)
+            .HasColumnName("normalized_code")
+            .HasMaxLength(20);
+
+        builder.Property(level => level.Label)
+            .HasColumnName("label")
+            .HasMaxLength(120);
+
+        builder.Property(level => level.Value)
+            .HasColumnName("value")
+            .HasColumnType("numeric(18,2)");
+
+        builder.Property(level => level.SortOrder)
+            .HasColumnName("sort_order");
+
+        builder.Property(level => level.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(level => level.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasIndex(level => new { level.TenantId, level.CompetencyRatingScaleId, level.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName("uq_competency_rating_scale_levels__tenant_scale_code");
+
+        builder.HasIndex(level => new { level.TenantId, level.CompetencyRatingScaleId, level.Value })
+            .IsUnique()
+            .HasDatabaseName("uq_competency_rating_scale_levels__tenant_scale_value");
+
+        builder.HasIndex(level => new { level.TenantId, level.CompetencyRatingScaleId, level.SortOrder })
+            .HasDatabaseName("ix_competency_rating_scale_levels__tenant_scale_sort");
     }
 }

@@ -473,6 +473,21 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageMedicalClaims, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Position competencies ("Competencias del puesto", D-08/D-09). Read is an authn-only SUPERSET so the
+    // self-service branch (the employee reading their own competencies) is never blocked at the API layer;
+    // the precise gate (ViewCompetencies / Admin, or self) lives in the competency read handlers. Writes are
+    // HR-only (CLARIHR is the source of truth — D-01), so ManageCompetencies uses a RequireAssertion like
+    // ManageSubstitutions, kept a superset of the precise EnsureCanManageCompetenciesAsync handler gate.
+    options.AddPolicy(PersonnelFilePolicies.ViewCompetencies, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageCompetencies, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageCompetencies,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

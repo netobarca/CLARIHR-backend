@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
@@ -27,6 +28,7 @@ internal sealed class DevSeedService(
     ApplicationDbContext dbContext,
     IPasswordHasher passwordHasher,
     ICompanyProvisioningService companyProvisioningService,
+    ICompetencyFrameworkSeedService competencyFrameworkSeedService,
     ILogger<DevSeedService> logger)
 {
     private const string DevEmail = "dev@clarihr.local";
@@ -709,6 +711,9 @@ internal sealed class DevSeedService(
         dbContext.FunctionalAreaCatalogItems.AddRange(functionalAreas);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Competency-framework defaults (D-03/D-04): competency-type catalog + default active rating scale.
+        await competencyFrameworkSeedService.InitializeDefaultsAsync(tenantId, cancellationToken);
         return orgUnitTypes[0];
     }
 

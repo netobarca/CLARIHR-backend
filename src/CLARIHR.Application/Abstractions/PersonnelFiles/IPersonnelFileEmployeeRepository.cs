@@ -620,21 +620,17 @@ public interface IPersonnelFileEmployeeRepository
         Guid evaluationPublicId,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> AddPositionCompetencyResultAsync(
-        long personnelFileInternalId,
-        Guid tenantId,
-        PersonnelFilePositionCompetencyResult entity,
-        CancellationToken cancellationToken);
+    void AddPositionCompetencyResult(PersonnelFilePositionCompetencyResult entity);
 
-    Task<PersonnelFilePositionCompetencyResultResponse?> UpdatePositionCompetencyResultAsync(
+    Task<bool> UpdatePositionCompetencyResultAsync(
         Guid itemPublicId,
         Guid tenantId,
-        string competencyCode,
-        string? desiredBehaviors,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long? jobProfileCompetencyExpectationId,
         decimal? expectedScore,
-        decimal? achievedScore,
-        decimal? gapScore,
-        DateTime? evaluationDateUtc,
+        decimal achievedScore,
+        DateTime evaluationDateUtc,
         string? sourceSystem,
         string? sourceReference,
         DateTime? sourceSyncedUtc,
@@ -652,6 +648,26 @@ public interface IPersonnelFileEmployeeRepository
     Task<PersonnelFilePositionCompetencyResultResponse?> GetPositionCompetencyResultAsync(
         Guid personnelFileId,
         Guid positionCompetencyResultPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the internal id of the job profile of the employee's active primary employment assignment
+    /// (active &amp; primary assignment → position slot → job profile). Null when the employee has no resolvable
+    /// active position. Used to validate that a scored competency belongs to the position's matrix (RF-011) and
+    /// to derive the expected competencies (RF-002).
+    /// </summary>
+    Task<long?> GetActiveAssignedJobProfileInternalIdAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Builds the "Competencias del puesto" consultation (RF-002): the competency matrix of the employee's
+    /// active assigned position combined with the employee's achieved results (latest + history), gap computed,
+    /// grouped by competency type. Returns an empty result with <c>HasAssignedPosition = false</c> when the
+    /// employee has no resolvable active position.
+    /// </summary>
+    Task<EmployeePositionCompetenciesResponse> GetEmployeePositionCompetenciesAsync(
+        Guid personnelFilePublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> AddSelectionContestAsync(

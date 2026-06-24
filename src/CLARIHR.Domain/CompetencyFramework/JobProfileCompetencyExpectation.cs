@@ -18,6 +18,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         long competencyTypeCatalogItemId,
         long behaviorLevelCatalogItemId,
         string? expectedEvidence,
+        decimal? expectedValue,
         int sortOrder)
     {
         if (jobProfileId <= 0)
@@ -57,6 +58,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
         BehaviorLevelCatalogItemId = behaviorLevelCatalogItemId;
         ExpectedEvidence = CompetencyFrameworkNormalization.CleanOptional(expectedEvidence);
+        ExpectedValue = expectedValue;
         SortOrder = sortOrder;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -73,6 +75,13 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
 
     public string? ExpectedEvidence { get; private set; }
 
+    /// <summary>
+    /// The expected competency score for this matrix cell, expressed in the company's active
+    /// <see cref="CompetencyRatingScale"/> (decision D-02/D-04). Optional; when present, the per-employee gap
+    /// is computed as ExpectedValue − achieved score (decision D-05).
+    /// </summary>
+    public decimal? ExpectedValue { get; private set; }
+
     public int SortOrder { get; private set; }
 
     public Guid ConcurrencyToken { get; private set; }
@@ -86,6 +95,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         long competencyTypeCatalogItemId,
         long behaviorLevelCatalogItemId,
         string? expectedEvidence,
+        decimal? expectedValue,
         int sortOrder) =>
         new(
             Guid.NewGuid(),
@@ -95,6 +105,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
             competencyTypeCatalogItemId,
             behaviorLevelCatalogItemId,
             expectedEvidence,
+            expectedValue,
             sortOrder);
 
     public void ReplaceConducts(IEnumerable<JobProfileCompetencyExpectationConduct> items)
@@ -110,6 +121,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         long competencyTypeCatalogItemId,
         long behaviorLevelCatalogItemId,
         string? expectedEvidence,
+        decimal? expectedValue,
         int sortOrder)
     {
         if (occupationalPyramidLevelId <= 0)
@@ -127,6 +139,7 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
         BehaviorLevelCatalogItemId = behaviorLevelCatalogItemId;
         ExpectedEvidence = CompetencyFrameworkNormalization.CleanOptional(expectedEvidence);
+        ExpectedValue = expectedValue;
         SortOrder = sortOrder;
         RefreshConcurrencyToken();
     }

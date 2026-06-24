@@ -19,12 +19,17 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 
 public sealed record PersonnelFilePositionCompetencyResultResponse(
     Guid PositionCompetencyResultPublicId,
+    Guid? ExpectationPublicId,
+    Guid CompetencyPublicId,
     string CompetencyCode,
-    string? DesiredBehaviors,
+    string CompetencyName,
+    Guid CompetencyTypePublicId,
+    string CompetencyTypeCode,
+    string CompetencyTypeName,
     decimal? ExpectedScore,
-    decimal? AchievedScore,
+    decimal AchievedScore,
     decimal? GapScore,
-    DateTime? EvaluationDateUtc,
+    DateTime EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc,
@@ -35,12 +40,9 @@ public sealed record PersonnelFilePositionCompetencyResultResponse(
 }
 
 public sealed record PositionCompetencyResultInput(
-    string CompetencyCode,
-    string? DesiredBehaviors,
-    decimal? ExpectedScore,
-    decimal? AchievedScore,
-    decimal? GapScore,
-    DateTime? EvaluationDateUtc,
+    Guid ExpectationPublicId,
+    decimal AchievedScore,
+    DateTime EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
     DateTime? SourceSyncedUtc);
@@ -86,7 +88,12 @@ internal sealed class PositionCompetencyResultInputValidator : AbstractValidator
 {
     public PositionCompetencyResultInputValidator()
     {
-        RuleFor(input => input.CompetencyCode).NotEmpty().MaximumLength(80);
+        // The competency is referenced through the matrix expectation (decisions D-02/D-12).
+        RuleFor(input => input.ExpectationPublicId).NotEmpty();
+        // Evaluation date is mandatory and may not be in the future (decision D-06).
+        RuleFor(input => input.EvaluationDateUtc)
+            .NotEmpty()
+            .LessThanOrEqualTo(_ => DateTime.UtcNow);
     }
 }
 
@@ -150,12 +157,9 @@ internal sealed class GetPersonnelFilePositionCompetencyResultByIdQueryValidator
 
 internal sealed class PersonnelFilePositionCompetencyResultPatchState
 {
-    public string CompetencyCode { get; set; } = string.Empty;
-    public string? DesiredBehaviors { get; set; }
-    public decimal? ExpectedScore { get; set; }
-    public decimal? AchievedScore { get; set; }
-    public decimal? GapScore { get; set; }
-    public DateTime? EvaluationDateUtc { get; set; }
+    public Guid ExpectationPublicId { get; set; }
+    public decimal AchievedScore { get; set; }
+    public DateTime EvaluationDateUtc { get; set; }
     public string? SourceSystem { get; set; }
     public string? SourceReference { get; set; }
     public DateTime? SourceSyncedUtc { get; set; }
@@ -164,11 +168,8 @@ internal sealed class PersonnelFilePositionCompetencyResultPatchState
     public static PersonnelFilePositionCompetencyResultPatchState From(PersonnelFilePositionCompetencyResultResponse response) =>
         new()
         {
-            CompetencyCode = response.CompetencyCode,
-            DesiredBehaviors = response.DesiredBehaviors,
-            ExpectedScore = response.ExpectedScore,
+            ExpectationPublicId = response.ExpectationPublicId ?? Guid.Empty,
             AchievedScore = response.AchievedScore,
-            GapScore = response.GapScore,
             EvaluationDateUtc = response.EvaluationDateUtc,
             SourceSystem = response.SourceSystem,
             SourceReference = response.SourceReference,
@@ -177,11 +178,8 @@ internal sealed class PersonnelFilePositionCompetencyResultPatchState
 
     public PositionCompetencyResultInput ToInput() =>
         new(
-            CompetencyCode,
-            DesiredBehaviors,
-            ExpectedScore,
+            ExpectationPublicId,
             AchievedScore,
-            GapScore,
             EvaluationDateUtc,
             SourceSystem,
             SourceReference,
