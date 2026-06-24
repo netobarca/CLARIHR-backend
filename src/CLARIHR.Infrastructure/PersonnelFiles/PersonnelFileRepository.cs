@@ -1325,6 +1325,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "PAYMENTMETHOD" => await GetCountryScopedCatalogItemsAsync<PaymentMethodCatalogItem>(countryCatalogItemId.Value, "PaymentMethod", cancellationToken),
             "ASSETACCESSTYPE" => await GetCountryScopedCatalogItemsAsync<AssetAccessTypeCatalogItem>(countryCatalogItemId.Value, "AssetAccessType", cancellationToken),
             "DELIVERYSTATUS" => await GetCountryScopedCatalogItemsAsync<DeliveryStatusCatalogItem>(countryCatalogItemId.Value, "DeliveryStatus", cancellationToken),
+            "EXPERIENCEMETRIC" => await GetCountryScopedCatalogItemsAsync<ExperienceMetricCatalogItem>(countryCatalogItemId.Value, "ExperienceMetric", cancellationToken),
+            "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogItemsAsync<OffPayrollTransactionTypeCatalogItem>(countryCatalogItemId.Value, "OffPayrollTransactionType", cancellationToken),
             _ => []
         };
     }
@@ -1448,7 +1450,31 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "PAYMENTMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<PaymentMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ASSETACCESSTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AssetAccessTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "DELIVERYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<DeliveryStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "EXPERIENCEMETRIC" => await IsCountryScopedCatalogCodeActiveAsync<ExperienceMetricCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "OFFPAYROLLTRANSACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
+        };
+    }
+
+    public async Task<string?> GetCatalogItemNameAsync(
+        Guid companyId,
+        string category,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCategory = category.Trim().ToUpperInvariant();
+        var normalizedCode = code.Trim().ToUpperInvariant();
+
+        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return null;
+        }
+
+        return normalizedCategory switch
+        {
+            "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogNameAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            _ => null
         };
     }
 
@@ -2554,6 +2580,20 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                         item.IsActive &&
                         item.NormalizedCode == normalizedCode,
                 cancellationToken);
+
+    // Resolves the display name of a country-scoped catalog item by code (for the type-name snapshot
+    // persisted on off-payroll transactions, so deactivating a type does not lose the historical
+    // description — RN-09). Returns null when the code is not found for the company's country.
+    private Task<string?> GetCountryScopedCatalogNameAsync<TCatalogItem>(
+        long countryCatalogItemId,
+        string normalizedCode,
+        CancellationToken cancellationToken)
+        where TCatalogItem : CountryScopedCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId && item.NormalizedCode == normalizedCode)
+            .Select(item => (string?)item.Name)
+            .FirstOrDefaultAsync(cancellationToken);
 
     private Task<CompanyCountryLookup?> GetCompanyCountryLookupAsync(Guid companyId, CancellationToken cancellationToken) =>
         dbContext.Companies

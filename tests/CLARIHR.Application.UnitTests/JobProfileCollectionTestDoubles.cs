@@ -616,6 +616,9 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public Task<CatalogReferenceInternal?> GetActiveCatalogReferenceAsync(Guid tenantId, PositionDescriptionCatalogType catalogType, Guid catalogItemId, CancellationToken cancellationToken) =>
         Task.FromResult((CatalogReferenceInternal?)new CatalogReferenceInternal(1, catalogItemId, "Code", "Name", true));
 
+    public Task<CatalogReferenceInternal?> GetActiveCatalogReferenceByCodeAsync(Guid tenantId, PositionDescriptionCatalogType catalogType, string code, CancellationToken cancellationToken) =>
+        Task.FromResult((CatalogReferenceInternal?)new CatalogReferenceInternal(1, Guid.NewGuid(), code, "Name", true));
+
     public Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(Guid tenantId, Guid orgUnitTypeId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<bool> HasCategoriesUsingClassificationAsync(long classificationId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasJobProfilesUsingCategoryAsync(long categoryId, CancellationToken cancellationToken) => Task.FromResult(false);

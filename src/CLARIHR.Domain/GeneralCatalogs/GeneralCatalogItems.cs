@@ -245,6 +245,40 @@ public sealed class AssetAccessTypeCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+/// <summary>
+/// Catalog of off-payroll transaction types ("tipos de transacción fuera de nómina": herramientas, EPP,
+/// uniformes, promocionales, reconocimientos, regalos…). Country-scoped and user-managed: the <c>Code</c> is
+/// entered by the administrator (D-03) and <c>Name</c> is the business "Descripción". Distinct from
+/// <see cref="AssetAccessTypeCatalogItem"/> (custody assets) by decision D-02 — they are NOT shared.
+/// </summary>
+public sealed class OffPayrollTransactionTypeCatalogItem : GeneralCatalogItem
+{
+    private OffPayrollTransactionTypeCatalogItem()
+    {
+    }
+
+    private OffPayrollTransactionTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static OffPayrollTransactionTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class DeliveryStatusCatalogItem : GeneralCatalogItem
 {
     private DeliveryStatusCatalogItem()
@@ -460,6 +494,34 @@ public sealed class CalculationBaseCatalogItem : GeneralCatalogItem
     }
 
     public static CalculationBaseCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class ExperienceMetricCatalogItem : GeneralCatalogItem
+{
+    private ExperienceMetricCatalogItem()
+    {
+    }
+
+    private ExperienceMetricCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ExperienceMetricCatalogItem Create(
         long countryCatalogItemId,
         string countryCode,
         string code,

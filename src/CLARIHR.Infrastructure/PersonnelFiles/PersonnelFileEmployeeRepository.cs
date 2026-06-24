@@ -1354,6 +1354,188 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             document.CreatedUtc,
             document.ModifiedUtc);
 
+    public async Task<IReadOnlyCollection<PersonnelFileOffPayrollTransactionResponse>> AddOffPayrollTransactionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOffPayrollTransaction entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileOffPayrollTransaction>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .OrderByDescending(item => item.TransactionDateUtc)
+            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
+        return all;
+    }
+
+    public async Task<PersonnelFileOffPayrollTransactionResponse?> UpdateOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        OffPayrollTransactionInput input,
+        string currencyCode,
+        string? transactionTypeNameSnapshot,
+        string? assetNameSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .SingleOrDefaultAsync(x => x.PublicId == offPayrollTransactionPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        ApplyOffPayrollTransactionInput(item, input, currencyCode, transactionTypeNameSnapshot, assetNameSnapshot);
+        return Map(item);
+    }
+
+    public async Task<PersonnelFileOffPayrollTransactionResponse?> PatchOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        OffPayrollTransactionInput input,
+        string currencyCode,
+        string? transactionTypeNameSnapshot,
+        string? assetNameSnapshot,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .SingleOrDefaultAsync(x => x.PublicId == offPayrollTransactionPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        ApplyOffPayrollTransactionInput(item, input, currencyCode, transactionTypeNameSnapshot, assetNameSnapshot);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    private static void ApplyOffPayrollTransactionInput(
+        PersonnelFileOffPayrollTransaction item,
+        OffPayrollTransactionInput input,
+        string currencyCode,
+        string? transactionTypeNameSnapshot,
+        string? assetNameSnapshot) =>
+        item.Update(
+            input.TransactionTypeCode,
+            transactionTypeNameSnapshot,
+            input.TransactionDateUtc,
+            currencyCode,
+            input.Amount,
+            input.Year,
+            input.Month,
+            input.Comment,
+            input.AssetAccessPublicId,
+            assetNameSnapshot,
+            input.CorrectsTransactionPublicId);
+
+    public async Task<bool> SoftDeleteOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .SingleOrDefaultAsync(x => x.PublicId == offPayrollTransactionPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.SetActive(false);
+        return true;
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileOffPayrollTransactionResponse>> GetOffPayrollTransactionsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.TransactionDateUtc)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileOffPayrollTransactionResponse?> GetOffPayrollTransactionAsync(
+        Guid personnelFileId,
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == offPayrollTransactionPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
+
+    public async Task<IReadOnlyCollection<OffPayrollTransactionCurrencyTotalResponse>> GetOffPayrollTransactionTotalsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.IsActive)
+            .GroupBy(item => item.CurrencyCode)
+            .Select(group => new OffPayrollTransactionCurrencyTotalResponse(group.Key, group.Sum(x => x.Amount), group.Count()))
+            .OrderBy(result => result.CurrencyCode)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<long?> GetOffPayrollTransactionInternalIdAsync(
+        Guid personnelFileId,
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == offPayrollTransactionPublicId)
+            .Select(item => (long?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task AddOffPayrollTransactionDocumentAsync(
+        OffPayrollTransactionDocument entity,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.Set<OffPayrollTransactionDocument>().AddAsync(entity, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<OffPayrollTransactionDocumentResponse>> GetOffPayrollTransactionDocumentsAsync(
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<OffPayrollTransactionDocument>()
+            .AsNoTracking()
+            .Where(document => document.OffPayrollTransaction.PublicId == offPayrollTransactionPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .Select(document => MapOffPayrollTransactionDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<OffPayrollTransactionDocumentResponse?> GetOffPayrollTransactionDocumentAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<OffPayrollTransactionDocument>()
+            .AsNoTracking()
+            .Where(document => document.OffPayrollTransaction.PublicId == offPayrollTransactionPublicId && document.PublicId == documentPublicId)
+            .Select(document => MapOffPayrollTransactionDocument(document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<OffPayrollTransactionDocument?> GetOffPayrollTransactionDocumentEntityAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<OffPayrollTransactionDocument>()
+            .SingleOrDefaultAsync(
+                document => document.OffPayrollTransaction.PublicId == offPayrollTransactionPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static OffPayrollTransactionDocumentResponse MapOffPayrollTransactionDocument(OffPayrollTransactionDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Code : null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.Observations,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.IsActive,
+            document.ConcurrencyToken,
+            document.CreatedUtc,
+            document.ModifiedUtc);
+
     public async Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -2177,6 +2359,23 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.SourceSystem,
             item.SourceReference,
             item.SourceSyncedUtc,
+            item.IsActive,
+            item.ConcurrencyToken);
+
+    private static PersonnelFileOffPayrollTransactionResponse Map(PersonnelFileOffPayrollTransaction item) =>
+        new(
+            item.PublicId,
+            item.OffPayrollTransactionTypeCode,
+            item.TransactionTypeNameSnapshot,
+            item.TransactionDateUtc,
+            item.CurrencyCode,
+            item.Amount,
+            item.Year,
+            item.Month,
+            item.Comment,
+            item.AssetAccessPublicId,
+            item.AssetNameSnapshot,
+            item.CorrectsTransactionPublicId,
             item.IsActive,
             item.ConcurrencyToken);
 

@@ -201,6 +201,43 @@ internal static class GlobalCatalogSeedData
             ModifiedUtc = SeededAtUtc
         };
 
+    // Country-scoped experience-metric units catalog (general-catalogs key `experience-metrics`), backing the
+    // curricular-competency metric field (business decision D-04: AÑOS / MESES / DIAS / HORAS). Seeded here — like
+    // the employment-status catalog above — so it lands in EVERY environment through the migration pipeline
+    // (MigrateAsync) and backfills already-provisioned databases, not only fresh dev databases via DevSeedService.
+    // Codes are ASCII (ANOS) so they pass code validation and normalize cleanly; names keep the Spanish accents
+    // for display. SV only for this phase.
+    public static IEnumerable<object> GetExperienceMetricCatalogItems() =>
+    [
+        CreateExperienceMetricSeed(-9120L, "SV", "ANOS", "Años", 10),
+        CreateExperienceMetricSeed(-9121L, "SV", "MESES", "Meses", 20),
+        CreateExperienceMetricSeed(-9122L, "SV", "DIAS", "Días", 30),
+        CreateExperienceMetricSeed(-9123L, "SV", "HORAS", "Horas", 40)
+    ];
+
+    private static object CreateExperienceMetricSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("EXPERIENCE_METRIC_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("EXPERIENCE_METRIC_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
     private static long ResolveCountryId(string countryCode) =>
         CLARIHR.Domain.Locations.CountryCatalog.Items
             .Single(item => string.Equals(item.Code, countryCode, StringComparison.OrdinalIgnoreCase))

@@ -99,6 +99,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // (PersonnelFileCompetencyController).
         PersonnelFilePolicies.ViewCompetencies,
         PersonnelFilePolicies.ManageCompetencies,
+        // Off-payroll transactions (D-06): authn-only supersets for read + write; the precise HR-only gate
+        // (ViewOffPayrollTransactions / ManageOffPayrollTransactions permission or Admin, no self-service)
+        // lives in the off-payroll handlers (OffPayrollTransactionsController).
+        PersonnelFilePolicies.ViewOffPayrollTransactions,
+        PersonnelFilePolicies.ManageOffPayrollTransactions,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

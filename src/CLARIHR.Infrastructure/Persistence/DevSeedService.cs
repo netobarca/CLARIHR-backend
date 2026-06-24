@@ -467,6 +467,22 @@ internal sealed class DevSeedService(
             dbContext.MedicalClaimStatusCatalogItems.Add(entity);
         }
 
+        var offPayrollTransactionTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("HERRAMIENTAS", "Herramientas de trabajo", 10),
+            ("EPP", "Equipo de protección personal", 20),
+            ("UNIFORMES", "Uniformes", 30),
+            ("PROMOCIONALES", "Artículos promocionales", 40),
+            ("RECONOCIMIENTOS", "Reconocimientos", 50),
+            ("REGALOS", "Regalos", 60),
+        };
+
+        foreach (var item in offPayrollTransactionTypes)
+        {
+            var entity = OffPayrollTransactionTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+            dbContext.OffPayrollTransactionTypeCatalogItems.Add(entity);
+        }
+
         // employment-statuses are seeded globally via GlobalCatalogSeedData.GetEmploymentStatusCatalogItems()
         // (HasData) so they exist in every environment and backfill already-provisioned databases — not here,
         // which would double-insert against the HasData rows on a fresh dev database.

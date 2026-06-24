@@ -22,6 +22,18 @@ public interface IPositionCatalogLookup
         Guid catalogItemId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves an active catalog item reference by its (case-insensitive) code within the tenant, or null if
+    /// absent/inactive. Mirrors <see cref="GetActiveCatalogReferenceAsync"/> but keys off the code instead of the
+    /// public id — used by consumers that store a catalog code rather than a reference id (e.g. personnel-file
+    /// curricular competencies). Backed by the unique <c>(tenant, type, normalized_code)</c> index.
+    /// </summary>
+    Task<CatalogReferenceInternal?> GetActiveCatalogReferenceByCodeAsync(
+        Guid tenantId,
+        PositionDescriptionCatalogType catalogType,
+        string code,
+        CancellationToken cancellationToken);
+
     /// <summary>True if the catalog item exists in another tenant (used to discriminate 404 vs tenant-mismatch).</summary>
     Task<bool> ExistsCatalogItemOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken);
 

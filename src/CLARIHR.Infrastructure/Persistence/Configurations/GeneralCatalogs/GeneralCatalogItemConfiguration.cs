@@ -186,6 +186,21 @@ internal sealed class AssetAccessTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class OffPayrollTransactionTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<OffPayrollTransactionTypeCatalogItem>
+{
+    public OffPayrollTransactionTypeCatalogItemConfiguration()
+        : base(
+            "off_payroll_transaction_type_catalog_items",
+            "pk_off_payroll_transaction_type_catalog_items",
+            "uq_off_payroll_transaction_type_catalog_items__public_id",
+            "uq_off_payroll_transaction_type_catalog_items__country_code",
+            // Shortened (drops "country_") to stay within PostgreSQL's 63-char identifier limit.
+            "ix_off_payroll_transaction_type_catalog_items__active_sort")
+    {
+    }
+}
+
 internal sealed class DeliveryStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<DeliveryStatusCatalogItem>
 {
@@ -281,6 +296,21 @@ internal sealed class CalculationBaseCatalogItemConfiguration
             "uq_calculation_base_catalog_items__public_id",
             "uq_calculation_base_catalog_items__country_code",
             "ix_calculation_base_catalog_items__country_active_sort")
+    {
+    }
+}
+
+internal sealed class ExperienceMetricCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<ExperienceMetricCatalogItem>
+{
+    public ExperienceMetricCatalogItemConfiguration()
+        : base(
+            "experience_metric_catalog_items",
+            "pk_experience_metric_catalog_items",
+            "uq_experience_metric_catalog_items__public_id",
+            "uq_experience_metric_catalog_items__country_code",
+            "ix_experience_metric_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetExperienceMetricCatalogItems())
     {
     }
 }

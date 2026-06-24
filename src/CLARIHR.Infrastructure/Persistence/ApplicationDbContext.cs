@@ -232,6 +232,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<AssetAccessTypeCatalogItem> AssetAccessTypeCatalogItems => Set<AssetAccessTypeCatalogItem>();
 
+    public DbSet<OffPayrollTransactionTypeCatalogItem> OffPayrollTransactionTypeCatalogItems => Set<OffPayrollTransactionTypeCatalogItem>();
+
     public DbSet<DeliveryStatusCatalogItem> DeliveryStatusCatalogItems => Set<DeliveryStatusCatalogItem>();
 
     public DbSet<PaymentMethodCatalogItem> PaymentMethodCatalogItems => Set<PaymentMethodCatalogItem>();
@@ -239,6 +241,8 @@ public sealed class ApplicationDbContext(
     public DbSet<EmploymentStatusCatalogItem> EmploymentStatusCatalogItems => Set<EmploymentStatusCatalogItem>();
 
     public DbSet<DurationUnitCatalogItem> DurationUnitCatalogItems => Set<DurationUnitCatalogItem>();
+
+    public DbSet<ExperienceMetricCatalogItem> ExperienceMetricCatalogItems => Set<ExperienceMetricCatalogItem>();
 
     public DbSet<ReferenceTypeCatalogItem> ReferenceTypeCatalogItems => Set<ReferenceTypeCatalogItem>();
 
@@ -292,6 +296,10 @@ public sealed class ApplicationDbContext(
     public DbSet<PersonnelFileInsuranceBeneficiary> PersonnelFileInsuranceBeneficiaries => Set<PersonnelFileInsuranceBeneficiary>();
 
     public DbSet<PersonnelFileMedicalClaim> PersonnelFileMedicalClaims => Set<PersonnelFileMedicalClaim>();
+
+    public DbSet<PersonnelFileOffPayrollTransaction> PersonnelFileOffPayrollTransactions => Set<PersonnelFileOffPayrollTransaction>();
+
+    public DbSet<OffPayrollTransactionDocument> OffPayrollTransactionDocuments => Set<OffPayrollTransactionDocument>();
 
     public DbSet<PersonnelFilePerformanceEvaluation> PersonnelFilePerformanceEvaluations => Set<PersonnelFilePerformanceEvaluation>();
 

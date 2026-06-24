@@ -1372,6 +1372,246 @@ public sealed class MedicalClaimDocument : TenantEntity
     }
 }
 
+/// <summary>
+/// An off-payroll transaction ("transacción fuera de nómina"): a company expense incurred on behalf of an
+/// employee that is NOT part of payroll (work tools, PPE, uniforms, promotional items, recognitions, gifts…).
+/// Distinct sibling of <see cref="PersonnelFilePayrollTransaction"/> (the in-payroll immutable ledger): the
+/// type comes from a managed catalog (D-02/D-03), the period is an explicit imputation Year + Month (D-05),
+/// the amount may be negative for an adjustment that references the original transaction it corrects (D-04/D-12),
+/// and it can be optionally linked to an <see cref="PersonnelFileAssetAccess"/> of the same employee (D-01).
+/// Editable HR record (CRUD + soft delete, RN-10); internal to HR — no self-service (D-06).
+/// </summary>
+public sealed class PersonnelFileOffPayrollTransaction : TenantEntity
+{
+    private PersonnelFileOffPayrollTransaction()
+    {
+    }
+
+    private PersonnelFileOffPayrollTransaction(
+        string offPayrollTransactionTypeCode,
+        string? transactionTypeNameSnapshot,
+        DateTime transactionDateUtc,
+        string currencyCode,
+        decimal amount,
+        int year,
+        int month,
+        string? comment,
+        Guid? assetAccessPublicId,
+        string? assetNameSnapshot,
+        Guid? correctsTransactionPublicId)
+    {
+        PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
+        Apply(
+            offPayrollTransactionTypeCode,
+            transactionTypeNameSnapshot,
+            transactionDateUtc,
+            currencyCode,
+            amount,
+            year,
+            month,
+            comment,
+            assetAccessPublicId,
+            assetNameSnapshot,
+            correctsTransactionPublicId);
+    }
+
+    public long PersonnelFileId { get; private set; }
+
+    public PersonnelFile PersonnelFile { get; private set; } = null!;
+
+    public string OffPayrollTransactionTypeCode { get; private set; } = string.Empty;
+
+    public string? TransactionTypeNameSnapshot { get; private set; }
+
+    public DateTime TransactionDateUtc { get; private set; }
+
+    public string CurrencyCode { get; private set; } = string.Empty;
+
+    public decimal Amount { get; private set; }
+
+    public int Year { get; private set; }
+
+    public int Month { get; private set; }
+
+    public string? Comment { get; private set; }
+
+    public Guid? AssetAccessPublicId { get; private set; }
+
+    public string? AssetNameSnapshot { get; private set; }
+
+    public Guid? CorrectsTransactionPublicId { get; private set; }
+
+    public bool IsActive { get; private set; } = true;
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void Update(
+        string offPayrollTransactionTypeCode,
+        string? transactionTypeNameSnapshot,
+        DateTime transactionDateUtc,
+        string currencyCode,
+        decimal amount,
+        int year,
+        int month,
+        string? comment,
+        Guid? assetAccessPublicId,
+        string? assetNameSnapshot,
+        Guid? correctsTransactionPublicId)
+    {
+        ConcurrencyToken = Guid.NewGuid();
+        Apply(
+            offPayrollTransactionTypeCode,
+            transactionTypeNameSnapshot,
+            transactionDateUtc,
+            currencyCode,
+            amount,
+            year,
+            month,
+            comment,
+            assetAccessPublicId,
+            assetNameSnapshot,
+            correctsTransactionPublicId);
+    }
+
+    public static PersonnelFileOffPayrollTransaction Create(
+        string offPayrollTransactionTypeCode,
+        string? transactionTypeNameSnapshot,
+        DateTime transactionDateUtc,
+        string currencyCode,
+        decimal amount,
+        int year,
+        int month,
+        string? comment,
+        Guid? assetAccessPublicId,
+        string? assetNameSnapshot,
+        Guid? correctsTransactionPublicId) =>
+        new(
+            offPayrollTransactionTypeCode,
+            transactionTypeNameSnapshot,
+            transactionDateUtc,
+            currencyCode,
+            amount,
+            year,
+            month,
+            comment,
+            assetAccessPublicId,
+            assetNameSnapshot,
+            correctsTransactionPublicId);
+
+    private void Apply(
+        string offPayrollTransactionTypeCode,
+        string? transactionTypeNameSnapshot,
+        DateTime transactionDateUtc,
+        string currencyCode,
+        decimal amount,
+        int year,
+        int month,
+        string? comment,
+        Guid? assetAccessPublicId,
+        string? assetNameSnapshot,
+        Guid? correctsTransactionPublicId)
+    {
+        OffPayrollTransactionTypeCode = PersonnelFileNormalization.Clean(offPayrollTransactionTypeCode, nameof(offPayrollTransactionTypeCode)).ToUpperInvariant();
+        TransactionTypeNameSnapshot = PersonnelFileNormalization.CleanOptional(transactionTypeNameSnapshot);
+        TransactionDateUtc = PersonnelFileNormalization.NormalizeDate(transactionDateUtc);
+        CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode)).ToUpperInvariant();
+        Amount = amount;
+        Year = year;
+        Month = month;
+        Comment = PersonnelFileNormalization.CleanOptional(comment);
+        AssetAccessPublicId = assetAccessPublicId;
+        AssetNameSnapshot = PersonnelFileNormalization.CleanOptional(assetNameSnapshot);
+        CorrectsTransactionPublicId = correctsTransactionPublicId;
+    }
+}
+
+/// <summary>
+/// Supporting document ("comprobante de cualquier índole") attached to an off-payroll transaction (D-07).
+/// Mirrors <see cref="MedicalClaimDocument"/> and reuses the shared file-storage subsystem
+/// (<c>StoredFile</c> / <c>IFileStorageProvider</c> / <c>FilePurpose.OffPayrollTransactionDocument</c>), but the
+/// document-type classification is OPTIONAL here (D-07 — any kind of receipt), so the catalog FK is nullable.
+/// </summary>
+public sealed class OffPayrollTransactionDocument : TenantEntity
+{
+    private OffPayrollTransactionDocument()
+    {
+    }
+
+    private OffPayrollTransactionDocument(
+        Guid publicId,
+        long? documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations)
+    {
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
+        PublicId = publicId;
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
+        FilePublicId = filePublicId;
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
+        Observations = PersonnelFileNormalization.CleanOptional(observations);
+        IsActive = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public long OffPayrollTransactionId { get; private set; }
+
+    public PersonnelFileOffPayrollTransaction OffPayrollTransaction { get; private set; } = null!;
+
+    public long? DocumentTypeCatalogItemId { get; private set; }
+
+    public DocumentTypeCatalogs.DocumentTypeCatalogItem? DocumentTypeCatalogItem { get; private set; }
+
+    public Guid FilePublicId { get; private set; }
+
+    public string? Observations { get; private set; }
+
+    public string FileName { get; private set; } = string.Empty;
+
+    public string ContentType { get; private set; } = string.Empty;
+
+    public int SizeBytes { get; private set; }
+
+    public bool IsActive { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public void BindToOffPayrollTransaction(long offPayrollTransactionId) => OffPayrollTransactionId = offPayrollTransactionId;
+
+    public static OffPayrollTransactionDocument Create(
+        Guid publicId,
+        long? documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations) =>
+        new(publicId, documentTypeCatalogItemId, filePublicId, fileName, contentType, sizeBytes, observations);
+
+    public void Inactivate()
+    {
+        IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+}
+
 public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
 {
     private PersonnelFilePerformanceEvaluation()
@@ -1715,6 +1955,7 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
         RequirementTypeCode = PersonnelFileNormalization.Clean(requirementTypeCode, nameof(requirementTypeCode));
         RequirementName = PersonnelFileNormalization.Clean(requirementName, nameof(requirementName));
         CompetencyDomain = PersonnelFileNormalization.Clean(competencyDomain, nameof(competencyDomain));
+        NormalizedRequirementName = PersonnelFileNormalization.NormalizeName(requirementName);
         ExperienceTimeValue = experienceTimeValue;
         MetricCode = PersonnelFileNormalization.CleanOptional(metricCode);
         Notes = PersonnelFileNormalization.CleanOptional(notes);
@@ -1732,6 +1973,9 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
     public string RequirementName { get; private set; } = string.Empty;
 
     public string CompetencyDomain { get; private set; } = string.Empty;
+
+    /// <summary>Upper-cased requirement name, persisted to back the anti-duplicate unique index (D-05).</summary>
+    public string NormalizedRequirementName { get; private set; } = string.Empty;
 
     public decimal? ExperienceTimeValue { get; private set; }
 
@@ -1764,6 +2008,7 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
         RequirementTypeCode = PersonnelFileNormalization.Clean(requirementTypeCode, nameof(requirementTypeCode));
         RequirementName = PersonnelFileNormalization.Clean(requirementName, nameof(requirementName));
         CompetencyDomain = PersonnelFileNormalization.Clean(competencyDomain, nameof(competencyDomain));
+        NormalizedRequirementName = PersonnelFileNormalization.NormalizeName(requirementName);
         ExperienceTimeValue = experienceTimeValue;
         MetricCode = PersonnelFileNormalization.CleanOptional(metricCode);
         Notes = PersonnelFileNormalization.CleanOptional(notes);

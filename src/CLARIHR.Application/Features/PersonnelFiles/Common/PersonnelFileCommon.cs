@@ -139,6 +139,19 @@ public static class PersonnelFilePermissionCodes
     /// administration; reads stay on <see cref="ViewCompetencies"/>. Admin is a superset.
     /// </summary>
     public const string ManageCompetencies = "PersonnelFiles.ManageCompetencies";
+
+    /// <summary>
+    /// Dedicated permission to read off-payroll transactions ("transacciones fuera de nómina" — company
+    /// expenses on an employee: tools, PPE, uniforms, gifts…). Amounts (gifts/recognitions) are sensitive,
+    /// so reads are HR-only with no self-service (D-06); Admin is a superset.
+    /// </summary>
+    public const string ViewOffPayrollTransactions = "PersonnelFiles.ViewOffPayrollTransactions";
+
+    /// <summary>
+    /// Dedicated permission to manage (create/edit/delete) off-payroll transactions and their attachments
+    /// (D-06, HR-only — no self-service). Admin is a superset.
+    /// </summary>
+    public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

@@ -19,7 +19,8 @@ internal static class PositionDescriptionCatalogRouteMap
             ["responsibilities-catalog"] = PositionDescriptionCatalogType.Responsibility,
             ["benefits-catalog"] = PositionDescriptionCatalogType.Benefit,
             ["work-condition-types"] = PositionDescriptionCatalogType.WorkConditionType,
-            ["work-conditions"] = PositionDescriptionCatalogType.WorkCondition
+            ["work-conditions"] = PositionDescriptionCatalogType.WorkCondition,
+            ["competency-domains"] = PositionDescriptionCatalogType.CompetencyDomain
         };
 
     private static readonly Lazy<IReadOnlyDictionary<PositionDescriptionCatalogType, string>> CatalogTypeSlugs =

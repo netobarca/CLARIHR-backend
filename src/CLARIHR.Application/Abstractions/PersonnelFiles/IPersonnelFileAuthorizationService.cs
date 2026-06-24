@@ -79,5 +79,22 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageCompetenciesAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Role gate for reading off-payroll transactions (sensitive expense amounts, D-06): the dedicated
+    /// <c>PersonnelFiles.ViewOffPayrollTransactions</c> permission, or Admin / IAM super-admin. No self-service.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewOffPayrollTransactionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for off-payroll transactions (D-06): the dedicated
+    /// <c>PersonnelFiles.ManageOffPayrollTransactions</c> permission, or Admin / IAM super-admin. HR-only — no
+    /// self-service (the employee never writes these).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageOffPayrollTransactionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

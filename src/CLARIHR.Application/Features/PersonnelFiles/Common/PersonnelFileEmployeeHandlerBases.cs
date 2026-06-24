@@ -325,6 +325,50 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Manage gate for off-payroll transactions (D-06): identical to <see cref="LoadForManageMedicalClaimsAsync{TResponse}"/>
+    /// but enforces the dedicated <c>PersonnelFiles.ManageOffPayrollTransactions</c> permission. HR-only — there is
+    /// NO self-service branch (the employee never writes these). Item-level optimistic concurrency is enforced by
+    /// each command's own If-Match token, so callers pass <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageOffPayrollTransactionsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageOffPayrollTransactionsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
     /// Manage gate for position competencies (D-08): enforces the dedicated
     /// <c>PersonnelFiles.ManageCompetencies</c> permission (or Admin / IAM super-admin). Used by
     /// add/update/patch/delete — HR-only, no self-service write (CLARIHR is the source of truth, D-01).
@@ -528,6 +572,48 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
             {
                 return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
             }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for off-payroll-transaction sub-resources (D-06): the caller has the dedicated
+    /// <c>ViewOffPayrollTransactions</c> permission (or Admin). Like the insurance read gate, there is NO
+    /// self-service branch — these are internal HR records (sensitive amounts), so the employee cannot read them.
+    /// Requires a completed employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForOffPayrollReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (!(await authorizationService.EnsureCanViewOffPayrollTransactionsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
         }
 
         if (!personnelFile.IsCompletedEmployee)

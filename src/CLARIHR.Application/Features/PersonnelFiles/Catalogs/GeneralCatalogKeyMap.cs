@@ -46,6 +46,8 @@ public static class GeneralCatalogKeyMap
             ["payment-methods"] = PersonnelCurriculumCatalogCategories.PaymentMethod,
             ["asset-access-types"] = PersonnelCurriculumCatalogCategories.AssetAccessType,
             ["delivery-statuses"] = PersonnelCurriculumCatalogCategories.DeliveryStatus,
+            ["experience-metrics"] = PersonnelCurriculumCatalogCategories.ExperienceMetric,
+            ["off-payroll-transaction-types"] = PersonnelCurriculumCatalogCategories.OffPayrollTransactionType,
         };
 
     /// <summary>

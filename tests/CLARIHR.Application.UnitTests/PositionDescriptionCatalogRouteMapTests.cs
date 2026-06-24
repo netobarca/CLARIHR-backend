@@ -20,6 +20,7 @@ public class PositionDescriptionCatalogRouteMapTests
     [InlineData("benefits-catalog", PositionDescriptionCatalogType.Benefit)]
     [InlineData("work-condition-types", PositionDescriptionCatalogType.WorkConditionType)]
     [InlineData("work-conditions", PositionDescriptionCatalogType.WorkCondition)]
+    [InlineData("competency-domains", PositionDescriptionCatalogType.CompetencyDomain)]
     [InlineData("  position-function-types  ", PositionDescriptionCatalogType.PositionFunctionType)]
     [InlineData("POSITION-FUNCTION-TYPES", PositionDescriptionCatalogType.PositionFunctionType)]
     public void TryResolve_ShouldReturnTrueAndCorrectType_ForValidSlugs(string slug, PositionDescriptionCatalogType expectedType)
@@ -61,6 +62,7 @@ public class PositionDescriptionCatalogRouteMapTests
     [InlineData(PositionDescriptionCatalogType.Benefit, "benefits-catalog")]
     [InlineData(PositionDescriptionCatalogType.WorkConditionType, "work-condition-types")]
     [InlineData(PositionDescriptionCatalogType.WorkCondition, "work-conditions")]
+    [InlineData(PositionDescriptionCatalogType.CompetencyDomain, "competency-domains")]
     public void ToSlug_ShouldReturnCorrectSlug_ForValidTypes(PositionDescriptionCatalogType type, string expectedSlug)
     {
         // Act
@@ -106,6 +108,7 @@ public class PositionDescriptionCatalogRouteMapTests
             "benefits-catalog",
             "work-condition-types",
             "work-conditions",
+            "competency-domains",
         ];
 
         Assert.Equal(expected, PositionDescriptionCatalogRouteMap.Slugs);

@@ -33,6 +33,7 @@ public class JobProfileCatalogBindingMapGuardrailsTests
             (CatalogFamilies.PositionDescription, "Benefit", "benefits-catalog"),
             (CatalogFamilies.PositionDescription, "WorkConditionType", "work-condition-types"),
             (CatalogFamilies.PositionDescription, "WorkCondition", "work-conditions"),
+            (CatalogFamilies.PositionDescription, "CompetencyDomain", "competency-domains"),
             (CatalogFamilies.JobCatalog, "EducationLevel", "EducationLevel"),
             (CatalogFamilies.JobCatalog, "KnowledgeArea", "KnowledgeArea"),
             (CatalogFamilies.JobCatalog, "Competency", "Competency"),

@@ -157,5 +157,6 @@ public static class PositionDescriptionCatalogErrors
             PositionDescriptionCatalogType.Responsibility or
             PositionDescriptionCatalogType.Benefit or
             PositionDescriptionCatalogType.WorkConditionType or
-            PositionDescriptionCatalogType.WorkCondition;
+            PositionDescriptionCatalogType.WorkCondition or
+            PositionDescriptionCatalogType.CompetencyDomain;
 }

@@ -66,4 +66,19 @@ public static class PersonnelFilePolicies
     /// <c>EnsureCanManageCompetenciesAsync</c> handler gate so a legitimate manager is never falsely 403'd.
     /// </summary>
     public const string ManageCompetencies = "PersonnelFiles.ManageCompetencies";
+
+    /// <summary>
+    /// Read policy for off-payroll-transaction sub-resources ("transacciones fuera de nómina"). Authn-only
+    /// superset: the precise check (ViewOffPayrollTransactions / Admin) lives in the off-payroll read handlers.
+    /// HR-only — no self-service (D-06).
+    /// </summary>
+    public const string ViewOffPayrollTransactions = "PersonnelFiles.ViewOffPayrollTransactions";
+
+    /// <summary>
+    /// Write policy for off-payroll-transaction sub-resources. Authn-only superset: the precise check
+    /// (ManageOffPayrollTransactions / Admin) lives in the off-payroll write handlers. HR-only — no
+    /// self-service (D-06). Kept a superset of the precise <c>EnsureCanManageOffPayrollTransactionsAsync</c>
+    /// handler gate so a legitimate manager is never falsely 403'd.
+    /// </summary>
+    public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
 }

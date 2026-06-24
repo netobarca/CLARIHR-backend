@@ -488,6 +488,16 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Off-payroll transactions ("transacciones fuera de nómina", D-06) — authn-only SUPERSETS for BOTH read and
+    // write. The precise gate (the ViewOffPayrollTransactions / ManageOffPayrollTransactions permission, or Admin)
+    // lives in the off-payroll handlers, which are HR-only (no self-service). Kept authn-only — NOT a
+    // RequireAssertion — so a legitimate manager whose grant is not yet reflected in the token is never falsely
+    // 403'd before the handler's precise gate runs (matches the medical-claims policy treatment).
+    options.AddPolicy(PersonnelFilePolicies.ViewOffPayrollTransactions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageOffPayrollTransactions, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

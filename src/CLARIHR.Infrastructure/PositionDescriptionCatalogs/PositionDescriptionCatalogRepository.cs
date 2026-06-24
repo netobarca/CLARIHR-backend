@@ -433,6 +433,20 @@ internal sealed class PositionDescriptionCatalogRepository(
             .Select(item => new CatalogReferenceInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<CatalogReferenceInternal?> GetActiveCatalogReferenceByCodeAsync(
+        Guid tenantId,
+        PositionDescriptionCatalogType catalogType,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCode = PositionDescriptionCatalogNormalization.NormalizeCode(code);
+        return dbContext.PositionDescriptionCatalogItems
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.CatalogType == catalogType && item.NormalizedCode == normalizedCode && item.IsActive)
+            .Select(item => new CatalogReferenceInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(
         Guid tenantId,
         Guid orgUnitTypeId,

@@ -1102,6 +1102,15 @@
   <data name="validation.message.claimdateutc_must_not_be_in_the_future" xml:space="preserve">
     <value>La fecha del reclamo no puede ser futura.</value>
   </data>
+  <data name="validation.message.amount_must_be_a_non_zero_value" xml:space="preserve">
+    <value>El valor debe ser distinto de cero.</value>
+  </data>
+  <data name="validation.message.transactiondateutc_must_not_be_in_the_future" xml:space="preserve">
+    <value>La fecha de la transacción no puede ser futura.</value>
+  </data>
+  <data name="validation.message.a_negative_amount_must_reference_the_original_transaction_it_corrects" xml:space="preserve">
+    <value>Un valor negativo debe referenciar la transacción original que corrige.</value>
+  </data>
   <data name="validation.message.base_monthly_fee_cannot_exceed_2_decimal_places" xml:space="preserve">
     <value>La tarifa mensual base no puede exceder 2 decimales.</value>
   </data>
@@ -1660,6 +1669,24 @@
   <data name="ASSET_ACCESS_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El tipo de equipo o acceso no es valido en el catalogo activo.</value>
   </data>
+  <data name="CURRICULAR_COMPETENCY_REQUIREMENT_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de requisito no es valido en el catalogo de Estructura Organizativa activo.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_DOMAIN_INVALID" xml:space="preserve">
+    <value>El dominio de la competencia no es valido en el catalogo activo.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_METRIC_INVALID" xml:space="preserve">
+    <value>La metrica no es valida en el catalogo activo.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_METRIC_REQUIRED" xml:space="preserve">
+    <value>La metrica es obligatoria cuando se indica un tiempo de experiencia.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_EXPERIENCE_NEGATIVE" xml:space="preserve">
+    <value>El tiempo de experiencia no puede ser negativo.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_DUPLICATE" xml:space="preserve">
+    <value>El empleado ya tiene una competencia curricular con el mismo tipo de requisito y nombre.</value>
+  </data>
   <data name="ASSET_ACCESS_DELIVERY_STATUS_CODE_INVALID" xml:space="preserve">
     <value>El estado de entrega no es valido en el catalogo activo.</value>
   </data>
@@ -1689,6 +1716,24 @@
   </data>
   <data name="MEDICAL_CLAIM_STATUS_CODE_INVALID" xml:space="preserve">
     <value>El estado del reclamo no es válido en el catálogo activo.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de transacción fuera de nómina no es válido en el catálogo activo.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CURRENCY_REQUIRED" xml:space="preserve">
+    <value>Se requiere una moneda y la empresa no tiene una moneda por defecto configurada.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_ASSET_ACCESS_NOT_FOUND" xml:space="preserve">
+    <value>El equipo/acceso vinculado no existe para este empleado.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTION_REQUIRED" xml:space="preserve">
+    <value>Un valor negativo debe referenciar la transacción original que corrige.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTED_NOT_FOUND" xml:space="preserve">
+    <value>La transacción original referenciada no existe para este empleado.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTED_INVALID" xml:space="preserve">
+    <value>La transacción original referenciada debe ser un gasto original activo en la misma moneda.</value>
   </data>
   <data name="POSITION_COMPETENCY_EXPECTATION_INVALID" xml:space="preserve">
     <value>La competencia esperada seleccionada no existe para esta empresa.</value>

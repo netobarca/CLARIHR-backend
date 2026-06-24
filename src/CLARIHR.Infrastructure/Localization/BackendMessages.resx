@@ -1102,6 +1102,15 @@
   <data name="validation.message.claimdateutc_must_not_be_in_the_future" xml:space="preserve">
     <value>ClaimDateUtc must not be in the future.</value>
   </data>
+  <data name="validation.message.amount_must_be_a_non_zero_value" xml:space="preserve">
+    <value>Amount must be a non-zero value.</value>
+  </data>
+  <data name="validation.message.transactiondateutc_must_not_be_in_the_future" xml:space="preserve">
+    <value>TransactionDateUtc must not be in the future.</value>
+  </data>
+  <data name="validation.message.a_negative_amount_must_reference_the_original_transaction_it_corrects" xml:space="preserve">
+    <value>A negative amount must reference the original transaction it corrects.</value>
+  </data>
   <data name="validation.message.base_monthly_fee_cannot_exceed_2_decimal_places" xml:space="preserve">
     <value>Base monthly fee cannot exceed 2 decimal places.</value>
   </data>
@@ -1660,6 +1669,24 @@
   <data name="ASSET_ACCESS_TYPE_CODE_INVALID" xml:space="preserve">
     <value>The asset/access type code is not valid for the active catalog.</value>
   </data>
+  <data name="CURRICULAR_COMPETENCY_REQUIREMENT_TYPE_INVALID" xml:space="preserve">
+    <value>The requirement type code is not valid for the active Organizational-Structure catalog.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_DOMAIN_INVALID" xml:space="preserve">
+    <value>The competency domain code is not valid for the active catalog.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_METRIC_INVALID" xml:space="preserve">
+    <value>The metric code is not valid for the active catalog.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_METRIC_REQUIRED" xml:space="preserve">
+    <value>A metric is required when an experience time value is provided.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_EXPERIENCE_NEGATIVE" xml:space="preserve">
+    <value>The experience time value cannot be negative.</value>
+  </data>
+  <data name="CURRICULAR_COMPETENCY_DUPLICATE" xml:space="preserve">
+    <value>The employee already has a curricular competency with the same requirement type and name.</value>
+  </data>
   <data name="ASSET_ACCESS_DELIVERY_STATUS_CODE_INVALID" xml:space="preserve">
     <value>The delivery status code is not valid for the active catalog.</value>
   </data>
@@ -1689,6 +1716,24 @@
   </data>
   <data name="MEDICAL_CLAIM_STATUS_CODE_INVALID" xml:space="preserve">
     <value>The claim status code is not valid for the active catalog.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>The off-payroll transaction type is not valid for the active catalog.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CURRENCY_REQUIRED" xml:space="preserve">
+    <value>A currency is required and no default currency is configured for the company.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_ASSET_ACCESS_NOT_FOUND" xml:space="preserve">
+    <value>The linked asset/access does not exist for this employee.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTION_REQUIRED" xml:space="preserve">
+    <value>A negative amount must reference the original transaction it corrects.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTED_NOT_FOUND" xml:space="preserve">
+    <value>The referenced original transaction does not exist for this employee.</value>
+  </data>
+  <data name="OFF_PAYROLL_TX_CORRECTED_INVALID" xml:space="preserve">
+    <value>The referenced original transaction must be an active original expense in the same currency.</value>
   </data>
   <data name="POSITION_COMPETENCY_EXPECTATION_INVALID" xml:space="preserve">
     <value>The selected competency expectation does not exist for this company.</value>

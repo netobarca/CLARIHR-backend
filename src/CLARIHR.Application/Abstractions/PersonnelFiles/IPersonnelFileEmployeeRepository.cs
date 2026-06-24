@@ -587,6 +587,74 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileOffPayrollTransactionResponse>> AddOffPayrollTransactionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOffPayrollTransaction entity,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileOffPayrollTransactionResponse?> UpdateOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        OffPayrollTransactionInput input,
+        string currencyCode,
+        string? transactionTypeNameSnapshot,
+        string? assetNameSnapshot,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileOffPayrollTransactionResponse?> PatchOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        OffPayrollTransactionInput input,
+        string currencyCode,
+        string? transactionTypeNameSnapshot,
+        string? assetNameSnapshot,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> SoftDeleteOffPayrollTransactionAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileOffPayrollTransactionResponse>> GetOffPayrollTransactionsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileOffPayrollTransactionResponse?> GetOffPayrollTransactionAsync(
+        Guid personnelFileId,
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<OffPayrollTransactionCurrencyTotalResponse>> GetOffPayrollTransactionTotalsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<long?> GetOffPayrollTransactionInternalIdAsync(
+        Guid personnelFileId,
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken);
+
+    Task AddOffPayrollTransactionDocumentAsync(
+        OffPayrollTransactionDocument entity,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<OffPayrollTransactionDocumentResponse>> GetOffPayrollTransactionDocumentsAsync(
+        Guid offPayrollTransactionPublicId,
+        CancellationToken cancellationToken);
+
+    Task<OffPayrollTransactionDocumentResponse?> GetOffPayrollTransactionDocumentAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken);
+
+    Task<OffPayrollTransactionDocument?> GetOffPayrollTransactionDocumentEntityAsync(
+        Guid offPayrollTransactionPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
         long personnelFileInternalId,
         Guid tenantId,

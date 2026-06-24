@@ -14,5 +14,6 @@ public enum PositionDescriptionCatalogType
     Responsibility = 10,
     Benefit = 11,
     WorkConditionType = 12,
-    WorkCondition = 13
+    WorkCondition = 13,
+    CompetencyDomain = 14
 }

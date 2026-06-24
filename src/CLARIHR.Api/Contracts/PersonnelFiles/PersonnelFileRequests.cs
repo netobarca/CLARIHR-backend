@@ -500,6 +500,47 @@ public sealed record UpdateMedicalClaimDocumentRequest(
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations);
 
+public sealed record AddOffPayrollTransactionRequest(
+    string TransactionTypeCode,
+    DateTime TransactionDateUtc,
+    string? CurrencyCode,
+    decimal Amount,
+    int Year,
+    int Month,
+    string? Comment,
+    Guid? AssetAccessPublicId,
+    Guid? CorrectsTransactionPublicId);
+
+public sealed record UpdateOffPayrollTransactionRequest(
+    string TransactionTypeCode,
+    DateTime TransactionDateUtc,
+    string? CurrencyCode,
+    decimal Amount,
+    int Year,
+    int Month,
+    string? Comment,
+    Guid? AssetAccessPublicId,
+    Guid? CorrectsTransactionPublicId);
+
+public sealed class PatchOffPayrollTransactionRequest
+{
+    public string TransactionTypeCode { get; set; } = string.Empty;
+    public DateTime TransactionDateUtc { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal Amount { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public string? Comment { get; set; }
+    public Guid? AssetAccessPublicId { get; set; }
+    public Guid? CorrectsTransactionPublicId { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public sealed record AddOffPayrollTransactionDocumentRequest(
+    Guid FilePublicId,
+    Guid? DocumentTypeCatalogItemPublicId,
+    string? Observations);
+
 public sealed record AddPerformanceEvaluationRequest(
     string EvaluatorName,
     DateTime EvaluationDateUtc,

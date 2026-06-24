@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -13,14 +14,87 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
+
+/// <summary>
+/// Impure validation orchestration for curricular competencies (mirrors <c>AssetAccessCommandSupport</c>):
+/// resolves the requirement-type (D-01/D-02) and competency-domain (D-03) tenant catalogs by code, validates the
+/// optional metric against the country catalog (D-04), and enforces experience coherence (D-06) and the
+/// anti-duplicate invariant (D-05). Returns the canonical catalog codes so the handlers persist a stable,
+/// de-dup-safe form.
+/// </summary>
+internal static class CurricularCompetencyCommandValidation
+{
+    public static async Task<Result<CurricularCompetencyResolved>> ValidateAsync(
+        IPositionCatalogLookup positionCatalog,
+        IPersonnelFileRepository personnelFileRepository,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        PersonnelFile file,
+        Guid? candidatePublicId,
+        CurricularCompetencyInput input,
+        CancellationToken cancellationToken)
+    {
+        // (D-01/D-02) Requirement type must be an active RequirementType catalog code for the tenant.
+        var type = await positionCatalog.GetActiveCatalogReferenceByCodeAsync(
+            file.TenantId, PositionDescriptionCatalogType.RequirementType, input.RequirementTypeCode, cancellationToken);
+        if (type is null)
+        {
+            return Result<CurricularCompetencyResolved>.Failure(CurricularCompetencyErrors.RequirementTypeInvalid);
+        }
+
+        // (D-03) Competency domain must be an active CompetencyDomain catalog code for the tenant.
+        var domain = await positionCatalog.GetActiveCatalogReferenceByCodeAsync(
+            file.TenantId, PositionDescriptionCatalogType.CompetencyDomain, input.CompetencyDomain, cancellationToken);
+        if (domain is null)
+        {
+            return Result<CurricularCompetencyResolved>.Failure(CurricularCompetencyErrors.DomainInvalid);
+        }
+
+        // (D-06 + coherence) Experience must be >= 0 and carry a metric when a value is supplied.
+        var experience = CurricularCompetencyRules.ValidateExperience(input.ExperienceTimeValue, input.MetricCode);
+        if (experience.IsFailure)
+        {
+            return Result<CurricularCompetencyResolved>.Failure(experience.Error);
+        }
+
+        // (D-04) Metric is optional; when supplied it must be an active experience-metric catalog code.
+        string? metricCode = null;
+        if (!string.IsNullOrWhiteSpace(input.MetricCode))
+        {
+            if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                    file.TenantId, PersonnelCurriculumCatalogCategories.ExperienceMetric, input.MetricCode, cancellationToken))
+            {
+                return Result<CurricularCompetencyResolved>.Failure(CurricularCompetencyErrors.MetricInvalid);
+            }
+
+            metricCode = input.MetricCode.Trim().ToUpperInvariant();
+        }
+
+        // (D-05) No duplicate requirement type + name within the same file (candidate excludes itself on update).
+        var siblings = (await employeeRepository.GetCurricularCompetenciesAsync(file.PublicId, cancellationToken))
+            .Select(existing => new CurricularCompetencyRules.Existing(
+                existing.CurricularCompetencyPublicId,
+                CurricularCompetencyRules.Key(existing.RequirementTypeCode, existing.RequirementName)))
+            .ToArray();
+        var duplicate = CurricularCompetencyRules.CheckDuplicate(candidatePublicId, type.Code, input.RequirementName, siblings);
+        if (duplicate.IsFailure)
+        {
+            return Result<CurricularCompetencyResolved>.Failure(duplicate.Error);
+        }
+
+        return Result<CurricularCompetencyResolved>.Success(
+            new CurricularCompetencyResolved(type.Code, domain.Code, metricCode));
+    }
+}
 
 internal sealed class AddPersonnelFileCurricularCompetencyCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionCatalogLookup positionCatalog,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -48,12 +122,21 @@ internal sealed class AddPersonnelFileCurricularCompetencyCommandHandler(
             return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        var catalogValidation = await CurricularCompetencyCommandValidation.ValidateAsync(
+            positionCatalog, personnelFileRepository, employeeRepository, personnelFile,
+            candidatePublicId: null, command.Item, cancellationToken);
+        if (catalogValidation.IsFailure)
+        {
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(catalogValidation.Error);
+        }
+
+        var resolved = catalogValidation.Value;
         var entity = PersonnelFileCurricularCompetency.Create(
-            command.Item.RequirementTypeCode,
+            resolved.RequirementTypeCode,
             command.Item.RequirementName,
-            command.Item.CompetencyDomain,
+            resolved.CompetencyDomain,
             command.Item.ExperienceTimeValue,
-            command.Item.MetricCode,
+            resolved.MetricCode,
             command.Item.Notes,
             command.Item.SourceSystem,
             command.Item.SourceReference,
@@ -88,6 +171,7 @@ internal sealed class UpdatePersonnelFileCurricularCompetencyCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionCatalogLookup positionCatalog,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -126,14 +210,23 @@ internal sealed class UpdatePersonnelFileCurricularCompetencyCommandHandler(
             return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        var catalogValidation = await CurricularCompetencyCommandValidation.ValidateAsync(
+            positionCatalog, personnelFileRepository, employeeRepository, personnelFile,
+            command.CurricularCompetencyPublicId, command.Item, cancellationToken);
+        if (catalogValidation.IsFailure)
+        {
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(catalogValidation.Error);
+        }
+
+        var resolved = catalogValidation.Value;
         var response = await employeeRepository.UpdateCurricularCompetencyAsync(
             command.CurricularCompetencyPublicId,
             personnelFile.TenantId,
-            command.Item.RequirementTypeCode,
+            resolved.RequirementTypeCode,
             command.Item.RequirementName,
-            command.Item.CompetencyDomain,
+            resolved.CompetencyDomain,
             command.Item.ExperienceTimeValue,
-            command.Item.MetricCode,
+            resolved.MetricCode,
             command.Item.Notes,
             command.Item.SourceSystem,
             command.Item.SourceReference,
@@ -168,6 +261,7 @@ internal sealed class PatchPersonnelFileCurricularCompetencyCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPositionCatalogLookup positionCatalog,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -225,14 +319,23 @@ internal sealed class PatchPersonnelFileCurricularCompetencyCommandHandler(
         }
 
         var input = state.ToInput();
+        var catalogValidation = await CurricularCompetencyCommandValidation.ValidateAsync(
+            positionCatalog, personnelFileRepository, employeeRepository, personnelFile,
+            command.CurricularCompetencyPublicId, input, cancellationToken);
+        if (catalogValidation.IsFailure)
+        {
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(catalogValidation.Error);
+        }
+
+        var resolved = catalogValidation.Value;
         var response = await employeeRepository.UpdateCurricularCompetencyAsync(
             command.CurricularCompetencyPublicId,
             personnelFile.TenantId,
-            input.RequirementTypeCode,
+            resolved.RequirementTypeCode,
             input.RequirementName,
-            input.CompetencyDomain,
+            resolved.CompetencyDomain,
             input.ExperienceTimeValue,
-            input.MetricCode,
+            resolved.MetricCode,
             input.Notes,
             input.SourceSystem,
             input.SourceReference,

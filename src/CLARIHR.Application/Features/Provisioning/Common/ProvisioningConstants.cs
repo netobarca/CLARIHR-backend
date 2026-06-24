@@ -74,7 +74,9 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewMedicalClaims", "Ver reclamos de seguro medico", "Consulta de los reclamos de seguro medico (incluye el diagnostico, dato de salud) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewMedicalClaims"),
         new("PersonnelFiles.ManageMedicalClaims", "Gestionar reclamos de seguro medico", "Crear, editar y eliminar los reclamos de seguro medico de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageMedicalClaims"),
         new("PersonnelFiles.ViewCompetencies", "Ver competencias del puesto", "Consulta de las competencias del puesto del empleado (notas esperadas/alcanzadas y brechas).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompetencies"),
-        new("PersonnelFiles.ManageCompetencies", "Gestionar competencias del puesto", "Registrar, editar y eliminar las evaluaciones de competencias del puesto de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCompetencies")
+        new("PersonnelFiles.ManageCompetencies", "Gestionar competencias del puesto", "Registrar, editar y eliminar las evaluaciones de competencias del puesto de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCompetencies"),
+        new("PersonnelFiles.ViewOffPayrollTransactions", "Ver transacciones fuera de nomina", "Consulta de las transacciones fuera de nomina (gastos de la empresa por el empleado) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewOffPayrollTransactions"),
+        new("PersonnelFiles.ManageOffPayrollTransactions", "Gestionar transacciones fuera de nomina", "Registrar, editar y eliminar las transacciones fuera de nomina de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageOffPayrollTransactions")
     ];
 }
 

@@ -78,6 +78,7 @@ public static class JobProfileCatalogBindingMap
         new(CatalogFamilies.PositionDescription, "Benefit", "Benefit", "benefits-catalog"),
         new(CatalogFamilies.PositionDescription, "WorkConditionType", "Work Condition Type", "work-condition-types"),
         new(CatalogFamilies.PositionDescription, "WorkCondition", "Work Condition", "work-conditions"),
+        new(CatalogFamilies.PositionDescription, "CompetencyDomain", "Competency Domain", "competency-domains"),
 
         // ── JobCatalog family (slug = JobCatalogCategory enum member name) ──
         new(CatalogFamilies.JobCatalog, "EducationLevel", "Education Level", "EducationLevel"),

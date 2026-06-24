@@ -104,6 +104,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string PaymentMethod = "PaymentMethod";
     public const string AssetAccessType = "AssetAccessType";
     public const string DeliveryStatus = "DeliveryStatus";
+    public const string ExperienceMetric = "ExperienceMetric";
+    public const string OffPayrollTransactionType = "OffPayrollTransactionType";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

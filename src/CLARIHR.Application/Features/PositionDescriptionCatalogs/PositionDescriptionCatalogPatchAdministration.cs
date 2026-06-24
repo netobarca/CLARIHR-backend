@@ -237,6 +237,10 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandHandler(
             PositionDescriptionCatalogType.RequirementType => repository.HasRequirementsUsingRequirementTypeAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.WorkConditionType => repository.HasWorkConditionsUsingWorkConditionTypeAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.WorkCondition => repository.HasWorkConditionsUsingWorkConditionAsync(entity.Id, cancellationToken),
+            // Competency domains are referenced by personnel-file curricular competencies *by code* (no inverse
+            // FK from PositionDescriptionCatalogs → PersonnelFiles), so usage cannot be probed here; prefer
+            // inactivation over deletion (historical rows keep their code). See plan §R-T3.
+            PositionDescriptionCatalogType.CompetencyDomain => Task.FromResult(false),
             _ => repository.HasJobProfilesUsingCatalogItemAsync(entity.Id, cancellationToken)
         };
 

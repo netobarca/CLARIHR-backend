@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260624154504_CurricularCompetenciesCatalogsAndHardening")]
+    partial class CurricularCompetenciesCatalogsAndHardening
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5477,91 +5480,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_medical_claim_type_catalog_items__country_active_sort");
 
                     b.ToTable("medical_claim_type_catalog_items", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.OffPayrollTransactionTypeCatalogItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("code");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<long>("CountryCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("country_catalog_item_id");
-
-                    b.Property<string>("CountryCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)")
-                        .HasColumnName("country_code");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NormalizedCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("normalized_code");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("normalized_name");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_off_payroll_transaction_type_catalog_items");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_off_payroll_transaction_type_catalog_items__public_id");
-
-                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
-                        .IsUnique()
-                        .HasDatabaseName("uq_off_payroll_transaction_type_catalog_items__country_code");
-
-                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_off_payroll_transaction_type_catalog_items__active_sort");
-
-                    b.ToTable("off_payroll_transaction_type_catalog_items", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.PayPeriodCatalogItem", b =>
@@ -12970,94 +12888,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("municipality_catalog_items", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.OffPayrollTransactionDocument", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<long?>("DocumentTypeCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("document_type_catalog_item_id");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("character varying(260)")
-                        .HasColumnName("file_name");
-
-                    b.Property<Guid>("FilePublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("file_public_id");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Observations")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("observations");
-
-                    b.Property<long>("OffPayrollTransactionId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("off_payroll_transaction_id");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SizeBytes")
-                        .HasColumnType("integer")
-                        .HasColumnName("size_bytes");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_off_payroll_transaction_documents");
-
-                    b.HasIndex("DocumentTypeCatalogItemId")
-                        .HasDatabaseName("ix_off_payroll_transaction_documents__document_type");
-
-                    b.HasIndex("FilePublicId")
-                        .HasDatabaseName("ix_off_payroll_transaction_documents__file_public_id");
-
-                    b.HasIndex("OffPayrollTransactionId");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_off_payroll_transaction_documents__public_id");
-
-                    b.HasIndex("TenantId", "OffPayrollTransactionId", "IsActive")
-                        .HasDatabaseName("ix_off_payroll_transaction_documents__tenant_tx_active");
-
-                    b.ToTable("off_payroll_transaction_documents", (string)null);
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFile", b =>
                 {
                     b.Property<long>("Id")
@@ -15428,119 +15258,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_personnel_file_observations__tenant_file_created");
 
                     b.ToTable("personnel_file_observations", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileOffPayrollTransaction", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<Guid?>("AssetAccessPublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("asset_access_public_id");
-
-                    b.Property<string>("AssetNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("asset_name_snapshot");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("comment");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<Guid?>("CorrectsTransactionPublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("corrects_transaction_public_id");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("CurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("currency_code");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<int>("Month")
-                        .HasColumnType("integer")
-                        .HasColumnName("month");
-
-                    b.Property<string>("OffPayrollTransactionTypeCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("off_payroll_transaction_type_code");
-
-                    b.Property<long>("PersonnelFileId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("personnel_file_id");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTime>("TransactionDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("transaction_date_utc");
-
-                    b.Property<string>("TransactionTypeNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("transaction_type_name_snapshot");
-
-                    b.Property<int>("Year")
-                        .HasColumnType("integer")
-                        .HasColumnName("year");
-
-                    b.HasKey("Id")
-                        .HasName("pk_personnel_file_off_payroll_transactions");
-
-                    b.HasIndex("AssetAccessPublicId")
-                        .HasDatabaseName("ix_personnel_file_off_payroll_transactions__asset_access");
-
-                    b.HasIndex("CurrencyCode")
-                        .HasDatabaseName("ix_personnel_file_off_payroll_transactions__currency_code");
-
-                    b.HasIndex("PersonnelFileId");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_personnel_file_off_payroll_transactions__public_id");
-
-                    b.HasIndex("TenantId", "PersonnelFileId", "TransactionDateUtc")
-                        .HasDatabaseName("ix_personnel_file_off_payroll_transactions__tenant_file_date");
-
-                    b.HasIndex("TenantId", "PersonnelFileId", "Year", "Month")
-                        .HasDatabaseName("ix_personnel_file_off_payroll_transactions__tenant_file_period");
-
-                    b.ToTable("personnel_file_off_payroll_transactions", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFilePayrollTransaction", b =>
@@ -18214,17 +17931,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("CountryCatalogItem");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.OffPayrollTransactionTypeCatalogItem", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("CountryCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CountryCatalogItem");
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.PayPeriodCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
@@ -18717,26 +18423,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("DepartmentCatalogItem");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.OffPayrollTransactionDocument", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.DocumentTypeCatalogs.DocumentTypeCatalogItem", "DocumentTypeCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("DocumentTypeCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_off_payroll_transaction_documents__document_type");
-
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFileOffPayrollTransaction", "OffPayrollTransaction")
-                        .WithMany()
-                        .HasForeignKey("OffPayrollTransactionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_off_payroll_transaction_documents__transaction");
-
-                    b.Navigation("DocumentTypeCatalogItem");
-
-                    b.Navigation("OffPayrollTransaction");
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileAdditionalBenefit", b =>
                 {
                     b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFile", "PersonnelFile")
@@ -19078,18 +18764,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_personnel_file_observations__personnel_file");
-
-                    b.Navigation("PersonnelFile");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileOffPayrollTransaction", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFile", "PersonnelFile")
-                        .WithMany()
-                        .HasForeignKey("PersonnelFileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_personnel_file_off_payroll_transactions__personnel_file");
 
                     b.Navigation("PersonnelFile");
                 });

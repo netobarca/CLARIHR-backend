@@ -501,6 +501,103 @@ internal sealed class MedicalClaimDocumentConfiguration : IEntityTypeConfigurati
     }
 }
 
+internal sealed class PersonnelFileOffPayrollTransactionConfiguration : IEntityTypeConfiguration<PersonnelFileOffPayrollTransaction>
+{
+    public void Configure(EntityTypeBuilder<PersonnelFileOffPayrollTransaction> builder)
+    {
+        builder.ToTable("personnel_file_off_payroll_transactions");
+        builder.HasKey(item => item.Id).HasName("pk_personnel_file_off_payroll_transactions");
+
+        builder.Property(item => item.Id).HasColumnName("id");
+        builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
+        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
+        builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.OffPayrollTransactionTypeCode).HasColumnName("off_payroll_transaction_type_code").HasMaxLength(80);
+        builder.Property(item => item.TransactionTypeNameSnapshot).HasColumnName("transaction_type_name_snapshot").HasMaxLength(200);
+        builder.Property(item => item.TransactionDateUtc).HasColumnName("transaction_date_utc");
+        builder.Property(item => item.CurrencyCode).HasColumnName("currency_code").HasMaxLength(40);
+        builder.Property(item => item.Amount).HasColumnName("amount").HasColumnType("numeric(18,2)");
+        builder.Property(item => item.Year).HasColumnName("year");
+        builder.Property(item => item.Month).HasColumnName("month");
+        builder.Property(item => item.Comment).HasColumnName("comment").HasMaxLength(2000);
+        builder.Property(item => item.AssetAccessPublicId).HasColumnName("asset_access_public_id");
+        builder.Property(item => item.AssetNameSnapshot).HasColumnName("asset_name_snapshot").HasMaxLength(200);
+        builder.Property(item => item.CorrectsTransactionPublicId).HasColumnName("corrects_transaction_public_id");
+        builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
+        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasOne(item => item.PersonnelFile)
+            .WithMany()
+            .HasForeignKey(item => item.PersonnelFileId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_personnel_file_off_payroll_transactions__personnel_file");
+
+        builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_off_payroll_transactions__public_id");
+        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.TransactionDateUtc })
+            .HasDatabaseName("ix_personnel_file_off_payroll_transactions__tenant_file_date");
+        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.Year, item.Month })
+            .HasDatabaseName("ix_personnel_file_off_payroll_transactions__tenant_file_period");
+        builder.HasIndex(item => item.CurrencyCode)
+            .HasDatabaseName("ix_personnel_file_off_payroll_transactions__currency_code");
+        builder.HasIndex(item => item.AssetAccessPublicId)
+            .HasDatabaseName("ix_personnel_file_off_payroll_transactions__asset_access");
+    }
+}
+
+internal sealed class OffPayrollTransactionDocumentConfiguration : IEntityTypeConfiguration<OffPayrollTransactionDocument>
+{
+    public void Configure(EntityTypeBuilder<OffPayrollTransactionDocument> builder)
+    {
+        builder.ToTable("off_payroll_transaction_documents");
+
+        builder.HasKey(item => item.Id).HasName("pk_off_payroll_transaction_documents");
+
+        builder.Property(item => item.Id).HasColumnName("id");
+        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
+        builder.Property(item => item.OffPayrollTransactionId).HasColumnName("off_payroll_transaction_id");
+        builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.DocumentTypeCatalogItemId).HasColumnName("document_type_catalog_item_id");
+        builder.Property(item => item.FilePublicId).HasColumnName("file_public_id");
+        builder.Property(item => item.Observations).HasColumnName("observations").HasMaxLength(2000);
+        builder.Property(item => item.FileName).HasColumnName("file_name").HasMaxLength(260);
+        builder.Property(item => item.ContentType).HasColumnName("content_type").HasMaxLength(200);
+        builder.Property(item => item.SizeBytes).HasColumnName("size_bytes");
+        builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
+        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasOne(item => item.OffPayrollTransaction)
+            .WithMany()
+            .HasForeignKey(item => item.OffPayrollTransactionId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_off_payroll_transaction_documents__transaction");
+
+        // Document-type classification is OPTIONAL for off-payroll receipts (D-07 — "de cualquier índole"),
+        // so the FK is nullable; restrict delete keeps the catalog item from being removed while referenced.
+        builder.HasOne(item => item.DocumentTypeCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.DocumentTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_off_payroll_transaction_documents__document_type");
+
+        builder.HasIndex(item => item.PublicId)
+            .IsUnique()
+            .HasDatabaseName("uq_off_payroll_transaction_documents__public_id");
+
+        builder.HasIndex(item => new { item.TenantId, item.OffPayrollTransactionId, item.IsActive })
+            .HasDatabaseName("ix_off_payroll_transaction_documents__tenant_tx_active");
+
+        builder.HasIndex(item => item.DocumentTypeCatalogItemId)
+            .HasDatabaseName("ix_off_payroll_transaction_documents__document_type");
+
+        builder.HasIndex(item => item.FilePublicId)
+            .HasDatabaseName("ix_off_payroll_transaction_documents__file_public_id");
+    }
+}
+
 internal sealed class PersonnelFilePerformanceEvaluationConfiguration : IEntityTypeConfiguration<PersonnelFilePerformanceEvaluation>
 {
     public void Configure(EntityTypeBuilder<PersonnelFilePerformanceEvaluation> builder)
@@ -632,7 +729,10 @@ internal sealed class PersonnelFileCurricularCompetencyConfiguration : IEntityTy
 {
     public void Configure(EntityTypeBuilder<PersonnelFileCurricularCompetency> builder)
     {
-        builder.ToTable("personnel_file_curricular_competencies");
+        builder.ToTable("personnel_file_curricular_competencies", table =>
+            table.HasCheckConstraint(
+                "ck_personnel_file_curricular_competencies__experience_nonneg",
+                "experience_time_value is null or experience_time_value >= 0"));
         builder.HasKey(item => item.Id).HasName("pk_personnel_file_curricular_competencies");
 
         builder.Property(item => item.Id).HasColumnName("id");
@@ -642,6 +742,7 @@ internal sealed class PersonnelFileCurricularCompetencyConfiguration : IEntityTy
         builder.Property(item => item.RequirementTypeCode).HasColumnName("requirement_type_code").HasMaxLength(80);
         builder.Property(item => item.RequirementName).HasColumnName("requirement_name").HasMaxLength(200);
         builder.Property(item => item.CompetencyDomain).HasColumnName("competency_domain").HasMaxLength(120);
+        builder.Property(item => item.NormalizedRequirementName).HasColumnName("normalized_requirement_name").HasMaxLength(200);
         builder.Property(item => item.ExperienceTimeValue).HasColumnName("experience_time_value").HasColumnType("numeric(18,2)");
         builder.Property(item => item.MetricCode).HasColumnName("metric_code").HasMaxLength(80);
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
@@ -659,7 +760,12 @@ internal sealed class PersonnelFileCurricularCompetencyConfiguration : IEntityTy
             .HasConstraintName("fk_personnel_file_curricular_competencies__personnel_file");
 
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_curricular_competencies__public_id");
-        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.RequirementTypeCode })
-            .HasDatabaseName("ix_personnel_file_curricular_competencies__tenant_file_requirement_type");
+
+        // Anti-duplicate backstop (D-05): one (requirement type + name) per file. requirement_type_code is
+        // persisted in its canonical catalog form and normalized_requirement_name is upper-cased, so the key is
+        // stable regardless of the casing/whitespace the caller submitted.
+        builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.RequirementTypeCode, item.NormalizedRequirementName })
+            .IsUnique()
+            .HasDatabaseName("uq_personnel_file_curricular_competencies__tenant_file_type_name");
     }
 }

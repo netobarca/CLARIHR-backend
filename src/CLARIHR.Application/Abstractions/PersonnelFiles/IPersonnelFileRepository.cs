@@ -217,6 +217,20 @@ public interface IPersonnelFileRepository
         string code,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves the display name of a country-scoped general catalog item by code, for the company's country,
+    /// so a write handler can persist a name snapshot (e.g. the off-payroll transaction type description —
+    /// RN-09). Returns null when the code is not found. Only categories that require a snapshot are wired.
+    /// Fail-safe default (no snapshot) so the many hand-written test doubles need not implement it; the
+    /// production repository overrides it with the real country-scoped name lookup.
+    /// </summary>
+    Task<string?> GetCatalogItemNameAsync(
+        Guid companyId,
+        string category,
+        string code,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(
