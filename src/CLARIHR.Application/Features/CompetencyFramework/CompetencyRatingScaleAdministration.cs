@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Domain.CompetencyFramework;
 using FluentValidation;
@@ -28,7 +29,8 @@ public sealed record CompetencyRatingScaleResponse(
     int Decimals,
     bool IsActive,
     Guid ConcurrencyToken,
-    IReadOnlyCollection<CompetencyRatingScaleLevelResponse> Levels);
+    IReadOnlyCollection<CompetencyRatingScaleLevelResponse> Levels,
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record ActiveCompetencyRatingScaleResponse(
     bool IsConfigured,
