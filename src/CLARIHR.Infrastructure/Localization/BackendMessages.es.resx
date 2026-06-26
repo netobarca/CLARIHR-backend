@@ -1759,4 +1759,52 @@
   <data name="validation.message.discrete_scale_levels_must_have_distinct_values" xml:space="preserve">
     <value>Los niveles de la escala discreta deben tener valores distintos.</value>
   </data>
+  <data name="EXIT_INTERVIEW_FORM_NAME_DUPLICATE" xml:space="preserve">
+    <value>Ya existe un formulario de entrevista de retiro con el mismo nombre.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_DRAFT" xml:space="preserve">
+    <value>El formulario de entrevista de retiro solo puede editarse mientras está en borrador.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_PUBLISHED" xml:space="preserve">
+    <value>El formulario de entrevista de retiro debe estar publicado para esta operación.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_PUBLISHABLE" xml:space="preserve">
+    <value>El formulario de entrevista de retiro debe tener al menos un campo para publicarse.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_KEY_DUPLICATE" xml:space="preserve">
+    <value>El formulario ya tiene un campo con la misma clave.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_OPTION_CODE_DUPLICATE" xml:space="preserve">
+    <value>El campo ya tiene una opción con el mismo código.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_OPTIONS_REQUIRED" xml:space="preserve">
+    <value>Un campo de selección debe definir al menos una opción.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_OPTIONS_NOT_ALLOWED" xml:space="preserve">
+    <value>Este tipo de control no admite opciones.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_RANGE_INVALID" xml:space="preserve">
+    <value>El mínimo del campo no puede ser mayor que su máximo.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_RANGE_NOT_ALLOWED" xml:space="preserve">
+    <value>Este tipo de control no admite un rango numérico.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_OPTIONS_NOT_ALLOWED_ON_FIELD" xml:space="preserve">
+    <value>Las opciones solo pueden agregarse a un tipo de control de selección.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_FOUND" xml:space="preserve">
+    <value>El formulario de entrevista de retiro no existe.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>El formulario de entrevista de retiro fue modificado por otra persona. Recargue e intente de nuevo.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_CONTROL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de control del campo no es válido en el catálogo activo.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_SUBMISSION_NOT_FOUND" xml:space="preserve">
+    <value>La entrevista de retiro no existe.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_SUBMISSION_ALREADY_SUBMITTED" xml:space="preserve">
+    <value>La entrevista de retiro ya fue enviada y no puede modificarse.</value>
+  </data>
 </root>

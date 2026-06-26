@@ -104,6 +104,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // lives in the off-payroll handlers (OffPayrollTransactionsController).
         PersonnelFilePolicies.ViewOffPayrollTransactions,
         PersonnelFilePolicies.ManageOffPayrollTransactions,
+        // Exit-interview form builder (D-01): HR-only write policy used by ExitInterviewFormsController.
+        PersonnelFilePolicies.ManageExitInterviewForms,
+        // Exit-interview submissions (D-04/D-14): authn-only supersets used by ExitInterviewsController.
+        PersonnelFilePolicies.ViewExitInterviews,
+        PersonnelFilePolicies.ManageExitInterviews,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

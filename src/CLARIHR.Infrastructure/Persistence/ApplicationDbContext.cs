@@ -272,7 +272,23 @@ public sealed class ApplicationDbContext(
 
     public DbSet<InsuranceRangeCatalogItem> InsuranceRangeCatalogItems => Set<InsuranceRangeCatalogItem>();
 
+    public DbSet<RetirementCategoryCatalogItem> RetirementCategoryCatalogItems => Set<RetirementCategoryCatalogItem>();
+
+    public DbSet<RetirementReasonCatalogItem> RetirementReasonCatalogItems => Set<RetirementReasonCatalogItem>();
+
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
+
+    public DbSet<ExitInterviewForm> ExitInterviewForms => Set<ExitInterviewForm>();
+
+    public DbSet<ExitInterviewFormGroup> ExitInterviewFormGroups => Set<ExitInterviewFormGroup>();
+
+    public DbSet<ExitInterviewFormField> ExitInterviewFormFields => Set<ExitInterviewFormField>();
+
+    public DbSet<ExitInterviewFormFieldOption> ExitInterviewFormFieldOptions => Set<ExitInterviewFormFieldOption>();
+
+    public DbSet<ExitInterviewSubmission> ExitInterviewSubmissions => Set<ExitInterviewSubmission>();
+
+    public DbSet<ExitInterviewAnswer> ExitInterviewAnswers => Set<ExitInterviewAnswer>();
 
     public DbSet<PersonnelFileEmploymentAssignment> PersonnelFileEmploymentAssignments => Set<PersonnelFileEmploymentAssignment>();
 

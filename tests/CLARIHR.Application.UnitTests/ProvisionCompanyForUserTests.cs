@@ -517,6 +517,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task InitializeDefaultsAsync(
             Guid tenantId,
             CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task EnsureSeededAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class TestCountryCatalogRepository : ICountryCatalogRepository

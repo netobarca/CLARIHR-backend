@@ -1327,6 +1327,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "DELIVERYSTATUS" => await GetCountryScopedCatalogItemsAsync<DeliveryStatusCatalogItem>(countryCatalogItemId.Value, "DeliveryStatus", cancellationToken),
             "EXPERIENCEMETRIC" => await GetCountryScopedCatalogItemsAsync<ExperienceMetricCatalogItem>(countryCatalogItemId.Value, "ExperienceMetric", cancellationToken),
             "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogItemsAsync<OffPayrollTransactionTypeCatalogItem>(countryCatalogItemId.Value, "OffPayrollTransactionType", cancellationToken),
+            "FORMCONTROLTYPE" => await GetCountryScopedCatalogItemsAsync<FormControlTypeCatalogItem>(countryCatalogItemId.Value, "FormControlType", cancellationToken),
             _ => []
         };
     }
@@ -1398,6 +1399,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "MUNICIPALITY" => await GetMunicipalityCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             "INSURANCETYPE" => await GetFlatReferenceCatalogItemsAsync<InsuranceTypeCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "INSURANCERANGE" => await GetInsuranceRangeCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
+            "RETIREMENTCATEGORY" => await GetFlatReferenceCatalogItemsAsync<RetirementCategoryCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "RETIREMENTREASON" => await GetRetirementReasonCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             _ => []
         };
     }
@@ -1452,6 +1455,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "DELIVERYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<DeliveryStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "EXPERIENCEMETRIC" => await IsCountryScopedCatalogCodeActiveAsync<ExperienceMetricCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "OFFPAYROLLTRANSACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "FORMCONTROLTYPE" => await IsCountryScopedCatalogCodeActiveAsync<FormControlTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }
@@ -1509,6 +1513,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "MUNICIPALITY" => IsCountryScopedCatalogCodeActiveAsync<MunicipalityCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "INSURANCETYPE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceTypeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "INSURANCERANGE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceRangeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "RETIREMENTCATEGORY" => IsCountryScopedCatalogCodeActiveAsync<RetirementCategoryCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "RETIREMENTREASON" => IsCountryScopedCatalogCodeActiveAsync<RetirementReasonCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             _ => Task.FromResult(false)
         };
     }
@@ -1557,6 +1563,30 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                   range.NormalizedCode == normalizedRangeCode &&
                   type.NormalizedCode == normalizedTypeCode
             select range.Id;
+
+        return query.AnyAsync(cancellationToken);
+    }
+
+    public Task<bool> ReferenceRetirementReasonBelongsToCategoryAsync(
+        string countryCode,
+        string retirementCategoryCode,
+        string retirementReasonCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedCategoryCode = retirementCategoryCode.Trim().ToUpperInvariant();
+        var normalizedReasonCode = retirementReasonCode.Trim().ToUpperInvariant();
+        var query =
+            from reason in dbContext.RetirementReasonCatalogItems.AsNoTracking()
+            join category in dbContext.RetirementCategoryCatalogItems.AsNoTracking()
+                on reason.RetirementCategoryCatalogItemId equals category.Id
+            where reason.IsActive &&
+                  category.IsActive &&
+                  reason.CountryCode == normalizedCountryCode &&
+                  category.CountryCode == normalizedCountryCode &&
+                  reason.NormalizedCode == normalizedReasonCode &&
+                  category.NormalizedCode == normalizedCategoryCode
+            select reason.Id;
 
         return query.AnyAsync(cancellationToken);
     }
@@ -2522,6 +2552,32 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         if (!string.IsNullOrWhiteSpace(parentCode))
         {
             query = query.Where(item => item.InsuranceTypeCatalogItem != null && item.InsuranceTypeCatalogItem.NormalizedCode == parentCode);
+        }
+
+        return query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelReferenceCatalogItemResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>)task.Result, cancellationToken);
+    }
+
+    private Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetRetirementReasonCatalogItemsAsync(
+        long countryCatalogItemId,
+        string? parentCode,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.RetirementReasonCatalogItems
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId && item.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(parentCode))
+        {
+            query = query.Where(item => item.RetirementCategoryCatalogItem != null && item.RetirementCategoryCatalogItem.NormalizedCode == parentCode);
         }
 
         return query

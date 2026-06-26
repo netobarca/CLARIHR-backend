@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625041747_AddExitInterviewForms")]
+    partial class AddExitInterviewForms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -12643,103 +12646,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("department_catalog_items", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewAnswer", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<string>("ControlTypeCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("control_type_code");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<long>("ExitInterviewSubmissionId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("exit_interview_submission_id");
-
-                    b.Property<string>("FieldKeySnapshot")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("field_key_snapshot");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<decimal?>("NormalizedScore")
-                        .HasColumnType("numeric(6,2)")
-                        .HasColumnName("normalized_score");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("SelectedOptionCodes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("selected_option_codes");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<string>("TitleSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("title_snapshot");
-
-                    b.Property<bool?>("ValueBool")
-                        .HasColumnType("boolean")
-                        .HasColumnName("value_bool");
-
-                    b.Property<DateTime?>("ValueDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("value_date");
-
-                    b.Property<decimal?>("ValueNumber")
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("value_number");
-
-                    b.Property<string>("ValueText")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)")
-                        .HasColumnName("value_text");
-
-                    b.Property<decimal?>("WeightSnapshot")
-                        .HasColumnType("numeric(9,2)")
-                        .HasColumnName("weight_snapshot");
-
-                    b.HasKey("Id")
-                        .HasName("pk_exit_interview_answers");
-
-                    b.HasIndex("ExitInterviewSubmissionId");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_exit_interview_answers__public_id");
-
-                    b.HasIndex("TenantId", "ExitInterviewSubmissionId")
-                        .HasDatabaseName("ix_exit_interview_answers__submission");
-
-                    b.ToTable("exit_interview_answers", (string)null);
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewForm", b =>
                 {
                     b.Property<long>("Id")
@@ -13101,124 +13007,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_exit_interview_form_groups__form_order");
 
                     b.ToTable("exit_interview_form_groups", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewSubmission", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<long>("ExitInterviewFormId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("exit_interview_form_id");
-
-                    b.Property<int>("FormVersion")
-                        .HasColumnType("integer")
-                        .HasColumnName("form_version");
-
-                    b.Property<bool>("IsAnonymous")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_anonymous");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Period")
-                        .IsRequired()
-                        .HasMaxLength(7)
-                        .HasColumnType("character varying(7)")
-                        .HasColumnName("period");
-
-                    b.Property<long?>("PersonnelFileId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("personnel_file_id");
-
-                    b.Property<string>("PlazaSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("plaza_snapshot");
-
-                    b.Property<Guid?>("PositionSlotPublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("position_slot_public_id");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("RetirementCategoryCode")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("retirement_category_code");
-
-                    b.Property<string>("RetirementReasonCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("retirement_reason_code");
-
-                    b.Property<string>("SeparationType")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("separation_type");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid?>("SubmittedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("submitted_by_user_id");
-
-                    b.Property<DateTime?>("SubmittedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("submitted_utc");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<decimal?>("TotalScore")
-                        .HasColumnType("numeric(6,2)")
-                        .HasColumnName("total_score");
-
-                    b.HasKey("Id")
-                        .HasName("pk_exit_interview_submissions");
-
-                    b.HasIndex("ExitInterviewFormId");
-
-                    b.HasIndex("PersonnelFileId");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_exit_interview_submissions__public_id");
-
-                    b.HasIndex("TenantId", "ExitInterviewFormId")
-                        .HasDatabaseName("ix_exit_interview_submissions__form");
-
-                    b.HasIndex("TenantId", "Period", "RetirementCategoryCode")
-                        .HasDatabaseName("ix_exit_interview_submissions__period_category");
-
-                    b.HasIndex("TenantId", "PersonnelFileId", "Status")
-                        .HasDatabaseName("ix_exit_interview_submissions__file_status");
-
-                    b.ToTable("exit_interview_submissions", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.IdentificationTypeCatalogItem", b =>
@@ -20200,18 +19988,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("CountryCatalogItem");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewAnswer", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.ExitInterviewSubmission", "ExitInterviewSubmission")
-                        .WithMany()
-                        .HasForeignKey("ExitInterviewSubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_exit_interview_answers__submission");
-
-                    b.Navigation("ExitInterviewSubmission");
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewFormField", b =>
                 {
                     b.HasOne("CLARIHR.Domain.PersonnelFiles.ExitInterviewFormGroup", "ExitInterviewFormGroup")
@@ -20254,26 +20030,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_exit_interview_form_groups__form");
 
                     b.Navigation("ExitInterviewForm");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ExitInterviewSubmission", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.ExitInterviewForm", "ExitInterviewForm")
-                        .WithMany()
-                        .HasForeignKey("ExitInterviewFormId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_exit_interview_submissions__form");
-
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFile", "PersonnelFile")
-                        .WithMany()
-                        .HasForeignKey("PersonnelFileId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_exit_interview_submissions__personnel_file");
-
-                    b.Navigation("ExitInterviewForm");
-
-                    b.Navigation("PersonnelFile");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.IdentificationTypeCatalogItem", b =>

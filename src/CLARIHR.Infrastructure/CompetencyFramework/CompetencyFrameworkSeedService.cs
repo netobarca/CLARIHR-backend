@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Infrastructure.Persistence;
+using CLARIHR.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.CompetencyFramework;
@@ -12,8 +13,27 @@ namespace CLARIHR.Infrastructure.CompetencyFramework;
 /// <see cref="OrgStructureCatalogs.OrgStructureCatalogSeedService"/>: guarded existence checks make it
 /// idempotent so it is safe to run on every provisioning and to backfill existing tenants.
 /// </summary>
-internal sealed class CompetencyFrameworkSeedService(ApplicationDbContext dbContext) : ICompetencyFrameworkSeedService
+internal sealed class CompetencyFrameworkSeedService(
+    ApplicationDbContext dbContext,
+    AmbientTenantContext ambientTenantContext) : ICompetencyFrameworkSeedService
 {
+    public async Task EnsureSeededAsync(CancellationToken cancellationToken)
+    {
+        // Companies are the tenant root (not tenant-scoped), so this lists every tenant.
+        var tenantIds = await dbContext.Companies
+            .AsNoTracking()
+            .Select(company => company.PublicId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var tenantId in tenantIds)
+        {
+            // Push the ambient tenant so the global query filter scopes the idempotency checks
+            // in InitializeDefaultsAsync to this tenant (otherwise it could insert a duplicate scale).
+            using var tenantScope = ambientTenantContext.Push(tenantId);
+            await InitializeDefaultsAsync(tenantId, cancellationToken);
+        }
+    }
+
     public async Task InitializeDefaultsAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var changed = false;

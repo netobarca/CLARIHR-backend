@@ -3,6 +3,7 @@ using CLARIHR.Infrastructure.LegalRepresentatives;
 using CLARIHR.Infrastructure.PositionDescriptionCatalogs;
 using CLARIHR.Infrastructure.Persistence;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.CompetencyFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,7 @@ public static class StartupInitializationExtensions
                 var representationTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeRepresentationTypeCatalogSeedService>();
                 var positionDescriptionCatalogSeedService = scope.ServiceProvider.GetRequiredService<PositionDescriptionCatalogSeedService>();
                 var catalogTypeDescriptorSeedService = scope.ServiceProvider.GetRequiredService<CatalogTypeDescriptorSeedService>();
+                var competencyFrameworkSeedService = scope.ServiceProvider.GetRequiredService<ICompetencyFrameworkSeedService>();
                 var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
 
                 await dbContext.Database.MigrateAsync(cancellationToken);
@@ -46,6 +48,7 @@ public static class StartupInitializationExtensions
                 }
 
                 await positionDescriptionCatalogSeedService.EnsureSeededAsync(cancellationToken);
+                await competencyFrameworkSeedService.EnsureSeededAsync(cancellationToken);
 
                 return;
             }

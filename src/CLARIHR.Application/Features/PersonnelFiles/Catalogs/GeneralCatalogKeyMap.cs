@@ -48,6 +48,7 @@ public static class GeneralCatalogKeyMap
             ["delivery-statuses"] = PersonnelCurriculumCatalogCategories.DeliveryStatus,
             ["experience-metrics"] = PersonnelCurriculumCatalogCategories.ExperienceMetric,
             ["off-payroll-transaction-types"] = PersonnelCurriculumCatalogCategories.OffPayrollTransactionType,
+            ["form-control-types"] = PersonnelCurriculumCatalogCategories.FormControlType,
         };
 
     /// <summary>
@@ -64,6 +65,8 @@ public static class GeneralCatalogKeyMap
             ["municipalities"] = PersonnelReferenceCatalogCategories.Municipality,
             ["insurance-types"] = PersonnelReferenceCatalogCategories.InsuranceType,
             ["insurance-ranges"] = PersonnelReferenceCatalogCategories.InsuranceRange,
+            ["retirement-categories"] = PersonnelReferenceCatalogCategories.RetirementCategory,
+            ["retirement-reasons"] = PersonnelReferenceCatalogCategories.RetirementReason,
         };
 
     /// <summary>Resolves a <c>general-catalogs</c> wire key to its category; <c>false</c> for an unknown key.</summary>

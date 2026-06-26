@@ -76,7 +76,10 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewCompetencies", "Ver competencias del puesto", "Consulta de las competencias del puesto del empleado (notas esperadas/alcanzadas y brechas).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompetencies"),
         new("PersonnelFiles.ManageCompetencies", "Gestionar competencias del puesto", "Registrar, editar y eliminar las evaluaciones de competencias del puesto de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCompetencies"),
         new("PersonnelFiles.ViewOffPayrollTransactions", "Ver transacciones fuera de nomina", "Consulta de las transacciones fuera de nomina (gastos de la empresa por el empleado) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewOffPayrollTransactions"),
-        new("PersonnelFiles.ManageOffPayrollTransactions", "Gestionar transacciones fuera de nomina", "Registrar, editar y eliminar las transacciones fuera de nomina de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageOffPayrollTransactions")
+        new("PersonnelFiles.ManageOffPayrollTransactions", "Gestionar transacciones fuera de nomina", "Registrar, editar y eliminar las transacciones fuera de nomina de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageOffPayrollTransactions"),
+        new("PersonnelFiles.ManageExitInterviewForms", "Gestionar formularios de entrevista de retiro", "Disenar, publicar y asociar los formularios de entrevista de retiro (salida) de la institucion.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageExitInterviewForms"),
+        new("PersonnelFiles.ViewExitInterviews", "Ver entrevistas de retiro", "Consulta de las entrevistas de retiro (salida) respondidas por los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewExitInterviews"),
+        new("PersonnelFiles.ManageExitInterviews", "Gestionar entrevistas de retiro", "Capturar y administrar las entrevistas de retiro (salida) de los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageExitInterviews")
     ];
 }
 

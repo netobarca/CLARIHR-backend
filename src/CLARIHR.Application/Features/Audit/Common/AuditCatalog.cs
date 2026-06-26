@@ -170,6 +170,16 @@ public static class AuditEventTypes
     public const string UserEmailVerified = "USER_EMAIL_VERIFIED";
     public const string UserExternalAuthenticated = "USER_EXTERNAL_AUTHENTICATED";
     public const string RefreshTokenReuseDetected = "REFRESH_TOKEN_REUSE_DETECTED";
+    public const string ExitInterviewFormCreated = "EXIT_INTERVIEW_FORM_CREATED";
+    public const string ExitInterviewFormUpdated = "EXIT_INTERVIEW_FORM_UPDATED";
+    public const string ExitInterviewFormDeleted = "EXIT_INTERVIEW_FORM_DELETED";
+    public const string ExitInterviewFormPublished = "EXIT_INTERVIEW_FORM_PUBLISHED";
+    public const string ExitInterviewFormArchived = "EXIT_INTERVIEW_FORM_ARCHIVED";
+    public const string ExitInterviewFormReasonAssigned = "EXIT_INTERVIEW_FORM_REASON_ASSIGNED";
+    public const string ExitInterviewFormVersionCreated = "EXIT_INTERVIEW_FORM_VERSION_CREATED";
+    public const string ExitInterviewSubmissionSaved = "EXIT_INTERVIEW_SUBMISSION_SAVED";
+    public const string ExitInterviewSubmitted = "EXIT_INTERVIEW_SUBMITTED";
+    public const string ExitInterviewSubmissionArchived = "EXIT_INTERVIEW_SUBMISSION_ARCHIVED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -333,7 +343,17 @@ public static class AuditEventTypes
         UserRegistered,
         UserEmailVerified,
         UserExternalAuthenticated,
-        RefreshTokenReuseDetected
+        RefreshTokenReuseDetected,
+        ExitInterviewFormCreated,
+        ExitInterviewFormUpdated,
+        ExitInterviewFormDeleted,
+        ExitInterviewFormPublished,
+        ExitInterviewFormArchived,
+        ExitInterviewFormReasonAssigned,
+        ExitInterviewFormVersionCreated,
+        ExitInterviewSubmissionSaved,
+        ExitInterviewSubmitted,
+        ExitInterviewSubmissionArchived
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -391,6 +411,8 @@ public static class AuditEntityTypes
     public const string LocationHierarchy = "LocationHierarchy";
     public const string LocationLevel = "LocationLevel";
     public const string CompanyPreference = "CompanyPreference";
+    public const string ExitInterviewForm = "ExitInterviewForm";
+    public const string ExitInterviewSubmission = "ExitInterviewSubmission";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -433,7 +455,9 @@ public static class AuditEntityTypes
         WorkCenterType,
         LocationHierarchy,
         LocationLevel,
-        CompanyPreference
+        CompanyPreference,
+        ExitInterviewForm,
+        ExitInterviewSubmission
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

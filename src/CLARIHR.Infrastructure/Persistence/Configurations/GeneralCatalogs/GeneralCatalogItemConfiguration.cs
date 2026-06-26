@@ -14,7 +14,7 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
     : IEntityTypeConfiguration<TCatalogItem>
     where TCatalogItem : GeneralCatalogItem
 {
-    public void Configure(EntityTypeBuilder<TCatalogItem> builder)
+    public virtual void Configure(EntityTypeBuilder<TCatalogItem> builder)
     {
         builder.ToTable(tableName);
 

@@ -66,6 +66,7 @@ internal sealed class RehireEmployeeCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IExitInterviewRepository exitInterviewRepository,
     IPositionSlotRepository positionSlotRepository,
     IPersonnelFileFinalizationService finalizationService,
     IUserRepository userRepository,
@@ -178,6 +179,10 @@ internal sealed class RehireEmployeeCommandHandler(
             // Flush so the new-assignment capacity/overlap query below observes the closed prior
             // period (same connection/transaction) instead of the still-active rows.
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // D-12 — archive the prior period's exit-interview submissions: they belong to the closed baja
+            // and must not surface as active for the reopened (new) period.
+            _ = await exitInterviewRepository.ArchiveSubmissionsForFileAsync(tenantId, personnelFile.Id, cancellationToken);
 
             // [6] New contract for the new period.
             var contract = PersonnelFileContractHistory.Create(
