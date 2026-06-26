@@ -9,4 +9,12 @@ namespace CLARIHR.Application.Abstractions.CompetencyFramework;
 public interface ICompetencyFrameworkSeedService
 {
     Task InitializeDefaultsAsync(Guid tenantId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Backfills the competency-framework defaults for every existing tenant (company) that lacks them.
+    /// Idempotent and safe to run on every startup; it brings tenants provisioned before this feature
+    /// shipped up to the same defaults (active discrete 1–5 rating scale + competency-type catalog) as
+    /// newly provisioned ones, so <c>GET .../competency-rating-scale</c> reports <c>isConfigured = true</c>.
+    /// </summary>
+    Task EnsureSeededAsync(CancellationToken cancellationToken);
 }

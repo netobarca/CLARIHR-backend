@@ -124,7 +124,7 @@ public sealed class JobProfileCompetencyMatrixController(
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Patch a competency matrix item (RFC 6902 JSON Patch)",
-        Description = "Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths: `/occupationalPyramidLevelPublicId`, `/conductPublicIds`, `/expectedEvidence`, `/sortOrder`. The competency / type / behavior level are re-derived from `conductPublicIds`. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
+        Description = "Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths: `/occupationalPyramidLevelPublicId`, `/conductPublicIds`, `/expectedEvidence`, `/expectedValue`, `/sortOrder`. The competency / type / behavior level are re-derived from `conductPublicIds`. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<JobProfileCompetencyMatrixItemResponse>> PatchJobProfileCompetencyMatrixItem(
         Guid jobProfilePublicId,
         Guid itemPublicId,
