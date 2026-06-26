@@ -498,6 +498,25 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageOffPayrollTransactions, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Exit-interview form builder (D-01) — HR-only: designing/publishing/associating exit-interview forms is
+    // not self-service. RequireAssertion like ManageCompetencies, kept a superset of the precise
+    // EnsureCanManageExitInterviewFormsAsync handler gate.
+    options.AddPolicy(PersonnelFilePolicies.ManageExitInterviewForms, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageExitInterviewForms,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
+    // Exit-interview submissions (D-04/D-14) — authn-only SUPERSETS for read and write. The precise gate
+    // (ViewExitInterviews / ManageExitInterviews permission or Admin — RRHH; the employee on their own file
+    // for fill) lives in the submission handlers, so a self-service employee is never blocked at the API layer.
+    options.AddPolicy(PersonnelFilePolicies.ViewExitInterviews, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageExitInterviews, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

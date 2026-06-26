@@ -2,6 +2,8 @@ using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.GeneralCatalogs;
+using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Infrastructure.Persistence;
 
@@ -234,6 +236,155 @@ internal static class GlobalCatalogSeedData
             IsActive = true,
             SortOrder = sortOrder,
             ConcurrencyToken = CreateSeedPublicId("EXPERIENCE_METRIC_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    // Country-scoped retirement category catalog (reference-catalogs key `retirement-categories`). Seeded in
+    // EVERY environment via the migration pipeline (D-13) so the baja flow always has active categories to
+    // validate against. Each category carries an HRIS SeparationType for reporting roll-up (D-02). SV only.
+    public static IEnumerable<object> GetRetirementCategoryCatalogItems() =>
+    [
+        CreateRetirementCategorySeed(-9200L, "SV", "VOLUNTARIA", "Renuncia voluntaria", 10, RetirementSeparationType.Voluntaria),
+        CreateRetirementCategorySeed(-9201L, "SV", "JUBILACION", "Jubilación", 20, RetirementSeparationType.Voluntaria),
+        CreateRetirementCategorySeed(-9202L, "SV", "INVOLUNTARIA", "Despido / involuntaria", 30, RetirementSeparationType.Involuntaria),
+        CreateRetirementCategorySeed(-9203L, "SV", "ABANDONO", "Abandono de trabajo", 40, RetirementSeparationType.Involuntaria),
+        CreateRetirementCategorySeed(-9204L, "SV", "NO_SUPERA_PERIODO_PRUEBA", "No supera período de prueba", 50, RetirementSeparationType.Involuntaria),
+        CreateRetirementCategorySeed(-9205L, "SV", "FIN_CONTRATO", "Fin de contrato", 60, RetirementSeparationType.Otra),
+        CreateRetirementCategorySeed(-9206L, "SV", "MUTUO_ACUERDO", "Mutuo acuerdo", 70, RetirementSeparationType.Otra),
+        CreateRetirementCategorySeed(-9207L, "SV", "FALLECIMIENTO", "Fallecimiento", 80, RetirementSeparationType.Otra),
+    ];
+
+    // Country-scoped retirement reason catalog (reference-catalogs key `retirement-reasons`), each reason a
+    // child of a category. Seeded in EVERY environment (D-13). SV only.
+    public static IEnumerable<object> GetRetirementReasonCatalogItems() =>
+    [
+        // VOLUNTARIA (-9200)
+        CreateRetirementReasonSeed(-9220L, "SV", "MEJOR_OFERTA_SALARIAL", "Mejor oferta salarial", 10, -9200L),
+        CreateRetirementReasonSeed(-9221L, "SV", "CRECIMIENTO_PROFESIONAL", "Crecimiento profesional", 20, -9200L),
+        CreateRetirementReasonSeed(-9222L, "SV", "AMBIENTE_LABORAL", "Ambiente laboral", 30, -9200L),
+        CreateRetirementReasonSeed(-9223L, "SV", "RELACION_JEFATURA", "Relación con la jefatura", 40, -9200L),
+        CreateRetirementReasonSeed(-9224L, "SV", "MOTIVOS_PERSONALES", "Motivos personales", 50, -9200L),
+        CreateRetirementReasonSeed(-9225L, "SV", "SALUD", "Salud", 60, -9200L),
+        CreateRetirementReasonSeed(-9226L, "SV", "ESTUDIOS", "Estudios", 70, -9200L),
+        CreateRetirementReasonSeed(-9227L, "SV", "REUBICACION_GEOGRAFICA", "Reubicación geográfica", 80, -9200L),
+        CreateRetirementReasonSeed(-9228L, "SV", "DISTANCIA_TRANSPORTE", "Distancia / transporte", 90, -9200L),
+        CreateRetirementReasonSeed(-9229L, "SV", "INSATISFACCION_FUNCIONES", "Insatisfacción con las funciones", 100, -9200L),
+        // JUBILACION (-9201)
+        CreateRetirementReasonSeed(-9230L, "SV", "JUBILACION_EDAD", "Jubilación por edad", 10, -9201L),
+        // INVOLUNTARIA (-9202)
+        CreateRetirementReasonSeed(-9231L, "SV", "BAJO_DESEMPENO", "Bajo desempeño", 10, -9202L),
+        CreateRetirementReasonSeed(-9232L, "SV", "REESTRUCTURACION", "Reestructuración", 20, -9202L),
+        CreateRetirementReasonSeed(-9233L, "SV", "FALTA_DISCIPLINARIA", "Falta disciplinaria", 30, -9202L),
+        CreateRetirementReasonSeed(-9234L, "SV", "AUSENTISMO", "Ausentismo", 40, -9202L),
+        CreateRetirementReasonSeed(-9235L, "SV", "INCUMPLIMIENTO_POLITICAS", "Incumplimiento de políticas", 50, -9202L),
+        CreateRetirementReasonSeed(-9236L, "SV", "RECORTE_PRESUPUESTARIO", "Recorte presupuestario", 60, -9202L),
+        // ABANDONO (-9203)
+        CreateRetirementReasonSeed(-9237L, "SV", "ABANDONO_TRABAJO", "Abandono de trabajo", 10, -9203L),
+        // NO_SUPERA_PERIODO_PRUEBA (-9204)
+        CreateRetirementReasonSeed(-9238L, "SV", "NO_SUPERA_PRUEBA", "No superó el período de prueba", 10, -9204L),
+        // FIN_CONTRATO (-9205)
+        CreateRetirementReasonSeed(-9239L, "SV", "FIN_CONTRATO_TEMPORAL", "Fin de contrato temporal", 10, -9205L),
+        CreateRetirementReasonSeed(-9240L, "SV", "FIN_OBRA_PROYECTO", "Fin de obra o proyecto", 20, -9205L),
+        // MUTUO_ACUERDO (-9206)
+        CreateRetirementReasonSeed(-9241L, "SV", "MUTUO_ACUERDO", "Mutuo acuerdo", 10, -9206L),
+        // FALLECIMIENTO (-9207)
+        CreateRetirementReasonSeed(-9242L, "SV", "FALLECIMIENTO", "Fallecimiento", 10, -9207L),
+    ];
+
+    private static object CreateRetirementCategorySeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder,
+        RetirementSeparationType separationType) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("RETIREMENT_CATEGORY_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            SeparationType = separationType,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("RETIREMENT_CATEGORY_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static object CreateRetirementReasonSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder,
+        long retirementCategoryCatalogItemId) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("RETIREMENT_REASON_CATALOG", $"{countryCode}:{retirementCategoryCatalogItemId}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            RetirementCategoryCatalogItemId = retirementCategoryCatalogItemId,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("RETIREMENT_REASON_CATALOG_CONCURRENCY", $"{countryCode}:{retirementCategoryCatalogItemId}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    // Closed system catalog of form control types for the exit-interview builder (general-catalogs key
+    // `form-control-types`, D-08). Seeded in EVERY environment via the migration pipeline. Codes are universal;
+    // seeded under SV to satisfy the per-country seed convention.
+    public static IEnumerable<object> GetFormControlTypeCatalogItems() =>
+    [
+        CreateFormControlTypeSeed(-9260L, "SV", "TEXTO_CORTO", "Texto corto", 10, FormControlValueKind.Text, false, false, false),
+        CreateFormControlTypeSeed(-9261L, "SV", "TEXTO_LARGO", "Texto largo", 20, FormControlValueKind.Text, false, false, false),
+        CreateFormControlTypeSeed(-9262L, "SV", "NUMERO", "Número", 30, FormControlValueKind.Number, false, true, false),
+        CreateFormControlTypeSeed(-9263L, "SV", "FECHA", "Fecha", 40, FormControlValueKind.Date, false, false, false),
+        CreateFormControlTypeSeed(-9264L, "SV", "LISTA_DESPLEGABLE", "Lista desplegable", 50, FormControlValueKind.Options, true, false, false),
+        CreateFormControlTypeSeed(-9265L, "SV", "OPCION_UNICA", "Opción única", 60, FormControlValueKind.Options, true, false, false),
+        CreateFormControlTypeSeed(-9266L, "SV", "SELECCION_MULTIPLE", "Selección múltiple", 70, FormControlValueKind.Options, true, false, true),
+        CreateFormControlTypeSeed(-9267L, "SV", "CASILLA", "Casilla (Sí/No)", 80, FormControlValueKind.Boolean, false, false, false),
+        CreateFormControlTypeSeed(-9268L, "SV", "ESCALA", "Escala", 90, FormControlValueKind.Number, false, true, false),
+    ];
+
+    private static object CreateFormControlTypeSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder,
+        FormControlValueKind valueKind,
+        bool supportsOptions,
+        bool supportsRange,
+        bool supportsMultiple) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("FORM_CONTROL_TYPE_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            ValueKind = valueKind,
+            SupportsOptions = supportsOptions,
+            SupportsRange = supportsRange,
+            SupportsMultiple = supportsMultiple,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("FORM_CONTROL_TYPE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
             CreatedUtc = SeededAtUtc,
             ModifiedUtc = SeededAtUtc
         };

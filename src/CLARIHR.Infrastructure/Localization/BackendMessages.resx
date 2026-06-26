@@ -1759,4 +1759,52 @@
   <data name="validation.message.discrete_scale_levels_must_have_distinct_values" xml:space="preserve">
     <value>Discrete scale levels must have distinct values.</value>
   </data>
+  <data name="EXIT_INTERVIEW_FORM_NAME_DUPLICATE" xml:space="preserve">
+    <value>An exit-interview form with the same name already exists.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_DRAFT" xml:space="preserve">
+    <value>The exit-interview form can only be edited while it is in draft.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_PUBLISHED" xml:space="preserve">
+    <value>The exit-interview form must be published for this operation.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_PUBLISHABLE" xml:space="preserve">
+    <value>The exit-interview form must have at least one field to be published.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_KEY_DUPLICATE" xml:space="preserve">
+    <value>The form already has a field with the same key.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_OPTION_CODE_DUPLICATE" xml:space="preserve">
+    <value>The field already has an option with the same code.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_OPTIONS_REQUIRED" xml:space="preserve">
+    <value>A selection field must define at least one option.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_OPTIONS_NOT_ALLOWED" xml:space="preserve">
+    <value>This control type does not support options.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_RANGE_INVALID" xml:space="preserve">
+    <value>The field minimum cannot be greater than its maximum.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FIELD_RANGE_NOT_ALLOWED" xml:space="preserve">
+    <value>This control type does not support a numeric range.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_OPTIONS_NOT_ALLOWED_ON_FIELD" xml:space="preserve">
+    <value>Options can only be added to a selection control type.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_NOT_FOUND" xml:space="preserve">
+    <value>The exit-interview form does not exist.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_FORM_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>The exit-interview form was modified by someone else. Reload and try again.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_CONTROL_TYPE_INVALID" xml:space="preserve">
+    <value>The field control type is not valid for the active catalog.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_SUBMISSION_NOT_FOUND" xml:space="preserve">
+    <value>The exit-interview submission does not exist.</value>
+  </data>
+  <data name="EXIT_INTERVIEW_SUBMISSION_ALREADY_SUBMITTED" xml:space="preserve">
+    <value>The exit interview has already been submitted and can no longer be changed.</value>
+  </data>
 </root>

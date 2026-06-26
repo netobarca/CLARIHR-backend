@@ -175,4 +175,6 @@ public static class PersonnelReferenceCatalogCategories
     public const string Municipality = "Municipality";
     public const string InsuranceType = "InsuranceType";
     public const string InsuranceRange = "InsuranceRange";
+    public const string RetirementCategory = "RetirementCategory";
+    public const string RetirementReason = "RetirementReason";
 }

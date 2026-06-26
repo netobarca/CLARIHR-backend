@@ -188,6 +188,19 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
             return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.StatusCodeInvalid);
         }
 
+        // "Motivo de baja" is now validated against the hierarchical retirement catalogs (D-02/D-03):
+        // category + reason must be active for the country and the reason must belong to the category.
+        var retirementCodesError = await PersonnelReferenceCatalogValidation.ValidateRetirementCodesAsync(
+            personnelFileRepository,
+            personnelFile.TenantId,
+            command.RetirementCategoryCode,
+            command.RetirementReasonCode,
+            cancellationToken);
+        if (retirementCodesError != Error.None)
+        {
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(retirementCodesError);
+        }
+
         // Institutional-email edit (record + login): the institutional email is the employee's account
         // identifier, so a change is applied to BOTH the file and the linked sign-in account to keep them
         // consistent. Only act when a new value is supplied that actually differs; omitting it (null) leaves

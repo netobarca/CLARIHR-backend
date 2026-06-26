@@ -182,7 +182,7 @@ Todos bajo `/api/v1`, autenticados (`Authorization: Bearer <jwt>`). **Lecturas**
 
 - Cada `GET` devuelve `concurrencyToken` por ítem (y el `POST` lo devuelve en el header `ETag`).
 - `PUT`/`PATCH`/`DELETE` **exigen** el header `If-Match: <concurrencyToken>` actual.
-- Token desactualizado → `409` `CONCURRENCY_CONFLICT`. Falta el header → `428 Precondition Required`.
+- Token desactualizado → `409` `CONCURRENCY_CONFLICT`. Falta el header → `400 Bad Request` (error de validación con clave `If-Match`).
 - Tras un `PUT`/`PATCH` exitoso, el **nuevo** token llega en el header `ETag`; tras `DELETE` se devuelve el token **refrescado del expediente padre** en el cuerpo (`parentConcurrencyToken`) para seguir mutando sin un round-trip extra.
 
 ---
@@ -208,7 +208,7 @@ Los errores traen un `code` estable (para mapear en UI) y un `message` localizad
 |---|---|---|
 | Validación de campos (vacío obligatorio, longitud) | `400` | `requirementTypeCode`/`requirementName`/`competencyDomain` vacíos, longitudes excedidas |
 | `CONCURRENCY_CONFLICT` | `409` | `If-Match` desactualizado |
-| Precondición requerida | `428` | Falta el header `If-Match` en `PUT`/`PATCH`/`DELETE` |
+| Validación `If-Match` ausente | `400` | Falta el header `If-Match` en `PUT`/`PATCH`/`DELETE` |
 | No encontrado | `404` | Expediente o competencia inexistente |
 | Regla de estado | `422`/`409` | Expediente no completado |
 | No autorizado / prohibido | `401` / `403` | Falta token / falta permiso (`Read`/`Manage`) |

@@ -152,6 +152,21 @@ public static class PersonnelFilePermissionCodes
     /// (D-06, HR-only — no self-service). Admin is a superset.
     /// </summary>
     public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
+
+    /// <summary>
+    /// Dedicated permission to design/publish/associate exit-interview forms (D-01). HR-only (no
+    /// self-service — form building is design-time); Admin is a superset.
+    /// </summary>
+    public const string ManageExitInterviewForms = "PersonnelFiles.ManageExitInterviewForms";
+
+    /// <summary>Dedicated permission to read exit-interview submissions (D-14, RRHH-only). Admin is a superset.</summary>
+    public const string ViewExitInterviews = "PersonnelFiles.ViewExitInterviews";
+
+    /// <summary>
+    /// Dedicated permission to capture/manage exit-interview submissions of any employee (D-04). Admin is a
+    /// superset. The employee may fill their OWN interview via a separate self-service check.
+    /// </summary>
+    public const string ManageExitInterviews = "PersonnelFiles.ManageExitInterviews";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

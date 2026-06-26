@@ -106,6 +106,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string DeliveryStatus = "DeliveryStatus";
     public const string ExperienceMetric = "ExperienceMetric";
     public const string OffPayrollTransactionType = "OffPayrollTransactionType";
+    public const string FormControlType = "FormControlType";
 }
 
 internal static class PersonnelCurriculumCatalogValidation
@@ -253,6 +254,74 @@ internal static class PersonnelReferenceCatalogValidation
                 new Dictionary<string, string[]>
                 {
                     ["rangeCode"] = ["RangeCode does not belong to the selected insurance type."]
+                });
+    }
+
+    // Retirement "motivo de baja": category + reason are a hierarchy (D-02). Both optional, but a reason
+    // requires its category, the category/reason must be active for the country, and the reason must belong
+    // to the category. Mirrors ValidateInsuranceRangeCodeAsync (type → range).
+    public static async Task<Error> ValidateRetirementCodesAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string? retirementCategoryCode,
+        string? retirementReasonCode,
+        CancellationToken cancellationToken)
+    {
+        var hasCategory = !string.IsNullOrWhiteSpace(retirementCategoryCode);
+        var hasReason = !string.IsNullOrWhiteSpace(retirementReasonCode);
+        if (!hasCategory && !hasReason)
+        {
+            return Error.None;
+        }
+
+        if (hasReason && !hasCategory)
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["retirementCategoryCode"] = ["RetirementCategoryCode is required when RetirementReasonCode is provided."]
+                });
+        }
+
+        var countryCode = await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken);
+
+        var categoryError = await ValidateOptionalReferenceCodeAsync(
+            repository,
+            "retirementCategoryCode",
+            countryCode,
+            PersonnelReferenceCatalogCategories.RetirementCategory,
+            retirementCategoryCode,
+            cancellationToken);
+        if (categoryError != Error.None)
+        {
+            return categoryError;
+        }
+
+        if (!hasReason)
+        {
+            return Error.None;
+        }
+
+        var reasonError = await ValidateOptionalReferenceCodeAsync(
+            repository,
+            "retirementReasonCode",
+            countryCode,
+            PersonnelReferenceCatalogCategories.RetirementReason,
+            retirementReasonCode,
+            cancellationToken);
+        if (reasonError != Error.None)
+        {
+            return reasonError;
+        }
+
+        var belongs = await repository.ReferenceRetirementReasonBelongsToCategoryAsync(
+            countryCode, retirementCategoryCode!, retirementReasonCode!, cancellationToken);
+        return belongs
+            ? Error.None
+            : ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["retirementReasonCode"] = ["RetirementReasonCode does not belong to the selected RetirementCategoryCode."]
                 });
     }
 

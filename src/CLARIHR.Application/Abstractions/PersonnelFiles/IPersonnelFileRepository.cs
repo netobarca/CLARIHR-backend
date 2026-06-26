@@ -251,6 +251,18 @@ public interface IPersonnelFileRepository
         string insuranceRangeCode,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// True when the retirement reason code belongs to the given retirement category (both active) for
+    /// the country. Mirrors <see cref="ReferenceInsuranceRangeBelongsToTypeAsync"/>. Default returns false
+    /// so the many hand-written test doubles need not implement it; the production repository overrides it.
+    /// </summary>
+    Task<bool> ReferenceRetirementReasonBelongsToCategoryAsync(
+        string countryCode,
+        string retirementCategoryCode,
+        string retirementReasonCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(false);
+
     Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken);
 
     Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken);

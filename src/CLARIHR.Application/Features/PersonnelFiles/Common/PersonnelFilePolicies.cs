@@ -81,4 +81,27 @@ public static class PersonnelFilePolicies
     /// handler gate so a legitimate manager is never falsely 403'd.
     /// </summary>
     public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
+
+    /// <summary>
+    /// Write policy for the exit-interview form builder (D-01/D-14): the dedicated
+    /// <c>PersonnelFiles.ManageExitInterviewForms</c> permission, or Admin / IAM super-admin. HR-only —
+    /// designing/publishing/associating exit-interview forms is not self-service. Assigned to both the read
+    /// and write verbs of <c>ExitInterviewFormsController</c> (form definitions are HR design-time data).
+    /// Kept a superset of the precise <c>EnsureCanManageExitInterviewFormsAsync</c> handler gate.
+    /// </summary>
+    public const string ManageExitInterviewForms = "PersonnelFiles.ManageExitInterviewForms";
+
+    /// <summary>
+    /// Read policy for exit-interview submissions (D-14). Authn-only superset; the precise gate
+    /// (ViewExitInterviews / Admin — RRHH only, plus the employee resolving/reading their own draft) lives
+    /// in the submission handlers.
+    /// </summary>
+    public const string ViewExitInterviews = "PersonnelFiles.ViewExitInterviews";
+
+    /// <summary>
+    /// Write policy for exit-interview submissions (D-04). Authn-only superset — kept NOT a RequireAssertion
+    /// so a self-service employee filling their own interview is never blocked at the API layer; the precise
+    /// check (ManageExitInterviews / Admin, or the employee on their own file) lives in the handlers.
+    /// </summary>
+    public const string ManageExitInterviews = "PersonnelFiles.ManageExitInterviews";
 }
