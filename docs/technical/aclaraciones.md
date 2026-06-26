@@ -7,6 +7,7 @@
 | **Fecha** | 2026-06-25 |
 | **Estado merge** | Las **4 ramas ya están mergeadas a `master`** y desplegadas. Detalle de commits abajo. |
 | **Método** | Todas las respuestas verificadas **contra el código fuente en `master`** (no contra el doc ni de memoria). Se citan archivos/líneas. |
+| **Actualización 2026-06-25** | Deploy de seguimiento: (a) backfill de la escala de competencias para empresas existentes → `isConfigured=true` para todas (§3.3); (b) PATCH de matriz documenta `/expectedValue` (§3.4). Resto sin cambios. |
 
 > ⚠️ **Dos hallazgos transversales que cambian su plan — léanlos antes de tocar nada:**
 > 1. **El prefijo NO es `/v1/…`. Es `api/v1/…`** (con `/api`). Ver §0.2.
@@ -272,10 +273,10 @@ record SetCompetencyRatingScaleLevelRequest(string Code, string Label, decimal V
 ```
 - **Numeric**: usa `minValue < maxValue`, `decimals >= 0`, `levels` debe ir vacío.
 - **Discrete**: `levels` ≥ 2, con `value` distintos; ignora min/max.
-- **Default**: cada tenant se siembra con una escala **DISCRETE 1–5** (`ESCALA_1_5`, "Escala 1 a 5", labels Deficiente→Excelente) idempotente al aprovisionar → `GET` devuelve `isConfigured=true` con la escala (`CompetencyFrameworkSeedService.cs:42-65`). ⚠️ Depende de que el seed haya corrido para ese tenant; si un tenant viejo no fue sembrado, `GET` devuelve `isConfigured=false / scale=null` — manéjenlo.
+- **Default**: cada tenant se siembra con una escala **DISCRETE 1–5** (`ESCALA_1_5`, "Escala 1 a 5", labels Deficiente→Excelente) → `GET` devuelve `isConfigured=true` con la escala. ✅ **Resuelto para tenants existentes (deploy 2026-06-25):** se agregó un backfill idempotente en el arranque (`CompetencyFrameworkSeedService.EnsureSeededAsync`) que siembra la escala 1–5 a **toda empresa que no la tenga**, incluidas las creadas antes del feature. Así que `isConfigured=true` para todas. (Buena práctica: manejen `isConfigured=false` defensivamente igual, pero ya no debería ocurrir.)
 
 ### 3.4 — Matriz ✅
-`…/job-profiles/{jobProfilePublicId}/competency-matrix/items` **acepta y devuelve** `expectedValue` (`decimal?`, opcional). ⚠️ El PATCH funcionalmente soporta `/expectedValue` aunque la descripción Swagger del PATCH no lo lista — para setearlo de forma garantizada usen `PUT`.
+`…/job-profiles/{jobProfilePublicId}/competency-matrix/items` **acepta y devuelve** `expectedValue` (`decimal?`, opcional). ✅ El **PATCH también soporta `/expectedValue`** (y `remove`); la descripción Swagger se corrigió en el deploy 2026-06-25 para listarlo. Pueden usar `PUT` o `PATCH` indistintamente.
 
 ### 3.5 — RBAC
 - Recurso del empleado: `PersonnelFiles.ViewCompetencies` / `PersonnelFiles.ManageCompetencies`.
@@ -327,7 +328,7 @@ Falta de `If-Match` → **`400 Bad Request`** (igual que todos los demás módul
 | **General** | ✅ | Prefijo real `api/v1` (no `/v1`); `code` en `extensions.code`; If-Match header; falta→400, stale→409. |
 | Medical Claims | ✅ desplegado | Request trae además `claimTypeCode` (req) y `claimDateUtc` (req). `insurancePublicId` req no-nullable. Status key singular `medical-claim-status`. DELETE de reclamo es físico. Autoservicio titular = backend. |
 | Off-Payroll | ✅ desplegado | Existe completo. Params `{offPayrollTransactionPublicId}`/`{documentPublicId}`. Negativos requieren `correctsTransactionPublicId`. Sin autoservicio (403). |
-| Position Competencies | ✅ desplegado | Request = `expectationPublicId+achievedScore+evaluationDateUtc`. Agrupado + escala (default 1–5 discrete) + matriz `expectedValue` OK. Escala: manejar `isConfigured=false` en tenants no sembrados. |
+| Position Competencies | ✅ desplegado | Request = `expectationPublicId+achievedScore+evaluationDateUtc`. Agrupado + escala (default 1–5 discrete) + matriz `expectedValue` (PUT y PATCH). Escala: `isConfigured=true` para TODAS las empresas (backfill desplegado 2026-06-25). |
 | Curricular Competencies | ✅ desplegado | Shape igual. `competency-domains` arranca **vacío** (sembrar por admin). `experience-metrics` SV ya sembrado. Concurrencia = **400** (no 428). |
 
 > Tras regenerar el spec (`clarihr_refresh_spec`), si los shapes nuevos no aparecen, el build desplegado es anterior a `f07cbbc`/`d958672` → redeploy de `master`.
