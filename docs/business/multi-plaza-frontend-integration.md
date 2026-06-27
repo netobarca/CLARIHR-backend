@@ -150,8 +150,8 @@ Base: `/api/v1/personnel-files/{publicId}/assigned-positions` · **solo sobre em
 
 ```jsonc
 {
-  "assignmentTypeCode": "INDEFINIDO",  // ⬅️ debe existir en el catálogo (ver §7)
-  "positionSlotPublicId": "77aa…12",   // ⬅️ AHORA REQUERIDO
+  "assignmentTypeCode": "INDEFINIDO",  // ⬅️ REQUERIDO + debe existir en el catálogo (ver §7)
+  "positionSlotPublicId": "77aa…12",   // ⬅️ REQUERIDO
   "orgUnitPublicId": null,
   "workCenterPublicId": null,
   "costCenterPublicId": null,
@@ -214,6 +214,7 @@ El backend las valida y devuelve errores (ver §8). El FE debería **anticiparla
 ```
 
 - Usá un **`<select>`** con estos códigos en el form de plaza (no input libre).
+- El catálogo viene **seedeado en todos los entornos** (SV, vía migración) — el `<select>` siempre tendrá estas 9 opciones (antes solo se sembraba en dev, riesgo de quedar vacío fuera de dev).
 - Es **ortogonal** a `isPrimary`: una plaza `INDEFINIDO` puede ser principal o secundaria.
 
 ---
@@ -236,7 +237,7 @@ Todas las respuestas de error son **ProblemDetails** con `status`, `title`/`deta
 | `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE` | 422 | la plaza no tiene rol IAM | "La plaza no tiene un rol configurado" |
 | `CONCURRENCY_CONFLICT` | 409 | `If-Match` desactualizado | recargar y reintentar |
 
-> Si omitís `positionSlotPublicId` en `POST`/`PUT` de asignaciones, recibís un **`400` de validación** (regla `NotNull`), no el 422 de arriba.
+> **Campos requeridos del body (`POST`/`PUT`):** `assignmentTypeCode`, `positionSlotPublicId` y `startDate`. Si omitís o enviás `null` en `assignmentTypeCode` o `positionSlotPublicId`, recibís un **`400` de validación** (no el 422 de abajo). El OpenAPI ahora los declara `required` (antes aparecían `nullable`, lo que confundía: el runtime siempre los exigió). El 422 `EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID` aplica **solo** cuando `assignmentTypeCode` viene con un valor pero ese código no existe / no está activo en el catálogo.
 
 **Concurrencia:** las mutaciones de plazas (`PUT`/`PATCH`/`DELETE`) requieren `If-Match: "<concurrencyToken>"`; tras cada operación reemplazá el token por el nuevo (`ETag`/body). `POST` no lleva `If-Match`.
 

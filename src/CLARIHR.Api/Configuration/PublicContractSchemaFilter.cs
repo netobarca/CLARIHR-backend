@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using CLARIHR.Application.Common.Contracts;
 using Microsoft.OpenApi.Models;
@@ -32,6 +33,42 @@ public sealed class PublicContractSchemaFilter : ISchemaFilter
                 schema.Properties[renamed] = propertySchema;
                 RenameRequiredProperty(schema, currentName, renamed);
             }
+        }
+
+        // A field the server marks [Required] (DataAnnotations) must not advertise itself as nullable/optional
+        // in the published contract. For a POSITIONAL RECORD the attribute lives on the constructor PARAMETER,
+        // not the generated property — `[property: Required]` on a record throws at model-validation time, so the
+        // idiomatic form targets the parameter. We therefore look for [Required] on both the property and the
+        // matching constructor parameter. Swashbuckle leaves `nullable: true` on the schema; clear it so the
+        // OpenAPI matches the runtime validation (e.g. assignmentTypeCode and positionSlotPublicId on
+        // …/assigned-positions, which are rejected with 400 when null/omitted).
+        var requiredParameterNames = context.Type
+            .GetConstructors()
+            .SelectMany(constructor => constructor.GetParameters())
+            .Where(parameter => parameter.Name is not null &&
+                parameter.GetCustomAttribute<RequiredAttribute>() is not null)
+            .Select(parameter => parameter.Name!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var property in properties)
+        {
+            var isRequired = property.GetCustomAttribute<RequiredAttribute>() is not null ||
+                requiredParameterNames.Contains(property.Name);
+            if (!isRequired ||
+                PublicContractNaming.ShouldSuppressMember(property.Name))
+            {
+                continue;
+            }
+
+            var externalName = PublicContractNaming.GetExternalJsonName(property.Name, property.PropertyType);
+            if (!schema.Properties.TryGetValue(externalName, out var requiredSchema))
+            {
+                continue;
+            }
+
+            requiredSchema.Nullable = false;
+            schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+            _ = schema.Required.Add(externalName);
         }
 
         var hasCodeProperty = properties.Any(property =>

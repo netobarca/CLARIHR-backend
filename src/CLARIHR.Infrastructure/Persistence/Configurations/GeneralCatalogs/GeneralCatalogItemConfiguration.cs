@@ -111,7 +111,8 @@ internal sealed class AssignmentTypeCatalogItemConfiguration
             "pk_assignment_type_catalog_items",
             "uq_assignment_type_catalog_items__public_id",
             "uq_assignment_type_catalog_items__country_code",
-            "ix_assignment_type_catalog_items__country_active_sort")
+            "ix_assignment_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetAssignmentTypeCatalogItems())
     {
     }
 }

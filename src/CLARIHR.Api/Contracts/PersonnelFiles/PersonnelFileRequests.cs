@@ -3,6 +3,7 @@ using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -99,7 +100,7 @@ public sealed record RehireEmployeeRequest(
     DateTime ContractStartDate,
     DateTime? ContractEndDate,
     Guid PositionSlotPublicId,
-    string AssignmentTypeCode,
+    [Required] string AssignmentTypeCode,
     bool? CreateUserAccount,
     string? NewInstitutionalEmail,
     bool PriorPeriodClosureConfirmed,
@@ -118,11 +119,15 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string? InstitutionalEmail = null);
 
 public sealed record AddEmploymentAssignmentRequest(
-    string AssignmentTypeCode,
+    // Required server-side: catalog-backed code (general-catalogs `assignment-types`). Sending null/omitting it
+    // returns 400 — the contract now advertises this so the OpenAPI matches the runtime validation.
+    [Required] string AssignmentTypeCode,
     string? ContractTypeCode,
     string? WorkdayCode,
     string? PayrollTypeCode,
-    Guid? PositionSlotPublicId,
+    // Required server-side (the assignment must reference a plaza). Nullable in C# for the patch/handler model,
+    // but mandatory on create/replace — advertised as required so the FE doesn't hit a silent 400.
+    [Required] Guid? PositionSlotPublicId,
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
     Guid? CostCenterPublicId,
@@ -135,11 +140,12 @@ public sealed record AddEmploymentAssignmentRequest(
     Guid? PaymentBankAccountPublicId = null);
 
 public sealed record UpdateEmploymentAssignmentRequest(
-    string AssignmentTypeCode,
+    // Same contract as the create body: both fields are required server-side (see AddEmploymentAssignmentRequest).
+    [Required] string AssignmentTypeCode,
     string? ContractTypeCode,
     string? WorkdayCode,
     string? PayrollTypeCode,
-    Guid? PositionSlotPublicId,
+    [Required] Guid? PositionSlotPublicId,
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
     Guid? CostCenterPublicId,
@@ -152,6 +158,8 @@ public sealed record UpdateEmploymentAssignmentRequest(
 
 public sealed class PatchEmploymentAssignmentRequest
 {
+    // Required server-side: a patch may never blank out the assignment type (a `remove`/empty value is rejected).
+    [Required]
     public string AssignmentTypeCode { get; set; } = string.Empty;
     public string? ContractTypeCode { get; set; }
     public string? WorkdayCode { get; set; }

@@ -105,8 +105,18 @@ builder.Services.AddSingleton<PositionSlotDiagramWriter>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.EnableAnnotations();
-    options.CustomSchemaIds(type =>
-        (type.FullName ?? type.Name).Replace('+', '.'));
+    // Reflect C# nullable-reference-type annotations into the schema: a non-nullable reference type (e.g.
+    // `string AssignmentTypeCode`) is emitted as non-nullable AND added to the schema's `required` set, while
+    // `string?` stays optional/nullable. This aligns the published contract with the runtime — ASP.NET already
+    // rejects null for non-nullable reference types (implicit [Required]) and FluentValidation enforces the rest —
+    // fixing the systemic drift where required request fields advertised themselves as `nullable`/optional.
+    options.SupportNonNullableReferenceTypes();
+    // Schema ids: rely on Swashbuckle's default scheme (short type name; generics rendered as
+    // "<Outer>Of<Inner>", e.g. PagedResponseOfAccountCompanySummaryResponse). This keeps the
+    // published schema names clean and stable for client codegen and matches the canonical
+    // contract in docs/technical/api/openapi.yaml. A fully-qualified id (type.FullName) leaks
+    // internal namespaces (CLARIHR.Api.Contracts.*) into every schema name and silently drifts
+    // the live contract away from the documented one — do not reintroduce it.
     options.SchemaFilter<PublicContractSchemaFilter>();
     options.OperationFilter<PublicContractOperationFilter>();
     options.OperationFilter<AuthorizationPolicyOperationFilter>();

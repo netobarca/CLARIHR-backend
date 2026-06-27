@@ -311,18 +311,9 @@ internal sealed class DevSeedService(
             ("USD", "Dolar estadounidense", 10),
         };
 
-        var assignmentTypes = new (string Code, string Name, int SortOrder)[]
-        {
-            ("LEY_SALARIOS", "Ley de Salarios", 10),
-            ("CONTRATO", "Contrato", 20),
-            ("INDEFINIDO", "Tiempo indefinido", 30),
-            ("PLAZO_FIJO", "Plazo fijo", 40),
-            ("INTERINO", "Interinato", 50),
-            ("POR_OBRA", "Por obra o servicio", 60),
-            ("AD_HONOREM", "Ad honorem", 70),
-            ("SERVICIOS_PROFESIONALES", "Servicios profesionales", 80),
-            ("RECARGO_FUNCIONES", "Recargo de funciones", 90),
-        };
+        // assignment-types are seeded globally via GlobalCatalogSeedData.GetAssignmentTypeCatalogItems()
+        // through the migration pipeline (all environments), so they are intentionally not seeded here
+        // (re-seeding them per-tenant would collide with the HasData rows on uq__country_code).
 
         foreach (var item in languages)
         {
@@ -358,12 +349,6 @@ internal sealed class DevSeedService(
         {
             var entity = CurrencyCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.CurrencyCatalogItems.Add(entity);
-        }
-
-        foreach (var item in assignmentTypes)
-        {
-            var entity = AssignmentTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
-            dbContext.AssignmentTypeCatalogItems.Add(entity);
         }
 
         var paymentMethods = new (string Code, string Name, int SortOrder)[]

@@ -240,6 +240,49 @@ internal static class GlobalCatalogSeedData
             ModifiedUtc = SeededAtUtc
         };
 
+    // Country-scoped assignment-type catalog (general-catalogs key `assignment-types`), backing the MANDATORY
+    // `assignmentTypeCode` of employment assignments (POST/PUT/PATCH …/assigned-positions) and of the rehire flow.
+    // Seeded here — like the employment-status catalog above — so it lands in EVERY environment through the
+    // migration pipeline (MigrateAsync) and backfills already-provisioned databases, instead of only fresh dev
+    // databases via DevSeedService (whose idempotency guard short-circuits once the dev user exists). Because the
+    // field is required server-side, an empty catalog would hard-block creating a plaza; HasData guarantees the
+    // frontend always has values to pick. SV only for this phase; mirrors the codes the frontend selects from.
+    public static IEnumerable<object> GetAssignmentTypeCatalogItems() =>
+    [
+        CreateAssignmentTypeSeed(-9140L, "SV", "LEY_SALARIOS", "Ley de Salarios", 10),
+        CreateAssignmentTypeSeed(-9141L, "SV", "CONTRATO", "Contrato", 20),
+        CreateAssignmentTypeSeed(-9142L, "SV", "INDEFINIDO", "Tiempo indefinido", 30),
+        CreateAssignmentTypeSeed(-9143L, "SV", "PLAZO_FIJO", "Plazo fijo", 40),
+        CreateAssignmentTypeSeed(-9144L, "SV", "INTERINO", "Interinato", 50),
+        CreateAssignmentTypeSeed(-9145L, "SV", "POR_OBRA", "Por obra o servicio", 60),
+        CreateAssignmentTypeSeed(-9146L, "SV", "AD_HONOREM", "Ad honorem", 70),
+        CreateAssignmentTypeSeed(-9147L, "SV", "SERVICIOS_PROFESIONALES", "Servicios profesionales", 80),
+        CreateAssignmentTypeSeed(-9148L, "SV", "RECARGO_FUNCIONES", "Recargo de funciones", 90)
+    ];
+
+    private static object CreateAssignmentTypeSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("ASSIGNMENT_TYPE_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("ASSIGNMENT_TYPE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
     // Country-scoped retirement category catalog (reference-catalogs key `retirement-categories`). Seeded in
     // EVERY environment via the migration pipeline (D-13) so the baja flow always has active categories to
     // validate against. Each category carries an HRIS SeparationType for reporting roll-up (D-02). SV only.
