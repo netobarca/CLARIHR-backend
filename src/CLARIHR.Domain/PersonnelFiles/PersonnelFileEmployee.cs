@@ -1612,6 +1612,293 @@ public sealed class OffPayrollTransactionDocument : TenantEntity
     }
 }
 
+/// <summary>
+/// Canonical status codes for an economic-aid request. The codes are validated against the country-scoped
+/// <c>economic-aid-statuses</c> catalog (configurable / i18n), but the domain transition logic references these
+/// constants. A future approval flow may ADD intermediate catalog states without changing the domain.
+/// </summary>
+public static class EconomicAidRequestStatuses
+{
+    public const string Solicitada = "SOLICITADA";
+    public const string EnRevision = "EN_REVISION";
+    public const string PendienteDocumentacion = "PENDIENTE_DOCUMENTACION";
+    public const string Aprobada = "APROBADA";
+    public const string Rechazada = "RECHAZADA";
+    public const string Desembolsada = "DESEMBOLSADA";
+    public const string Anulada = "ANULADA";
+
+    /// <summary>States from which a request may still be resolved or canceled.</summary>
+    public static readonly IReadOnlyCollection<string> Pending = new[] { Solicitada, EnRevision, PendienteDocumentacion };
+
+    /// <summary>States a manager may set through the resolution action.</summary>
+    public static readonly IReadOnlyCollection<string> ResolutionTargets = new[] { EnRevision, PendienteDocumentacion, Aprobada, Rechazada };
+}
+
+/// <summary>
+/// Employee-initiated economic-aid request ("ayuda económica" — emergency assistance the company grants and HR
+/// validates). Self-service create/read by the employee; validation (resolution)/disbursement are HR-only.
+/// Fase 1: non-refundable subsidy, single-step HR validation, informational disbursement. The status is a
+/// country-scoped catalog code (forward-compatible with an approval flow); see <see cref="EconomicAidRequestStatuses"/>.
+/// </summary>
+public sealed class PersonnelFileEconomicAidRequest : TenantEntity
+{
+    private PersonnelFileEconomicAidRequest()
+    {
+    }
+
+    private PersonnelFileEconomicAidRequest(
+        string economicAidTypeCode,
+        string? typeNameSnapshot,
+        string description,
+        decimal requestedAmount,
+        string currencyCode,
+        DateTime requestDateUtc,
+        Guid requestedByUserId)
+    {
+        PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
+        RequestStatusCode = EconomicAidRequestStatuses.Solicitada;
+        RequestDateUtc = PersonnelFileNormalization.NormalizeDate(requestDateUtc);
+        RequestedByUserId = requestedByUserId;
+        ApplyRequestFields(economicAidTypeCode, typeNameSnapshot, description, requestedAmount, currencyCode);
+    }
+
+    public long PersonnelFileId { get; private set; }
+
+    public PersonnelFile PersonnelFile { get; private set; } = null!;
+
+    public string EconomicAidTypeCode { get; private set; } = string.Empty;
+
+    public string? TypeNameSnapshot { get; private set; }
+
+    public string RequestStatusCode { get; private set; } = EconomicAidRequestStatuses.Solicitada;
+
+    public string Description { get; private set; } = string.Empty;
+
+    public decimal RequestedAmount { get; private set; }
+
+    public string CurrencyCode { get; private set; } = string.Empty;
+
+    public DateTime RequestDateUtc { get; private set; }
+
+    public Guid RequestedByUserId { get; private set; }
+
+    public decimal? ApprovedAmount { get; private set; }
+
+    public Guid? ResolvedByUserId { get; private set; }
+
+    public DateTime? ResolutionDateUtc { get; private set; }
+
+    public string? ResolutionNotes { get; private set; }
+
+    public int? ResponseTimeDays { get; private set; }
+
+    public decimal? DisbursedAmount { get; private set; }
+
+    public DateTime? DisbursementDateUtc { get; private set; }
+
+    public string? PaymentMethodCode { get; private set; }
+
+    public bool IsActive { get; private set; } = true;
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public static PersonnelFileEconomicAidRequest Create(
+        string economicAidTypeCode,
+        string? typeNameSnapshot,
+        string description,
+        decimal requestedAmount,
+        string currencyCode,
+        DateTime requestDateUtc,
+        Guid requestedByUserId) =>
+        new(economicAidTypeCode, typeNameSnapshot, description, requestedAmount, currencyCode, requestDateUtc, requestedByUserId);
+
+    /// <summary>Edits the request's business fields (RR. HH.); does not change status or resolution.</summary>
+    public void Update(
+        string economicAidTypeCode,
+        string? typeNameSnapshot,
+        string description,
+        decimal requestedAmount,
+        string currencyCode)
+    {
+        ConcurrencyToken = Guid.NewGuid();
+        ApplyRequestFields(economicAidTypeCode, typeNameSnapshot, description, requestedAmount, currencyCode);
+    }
+
+    /// <summary>
+    /// HR validation (D-03). Transitions a pending request to a resolution target (EN_REVISION /
+    /// PENDIENTE_DOCUMENTACION / APROBADA / RECHAZADA). Approving requires a positive amount (D-05). For a
+    /// terminal decision (APROBADA/RECHAZADA) the resolver, date and derived response-time are recorded.
+    /// </summary>
+    public void Resolve(string targetStatusCode, decimal? approvedAmount, Guid decidedByUserId, DateTime decidedAtUtc, string? notes)
+    {
+        if (!EconomicAidRequestStatuses.Pending.Contains(RequestStatusCode))
+        {
+            throw new InvalidOperationException("Only a pending economic-aid request can be resolved.");
+        }
+
+        var normalizedTarget = PersonnelFileNormalization.Clean(targetStatusCode, nameof(targetStatusCode)).ToUpperInvariant();
+        if (!EconomicAidRequestStatuses.ResolutionTargets.Contains(normalizedTarget))
+        {
+            throw new InvalidOperationException("The target status is not a valid resolution target.");
+        }
+
+        var isApproval = normalizedTarget == EconomicAidRequestStatuses.Aprobada;
+        if (isApproval && approvedAmount is not > 0m)
+        {
+            throw new InvalidOperationException("Approved amount must be greater than zero when approving.");
+        }
+
+        var isTerminal = isApproval || normalizedTarget == EconomicAidRequestStatuses.Rechazada;
+
+        RequestStatusCode = normalizedTarget;
+        ResolutionNotes = PersonnelFileNormalization.CleanOptional(notes);
+
+        if (isTerminal)
+        {
+            ApprovedAmount = isApproval ? approvedAmount : null;
+            ResolvedByUserId = decidedByUserId;
+            ResolutionDateUtc = PersonnelFileNormalization.NormalizeDate(decidedAtUtc);
+            ResponseTimeDays = DeriveResponseTimeDays(RequestDateUtc, ResolutionDateUtc);
+        }
+
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Records the (informational) disbursement of an approved request (D-09).</summary>
+    public void Disburse(decimal disbursedAmount, DateTime disbursementDateUtc, string? paymentMethodCode)
+    {
+        if (RequestStatusCode != EconomicAidRequestStatuses.Aprobada)
+        {
+            throw new InvalidOperationException("Only an approved economic-aid request can be disbursed.");
+        }
+
+        DisbursedAmount = disbursedAmount;
+        DisbursementDateUtc = PersonnelFileNormalization.NormalizeDate(disbursementDateUtc);
+        PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode)?.ToUpperInvariant();
+        RequestStatusCode = EconomicAidRequestStatuses.Desembolsada;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Cancels a still-pending request (self-service for the owner, or HR) — D-11.</summary>
+    public void Cancel()
+    {
+        if (!EconomicAidRequestStatuses.Pending.Contains(RequestStatusCode))
+        {
+            throw new InvalidOperationException("Only a pending economic-aid request can be canceled.");
+        }
+
+        RequestStatusCode = EconomicAidRequestStatuses.Anulada;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Derived response time in days = resolution − request (null when unresolved or incoherent).</summary>
+    public static int? DeriveResponseTimeDays(DateTime requestDateUtc, DateTime? resolutionDateUtc) =>
+        resolutionDateUtc is { } resolution && resolution.Date >= requestDateUtc.Date
+            ? (int)(resolution.Date - requestDateUtc.Date).TotalDays
+            : null;
+
+    private void ApplyRequestFields(
+        string economicAidTypeCode,
+        string? typeNameSnapshot,
+        string description,
+        decimal requestedAmount,
+        string currencyCode)
+    {
+        EconomicAidTypeCode = PersonnelFileNormalization.Clean(economicAidTypeCode, nameof(economicAidTypeCode)).ToUpperInvariant();
+        TypeNameSnapshot = PersonnelFileNormalization.CleanOptional(typeNameSnapshot);
+        Description = PersonnelFileNormalization.Clean(description, nameof(description));
+        RequestedAmount = requestedAmount;
+        CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode)).ToUpperInvariant();
+    }
+}
+
+/// <summary>
+/// Supporting document attached to an economic-aid request (D-06 — evidence of the emergency). Mirrors
+/// <see cref="OffPayrollTransactionDocument"/> and reuses the shared file-storage subsystem
+/// (<c>StoredFile</c> / <c>IFileStorageProvider</c> / <c>FilePurpose.EconomicAidRequestDocument</c>); the
+/// document-type classification is OPTIONAL (nullable FK).
+/// </summary>
+public sealed class EconomicAidRequestDocument : TenantEntity
+{
+    private EconomicAidRequestDocument()
+    {
+    }
+
+    private EconomicAidRequestDocument(
+        Guid publicId,
+        long? documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations)
+    {
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
+        PublicId = publicId;
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
+        FilePublicId = filePublicId;
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
+        Observations = PersonnelFileNormalization.CleanOptional(observations);
+        IsActive = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public long EconomicAidRequestId { get; private set; }
+
+    public PersonnelFileEconomicAidRequest EconomicAidRequest { get; private set; } = null!;
+
+    public long? DocumentTypeCatalogItemId { get; private set; }
+
+    public DocumentTypeCatalogs.DocumentTypeCatalogItem? DocumentTypeCatalogItem { get; private set; }
+
+    public Guid FilePublicId { get; private set; }
+
+    public string? Observations { get; private set; }
+
+    public string FileName { get; private set; } = string.Empty;
+
+    public string ContentType { get; private set; } = string.Empty;
+
+    public int SizeBytes { get; private set; }
+
+    public bool IsActive { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public void BindToEconomicAidRequest(long economicAidRequestId) => EconomicAidRequestId = economicAidRequestId;
+
+    public static EconomicAidRequestDocument Create(
+        Guid publicId,
+        long? documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string? observations) =>
+        new(publicId, documentTypeCatalogItemId, filePublicId, fileName, contentType, sizeBytes, observations);
+
+    public void Inactivate()
+    {
+        IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+}
+
 public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
 {
     private PersonnelFilePerformanceEvaluation()

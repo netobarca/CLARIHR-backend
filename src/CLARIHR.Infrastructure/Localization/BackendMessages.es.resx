@@ -1819,4 +1819,40 @@
   <data name="EXIT_INTERVIEW_SUBMISSION_ALREADY_SUBMITTED" xml:space="preserve">
     <value>La entrevista de retiro ya fue enviada y no puede modificarse.</value>
   </data>
+  <data name="ECONOMIC_AID_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de ayuda económica no es válido en el catálogo activo.</value>
+  </data>
+  <data name="ECONOMIC_AID_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El estado de la ayuda económica no es válido en el catálogo activo.</value>
+  </data>
+  <data name="ECONOMIC_AID_CURRENCY_REQUIRED" xml:space="preserve">
+    <value>Se requiere una moneda y la empresa no tiene una moneda predeterminada configurada.</value>
+  </data>
+  <data name="ECONOMIC_AID_APPROVED_AMOUNT_INVALID" xml:space="preserve">
+    <value>El monto aprobado debe ser mayor que cero al aprobar una solicitud.</value>
+  </data>
+  <data name="ECONOMIC_AID_DATE_INCOHERENT" xml:space="preserve">
+    <value>La fecha de resolución no puede ser anterior a la fecha de solicitud, ni la fecha de desembolso anterior a la de resolución.</value>
+  </data>
+  <data name="ECONOMIC_AID_ELIGIBILITY_NOT_MET" xml:space="preserve">
+    <value>El empleado no cumple la antigüedad mínima requerida para solicitar ayuda económica.</value>
+  </data>
+  <data name="ECONOMIC_AID_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La solicitud de ayuda económica no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="ECONOMIC_AID_PAYMENT_METHOD_INVALID" xml:space="preserve">
+    <value>La forma de pago no es válida en el catálogo activo.</value>
+  </data>
+  <data name="ECONOMIC_AID_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>Un empleado no puede validar su propia solicitud de ayuda económica.</value>
+  </data>
+  <data name="validation.message.requestedamount_must_be_greater_than_zero" xml:space="preserve">
+    <value>El monto solicitado debe ser mayor que cero.</value>
+  </data>
+  <data name="validation.message.requestdateutc_must_not_be_in_the_future" xml:space="preserve">
+    <value>La fecha de solicitud no puede estar en el futuro.</value>
+  </data>
+  <data name="validation.message.approvedamount_must_be_greater_than_zero" xml:space="preserve">
+    <value>El monto aprobado debe ser mayor que cero.</value>
+  </data>
 </root>

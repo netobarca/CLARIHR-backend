@@ -234,6 +234,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OffPayrollTransactionTypeCatalogItem> OffPayrollTransactionTypeCatalogItems => Set<OffPayrollTransactionTypeCatalogItem>();
 
+    public DbSet<EconomicAidTypeCatalogItem> EconomicAidTypeCatalogItems => Set<EconomicAidTypeCatalogItem>();
+
+    public DbSet<EconomicAidStatusCatalogItem> EconomicAidStatusCatalogItems => Set<EconomicAidStatusCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();
@@ -326,6 +330,10 @@ public sealed class ApplicationDbContext(
     public DbSet<PersonnelFileOffPayrollTransaction> PersonnelFileOffPayrollTransactions => Set<PersonnelFileOffPayrollTransaction>();
 
     public DbSet<OffPayrollTransactionDocument> OffPayrollTransactionDocuments => Set<OffPayrollTransactionDocument>();
+
+    public DbSet<PersonnelFileEconomicAidRequest> PersonnelFileEconomicAidRequests => Set<PersonnelFileEconomicAidRequest>();
+
+    public DbSet<EconomicAidRequestDocument> EconomicAidRequestDocuments => Set<EconomicAidRequestDocument>();
 
     public DbSet<PersonnelFilePerformanceEvaluation> PersonnelFilePerformanceEvaluations => Set<PersonnelFilePerformanceEvaluation>();
 

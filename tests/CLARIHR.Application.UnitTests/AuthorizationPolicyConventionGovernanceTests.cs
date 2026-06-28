@@ -104,6 +104,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // lives in the off-payroll handlers (OffPayrollTransactionsController).
         PersonnelFilePolicies.ViewOffPayrollTransactions,
         PersonnelFilePolicies.ManageOffPayrollTransactions,
+        // Economic-aid requests (D-02/D-03/D-10): authn-only supersets for read + write; the precise gate
+        // (self-service create/read for the employee, HR-only validation with no self-approval) lives in the
+        // economic-aid handlers (EconomicAidRequestsController).
+        PersonnelFilePolicies.ViewEconomicAidRequests,
+        PersonnelFilePolicies.ManageEconomicAidRequests,
         // Exit-interview form builder (D-01): HR-only write policy used by ExitInterviewFormsController.
         PersonnelFilePolicies.ManageExitInterviewForms,
         // Exit-interview submissions (D-04/D-14): authn-only supersets used by ExitInterviewsController.

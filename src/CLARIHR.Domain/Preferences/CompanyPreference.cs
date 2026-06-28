@@ -29,6 +29,10 @@ public sealed class CompanyPreference : TenantEntity
 
     public int? FileUpToDateThresholdMonths { get; private set; }
 
+    // Economic-aid eligibility (D-08): minimum seniority (months) required for an employee to request economic
+    // aid. Nullable — when unset or 0 there is no seniority restriction (baseline behavior).
+    public int? MinimumSeniorityMonthsForEconomicAid { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -60,6 +64,21 @@ public sealed class CompanyPreference : TenantEntity
             ? null
             : hrFunctionalAreaCode.Trim().ToUpperInvariant();
         FileUpToDateThresholdMonths = fileUpToDateThresholdMonths;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Sets the economic-aid eligibility threshold (D-08): the minimum seniority in months an employee must have
+    /// to request economic aid. Pass null to clear it (no restriction); when provided it must be positive.
+    /// </summary>
+    public void SetEconomicAidEligibility(int? minimumSeniorityMonthsForEconomicAid)
+    {
+        if (minimumSeniorityMonthsForEconomicAid is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumSeniorityMonthsForEconomicAid), "Minimum seniority months must be greater than zero when provided.");
+        }
+
+        MinimumSeniorityMonthsForEconomicAid = minimumSeniorityMonthsForEconomicAid;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

@@ -52,6 +52,8 @@ public static class GeneralCatalogKeyMap
             ["contract-types"] = PersonnelCurriculumCatalogCategories.ContractType,
             ["action-types"] = PersonnelCurriculumCatalogCategories.ActionType,
             ["action-statuses"] = PersonnelCurriculumCatalogCategories.ActionStatus,
+            ["economic-aid-types"] = PersonnelCurriculumCatalogCategories.EconomicAidType,
+            ["economic-aid-statuses"] = PersonnelCurriculumCatalogCategories.EconomicAidStatus,
         };
 
     /// <summary>

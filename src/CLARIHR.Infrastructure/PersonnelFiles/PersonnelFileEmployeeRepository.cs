@@ -2425,6 +2425,203 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.IsActive,
             item.ConcurrencyToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileEconomicAidRequestResponse>> AddEconomicAidRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileEconomicAidRequest entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileEconomicAidRequest>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.RequestDateUtc)
+            .Select(Map)
+            .ToArray();
+    }
+
+    public async Task<PersonnelFileEconomicAidRequestResponse?> UpdateEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        EconomicAidRequestInput input,
+        string currencyCode,
+        string? typeNameSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == economicAidRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(input.TypeCode, typeNameSnapshot, input.Description, input.RequestedAmount, currencyCode);
+        return Map(item);
+    }
+
+    public async Task<bool> SoftDeleteEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == economicAidRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.SetActive(false);
+        return true;
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileEconomicAidRequestResponse>> GetEconomicAidRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.RequestDateUtc)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileEconomicAidRequestResponse?> GetEconomicAidRequestAsync(
+        Guid personnelFileId,
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == economicAidRequestPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
+
+    public async Task<PersonnelFileEconomicAidRequestResponse?> ResolveEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        string targetStatusCode,
+        decimal? approvedAmount,
+        Guid decidedByUserId,
+        DateTime decidedAtUtc,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == economicAidRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Resolve(targetStatusCode, approvedAmount, decidedByUserId, decidedAtUtc, notes);
+        return Map(item);
+    }
+
+    public async Task<PersonnelFileEconomicAidRequestResponse?> DisburseEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        decimal disbursedAmount,
+        DateTime disbursementDateUtc,
+        string? paymentMethodCode,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == economicAidRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Disburse(disbursedAmount, disbursementDateUtc, paymentMethodCode);
+        return Map(item);
+    }
+
+    public async Task<PersonnelFileEconomicAidRequestResponse?> CancelEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == economicAidRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Cancel();
+        return Map(item);
+    }
+
+    private static PersonnelFileEconomicAidRequestResponse Map(PersonnelFileEconomicAidRequest item) =>
+        new(
+            item.PublicId,
+            item.EconomicAidTypeCode,
+            item.TypeNameSnapshot,
+            item.RequestStatusCode,
+            item.Description,
+            item.RequestedAmount,
+            item.CurrencyCode,
+            item.RequestDateUtc,
+            item.RequestedByUserId,
+            item.ApprovedAmount,
+            item.ResolvedByUserId,
+            item.ResolutionDateUtc,
+            item.ResolutionNotes,
+            item.ResponseTimeDays,
+            item.DisbursedAmount,
+            item.DisbursementDateUtc,
+            item.PaymentMethodCode,
+            item.IsActive,
+            item.ConcurrencyToken);
+
+    public async Task<long?> GetEconomicAidRequestInternalIdAsync(
+        Guid personnelFileId,
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileEconomicAidRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == economicAidRequestPublicId)
+            .Select(item => (long?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task AddEconomicAidRequestDocumentAsync(
+        EconomicAidRequestDocument entity,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.Set<EconomicAidRequestDocument>().AddAsync(entity, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<EconomicAidRequestDocumentResponse>> GetEconomicAidRequestDocumentsAsync(
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<EconomicAidRequestDocument>()
+            .AsNoTracking()
+            .Where(document => document.EconomicAidRequest.PublicId == economicAidRequestPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .Select(document => MapEconomicAidRequestDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<EconomicAidRequestDocumentResponse?> GetEconomicAidRequestDocumentAsync(
+        Guid economicAidRequestPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<EconomicAidRequestDocument>()
+            .AsNoTracking()
+            .Where(document => document.EconomicAidRequest.PublicId == economicAidRequestPublicId && document.PublicId == documentPublicId)
+            .Select(document => MapEconomicAidRequestDocument(document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<EconomicAidRequestDocument?> GetEconomicAidRequestDocumentEntityAsync(
+        Guid economicAidRequestPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<EconomicAidRequestDocument>()
+            .SingleOrDefaultAsync(
+                document => document.EconomicAidRequest.PublicId == economicAidRequestPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static EconomicAidRequestDocumentResponse MapEconomicAidRequestDocument(EconomicAidRequestDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Code : null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.Observations,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.IsActive,
+            document.ConcurrencyToken,
+            document.CreatedUtc,
+            document.ModifiedUtc);
+
     private static PersonnelFilePerformanceEvaluationResponse Map(PersonnelFilePerformanceEvaluation item) =>
         new(
             item.PublicId,

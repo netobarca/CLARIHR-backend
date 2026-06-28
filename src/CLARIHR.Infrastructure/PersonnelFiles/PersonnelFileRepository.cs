@@ -1331,6 +1331,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CONTRACTTYPE" => await GetCountryScopedCatalogItemsAsync<ContractTypeCatalogItem>(countryCatalogItemId.Value, "ContractType", cancellationToken),
             "ACTIONTYPE" => await GetCountryScopedCatalogItemsAsync<ActionTypeCatalogItem>(countryCatalogItemId.Value, "ActionType", cancellationToken),
             "ACTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<ActionStatusCatalogItem>(countryCatalogItemId.Value, "ActionStatus", cancellationToken),
+            "ECONOMICAIDTYPE" => await GetCountryScopedCatalogItemsAsync<EconomicAidTypeCatalogItem>(countryCatalogItemId.Value, "EconomicAidType", cancellationToken),
+            "ECONOMICAIDSTATUS" => await GetCountryScopedCatalogItemsAsync<EconomicAidStatusCatalogItem>(countryCatalogItemId.Value, "EconomicAidStatus", cancellationToken),
             _ => []
         };
     }
@@ -1462,6 +1464,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CONTRACTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ContractTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ActionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<ActionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ECONOMICAIDTYPE" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ECONOMICAIDSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }
@@ -1484,6 +1488,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         return normalizedCategory switch
         {
             "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogNameAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ECONOMICAIDTYPE" => await GetCountryScopedCatalogNameAsync<EconomicAidTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => null
         };
     }

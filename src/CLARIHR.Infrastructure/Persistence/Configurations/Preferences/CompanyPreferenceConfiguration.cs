@@ -38,6 +38,9 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(preference => preference.FileUpToDateThresholdMonths)
             .HasColumnName("file_up_to_date_threshold_months");
 
+        builder.Property(preference => preference.MinimumSeniorityMonthsForEconomicAid)
+            .HasColumnName("minimum_seniority_months_for_economic_aid");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

@@ -132,6 +132,30 @@ internal sealed class PersonnelFileAuthorizationService(
             RbacPermissionAction.Update,
             cancellationToken);
 
+    public Task<Result> EnsureCanViewEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewEconomicAidRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
+    public Task<Result> EnsureCanManageEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ManageEconomicAidRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Update,
+            cancellationToken);
+
     public Task<Result> EnsureCanManageExitInterviewFormsAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureHasAnyClaimAsync(
             companyId,

@@ -373,3 +373,33 @@ internal sealed class ActionStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class EconomicAidTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<EconomicAidTypeCatalogItem>
+{
+    public EconomicAidTypeCatalogItemConfiguration()
+        : base(
+            "economic_aid_type_catalog_items",
+            "pk_economic_aid_type_catalog_items",
+            "uq_economic_aid_type_catalog_items__public_id",
+            "uq_economic_aid_type_catalog_items__country_code",
+            "ix_economic_aid_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetEconomicAidTypeCatalogItems())
+    {
+    }
+}
+
+internal sealed class EconomicAidStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<EconomicAidStatusCatalogItem>
+{
+    public EconomicAidStatusCatalogItemConfiguration()
+        : base(
+            "economic_aid_status_catalog_items",
+            "pk_economic_aid_status_catalog_items",
+            "uq_economic_aid_status_catalog_items__public_id",
+            "uq_economic_aid_status_catalog_items__country_code",
+            "ix_economic_aid_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetEconomicAidStatusCatalogItems())
+    {
+    }
+}

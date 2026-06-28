@@ -279,6 +279,73 @@ public sealed class OffPayrollTransactionTypeCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+/// <summary>
+/// Catalog of employee economic-aid request types ("tipos de ayuda económica": emergencia médica,
+/// gastos fúnebres, desastre natural, incendio, calamidad doméstica, accidente, otra). Country-scoped
+/// and user-managed: the <c>Code</c> is entered by the administrator and <c>Name</c> is the business
+/// "Descripción".
+/// </summary>
+public sealed class EconomicAidTypeCatalogItem : GeneralCatalogItem
+{
+    private EconomicAidTypeCatalogItem()
+    {
+    }
+
+    private EconomicAidTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static EconomicAidTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Catalog of economic-aid request statuses ("estados de la solicitud": SOLICITADA, EN_REVISION,
+/// PENDIENTE_DOCUMENTACION, APROBADA, RECHAZADA, DESEMBOLSADA, ANULADA). Country-scoped; the codes are
+/// structural (seeded) — the dashboard/forward-compatible flow may add intermediate states.
+/// </summary>
+public sealed class EconomicAidStatusCatalogItem : GeneralCatalogItem
+{
+    private EconomicAidStatusCatalogItem()
+    {
+    }
+
+    private EconomicAidStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static EconomicAidStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class DeliveryStatusCatalogItem : GeneralCatalogItem
 {
     private DeliveryStatusCatalogItem()

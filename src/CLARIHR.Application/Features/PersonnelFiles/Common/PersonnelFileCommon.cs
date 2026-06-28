@@ -154,6 +154,20 @@ public static class PersonnelFilePermissionCodes
     public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
 
     /// <summary>
+    /// Dedicated permission to read employee economic-aid requests ("ayuda económica" — the emergency reason is
+    /// sensitive data, D-10). Lets configurable roles view another employee's requests; Admin is a superset.
+    /// Employees may read their OWN requests via a separate self-service check (D-02).
+    /// </summary>
+    public const string ViewEconomicAidRequests = "PersonnelFiles.ViewEconomicAidRequests";
+
+    /// <summary>
+    /// Dedicated permission to validate (approve/reject), disburse, edit and delete economic-aid requests
+    /// (D-03). Admin is a superset. Employees may CREATE and CANCEL their OWN pending requests via a separate
+    /// self-service check (D-02/D-11); validation is never self-service (no self-approval, D-03).
+    /// </summary>
+    public const string ManageEconomicAidRequests = "PersonnelFiles.ManageEconomicAidRequests";
+
+    /// <summary>
     /// Dedicated permission to design/publish/associate exit-interview forms (D-01). HR-only (no
     /// self-service — form building is design-time); Admin is a superset.
     /// </summary>

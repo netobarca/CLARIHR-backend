@@ -17,7 +17,8 @@ public enum FilePurpose
     CompanyLogo,
     Attachment,
     MedicalClaimDocument,
-    OffPayrollTransactionDocument
+    OffPayrollTransactionDocument,
+    EconomicAidRequestDocument
 }
 
 public enum StorageProvider

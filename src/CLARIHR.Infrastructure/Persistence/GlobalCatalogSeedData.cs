@@ -521,6 +521,28 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9365L, "SV", "REGALOS", "Regalos", 60),
     ];
 
+    public static IEnumerable<object> GetEconomicAidTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9520L, "SV", "EMERGENCIA_MEDICA", "Emergencia médica", 10),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9521L, "SV", "GASTOS_FUNEBRES", "Gastos fúnebres / fallecimiento de familiar", 20),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9522L, "SV", "DESASTRE_NATURAL", "Desastre natural", 30),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9523L, "SV", "INCENDIO_VIVIENDA", "Incendio o daño en vivienda", 40),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9524L, "SV", "CALAMIDAD_DOMESTICA", "Calamidad doméstica", 50),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9525L, "SV", "ACCIDENTE", "Accidente", 60),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_TYPE_CATALOG", -9526L, "SV", "OTRA", "Otra emergencia", 70),
+    ];
+
+    public static IEnumerable<object> GetEconomicAidStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9540L, "SV", "SOLICITADA", "Solicitada", 10),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9541L, "SV", "EN_REVISION", "En revisión", 20),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9542L, "SV", "PENDIENTE_DOCUMENTACION", "Pendiente de documentación", 30),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9543L, "SV", "APROBADA", "Aprobada", 40),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9544L, "SV", "RECHAZADA", "Rechazada", 50),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9545L, "SV", "DESEMBOLSADA", "Desembolsada", 60),
+        CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9546L, "SV", "ANULADA", "Anulada", 70),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

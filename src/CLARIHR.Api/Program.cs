@@ -508,6 +508,16 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageOffPayrollTransactions, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Economic-aid requests (D-02/D-03/D-10) — authn-only SUPERSETS for BOTH read and write, like medical
+    // claims: the employee creates/reads/cancels their OWN request (self-service) and HR validates. The precise
+    // gate (View/ManageEconomicAidRequests permission or Admin, OR the employee acting on their own request)
+    // lives in the economic-aid handlers; kept authn-only — NOT a RequireAssertion — so a self-service employee
+    // is never 403'd at the API layer before the handler's self-service / manage-only gate runs.
+    options.AddPolicy(PersonnelFilePolicies.ViewEconomicAidRequests, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageEconomicAidRequests, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Exit-interview form builder (D-01) — HR-only: designing/publishing/associating exit-interview forms is
     // not self-service. RequireAssertion like ManageCompetencies, kept a superset of the precise
     // EnsureCanManageExitInterviewFormsAsync handler gate.

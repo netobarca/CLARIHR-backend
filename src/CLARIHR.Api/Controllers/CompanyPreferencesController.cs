@@ -63,6 +63,7 @@ public sealed class CompanyPreferencesController(
                 request.TimeZone,
                 request.HrFunctionalAreaCode,
                 request.FileUpToDateThresholdMonths,
+                request.MinimumSeniorityMonthsForEconomicAid,
                 concurrencyToken),
             cancellationToken);
 
@@ -107,7 +108,9 @@ public sealed class CompanyPreferencesController(
         // HR analytics dashboard parametrization (optional): the FunctionalArea code that marks the HR area
         // (D-06) and the "expediente actualizado" window in months (D-08).
         string? HrFunctionalAreaCode = null,
-        int? FileUpToDateThresholdMonths = null);
+        int? FileUpToDateThresholdMonths = null,
+        // Economic-aid eligibility (D-08): minimum seniority in months to request economic aid (optional).
+        int? MinimumSeniorityMonthsForEconomicAid = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {
