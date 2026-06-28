@@ -248,6 +248,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CurrencyCatalogItem> CurrencyCatalogItems => Set<CurrencyCatalogItem>();
 
+    public DbSet<ContractTypeCatalogItem> ContractTypeCatalogItems => Set<ContractTypeCatalogItem>();
+
+    public DbSet<ActionTypeCatalogItem> ActionTypeCatalogItems => Set<ActionTypeCatalogItem>();
+
+    public DbSet<ActionStatusCatalogItem> ActionStatusCatalogItems => Set<ActionStatusCatalogItem>();
+
     public DbSet<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem> CompensationConceptTypeCatalogItems => Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>();
 
     public DbSet<PayPeriodCatalogItem> PayPeriodCatalogItems => Set<PayPeriodCatalogItem>();

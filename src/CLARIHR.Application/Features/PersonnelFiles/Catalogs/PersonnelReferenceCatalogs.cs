@@ -107,6 +107,9 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string ExperienceMetric = "ExperienceMetric";
     public const string OffPayrollTransactionType = "OffPayrollTransactionType";
     public const string FormControlType = "FormControlType";
+    public const string ContractType = "ContractType";
+    public const string ActionType = "ActionType";
+    public const string ActionStatus = "ActionStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

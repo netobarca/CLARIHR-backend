@@ -79,7 +79,11 @@ public sealed class ExitInterviewFormsController(
         return this.ToCreatedAtActionResult(
             result,
             nameof(GetExitInterviewFormById),
-            value => new { formId = value.Id },
+            // The GET-by-id route parameter is exposed publicly as {publicId} by PublicContractRouteConvention
+            // (it renames Guid route params that don't already end in "PublicId"). The CreatedAtAction route
+            // values must use that external name, otherwise Url.Action finds no match → the Location URL build
+            // throws after the row is already committed, surfacing as a 500 common.unexpected.
+            value => new { publicId = value.Id },
             value => value.ConcurrencyToken);
     }
 

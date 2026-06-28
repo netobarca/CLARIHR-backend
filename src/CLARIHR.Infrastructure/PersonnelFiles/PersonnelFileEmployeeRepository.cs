@@ -252,12 +252,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileContractHistory>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileContractHistory>()
+        // The just-added row is not persisted yet (SaveChanges runs in the handler), so an AsNoTracking
+        // re-query excludes it; append the in-memory entity so the new row is always present in the result
+        // (otherwise the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` 500s on every create).
+        var persisted = await dbContext.Set<PersonnelFileContractHistory>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.ContractDate)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileContractHistoryResponse?> UpdateContractHistoryAsync(
@@ -371,12 +376,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileCompensationConcept>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileCompensationConcept>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileCompensationConcept>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileCompensationConceptResponse?> UpdateCompensationConceptAsync(
@@ -483,12 +492,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileAdditionalBenefit>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileAdditionalBenefit>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileAdditionalBenefit>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.IsActive).ThenBy(item => item.BenefitTypeCode)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileAdditionalBenefitResponse?> UpdateAdditionalBenefitAsync(
@@ -571,12 +584,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileAuthorizationSubstitution>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileAuthorizationSubstitutionResponse?> UpdateAuthorizationSubstitutionAsync(
@@ -854,12 +871,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileAssetAccess>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileAssetAccess>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileAssetAccess>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDateUtc)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileAssetAccessResponse?> UpdateAssetAccessAsync(
@@ -950,13 +971,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileInsurance>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileInsurance>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create. The new
+        // insurance has an empty Beneficiaries collection, which Map renders as an empty array.
+        var persisted = await dbContext.Set<PersonnelFileInsurance>()
             .AsNoTracking()
             .Include(item => item.Beneficiaries)
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
-            .OrderByDescending(item => item.IsActive).ThenBy(item => item.InsuranceCode)
             .ToListAsync(cancellationToken);
-        return all.Select(Map).ToArray();
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.IsActive).ThenBy(item => item.InsuranceCode)
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileInsuranceResponse?> UpdateInsuranceAsync(
@@ -1182,12 +1208,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileMedicalClaim>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileMedicalClaim>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileMedicalClaim>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.ClaimDateUtc)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileMedicalClaimResponse?> UpdateMedicalClaimAsync(
@@ -1361,12 +1391,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileOffPayrollTransaction>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileOffPayrollTransaction>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.TransactionDateUtc)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileOffPayrollTransactionResponse?> UpdateOffPayrollTransactionAsync(
@@ -1543,12 +1577,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFilePerformanceEvaluation>().Add(entity);
-        var all = await dbContext.Set<PersonnelFilePerformanceEvaluation>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFilePerformanceEvaluation>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.EvaluationDateUtc)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFilePerformanceEvaluationResponse?> UpdatePerformanceEvaluationAsync(
@@ -1858,12 +1896,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileSelectionContest>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileSelectionContest>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileSelectionContest>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderByDescending(item => item.ContestDateUtc)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileSelectionContestResponse?> UpdateSelectionContestAsync(
@@ -1926,12 +1968,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         dbContext.Set<PersonnelFileCurricularCompetency>().Add(entity);
-        var all = await dbContext.Set<PersonnelFileCurricularCompetency>()
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it and
+        // the handler's `SingleOrDefault(... == entity.PublicId) ?? throw` would 500 on every create.
+        var persisted = await dbContext.Set<PersonnelFileCurricularCompetency>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
             .OrderBy(item => item.RequirementTypeCode).ThenBy(item => item.RequirementName)
-            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
-        return all;
+            .Select(Map)
+            .ToArray();
     }
 
     public async Task<PersonnelFileCurricularCompetencyResponse?> UpdateCurricularCompetencyAsync(

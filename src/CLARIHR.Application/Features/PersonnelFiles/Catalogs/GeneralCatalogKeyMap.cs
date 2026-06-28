@@ -49,6 +49,9 @@ public static class GeneralCatalogKeyMap
             ["experience-metrics"] = PersonnelCurriculumCatalogCategories.ExperienceMetric,
             ["off-payroll-transaction-types"] = PersonnelCurriculumCatalogCategories.OffPayrollTransactionType,
             ["form-control-types"] = PersonnelCurriculumCatalogCategories.FormControlType,
+            ["contract-types"] = PersonnelCurriculumCatalogCategories.ContractType,
+            ["action-types"] = PersonnelCurriculumCatalogCategories.ActionType,
+            ["action-statuses"] = PersonnelCurriculumCatalogCategories.ActionStatus,
         };
 
     /// <summary>

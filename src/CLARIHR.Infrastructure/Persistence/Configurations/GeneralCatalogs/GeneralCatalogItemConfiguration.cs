@@ -69,7 +69,8 @@ internal sealed class LanguageCatalogItemConfiguration
             "pk_language_catalog_items",
             "uq_language_catalog_items__public_id",
             "uq_language_catalog_items__country_code",
-            "ix_language_catalog_items__country_active_sort")
+            "ix_language_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetLanguageCatalogItems())
     {
     }
 }
@@ -83,7 +84,8 @@ internal sealed class LanguageLevelCatalogItemConfiguration
             "pk_language_level_catalog_items",
             "uq_language_level_catalog_items__public_id",
             "uq_language_level_catalog_items__country_code",
-            "ix_language_level_catalog_items__country_active_sort")
+            "ix_language_level_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetLanguageLevelCatalogItems())
     {
     }
 }
@@ -97,7 +99,8 @@ internal sealed class TrainingTypeCatalogItemConfiguration
             "pk_training_type_catalog_items",
             "uq_training_type_catalog_items__public_id",
             "uq_training_type_catalog_items__country_code",
-            "ix_training_type_catalog_items__country_active_sort")
+            "ix_training_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetTrainingTypeCatalogItems())
     {
     }
 }
@@ -126,7 +129,8 @@ internal sealed class PaymentMethodCatalogItemConfiguration
             "pk_payment_method_catalog_items",
             "uq_payment_method_catalog_items__public_id",
             "uq_payment_method_catalog_items__country_code",
-            "ix_payment_method_catalog_items__country_active_sort")
+            "ix_payment_method_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPaymentMethodCatalogItems())
     {
     }
 }
@@ -140,7 +144,8 @@ internal sealed class SubstitutionTypeCatalogItemConfiguration
             "pk_substitution_type_catalog_items",
             "uq_substitution_type_catalog_items__public_id",
             "uq_substitution_type_catalog_items__country_code",
-            "ix_substitution_type_catalog_items__country_active_sort")
+            "ix_substitution_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetSubstitutionTypeCatalogItems())
     {
     }
 }
@@ -154,7 +159,8 @@ internal sealed class MedicalClaimTypeCatalogItemConfiguration
             "pk_medical_claim_type_catalog_items",
             "uq_medical_claim_type_catalog_items__public_id",
             "uq_medical_claim_type_catalog_items__country_code",
-            "ix_medical_claim_type_catalog_items__country_active_sort")
+            "ix_medical_claim_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetMedicalClaimTypeCatalogItems())
     {
     }
 }
@@ -168,7 +174,8 @@ internal sealed class MedicalClaimStatusCatalogItemConfiguration
             "pk_medical_claim_status_catalog_items",
             "uq_medical_claim_status_catalog_items__public_id",
             "uq_medical_claim_status_catalog_items__country_code",
-            "ix_medical_claim_status_catalog_items__country_active_sort")
+            "ix_medical_claim_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetMedicalClaimStatusCatalogItems())
     {
     }
 }
@@ -182,7 +189,8 @@ internal sealed class AssetAccessTypeCatalogItemConfiguration
             "pk_asset_access_type_catalog_items",
             "uq_asset_access_type_catalog_items__public_id",
             "uq_asset_access_type_catalog_items__country_code",
-            "ix_asset_access_type_catalog_items__country_active_sort")
+            "ix_asset_access_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetAssetAccessTypeCatalogItems())
     {
     }
 }
@@ -197,7 +205,8 @@ internal sealed class OffPayrollTransactionTypeCatalogItemConfiguration
             "uq_off_payroll_transaction_type_catalog_items__public_id",
             "uq_off_payroll_transaction_type_catalog_items__country_code",
             // Shortened (drops "country_") to stay within PostgreSQL's 63-char identifier limit.
-            "ix_off_payroll_transaction_type_catalog_items__active_sort")
+            "ix_off_payroll_transaction_type_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetOffPayrollTransactionTypeCatalogItems())
     {
     }
 }
@@ -211,7 +220,8 @@ internal sealed class DeliveryStatusCatalogItemConfiguration
             "pk_delivery_status_catalog_items",
             "uq_delivery_status_catalog_items__public_id",
             "uq_delivery_status_catalog_items__country_code",
-            "ix_delivery_status_catalog_items__country_active_sort")
+            "ix_delivery_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetDeliveryStatusCatalogItems())
     {
     }
 }
@@ -240,7 +250,8 @@ internal sealed class DurationUnitCatalogItemConfiguration
             "pk_duration_unit_catalog_items",
             "uq_duration_unit_catalog_items__public_id",
             "uq_duration_unit_catalog_items__country_code",
-            "ix_duration_unit_catalog_items__country_active_sort")
+            "ix_duration_unit_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetDurationUnitCatalogItems())
     {
     }
 }
@@ -254,7 +265,8 @@ internal sealed class ReferenceTypeCatalogItemConfiguration
             "pk_reference_type_catalog_items",
             "uq_reference_type_catalog_items__public_id",
             "uq_reference_type_catalog_items__country_code",
-            "ix_reference_type_catalog_items__country_active_sort")
+            "ix_reference_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetReferenceTypeCatalogItems())
     {
     }
 }
@@ -268,7 +280,8 @@ internal sealed class CurrencyCatalogItemConfiguration
             "pk_currency_catalog_items",
             "uq_currency_catalog_items__public_id",
             "uq_currency_catalog_items__country_code",
-            "ix_currency_catalog_items__country_active_sort")
+            "ix_currency_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetCurrencyCatalogItems())
     {
     }
 }
@@ -312,6 +325,51 @@ internal sealed class ExperienceMetricCatalogItemConfiguration
             "uq_experience_metric_catalog_items__country_code",
             "ix_experience_metric_catalog_items__country_active_sort",
             GlobalCatalogSeedData.GetExperienceMetricCatalogItems())
+    {
+    }
+}
+
+internal sealed class ContractTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<ContractTypeCatalogItem>
+{
+    public ContractTypeCatalogItemConfiguration()
+        : base(
+            "contract_type_catalog_items",
+            "pk_contract_type_catalog_items",
+            "uq_contract_type_catalog_items__public_id",
+            "uq_contract_type_catalog_items__country_code",
+            "ix_contract_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetContractTypeCatalogItems())
+    {
+    }
+}
+
+internal sealed class ActionTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<ActionTypeCatalogItem>
+{
+    public ActionTypeCatalogItemConfiguration()
+        : base(
+            "action_type_catalog_items",
+            "pk_action_type_catalog_items",
+            "uq_action_type_catalog_items__public_id",
+            "uq_action_type_catalog_items__country_code",
+            "ix_action_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetActionTypeCatalogItems())
+    {
+    }
+}
+
+internal sealed class ActionStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<ActionStatusCatalogItem>
+{
+    public ActionStatusCatalogItemConfiguration()
+        : base(
+            "action_status_catalog_items",
+            "pk_action_status_catalog_items",
+            "uq_action_status_catalog_items__public_id",
+            "uq_action_status_catalog_items__country_code",
+            "ix_action_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetActionStatusCatalogItems())
     {
     }
 }

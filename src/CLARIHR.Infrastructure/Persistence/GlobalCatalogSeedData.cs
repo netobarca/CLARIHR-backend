@@ -432,6 +432,197 @@ internal static class GlobalCatalogSeedData
             ModifiedUtc = SeededAtUtc
         };
 
+    // ── Simple country-scoped general catalogs ──────────────────────────────────────────────────────────
+    // These catalogs back required `code` fields on personnel-file sections. They were previously seeded only
+    // by DevSeedService (dev environment, hard-coded dev tenant), so they came up EMPTY in every staging/prod
+    // tenant and hard-blocked data entry (frontend incident "Catálogos de personnel-files vacíos", 2026-06-27).
+    // Seeding them here via HasData lands them in EVERY environment through the migration pipeline (MigrateAsync)
+    // and backfills already-provisioned databases — same proven pattern as assignment-types / employment-statuses.
+    // Values mirror the dev seed verbatim. SV only for this phase; their DevSeedService blocks were removed to
+    // avoid colliding with these HasData rows on the (country, normalized_code) unique index.
+
+    public static IEnumerable<object> GetCurrencyCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CURRENCY_CATALOG", -9370L, "SV", "USD", "Dolar estadounidense", 10),
+    ];
+
+    public static IEnumerable<object> GetPaymentMethodCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PAYMENT_METHOD_CATALOG", -9320L, "SV", "TRANSFERENCIA", "Transferencia bancaria", 10),
+        CreateGeneralCatalogSeed("PAYMENT_METHOD_CATALOG", -9321L, "SV", "CHEQUE", "Cheque", 20),
+        CreateGeneralCatalogSeed("PAYMENT_METHOD_CATALOG", -9322L, "SV", "EFECTIVO", "Efectivo", 30),
+    ];
+
+    public static IEnumerable<object> GetSubstitutionTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9330L, "SV", "VACACIONES", "Vacaciones", 10),
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9331L, "SV", "INCAPACIDAD", "Incapacidad", 20),
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9332L, "SV", "PERMISO", "Permiso", 30),
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9333L, "SV", "MISION_OFICIAL", "Misión oficial", 40),
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9334L, "SV", "LICENCIA", "Licencia", 50),
+        CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9335L, "SV", "OTRO", "Otro", 60),
+    ];
+
+    public static IEnumerable<object> GetAssetAccessTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9300L, "SV", "EQUIPO_COMPUTO", "Equipo de cómputo", 10),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9301L, "SV", "TELEFONO_MOVIL", "Teléfono móvil", 20),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9302L, "SV", "UNIFORME", "Uniforme", 30),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9303L, "SV", "LICENCIA_SOFTWARE", "Licencia de software", 40),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9304L, "SV", "ACCESO_SISTEMA", "Acceso a sistema", 50),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9305L, "SV", "MOBILIARIO", "Mobiliario", 60),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9306L, "SV", "HERRAMIENTA", "Herramienta", 70),
+        CreateGeneralCatalogSeed("ASSET_ACCESS_TYPE_CATALOG", -9307L, "SV", "OTRO", "Otro", 80),
+    ];
+
+    public static IEnumerable<object> GetDeliveryStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9310L, "SV", "PENDIENTE", "Pendiente", 10),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9311L, "SV", "ENTREGADO", "Entregado", 20),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9312L, "SV", "EN_USO", "En uso", 30),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9313L, "SV", "DEVUELTO", "Devuelto", 40),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9314L, "SV", "EXTRAVIADO", "Extraviado", 50),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9315L, "SV", "DANADO", "Dañado", 60),
+        CreateGeneralCatalogSeed("DELIVERY_STATUS_CATALOG", -9316L, "SV", "NO_APLICA", "No aplica", 70),
+    ];
+
+    public static IEnumerable<object> GetMedicalClaimTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9340L, "SV", "AMBULATORIO", "Ambulatorio", 10),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9341L, "SV", "HOSPITALARIO", "Hospitalario", 20),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9342L, "SV", "EMERGENCIA", "Emergencia", 30),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9343L, "SV", "FARMACIA", "Farmacia", 40),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9344L, "SV", "LABORATORIO", "Laboratorio", 50),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9345L, "SV", "DENTAL", "Dental", 60),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9346L, "SV", "OFTALMOLOGICO", "Oftalmológico", 70),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9347L, "SV", "MATERNIDAD", "Maternidad", 80),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_TYPE_CATALOG", -9348L, "SV", "OTRO", "Otro", 90),
+    ];
+
+    public static IEnumerable<object> GetMedicalClaimStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9350L, "SV", "PRESENTADO", "Presentado", 10),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9351L, "SV", "EN_REVISION", "En revisión", 20),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9352L, "SV", "PENDIENTE_DOCUMENTACION", "Pendiente de documentación", 30),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9353L, "SV", "APROBADO", "Aprobado", 40),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9354L, "SV", "RECHAZADO", "Rechazado", 50),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9355L, "SV", "PAGADO", "Pagado", 60),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9356L, "SV", "PAGO_PARCIAL", "Pago parcial", 70),
+        CreateGeneralCatalogSeed("MEDICAL_CLAIM_STATUS_CATALOG", -9357L, "SV", "ANULADO", "Anulado", 80),
+    ];
+
+    public static IEnumerable<object> GetOffPayrollTransactionTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9360L, "SV", "HERRAMIENTAS", "Herramientas de trabajo", 10),
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9361L, "SV", "EPP", "Equipo de protección personal", 20),
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9362L, "SV", "UNIFORMES", "Uniformes", 30),
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9363L, "SV", "PROMOCIONALES", "Artículos promocionales", 40),
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9364L, "SV", "RECONOCIMIENTOS", "Reconocimientos", 50),
+        CreateGeneralCatalogSeed("OFF_PAYROLL_TRANSACTION_TYPE_CATALOG", -9365L, "SV", "REGALOS", "Regalos", 60),
+    ];
+
+    public static IEnumerable<object> GetLanguageCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
+        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9411L, "SV", "SPANISH", "Espanol", 20),
+    ];
+
+    public static IEnumerable<object> GetLanguageLevelCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9420L, "SV", "ADVANCED", "Avanzado", 10),
+        CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9421L, "SV", "INTERMEDIATE", "Intermedio", 20),
+        CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9422L, "SV", "BASIC", "Basico", 30),
+    ];
+
+    public static IEnumerable<object> GetTrainingTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9430L, "SV", "COURSE", "Curso", 10),
+        CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9431L, "SV", "WORKSHOP", "Taller", 20),
+        CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9432L, "SV", "CERTIFICATION", "Certificacion", 30),
+    ];
+
+    public static IEnumerable<object> GetDurationUnitCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("DURATION_UNIT_CATALOG", -9440L, "SV", "HOUR", "Hora", 10),
+        CreateGeneralCatalogSeed("DURATION_UNIT_CATALOG", -9441L, "SV", "DAY", "Dia", 20),
+    ];
+
+    public static IEnumerable<object> GetReferenceTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("REFERENCE_TYPE_CATALOG", -9450L, "SV", "PERSONAL", "Personal", 10),
+        CreateGeneralCatalogSeed("REFERENCE_TYPE_CATALOG", -9451L, "SV", "PROFESSIONAL", "Profesional", 20),
+    ];
+
+    // ── NEW catalogs (frontend incidents contract-history / personnel-actions, 2026-06-27) ───────────────
+    // contract-types backs the manual contract-history `contractTypeCode`; action-types / action-statuses back
+    // the personnel-actions journal `actionTypeCode` / `actionStatusCode` (previously free text → no catalog).
+
+    public static IEnumerable<object> GetContractTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9460L, "SV", "INDEFINIDO", "Contrato por tiempo indefinido", 10),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9461L, "SV", "PLAZO_FIJO", "Contrato a plazo fijo", 20),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9462L, "SV", "POR_OBRA", "Contrato por obra o labor", 30),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9463L, "SV", "EVENTUAL", "Contrato eventual", 40),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9464L, "SV", "APRENDIZAJE", "Contrato de aprendizaje", 50),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9465L, "SV", "SERVICIOS_PROFESIONALES", "Servicios profesionales", 60),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9466L, "SV", "TEMPORAL", "Contrato temporal", 70),
+        CreateGeneralCatalogSeed("CONTRACT_TYPE_CATALOG", -9467L, "SV", "OTRO", "Otro", 80),
+    ];
+
+    public static IEnumerable<object> GetActionTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9470L, "SV", "NOMBRAMIENTO", "Nombramiento", 10),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9471L, "SV", "CONTRATACION", "Contratación", 20),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9472L, "SV", "RECONTRATACION", "Recontratación", 30),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9473L, "SV", "ASCENSO", "Ascenso", 40),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9474L, "SV", "TRASLADO", "Traslado", 50),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9475L, "SV", "CAMBIO_PUESTO", "Cambio de puesto", 60),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9476L, "SV", "AUMENTO_SALARIAL", "Aumento salarial", 70),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9477L, "SV", "AMONESTACION", "Amonestación", 80),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9478L, "SV", "SUSPENSION", "Suspensión", 90),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9479L, "SV", "PERMISO", "Permiso", 100),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9480L, "SV", "REINTEGRO", "Reintegro", 110),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9481L, "SV", "OTRO", "Otro", 120),
+    ];
+
+    public static IEnumerable<object> GetActionStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9490L, "SV", "BORRADOR", "Borrador", 10),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9491L, "SV", "PENDIENTE", "Pendiente", 20),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9492L, "SV", "EN_TRAMITE", "En trámite", 30),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9493L, "SV", "APROBADA", "Aprobada", 40),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9494L, "SV", "RECHAZADA", "Rechazada", 50),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9495L, "SV", "APLICADA", "Aplicada", 60),
+        CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9496L, "SV", "ANULADA", "Anulada", 70),
+    ];
+
+    // Shared factory for the simple country-scoped general-catalog HasData rows above. Deterministic PublicId /
+    // ConcurrencyToken (via CreateSeedPublicId) keep the migration stable across runs; `seedPrefix` is unique
+    // per catalog so PublicIds never collide across catalogs.
+    private static object CreateGeneralCatalogSeed(
+        string seedPrefix,
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId(seedPrefix, $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId($"{seedPrefix}_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
     private static long ResolveCountryId(string countryCode) =>
         CLARIHR.Domain.Locations.CountryCatalog.Items
             .Single(item => string.Equals(item.Code, countryCode, StringComparison.OrdinalIgnoreCase))

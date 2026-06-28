@@ -17,6 +17,28 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Coded errors for the append-only personnel-actions journal. Every code has a matching entry in
+/// BackendMessages.resx and BackendMessages.es.resx (parity enforced by BackendMessageLocalizationTests).
+/// </summary>
+internal static class PersonnelActionErrors
+{
+    public static readonly Error ActionTypeCodeInvalid = new(
+        "ACTION_TYPE_CODE_INVALID",
+        "The personnel action type code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error ActionStatusCodeInvalid = new(
+        "ACTION_STATUS_CODE_INVALID",
+        "The personnel action status code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error CurrencyCodeInvalid = new(
+        "PERSONNEL_ACTION_CURRENCY_CODE_INVALID",
+        "The currency code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+}
+
 public sealed record PersonnelFilePersonnelActionResponse(
     Guid PersonnelActionPublicId,
     string ActionTypeCode,
@@ -101,6 +123,10 @@ internal sealed class PersonnelActionInputValidator : AbstractValidator<AddPerso
         RuleFor(command => command.ActionTypeCode).NotEmpty().MaximumLength(80);
         RuleFor(command => command.ActionStatusCode).NotEmpty().MaximumLength(80);
         RuleFor(command => command.ActionDateUtc).LessThanOrEqualTo(command => command.EffectiveToUtc!.Value).When(command => command.EffectiveToUtc.HasValue);
+        // Match the DB column lengths so an over-length value returns 400 (validation) instead of crashing the insert.
+        RuleFor(command => command.Description).MaximumLength(2000);
+        RuleFor(command => command.Reference).MaximumLength(120);
+        RuleFor(command => command.CurrencyCode).MaximumLength(40);
     }
 }
 
@@ -157,6 +183,28 @@ internal sealed class AddPersonnelFilePersonnelActionCommandHandler(
         if (!personnelFile!.IsCompletedEmployee)
         {
             return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        // actionTypeCode / actionStatusCode are country-scoped catalog codes (general-catalogs keys
+        // `action-types` / `action-statuses`); currencyCode (optional) is validated against `currencies`.
+        // Unknown/inactive codes return a controlled 422 instead of silently persisting free text.
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.ActionType, command.ActionTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelActionErrors.ActionTypeCodeInvalid);
+        }
+
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.ActionStatus, command.ActionStatusCode, cancellationToken))
+        {
+            return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelActionErrors.ActionStatusCodeInvalid);
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.CurrencyCode) &&
+            !await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.Currency, command.CurrencyCode, cancellationToken))
+        {
+            return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelActionErrors.CurrencyCodeInvalid);
         }
 
         var entity = PersonnelFilePersonnelAction.Create(

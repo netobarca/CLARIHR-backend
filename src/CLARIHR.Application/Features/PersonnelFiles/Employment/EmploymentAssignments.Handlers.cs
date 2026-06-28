@@ -182,7 +182,10 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             return failure;
         }
 
-        if (!personnelFile!.IsCompletedEmployee)
+        // Assigned positions are manageable for an Employee record in ANY lifecycle state (Draft included): a
+        // plaza must be addable BEFORE finalizing (the slot is the finalize prerequisite). Only the record type
+        // is gated — a Candidate record cannot hold employment assignments.
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
@@ -249,14 +252,20 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
         await employeeRepository.DemoteEmploymentAssignmentsAsync(
             personnelFile.TenantId, evaluation.Value.PrimariesToDemote, cancellationToken);
 
+        // Derive org-unit, work-center and contract type from the position slot so the assignment can never
+        // contradict its plaza (the frontend no longer sends these three — the slot is the single source of
+        // truth; it wins whenever it resolves a value). Cost center stays client-supplied because the slot
+        // resource does not expose its publicId.
+        var slotDefaults = await positionSlotRepository.GetResponseByIdAsync(item.PositionSlotId.Value, cancellationToken);
+
         var entity = PersonnelFileEmploymentAssignment.Create(
             item.AssignmentTypeCode,
-            item.ContractTypeCode,
+            slotDefaults?.ContractTypeCode ?? item.ContractTypeCode,
             item.WorkdayCode,
             item.PayrollTypeCode,
             item.PositionSlotId,
-            item.OrgUnitId,
-            item.WorkCenterId,
+            slotDefaults?.OrgUnitId ?? item.OrgUnitId,
+            slotDefaults?.WorkCenterId ?? item.WorkCenterId,
             item.CostCenterId,
             item.StartDate,
             item.EndDate,
@@ -324,7 +333,10 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             return failure;
         }
 
-        if (!personnelFile!.IsCompletedEmployee)
+        // Assigned positions are manageable for an Employee record in ANY lifecycle state (Draft included): a
+        // plaza must be addable BEFORE finalizing (the slot is the finalize prerequisite). Only the record type
+        // is gated — a Candidate record cannot hold employment assignments.
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
@@ -378,17 +390,23 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
         await employeeRepository.DemoteEmploymentAssignmentsAsync(
             personnelFile.TenantId, evaluation.Value.PrimariesToDemote, cancellationToken);
 
+        // Same slot-derivation as the create handler: org-unit, work-center and contract type follow the plaza
+        // (the slot wins whenever it resolves a value); cost center stays client-supplied.
+        var slotDefaults = command.Item.PositionSlotId is { } derivedSlotId
+            ? await positionSlotRepository.GetResponseByIdAsync(derivedSlotId, cancellationToken)
+            : null;
+
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
         var response = await employeeRepository.UpdateEmploymentAssignmentAsync(
             command.EmploymentAssignmentPublicId,
             personnelFile.TenantId,
             command.Item.AssignmentTypeCode,
-            command.Item.ContractTypeCode,
+            slotDefaults?.ContractTypeCode ?? command.Item.ContractTypeCode,
             command.Item.WorkdayCode,
             command.Item.PayrollTypeCode,
             command.Item.PositionSlotId,
-            command.Item.OrgUnitId,
-            command.Item.WorkCenterId,
+            slotDefaults?.OrgUnitId ?? command.Item.OrgUnitId,
+            slotDefaults?.WorkCenterId ?? command.Item.WorkCenterId,
             command.Item.CostCenterId,
             command.Item.StartDate,
             command.Item.EndDate,
@@ -449,7 +467,10 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             return failure;
         }
 
-        if (!personnelFile!.IsCompletedEmployee)
+        // Assigned positions are manageable for an Employee record in ANY lifecycle state (Draft included): a
+        // plaza must be addable BEFORE finalizing (the slot is the finalize prerequisite). Only the record type
+        // is gated — a Candidate record cannot hold employment assignments.
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
@@ -597,7 +618,9 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
             return failure;
         }
 
-        if (!personnelFile!.IsCompletedEmployee)
+        // Removing an assigned position is allowed for an Employee record in any lifecycle state (Draft included);
+        // see the create handler for the rationale. Only a Candidate record is blocked.
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
             return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
@@ -666,7 +689,10 @@ internal sealed class GetPersonnelFileEmploymentAssignmentsQueryHandler(
         GetPersonnelFileEmploymentAssignmentsQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>(
+        // Reading assigned positions is allowed in ANY state (Draft included): listing plazas is a query and a
+        // Draft file simply returns its (possibly empty) list instead of a 422 — the section must be readable
+        // before finalizing. Auth/not-found/tenant are still enforced by LoadForReadAsync.
+        var (failure, personnelFile) = await LoadForReadAsync<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,
@@ -694,7 +720,8 @@ internal sealed class GetPersonnelFileEmploymentAssignmentByIdQueryHandler(
         GetPersonnelFileEmploymentAssignmentByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileEmploymentAssignmentResponse>(
+        // Reading a single assigned position is allowed in any state (Draft included); see the list handler.
+        var (failure, personnelFile) = await LoadForReadAsync<PersonnelFileEmploymentAssignmentResponse>(
             query.PersonnelFileId,
             tenantContext,
             authorizationService,

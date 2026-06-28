@@ -530,3 +530,102 @@ public sealed class ExperienceMetricCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of employment contract types (general-catalogs key <c>contract-types</c>) backing
+/// the <c>contractTypeCode</c> of the manual contract-history endpoint. Mirrors
+/// <see cref="AssignmentTypeCatalogItem"/>; user-facing values are managed per country and seeded for SV.
+/// </summary>
+public sealed class ContractTypeCatalogItem : GeneralCatalogItem
+{
+    private ContractTypeCatalogItem()
+    {
+    }
+
+    private ContractTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ContractTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of personnel-action types (general-catalogs key <c>action-types</c>) backing the
+/// MANDATORY <c>actionTypeCode</c> of the append-only personnel-actions journal. Mirrors
+/// <see cref="AssignmentTypeCatalogItem"/>; seeded for SV (includes the RECONTRATACION code the rehire flow emits).
+/// </summary>
+public sealed class ActionTypeCatalogItem : GeneralCatalogItem
+{
+    private ActionTypeCatalogItem()
+    {
+    }
+
+    private ActionTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ActionTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of personnel-action statuses (general-catalogs key <c>action-statuses</c>) backing
+/// the MANDATORY <c>actionStatusCode</c> of the personnel-actions journal. Mirrors
+/// <see cref="AssignmentTypeCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class ActionStatusCatalogItem : GeneralCatalogItem
+{
+    private ActionStatusCatalogItem()
+    {
+    }
+
+    private ActionStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ActionStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

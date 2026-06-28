@@ -1328,6 +1328,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "EXPERIENCEMETRIC" => await GetCountryScopedCatalogItemsAsync<ExperienceMetricCatalogItem>(countryCatalogItemId.Value, "ExperienceMetric", cancellationToken),
             "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogItemsAsync<OffPayrollTransactionTypeCatalogItem>(countryCatalogItemId.Value, "OffPayrollTransactionType", cancellationToken),
             "FORMCONTROLTYPE" => await GetCountryScopedCatalogItemsAsync<FormControlTypeCatalogItem>(countryCatalogItemId.Value, "FormControlType", cancellationToken),
+            "CONTRACTTYPE" => await GetCountryScopedCatalogItemsAsync<ContractTypeCatalogItem>(countryCatalogItemId.Value, "ContractType", cancellationToken),
+            "ACTIONTYPE" => await GetCountryScopedCatalogItemsAsync<ActionTypeCatalogItem>(countryCatalogItemId.Value, "ActionType", cancellationToken),
+            "ACTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<ActionStatusCatalogItem>(countryCatalogItemId.Value, "ActionStatus", cancellationToken),
             _ => []
         };
     }
@@ -1456,6 +1459,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "EXPERIENCEMETRIC" => await IsCountryScopedCatalogCodeActiveAsync<ExperienceMetricCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "OFFPAYROLLTRANSACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "FORMCONTROLTYPE" => await IsCountryScopedCatalogCodeActiveAsync<FormControlTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CONTRACTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ContractTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ActionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<ActionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

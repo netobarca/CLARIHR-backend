@@ -1615,6 +1615,18 @@
   <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de asignacion no es valido para el catalogo activo.</value>
   </data>
+  <data name="CONTRACT_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de tipo de contrato no es valido para el catalogo activo.</value>
+  </data>
+  <data name="ACTION_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de tipo de accion de personal no es valido para el catalogo activo.</value>
+  </data>
+  <data name="ACTION_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de estado de accion de personal no es valido para el catalogo activo.</value>
+  </data>
+  <data name="PERSONNEL_ACTION_CURRENCY_CODE_INVALID" xml:space="preserve">
+    <value>El codigo de moneda no es valido para el catalogo activo.</value>
+  </data>
   <data name="COMPENSATION_CONCEPT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de concepto de compensacion no es valido para el catalogo activo.</value>
   </data>

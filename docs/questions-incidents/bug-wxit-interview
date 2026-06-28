@@ -1,0 +1,54 @@
+# BUG Backend — `POST /exit-interview-forms` devuelve 500 (`common.unexpected`)
+
+| Campo | Detalle |
+| --- | --- |
+| **De** | Equipo Frontend |
+| **Para** | Equipo Backend (.NET API) |
+| **Endpoint** | `POST /api/v1/exit-interview-forms` (Exit Interviews) |
+| **Severidad** | Alta — bloquea crear cualquier formulario de entrevista de retiro |
+| **Tipo** | Excepción no controlada del servidor (no es validación) |
+| **Fecha** | 2026-06-27 |
+
+## 1. Resumen
+
+Crear un formulario con un body **válido** (coincide con `CreateExitInterviewFormRequest`) devuelve **500 `common.unexpected`**. El POST ni siquiera declara 500 en el contrato; con body válido el peor caso esperable es 400/422.
+
+## 2. Evidencia — log real
+
+**Request (body exacto, coincide con el contrato `{ name, description, isAnonymous }`):**
+```json
+{ "name": "FEEDBACK-001", "description": "ES ANONIMO", "isAnonymous": true }
+```
+
+**Response:**
+```json
+{
+  "status": 500,
+  "title": "Ocurrio un error inesperado.",
+  "detail": "Ocurrio un error inesperado.",
+  "code": "common.unexpected",
+  "traceId": "00-276c8114e1a53cf248d5cf062c45be77-6dd8eb404fd90035-00"
+}
+```
+`companyId` (tenant): `4252b16d-af70-4290-804a-44ecc3d1e493`
+
+> Nota: con el **mismo nombre repetido** el endpoint sí responde correctamente `409 EXIT_INTERVIEW_FORM_NAME_DUPLICATE` — o sea, la validación de unicidad de nombre corre antes y funciona; la excepción ocurre **después**, en la creación.
+
+## 3. Descartado del lado FE/BFF
+
+- El body enviado es exactamente `CreateExitInterviewFormRequest` (`name` string, `description` string\|null, `isAnonymous` bool). Verificado contra el swagger en vivo.
+- El BFF solo forwardea (`POST /v1/exit-interview-forms`, `Authorization` + `companyId` del JWT) y propaga el 500 ya formado por el backend.
+- Un body inválido daría 400/422, nunca 500 → es una excepción no manejada server-side.
+
+## 4. Hipótesis a verificar (acota el stack trace)
+
+1. **¿Depende de `isAnonymous: true`?** El caso que falló es anónimo. Probar:
+   - `{ "name": "PRUEBA-NO-ANON", "description": "x", "isAnonymous": false }`
+   - `{ "name": "PRUEBA-ANON", "description": "x", "isAnonymous": true }`
+   Si `false` → 201 y `true` → 500, el bug está en la rama de creación anónima.
+2. **¿Seed/tenant?** Si ambos fallan, revisar si el tenant `4252b16d-…` tiene los catálogos/seed de entrevista de retiro provisionados (categorías/motivos/form-control-types país-scoped), o algún default que falte al crear el header.
+
+## 5. Acción requerida
+
+Revisar el stack trace de la excepción por el `traceId` `00-276c8114e1a53cf248d5cf062c45be77-6dd8eb404fd90035-00` y confirmar cuál de las dos hipótesis aplica.
+ 

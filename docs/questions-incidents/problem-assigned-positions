@@ -1,0 +1,37 @@
+# Hallazgo Backend — `assigned-positions` acepta campos derivables del position-slot
+
+| | |
+| --- | --- |
+| **Endpoint** | `POST` / `PUT` `/api/v1/personnel-files/{publicId}/assigned-positions` |
+| **Tipo** | Campos redundantes derivables de la plaza |
+| **Fecha** | 2026-06-27 |
+| **Estado** | 🟡 Abierto |
+
+## Problema
+
+El request acepta `orgUnitPublicId`, `workCenterPublicId` y `contractTypeCode`, pero los tres **ya están determinados por la plaza** (`positionSlotPublicId`). El `PositionSlotResponse` los expone resueltos:
+
+```
+orgUnitPublicId, workCenterPublicId, contractTypeCode  ← resueltos por la plaza
+costCenterCode                                          ← ⚠ solo el code, NO el publicId
+```
+
+Pedir que el cliente los reenvíe es redundante y permite mandar un valor que **contradiga** la plaza.
+
+## Acción FE (provisional)
+
+Removimos esos 3 inputs del editor; ya **no se envían** (llegan `null`). Asumimos que el backend los deriva de la plaza.
+`costCenterPublicId` **se mantiene** (la plaza no expone su `publicId`).
+
+> ⚠ Si el backend **no** deriva (persiste literal lo recibido), las asignaciones quedarían sin esos datos → revertir la remoción hasta que se implemente.
+
+## Preguntas al backend
+
+1. ¿El backend deriva `orgUnitPublicId`, `workCenterPublicId`, `contractTypeCode` de la plaza? Si no, ¿pueden implementarlo?
+2. Una vez derivados, ¿retirar esos 3 campos del request body?
+3. Si alguno puede diferir de la plaza por diseño (override), documentar la regla de precedencia.
+4. `costCenterPublicId`: ¿se deriva de la plaza, o es override válido (y exponer `costCenterPublicId` en `PositionSlotResponse`)?
+5. ¿Aplica igual a POST y PUT?
+
+Relacionado: [BUG-BACKEND-assignmentTypeCode-required-vs-spec.md](../25062026/BUG-BACKEND-assignmentTypeCode-required-vs-spec.md) (cerrado).
+ 

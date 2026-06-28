@@ -17,6 +17,18 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
+/// <summary>
+/// Coded errors for the manual contract-history endpoint. The code has a matching entry in
+/// BackendMessages.resx and BackendMessages.es.resx (parity enforced by BackendMessageLocalizationTests).
+/// </summary>
+internal static class ContractHistoryErrors
+{
+    public static readonly Error ContractTypeCodeInvalid = new(
+        "CONTRACT_TYPE_CODE_INVALID",
+        "The contract type code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+}
+
 internal sealed class AddPersonnelFileContractHistoryCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
@@ -46,6 +58,14 @@ internal sealed class AddPersonnelFileContractHistoryCommandHandler(
         if (!personnelFile!.IsCompletedEmployee)
         {
             return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        // contractTypeCode is a country-scoped catalog code (general-catalogs key `contract-types`). An
+        // inactive/unknown code returns a controlled 422 instead of crashing the insert with a free-text value.
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.ContractType, command.Item.ContractTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileContractHistoryResponse>.Failure(ContractHistoryErrors.ContractTypeCodeInvalid);
         }
 
         var entity = PersonnelFileContractHistory.Create(
@@ -121,6 +141,12 @@ internal sealed class UpdatePersonnelFileContractHistoryCommandHandler(
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.ContractType, command.Item.ContractTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileContractHistoryResponse>.Failure(ContractHistoryErrors.ContractTypeCodeInvalid);
         }
 
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
@@ -219,6 +245,12 @@ internal sealed class PatchPersonnelFileContractHistoryCommandHandler(
         }
 
         var input = state.ToInput();
+        if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
+                personnelFile.TenantId, PersonnelCurriculumCatalogCategories.ContractType, input.ContractTypeCode, cancellationToken))
+        {
+            return Result<PersonnelFileContractHistoryResponse>.Failure(ContractHistoryErrors.ContractTypeCodeInvalid);
+        }
+
         var response = await employeeRepository.PatchContractHistoryAsync(
             command.ContractHistoryPublicId,
             personnelFile.TenantId,
