@@ -83,6 +83,21 @@ public static class PersonnelFilePolicies
     public const string ManageOffPayrollTransactions = "PersonnelFiles.ManageOffPayrollTransactions";
 
     /// <summary>
+    /// Read policy for economic-aid sub-resources ("ayuda económica"). Authn-only superset: the precise check
+    /// (ViewEconomicAidRequests / Admin, or the employee reading their own requests) lives in the economic-aid
+    /// read handlers (self-service, D-02).
+    /// </summary>
+    public const string ViewEconomicAidRequests = "PersonnelFiles.ViewEconomicAidRequests";
+
+    /// <summary>
+    /// Write policy for economic-aid sub-resources. Authn-only superset: the precise check
+    /// (ManageEconomicAidRequests / Admin, or the employee creating/cancelling their own request) lives in the
+    /// economic-aid handlers. Kept authn-only — NOT a RequireAssertion — so a self-service employee is not
+    /// blocked at the API layer (validation stays manager-only via the handler gate, D-03).
+    /// </summary>
+    public const string ManageEconomicAidRequests = "PersonnelFiles.ManageEconomicAidRequests";
+
+    /// <summary>
     /// Write policy for the exit-interview form builder (D-01/D-14): the dedicated
     /// <c>PersonnelFiles.ManageExitInterviewForms</c> permission, or Admin / IAM super-admin. HR-only —
     /// designing/publishing/associating exit-interview forms is not self-service. Assigned to both the read

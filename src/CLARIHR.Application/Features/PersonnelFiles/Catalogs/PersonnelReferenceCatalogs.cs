@@ -110,6 +110,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string ContractType = "ContractType";
     public const string ActionType = "ActionType";
     public const string ActionStatus = "ActionStatus";
+    public const string EconomicAidType = "EconomicAidType";
+    public const string EconomicAidStatus = "EconomicAidStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

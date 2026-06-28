@@ -132,6 +132,30 @@ internal sealed class PersonnelFileAuthorizationService(
             RbacPermissionAction.Update,
             cancellationToken);
 
+    public Task<Result> EnsureCanViewEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewEconomicAidRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
+    public Task<Result> EnsureCanManageEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ManageEconomicAidRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Update,
+            cancellationToken);
+
     public Task<Result> EnsureCanManageExitInterviewFormsAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureHasAnyClaimAsync(
             companyId,
@@ -166,6 +190,19 @@ internal sealed class PersonnelFileAuthorizationService(
                 PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
             },
             RbacPermissionAction.Update,
+            cancellationToken);
+
+    public Task<Result> EnsureCanViewReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewReports.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Read.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
             cancellationToken);
 
     public async Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken)

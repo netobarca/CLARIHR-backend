@@ -171,6 +171,7 @@ public static class DependencyInjection
         services.AddScoped<LegalRepresentativePositionTitleCatalogSeedService>();
         services.AddScoped<LegalRepresentativeRepresentationTypeCatalogSeedService>();
         services.AddScoped<IPersonnelFileRepository, PersonnelFileRepository>();
+        services.AddScoped<IPersonnelFileDashboardRepository, PersonnelFileDashboardRepository>();
         services.AddScoped<IExitInterviewRepository, ExitInterviewRepository>();
         services.AddScoped<IEducationCatalogRepository, EducationCatalogRepository>();
         services.AddScoped<IDocumentTypeCatalogRepository, DocumentTypeCatalogs.DocumentTypeCatalogRepository>();

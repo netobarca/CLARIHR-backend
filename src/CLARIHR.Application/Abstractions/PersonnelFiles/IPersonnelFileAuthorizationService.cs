@@ -97,6 +97,25 @@ public interface IPersonnelFileAuthorizationService
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     /// <summary>
+    /// Role gate for reading economic-aid requests (the emergency reason is sensitive, D-10): the dedicated
+    /// <c>PersonnelFiles.ViewEconomicAidRequests</c> permission, or Admin / IAM super-admin. (Employees reading
+    /// their OWN requests are allowed by a separate self-service check — D-02.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for economic-aid requests (D-03): the dedicated <c>PersonnelFiles.ManageEconomicAidRequests</c>
+    /// permission, or Admin / IAM super-admin. Validation (approve/reject)/disburse/edit/delete are HR-only.
+    /// (Employees creating/cancelling their OWN pending requests are allowed by a separate self-service check —
+    /// D-02/D-11; validation is never self-service — no self-approval, D-03.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageEconomicAidRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
     /// Write gate for the exit-interview form builder (D-01): the dedicated
     /// <c>PersonnelFiles.ManageExitInterviewForms</c> permission, or Admin / IAM super-admin. HR-only —
     /// designing/publishing/associating exit-interview forms is not self-service.
@@ -120,6 +139,15 @@ public interface IPersonnelFileAuthorizationService
     /// </summary>
     // Fail-closed default so test doubles need not implement it; the production service overrides it.
     Task<Result> EnsureCanManageExitInterviewsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Read gate for the HR analytics dashboard: the dedicated <c>PersonnelFiles.ViewReports</c> permission,
+    /// or <c>PersonnelFiles.Read</c> / Admin / IAM super-admin (D-09 — a personnel-file reader may also see the
+    /// dashboards). Read-only aggregate data; no per-employee sensitive fields.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     Error TenantMismatch(RbacPermissionAction action);

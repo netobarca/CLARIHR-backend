@@ -5,7 +5,7 @@
 | **Tipo de documento** | Documentación de requerimientos / Análisis de Negocio (**validación + brechas**) |
 | **Audiencia** | Product Owner, Project Manager, UX/UI, QA, Equipo de Desarrollo, Gerencia de RRHH, Dirección |
 | **Módulos afectados** | Expedientes de Personal (`PersonnelFiles`) · Reportería/Analítica (`Reports`, `PersonnelFileReporting`) · Asignaciones/Plazas (`EmploymentAssignment` / `PositionSlot`) · Estructura organizacional (`OrgUnits`, `WorkCenters`, `JobProfiles`, `PositionCategory`, `OccupationalPyramidLevel`) · Acciones de personal (`PersonnelAction`) · Catálogos (`GeneralCatalogs` / `ReferenceCatalogs`) · Identidad/Permisos (`IdentityAccess`) |
-| **Estado** | **Borrador para validación.** Funcionalidad **parcialmente implementada** (existe una base analítica de expedientes); el tablero solicitado **NO está construido** en su mayoría. Decisiones **propuestas (P-xx)** + **preguntas abiertas (Q-xx)** pendientes de ratificación del negocio. · **Principio de alcance (confirmado 2026-06-27):** el tablero **solo consume módulos existentes**; los indicadores que dependen de módulos futuros (**Baja de Personal** → **bajas/rotación**) o de relaciones no listas (**nivel de pirámide**) **NO se construyen aquí**: se **referencian** y activan cuando esos módulos existan. |
+| **Estado** | **Borrador para validación.** Funcionalidad **parcialmente implementada** (existe una base analítica de expedientes); el tablero solicitado **NO está construido** en su mayoría. **Alcance de Fase 1 CERRADO** — decisiones ratificadas **D-01…D-14** (2026-06-27). · **Principio de alcance (confirmado 2026-06-27):** el tablero **solo consume módulos existentes**; los indicadores que dependen de módulos futuros (**Baja de Personal** → **bajas/rotación**) o de relaciones no listas (**nivel de pirámide**) **NO se construyen aquí**: se **referencian** y activan cuando esos módulos existan. |
 | **Versión** | v1 |
 | **Fecha** | 2026-06-27 |
 | **País de referencia** | El Salvador (SV) |
@@ -73,6 +73,13 @@ Aplicado a los indicadores y dimensiones solicitados:
 
 **Consecuencia para el alcance:** la **Fase 1** del tablero cubre **solo** los indicadores marcados *"Construir ahora"*. **Bajas, índice de rotación y el filtro por nivel de pirámide quedan diferidos** y se incorporarán **por referencia** cuando existan sus respectivos módulos/relaciones. Esto **reduce alcance y riesgo** y respeta el orden de construcción del producto.
 
+> ### Conclusión de la validación de módulos (verificada en código)
+> **El único MÓDULO faltante que bloquea indicadores del tablero es "Baja de Personal"** (bloquea **bajas** e **índice de rotación**). Verificado: no existe ningún flujo/comando de baja/separación/offboarding; la baja solo son **campos de referencia** en el perfil (`PersonnelFileEmployeeProfile.RetirementDate`/`RetirementCategoryCode`/`RetirementReasonCode`) + catálogos de motivos; el catálogo `action-types` **no tiene tipo BAJA**.
+>
+> **El "nivel de pirámide" NO es un módulo faltante**, sino una **relación de modelo pendiente dentro del módulo de puestos/competencias** (que **sí existe**): `JobProfile` **no tiene FK de nivel** (solo `OrgUnitId`, `ReportsToJobProfileId`, `PositionCategoryId`); el nivel vive **únicamente** en la matriz `JobProfileCompetencyExpectation.OccupationalPyramidLevelId`, donde un puesto puede tener expectativas en **varios** niveles → **no hay un nivel canónico único por puesto**. Habilitar el filtro requiere esa decisión/relación, no un módulo nuevo.
+>
+> **Todo lo demás está soportado por módulos existentes** (cadenas de FK verificadas): puesto (`assignment.PositionSlotPublicId → PositionSlot.JobProfileId → JobProfile`), tipo de puesto (`JobProfile.PositionCategoryId → PositionCategory`), centro de trabajo (`assignment.WorkCenterPublicId` / `PositionSlot.WorkCenterId`), unidad (`assignment.OrgUnitPublicId → OrgUnit`), área funcional (`OrgUnit.FunctionalAreaCatalogItemId`), jefe (`PositionSlot.DirectDependencyPositionSlotId` + ocupante vía asignación / `OrgUnit.ManagerEmployeeId`), edad (`BirthDate`), antigüedad (`HireDate`), estado civil (`MaritalStatus` + catálogo), altas (`HireDate`/onboarding). Lo **"nuevo"** que hay que construir es la **capa analítica del tablero** + **parametrización** (catálogos de rangos de edad/antigüedad, marcador de RRHH, umbral de "expediente actualizado") — **ninguno de ellos es un módulo** en el sentido de un subsistema funcional faltante.
+
 ---
 
 ### Estado actual verificado en el código (línea base "as-is")
@@ -116,6 +123,31 @@ Aplicado a los indicadores y dimensiones solicitados:
 | **P-10** | Catálogos a parametrizar + seed SV | Nuevos catálogos: **rangos de edad** y **rangos de antigüedad** (país-scoped, seed SV vía HasData, accedidos por key). HR-marker reutiliza `FunctionalArea`. | Q-10, Q-11 |
 | **P-11** | Año | "Año" = año de referencia que ancla series (altas/bajas/rotación) y *snapshot* de headcount al cierre del año/periodo. | Q-12 |
 | **P-12** | Tabulación/exportación | Reutilizar `report-export-jobs`; añadir resource keys de los nuevos datasets si se exporta cada gráfico. | Q-13 |
+
+---
+
+## Decisiones ratificadas — cierre de alcance Fase 1 (2026-06-27)
+
+> Respuestas del negocio a las preguntas Q-xx (sección 17). **Cierran el alcance de la Fase 1** y **reemplazan** las propuestas P-xx correspondientes.
+
+| # | Tema | Decisión ratificada |
+|---|---|---|
+| **D-01** | Naturaleza | Tablero **read-only**; se permite **drill-to-expediente** (abrir el expediente desde un gráfico). |
+| **D-02** | Altas / Bajas | **Altas SÍ** en Fase 1 (serie desde `HireDate`, opcional). **Bajas y rotación DIFERIDAS** al módulo *Baja de Personal*. |
+| **D-03** | Población base | **Solo empleados activos por defecto**, con **toggle** para incluir inactivos. |
+| **D-04** | Categorías | Desglose por **tipo de registro, estado de empleo, tipo de contrato, tipo de puesto, área funcional, unidad**; dimensiones resueltas por la **asignación activa**. |
+| **D-05** | Definición de jefe | **Dependencia directa de plaza** (`PositionSlot.DirectDependencyPositionSlotId`): el jefe = ocupante de la plaza superior (vía asignación activa). |
+| **D-06** | Identificación de RRHH | **Marcar un área funcional = RRHH** (parametrizable por empresa); ratio = (headcount con esa área ÷ headcount total) × 100. |
+| **D-07** | Nivel de pirámide | **Diferido** (fuera de Fase 1) hasta que exista la relación canónica puesto↔nivel. |
+| **D-08** | Expediente actualizado | `LifecycleStatus = Completed` **Y** `ModifiedAtUtc` dentro de un **umbral configurable** (default **12 meses**), parametrizable por empresa. |
+| **D-09** | Permiso | Permiso de lectura **dedicado** `PersonnelFiles.ViewReports` (satisfecho también por `Read`/`Admin`). |
+| **D-10** | Rangos edad/antigüedad | **Catálogos país-scoped, seed SV, editables.** Edad: **18-25, 26-35, 36-45, 46-55, 56+** (+ `<18` si aplica). Antigüedad: **<1, 1-3, 3-5, 5-10, 10+ años**. |
+| **D-11** | Exportación por indicador | **Fase 2** (no en el MVP). |
+| **D-12** | Tablero acotado a jefatura | **No** en Fase 1 (sin data-scoping por jefatura). |
+| **D-13** | Indicadores adicionales | **Añadir plazas vacantes vs. ocupadas** (`PositionSlot.MaxEmployees`/`OccupiedEmployees`). Nacionalidad/profesión/género como **desgloses opcionales**. |
+| **D-14** | Bajas/rotación (módulo futuro) | Confirmado **diferidas**: se incorporan por referencia cuando exista *Baja de Personal*. |
+
+**Alcance Fase 1 cerrado.** Indicadores: composición por categorías, edad (rangos), antigüedad (rangos), estado civil, **altas**, colaboradores por jefe, RRHH/100, expedientes actualizados/desactualizados, **plazas vacantes/ocupadas**. Filtros: año, área funcional, unidad, tipo de puesto, puesto, centro de trabajo. **Excluido de Fase 1:** bajas, rotación, nivel de pirámide.
 
 ---
 
@@ -168,8 +200,9 @@ La **validación en código** confirma que existe una **base analítica parcial*
    - Distribución por **antigüedad** (rangos **parametrizables**).
    - Distribución por **estado civil**.
 2. **Indicadores de estructura:**
-   - **Colaboradores por jefe** (tramo de control).
-   - **Personal de RRHH por cada 100 empleados** (con marcador parametrizable).
+   - **Colaboradores por jefe** (tramo de control; jefe = **dependencia directa de plaza** — D-05).
+   - **Personal de RRHH por cada 100 empleados** (marcador **área funcional = RRHH** — D-06).
+   - **Plazas vacantes vs. ocupadas** (`PositionSlot.MaxEmployees`/`OccupiedEmployees` — D-13).
 3. **Indicadores de calidad:**
    - **Expedientes actualizados vs. desactualizados** (regla + umbral configurable).
 4. **(Opcional) Altas:** serie de **altas** por periodo desde el flujo de alta/onboarding existente (`HireDate`). *(Las **bajas** NO — ver "Diferido".)*
@@ -257,6 +290,8 @@ La **validación en código** confirma que existe una **base analítica parcial*
 ---
 
 ### RF-003 — Cantidad de empleados por categorías (composición)
+
+> **Decisión ratificada (D-03/D-04):** población = **solo activos por defecto** + toggle para inactivos; categorías = tipo de registro, estado de empleo, tipo de contrato, tipo de puesto, área funcional, unidad (resueltas por la asignación activa).
 
 **Descripción:** Mostrar headcount **total** y **desglosado** por categoría: tipo de registro, **estado de empleo**, **tipo de contrato**, **tipo de puesto**, **área funcional** y **unidad**.
 
@@ -363,7 +398,9 @@ La **validación en código** confirma que existe una **base analítica parcial*
 
 ### RF-009 — Colaboradores por jefe (tramo de control)
 
-**Descripción:** Mostrar el **número de colaboradores por jefe**, usando la definición canónica de jefatura ratificada (P-05).
+> **Decisión ratificada (D-05):** jefe = **dependencia directa de plaza** (`PositionSlot.DirectDependencyPositionSlotId`); el jefe es el **ocupante** de la plaza superior, resuelto vía la asignación activa.
+
+**Descripción:** Mostrar el **número de colaboradores por jefe**, usando la definición canónica de jefatura ratificada (D-05).
 
 **Reglas de negocio:**
 - Definición canónica única (recomendado: dependencia directa de plaza). Documentar exclusiones (jefes sin colaboradores, colaboradores sin jefe).
@@ -379,6 +416,8 @@ La **validación en código** confirma que existe una **base analítica parcial*
 ---
 
 ### RF-010 — Personal de RRHH por cada 100 empleados
+
+> **Decisión ratificada (D-06):** "RRHH" se identifica **marcando un área funcional = RRHH** (`OrgUnit.FunctionalAreaCatalogItemId`), parametrizable por empresa.
 
 **Descripción:** Calcular el ratio `(Headcount de RRHH ÷ Headcount total) × 100`, identificando "RRHH" mediante un **marcador parametrizable** (área funcional/unidad).
 
@@ -396,6 +435,8 @@ La **validación en código** confirma que existe una **base analítica parcial*
 ---
 
 ### RF-011 — Expedientes actualizados vs. desactualizados
+
+> **Decisión ratificada (D-08):** actualizado = `LifecycleStatus = Completed` **Y** `ModifiedAtUtc` dentro de un **umbral configurable** (default **12 meses**), parametrizable por empresa.
 
 **Descripción:** Clasificar y graficar expedientes como **actualizados** o **desactualizados** según una **regla configurable**.
 
@@ -478,6 +519,23 @@ La **validación en código** confirma que existe una **base analítica parcial*
 
 **Prioridad:** Baja
 **Dependencias:** `ReportExportJob`, `ReportExportResources`.
+
+---
+
+### RF-016 — Plazas vacantes vs. ocupadas
+
+**Descripción:** Mostrar la **ocupación de plazas** (ocupadas vs. vacantes) por unidad, centro de trabajo y puesto, a partir de `PositionSlot.MaxEmployees` y `PositionSlot.OccupiedEmployees` (D-13).
+
+**Reglas de negocio:**
+- Vacantes = `MaxEmployees − OccupiedEmployees` por plaza (no negativo).
+- Respeta los filtros transversales (unidad, centro, puesto, área, tipo de puesto).
+
+**Criterios de aceptación:**
+- Dado el indicador, cuando se consulta, entonces se muestran plazas ocupadas y vacantes con su total.
+- Dado un filtro, entonces el conteo se restringe a la población filtrada.
+
+**Prioridad:** Media
+**Dependencias:** `PositionSlot` (`MaxEmployees`/`OccupiedEmployees`).
 
 ---
 

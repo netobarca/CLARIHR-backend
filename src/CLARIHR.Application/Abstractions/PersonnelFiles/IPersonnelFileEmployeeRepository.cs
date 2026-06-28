@@ -655,6 +655,83 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileEconomicAidRequestResponse>> AddEconomicAidRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileEconomicAidRequest entity,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEconomicAidRequestResponse?> UpdateEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        EconomicAidRequestInput input,
+        string currencyCode,
+        string? typeNameSnapshot,
+        CancellationToken cancellationToken);
+
+    Task<bool> SoftDeleteEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileEconomicAidRequestResponse>> GetEconomicAidRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEconomicAidRequestResponse?> GetEconomicAidRequestAsync(
+        Guid personnelFileId,
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken);
+
+    // Validation actions (resolve/disburse/cancel — D-03/D-09/D-11): load the tracked entity, apply the domain
+    // transition (handlers pre-validate so the domain guards never throw), and return the refreshed response.
+    Task<PersonnelFileEconomicAidRequestResponse?> ResolveEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        string targetStatusCode,
+        decimal? approvedAmount,
+        Guid decidedByUserId,
+        DateTime decidedAtUtc,
+        string? notes,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEconomicAidRequestResponse?> DisburseEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        decimal disbursedAmount,
+        DateTime disbursementDateUtc,
+        string? paymentMethodCode,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEconomicAidRequestResponse?> CancelEconomicAidRequestAsync(
+        Guid economicAidRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<long?> GetEconomicAidRequestInternalIdAsync(
+        Guid personnelFileId,
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken);
+
+    Task AddEconomicAidRequestDocumentAsync(
+        EconomicAidRequestDocument entity,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<EconomicAidRequestDocumentResponse>> GetEconomicAidRequestDocumentsAsync(
+        Guid economicAidRequestPublicId,
+        CancellationToken cancellationToken);
+
+    Task<EconomicAidRequestDocumentResponse?> GetEconomicAidRequestDocumentAsync(
+        Guid economicAidRequestPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken);
+
+    Task<EconomicAidRequestDocument?> GetEconomicAidRequestDocumentEntityAsync(
+        Guid economicAidRequestPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
         long personnelFileInternalId,
         Guid tenantId,
