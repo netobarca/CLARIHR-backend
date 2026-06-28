@@ -5,6 +5,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Reporting;
 using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Authorization;
@@ -184,6 +185,152 @@ public sealed class PersonnelFileReportingController(
     {
         var result = await queryDispatcher.SendAsync(
             new GetPersonnelFilesAnalyticsSummaryQuery(companyId, isActive, recordType, orgUnitId, minAge, maxAge, search),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/overview")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardOverviewResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — composition, demographics, structure and quality overview",
+        Description = """
+            Read-only aggregate indicators over the company's employees: headcount (total/active/inactive),
+            breakdowns by category (record type, employment status, contract type, position category,
+            functional area, org unit, work center), age and seniority distributions (parametrizable ranges),
+            marital status, expediente freshness (updated vs outdated — D-08), HR-staff-per-100 ratio (D-06)
+            and position occupancy (plazas ocupadas/vacantes — D-13). Honors the common dimension filters
+            (year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId) and the
+            includeInactive toggle (D-03). Requires the ViewReports or Read permission (gated in the handler).
+            """)]
+    public async Task<ActionResult<DashboardOverviewResponse>> DashboardOverview(
+        Guid companyId,
+        [FromQuery] int? year = null,
+        [FromQuery] Guid? functionalAreaId = null,
+        [FromQuery] Guid? orgUnitId = null,
+        [FromQuery] Guid? positionCategoryId = null,
+        [FromQuery] Guid? jobProfileId = null,
+        [FromQuery] Guid? workCenterId = null,
+        [FromQuery] bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardOverviewQuery(
+                companyId,
+                year,
+                functionalAreaId,
+                orgUnitId,
+                positionCategoryId,
+                jobProfileId,
+                workCenterId,
+                includeInactive),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/hires")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardHiresResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — hires (altas) time series for a year",
+        Description = """
+            Monthly count of hires for the requested year (defaults to the current year), derived from each
+            employee's HireDate (D-02). Honors the dimension filters. Bajas and turnover are DEFERRED to the
+            future "Baja de Personal" module. Note: a rehire overwrites HireDate, so a rehired employee counts
+            as a hire of the rehire year (R-03). Requires the ViewReports or Read permission.
+            """)]
+    public async Task<ActionResult<DashboardHiresResponse>> DashboardHires(
+        Guid companyId,
+        [FromQuery] int? year = null,
+        [FromQuery] Guid? functionalAreaId = null,
+        [FromQuery] Guid? orgUnitId = null,
+        [FromQuery] Guid? positionCategoryId = null,
+        [FromQuery] Guid? jobProfileId = null,
+        [FromQuery] Guid? workCenterId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardHiresQuery(
+                companyId,
+                year ?? DateTime.UtcNow.Year,
+                functionalAreaId,
+                orgUnitId,
+                positionCategoryId,
+                jobProfileId,
+                workCenterId),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/span-of-control")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardSpanOfControlResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — collaborators per manager (span of control)",
+        Description = """
+            Direct-report count per manager (D-05): the manager is the occupant of the slot referenced by the
+            report's DirectDependencyPositionSlotId. Includes the count of employees without a resolvable
+            manager. Honors the dimension filters and the includeInactive toggle. Requires ViewReports or Read.
+            """)]
+    public async Task<ActionResult<DashboardSpanOfControlResponse>> DashboardSpanOfControl(
+        Guid companyId,
+        [FromQuery] Guid? functionalAreaId = null,
+        [FromQuery] Guid? orgUnitId = null,
+        [FromQuery] Guid? positionCategoryId = null,
+        [FromQuery] Guid? jobProfileId = null,
+        [FromQuery] Guid? workCenterId = null,
+        [FromQuery] bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardSpanOfControlQuery(
+                companyId,
+                functionalAreaId,
+                orgUnitId,
+                positionCategoryId,
+                jobProfileId,
+                workCenterId,
+                includeInactive),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/metadata")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardMetadataResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — metadata (parametrizable ranges + settings)",
+        Description = """
+            The configured age and seniority range buckets (with numeric bounds, used to label the
+            distributions) plus the resolved company parametrization (the "expediente actualizado" threshold in
+            months and the HR functional-area marker, if set). Lets the frontend render legends and read the
+            current configuration. Requires the ViewReports or Read permission.
+            """)]
+    public async Task<ActionResult<DashboardMetadataResponse>> DashboardMetadata(
+        Guid companyId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardMetadataQuery(companyId),
             cancellationToken);
 
         return this.ToActionResult(result);

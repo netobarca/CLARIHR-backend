@@ -61,6 +61,8 @@ public sealed class CompanyPreferencesController(
                 companyId,
                 request.CurrencyCode,
                 request.TimeZone,
+                request.HrFunctionalAreaCode,
+                request.FileUpToDateThresholdMonths,
                 concurrencyToken),
             cancellationToken);
 
@@ -101,7 +103,11 @@ public sealed class CompanyPreferencesController(
 
     public sealed record UpdateCompanyPreferencesRequest(
         string CurrencyCode,
-        string TimeZone);
+        string TimeZone,
+        // HR analytics dashboard parametrization (optional): the FunctionalArea code that marks the HR area
+        // (D-06) and the "expediente actualizado" window in months (D-08).
+        string? HrFunctionalAreaCode = null,
+        int? FileUpToDateThresholdMonths = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

@@ -167,6 +167,14 @@ public static class PersonnelFilePermissionCodes
     /// superset. The employee may fill their OWN interview via a separate self-service check.
     /// </summary>
     public const string ManageExitInterviews = "PersonnelFiles.ManageExitInterviews";
+
+    /// <summary>
+    /// Dedicated permission to read the HR analytics dashboard (aggregate indicators over the personnel
+    /// padrón). Lets configurable roles see the dashboards without full personnel-file read; the regular
+    /// <see cref="Read"/> permission and <see cref="Admin"/> are supersets. The dashboard is read-only and
+    /// never exposes the per-employee sensitive data guarded by the dedicated View* permissions.
+    /// </summary>
+    public const string ViewReports = "PersonnelFiles.ViewReports";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

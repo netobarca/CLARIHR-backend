@@ -234,6 +234,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OffPayrollTransactionTypeCatalogItem> OffPayrollTransactionTypeCatalogItems => Set<OffPayrollTransactionTypeCatalogItem>();
 
+    public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
+
+    public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();
+
     public DbSet<DeliveryStatusCatalogItem> DeliveryStatusCatalogItems => Set<DeliveryStatusCatalogItem>();
 
     public DbSet<PaymentMethodCatalogItem> PaymentMethodCatalogItems => Set<PaymentMethodCatalogItem>();

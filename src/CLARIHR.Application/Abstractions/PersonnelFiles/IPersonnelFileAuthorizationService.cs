@@ -122,5 +122,14 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageExitInterviewsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for the HR analytics dashboard: the dedicated <c>PersonnelFiles.ViewReports</c> permission,
+    /// or <c>PersonnelFiles.Read</c> / Admin / IAM super-admin (D-09 — a personnel-file reader may also see the
+    /// dashboards). Read-only aggregate data; no per-employee sensitive fields.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

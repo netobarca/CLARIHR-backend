@@ -16,6 +16,8 @@ public sealed record CompanyPreferenceResponse(
     Guid Id,
     string CurrencyCode,
     string TimeZone,
+    string? HrFunctionalAreaCode,
+    int? FileUpToDateThresholdMonths,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -26,6 +28,8 @@ public sealed record UpdateCompanyPreferencesCommand(
     Guid CompanyId,
     string CurrencyCode,
     string TimeZone,
+    string? HrFunctionalAreaCode,
+    int? FileUpToDateThresholdMonths,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -61,6 +65,13 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
         RuleFor(command => command.TimeZone)
             .NotEmpty()
             .MaximumLength(100);
+        // HR analytics dashboard parametrization (optional). The marker is a FunctionalArea code; the
+        // threshold (months) must be positive when provided (matches the domain SetDashboardSettings guard).
+        RuleFor(command => command.HrFunctionalAreaCode)
+            .MaximumLength(80);
+        RuleFor(command => command.FileUpToDateThresholdMonths)
+            .GreaterThan(0)
+            .When(static command => command.FileUpToDateThresholdMonths.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -134,6 +145,10 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
         }
 
         var before = CompanyPreferenceAdministrationHelpers.Map(preference);
+
+        // Dashboard parametrization is set on the same tracked entity; ApplyUpdateAndAuditAsync persists it in
+        // the same transaction (the shared helper still drives currency/time-zone + audit + concurrency).
+        preference.SetDashboardSettings(command.HrFunctionalAreaCode, command.FileUpToDateThresholdMonths);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -391,6 +406,8 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.PublicId,
             preference.CurrencyCode,
             preference.TimeZone,
+            preference.HrFunctionalAreaCode,
+            preference.FileUpToDateThresholdMonths,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

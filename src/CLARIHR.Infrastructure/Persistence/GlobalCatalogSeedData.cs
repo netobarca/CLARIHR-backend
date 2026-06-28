@@ -596,6 +596,68 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_STATUS_CATALOG", -9496L, "SV", "ANULADA", "Anulada", 70),
     ];
 
+    // HR analytics dashboard — parametrizable AGE ranges (D-10). Bounds in whole years, inclusive; null upper = open.
+    public static IEnumerable<object> GetAgeRangeCatalogItems() =>
+    [
+        CreateAgeRangeSeed(-9500L, "SV", "EDAD_18_25", "18 a 25 años", 10, 18, 25),
+        CreateAgeRangeSeed(-9501L, "SV", "EDAD_26_35", "26 a 35 años", 20, 26, 35),
+        CreateAgeRangeSeed(-9502L, "SV", "EDAD_36_45", "36 a 45 años", 30, 36, 45),
+        CreateAgeRangeSeed(-9503L, "SV", "EDAD_46_55", "46 a 55 años", 40, 46, 55),
+        CreateAgeRangeSeed(-9504L, "SV", "EDAD_56_MAS", "56 años o más", 50, 56, null),
+    ];
+
+    // HR analytics dashboard — parametrizable SENIORITY (antigüedad) ranges (D-10). Bounds in whole months, inclusive.
+    public static IEnumerable<object> GetSeniorityRangeCatalogItems() =>
+    [
+        CreateSeniorityRangeSeed(-9510L, "SV", "ANT_0_1", "Menos de 1 año", 10, 0, 11),
+        CreateSeniorityRangeSeed(-9511L, "SV", "ANT_1_3", "1 a 3 años", 20, 12, 35),
+        CreateSeniorityRangeSeed(-9512L, "SV", "ANT_3_5", "3 a 5 años", 30, 36, 59),
+        CreateSeniorityRangeSeed(-9513L, "SV", "ANT_5_10", "5 a 10 años", 40, 60, 119),
+        CreateSeniorityRangeSeed(-9514L, "SV", "ANT_10_MAS", "10 años o más", 50, 120, null),
+    ];
+
+    private static object CreateAgeRangeSeed(
+        long id, string countryCode, string code, string name, int sortOrder, int lowerBoundYears, int? upperBoundYears) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("AGE_RANGE_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            LowerBoundYears = lowerBoundYears,
+            UpperBoundYears = upperBoundYears,
+            ConcurrencyToken = CreateSeedPublicId("AGE_RANGE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static object CreateSeniorityRangeSeed(
+        long id, string countryCode, string code, string name, int sortOrder, int lowerBoundMonths, int? upperBoundMonths) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("SENIORITY_RANGE_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            LowerBoundMonths = lowerBoundMonths,
+            UpperBoundMonths = upperBoundMonths,
+            ConcurrencyToken = CreateSeedPublicId("SENIORITY_RANGE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
     // Shared factory for the simple country-scoped general-catalog HasData rows above. Deterministic PublicId /
     // ConcurrencyToken (via CreateSeedPublicId) keep the migration stable across runs; `seedPrefix` is unique
     // per catalog so PublicIds never collide across catalogs.

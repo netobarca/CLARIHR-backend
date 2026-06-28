@@ -419,7 +419,7 @@ public sealed class CompanyPreferenceAdministrationTests
         var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
-            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", Guid.NewGuid()),
+            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", null, null, Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -443,7 +443,7 @@ public sealed class CompanyPreferenceAdministrationTests
         var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
-            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", expectedToken),
+            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", null, null, expectedToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);

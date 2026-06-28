@@ -31,6 +31,13 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
             .HasColumnName("time_zone")
             .HasMaxLength(100);
 
+        builder.Property(preference => preference.HrFunctionalAreaCode)
+            .HasColumnName("hr_functional_area_code")
+            .HasMaxLength(80);
+
+        builder.Property(preference => preference.FileUpToDateThresholdMonths)
+            .HasColumnName("file_up_to_date_threshold_months");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();
