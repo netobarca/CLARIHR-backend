@@ -156,6 +156,30 @@ internal sealed class PersonnelFileAuthorizationService(
             RbacPermissionAction.Update,
             cancellationToken);
 
+    public Task<Result> EnsureCanViewCertificateRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewCertificateRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
+    public Task<Result> EnsureCanManageCertificateRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ManageCertificateRequests.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Update,
+            cancellationToken);
+
     public Task<Result> EnsureCanManageExitInterviewFormsAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureHasAnyClaimAsync(
             companyId,

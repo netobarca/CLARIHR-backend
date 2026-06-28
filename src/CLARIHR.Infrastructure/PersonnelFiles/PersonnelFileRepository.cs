@@ -1466,6 +1466,10 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "ACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<ActionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ECONOMICAIDTYPE" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ECONOMICAIDSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATETYPE" => await IsCountryScopedCatalogCodeActiveAsync<CertificateTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATEREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<CertificateRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATEDELIVERYMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<CertificateDeliveryMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATEPURPOSE" => await IsCountryScopedCatalogCodeActiveAsync<CertificatePurposeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }
@@ -1489,6 +1493,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         {
             "OFFPAYROLLTRANSACTIONTYPE" => await GetCountryScopedCatalogNameAsync<OffPayrollTransactionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ECONOMICAIDTYPE" => await GetCountryScopedCatalogNameAsync<EconomicAidTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATETYPE" => await GetCountryScopedCatalogNameAsync<CertificateTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATEPURPOSE" => await GetCountryScopedCatalogNameAsync<CertificatePurposeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CERTIFICATEDELIVERYMETHOD" => await GetCountryScopedCatalogNameAsync<CertificateDeliveryMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => null
         };
     }

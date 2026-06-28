@@ -112,6 +112,10 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string ActionStatus = "ActionStatus";
     public const string EconomicAidType = "EconomicAidType";
     public const string EconomicAidStatus = "EconomicAidStatus";
+    public const string CertificateType = "CertificateType";
+    public const string CertificateRequestStatus = "CertificateRequestStatus";
+    public const string CertificateDeliveryMethod = "CertificateDeliveryMethod";
+    public const string CertificatePurpose = "CertificatePurpose";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

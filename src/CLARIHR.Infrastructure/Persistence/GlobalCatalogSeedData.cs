@@ -543,6 +543,44 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ECONOMIC_AID_STATUS_CATALOG", -9546L, "SV", "ANULADA", "Anulada", 70),
     ];
 
+    // Certificate ("constancia") catalogs — D-18/D-19. Type codes drive the PDF layout / salary printing.
+    public static IEnumerable<object> GetCertificateTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9560L, "SV", "CONSTANCIA_SALARIO", "Constancia de salario", 10),
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9561L, "SV", "CONSTANCIA_LABORAL", "Constancia de trabajo (laboral)", 20),
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9562L, "SV", "CONSTANCIA_EMBAJADA", "Constancia para embajada", 30),
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9563L, "SV", "CONSTANCIA_TIEMPO_LABORADO", "Constancia de tiempo laborado", 40),
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9564L, "SV", "CONSTANCIA_NO_DESCUENTO", "Constancia de no descuento", 50),
+        CreateGeneralCatalogSeed("CERTIFICATE_TYPE_CATALOG", -9565L, "SV", "CARTA_RECOMENDACION", "Carta de recomendación laboral", 60),
+    ];
+
+    public static IEnumerable<object> GetCertificateRequestStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9570L, "SV", "SOLICITADA", "Solicitada", 10),
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9571L, "SV", "EN_PROCESO", "En proceso", 20),
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9572L, "SV", "EMITIDA", "Emitida", 30),
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9573L, "SV", "ENTREGADA", "Entregada", 40),
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9574L, "SV", "RECHAZADA", "Rechazada", 50),
+        CreateGeneralCatalogSeed("CERTIFICATE_REQUEST_STATUS_CATALOG", -9575L, "SV", "ANULADA", "Anulada", 60),
+    ];
+
+    public static IEnumerable<object> GetCertificateDeliveryMethodCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CERTIFICATE_DELIVERY_METHOD_CATALOG", -9580L, "SV", "PRESENCIAL", "Entrega presencial", 10),
+        CreateGeneralCatalogSeed("CERTIFICATE_DELIVERY_METHOD_CATALOG", -9581L, "SV", "CORREO_ELECTRONICO", "Correo electrónico", 20),
+        CreateGeneralCatalogSeed("CERTIFICATE_DELIVERY_METHOD_CATALOG", -9582L, "SV", "PORTAL", "Descarga desde el portal", 30),
+    ];
+
+    public static IEnumerable<object> GetCertificatePurposeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9590L, "SV", "TRAMITE_BANCARIO", "Trámite bancario", 10),
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9591L, "SV", "CREDITO", "Solicitud de crédito", 20),
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9592L, "SV", "VISA_EMBAJADA", "Visa / trámite ante embajada", 30),
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9593L, "SV", "TRAMITE_MIGRATORIO", "Trámite migratorio", 40),
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9594L, "SV", "USO_PERSONAL", "Uso personal", 50),
+        CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9595L, "SV", "OTRO", "Otro", 60),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

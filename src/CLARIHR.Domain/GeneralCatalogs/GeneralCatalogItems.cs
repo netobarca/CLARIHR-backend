@@ -346,6 +346,131 @@ public sealed class EconomicAidStatusCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+/// <summary>
+/// Catalog of employee certificate ("constancia") types: salario, laboral, embajada, tiempo laborado,
+/// no descuento, carta de recomendación. Country-scoped and user-managed (the <c>Code</c> is entered by
+/// the administrator). The canonical codes (CONSTANCIA_SALARIO, CONSTANCIA_EMBAJADA) drive whether the
+/// generated PDF prints salary (D-15/D-20).
+/// </summary>
+public sealed class CertificateTypeCatalogItem : GeneralCatalogItem
+{
+    private CertificateTypeCatalogItem()
+    {
+    }
+
+    private CertificateTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CertificateTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Catalog of certificate-request statuses ("estados de la solicitud": SOLICITADA, EN_PROCESO, EMITIDA,
+/// ENTREGADA, RECHAZADA, ANULADA). Country-scoped; codes are structural (seeded). The linear lifecycle
+/// (D-04) references the canonical codes in <c>CertificateRequestStatuses</c>.
+/// </summary>
+public sealed class CertificateRequestStatusCatalogItem : GeneralCatalogItem
+{
+    private CertificateRequestStatusCatalogItem()
+    {
+    }
+
+    private CertificateRequestStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CertificateRequestStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>Catalog of certificate delivery methods ("medio de entrega": presencial, correo, portal). Country-scoped (D-18).</summary>
+public sealed class CertificateDeliveryMethodCatalogItem : GeneralCatalogItem
+{
+    private CertificateDeliveryMethodCatalogItem()
+    {
+    }
+
+    private CertificateDeliveryMethodCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CertificateDeliveryMethodCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>Catalog of certificate purposes ("propósito": trámite bancario, crédito, visa/embajada, etc.). Country-scoped (D-18).</summary>
+public sealed class CertificatePurposeCatalogItem : GeneralCatalogItem
+{
+    private CertificatePurposeCatalogItem()
+    {
+    }
+
+    private CertificatePurposeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CertificatePurposeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 public sealed class DeliveryStatusCatalogItem : GeneralCatalogItem
 {
     private DeliveryStatusCatalogItem()

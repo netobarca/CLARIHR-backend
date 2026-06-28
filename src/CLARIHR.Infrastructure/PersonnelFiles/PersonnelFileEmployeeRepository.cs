@@ -2627,6 +2627,401 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Select(item => (long?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
+    public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileCertificateRequest entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileCertificateRequest>().Add(entity);
+        var persisted = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.RequestDateUtc)
+            .Select(MapCertificateRequest)
+            .ToArray();
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> UpdateCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CertificateRequestInput input,
+        string? typeNameSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(input.TypeCode, typeNameSnapshot, input.PurposeCode, input.AddressedTo, input.DeliveryMethodCode, input.LanguageCode ?? "es", input.Copies ?? 1, input.NeededByDateUtc);
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<bool> SoftDeleteCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.SetActive(false);
+        return true;
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> GetCertificateRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileCertificateRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.RequestDateUtc)
+            .Select(item => MapCertificateRequest(item))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileCertificateRequestResponse?> GetCertificateRequestAsync(
+        Guid personnelFileId,
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == certificateRequestPublicId, cancellationToken);
+        return item is null ? null : MapCertificateRequest(item);
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> ProcessCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.StartProcessing();
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> IssueCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        Guid issuedByUserId,
+        DateTime issuedAtUtc,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Issue(issuedByUserId, issuedAtUtc, notes);
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> DeliverCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        DateTime deliveredAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Deliver(deliveredAtUtc);
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> RejectCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Reject(notes);
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<PersonnelFileCertificateRequestResponse?> CancelCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCertificateRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == certificateRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Cancel();
+        return MapCertificateRequest(item);
+    }
+
+    public async Task<long?> GetCertificateRequestInternalIdAsync(
+        Guid personnelFileId,
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileCertificateRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == certificateRequestPublicId)
+            .Select(item => (long?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    private static PersonnelFileCertificateRequestResponse MapCertificateRequest(PersonnelFileCertificateRequest item) =>
+        new(
+            item.PublicId,
+            item.CertificateTypeCode,
+            item.TypeNameSnapshot,
+            item.RequestStatusCode,
+            item.PurposeCode,
+            item.AddressedTo,
+            item.DeliveryMethodCode,
+            item.LanguageCode,
+            item.Copies,
+            item.RequestDateUtc,
+            item.NeededByDateUtc,
+            item.RequestedByUserId,
+            item.IssuedByUserId,
+            item.IssuedDateUtc,
+            item.DeliveredDateUtc,
+            item.ResolutionNotes,
+            item.ResponseTimeDays,
+            item.IsActive,
+            item.ConcurrencyToken);
+
+    public async Task AddCertificateRequestDocumentAsync(
+        CertificateRequestDocument entity,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.Set<CertificateRequestDocument>().AddAsync(entity, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<CertificateRequestDocumentResponse>> GetCertificateRequestDocumentsAsync(
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<CertificateRequestDocument>()
+            .AsNoTracking()
+            .Where(document => document.CertificateRequest.PublicId == certificateRequestPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .Select(document => MapCertificateRequestDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<CertificateRequestDocumentResponse?> GetCertificateRequestDocumentAsync(
+        Guid certificateRequestPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<CertificateRequestDocument>()
+            .AsNoTracking()
+            .Where(document => document.CertificateRequest.PublicId == certificateRequestPublicId && document.PublicId == documentPublicId)
+            .Select(document => MapCertificateRequestDocument(document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<CertificateRequestDocument?> GetCertificateRequestDocumentEntityAsync(
+        Guid certificateRequestPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<CertificateRequestDocument>()
+            .SingleOrDefaultAsync(
+                document => document.CertificateRequest.PublicId == certificateRequestPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static CertificateRequestDocumentResponse MapCertificateRequestDocument(CertificateRequestDocument document) =>
+        new(
+            document.PublicId,
+            document.IsSystemGenerated,
+            document.Observations,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.IsActive,
+            document.ConcurrencyToken,
+            document.CreatedUtc,
+            document.ModifiedUtc);
+
+    private IQueryable<PersonnelFileCertificateRequest> FilteredCertificateRequests(
+        Guid companyId,
+        string? typeCode,
+        string? statusCode,
+        string? purposeCode,
+        Guid? employeeId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? search)
+    {
+        var query = dbContext.Set<PersonnelFileCertificateRequest>()
+            .AsNoTracking()
+            .Where(request => request.TenantId == companyId && request.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(typeCode))
+        {
+            var code = typeCode.Trim().ToUpperInvariant();
+            query = query.Where(request => request.CertificateTypeCode == code);
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var code = statusCode.Trim().ToUpperInvariant();
+            query = query.Where(request => request.RequestStatusCode == code);
+        }
+
+        if (!string.IsNullOrWhiteSpace(purposeCode))
+        {
+            var code = purposeCode.Trim().ToUpperInvariant();
+            query = query.Where(request => request.PurposeCode == code);
+        }
+
+        if (employeeId is { } personnelFilePublicId)
+        {
+            query = query.Where(request => request.PersonnelFile.PublicId == personnelFilePublicId);
+        }
+
+        if (fromUtc is { } from)
+        {
+            query = query.Where(request => request.RequestDateUtc >= from);
+        }
+
+        if (toUtc is { } to)
+        {
+            query = query.Where(request => request.RequestDateUtc <= to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToUpperInvariant();
+            query = query.Where(request =>
+                (request.AddressedTo != null && request.AddressedTo.ToUpper().Contains(term))
+                || (request.PersonnelFile.FirstName + " " + request.PersonnelFile.LastName).ToUpper().Contains(term));
+        }
+
+        return query;
+    }
+
+    public async Task<CertificateRequestBandejaResponse> QueryCertificateRequestsAsync(
+        Guid companyId,
+        string? typeCode,
+        string? statusCode,
+        string? purposeCode,
+        Guid? employeeId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = FilteredCertificateRequests(companyId, typeCode, statusCode, purposeCode, employeeId, fromUtc, toUtc, search);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var statusGroups = await query
+            .GroupBy(request => request.RequestStatusCode)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        var page = await query
+            .OrderByDescending(request => request.RequestDateUtc)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(request => new
+            {
+                request.PublicId,
+                PersonnelFilePublicId = request.PersonnelFile.PublicId,
+                request.PersonnelFile.FirstName,
+                request.PersonnelFile.LastName,
+                request.CertificateTypeCode,
+                request.TypeNameSnapshot,
+                request.PurposeCode,
+                request.RequestStatusCode,
+                request.AddressedTo,
+                request.DeliveryMethodCode,
+                request.RequestDateUtc,
+                request.IssuedDateUtc,
+                request.DeliveredDateUtc,
+                request.IssuedByUserId,
+                request.ResponseTimeDays
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = page
+            .Select(request => new CertificateRequestListItemResponse(
+                request.PublicId,
+                request.PersonnelFilePublicId,
+                $"{request.FirstName} {request.LastName}".Trim(),
+                request.CertificateTypeCode,
+                request.TypeNameSnapshot,
+                request.PurposeCode,
+                request.RequestStatusCode,
+                request.AddressedTo,
+                request.DeliveryMethodCode,
+                request.RequestDateUtc,
+                request.IssuedDateUtc,
+                request.DeliveredDateUtc,
+                request.IssuedByUserId,
+                request.ResponseTimeDays))
+            .ToArray();
+
+        return new CertificateRequestBandejaResponse(
+            items,
+            pageNumber,
+            pageSize,
+            totalCount,
+            statusGroups.ToDictionary(group => group.Status, group => group.Count));
+    }
+
+    public async Task<IReadOnlyCollection<CertificateRequestExportRow>> GetCertificateRequestExportRowsAsync(
+        Guid companyId,
+        string? typeCode,
+        string? statusCode,
+        string? purposeCode,
+        Guid? employeeId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? search,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query = FilteredCertificateRequests(companyId, typeCode, statusCode, purposeCode, employeeId, fromUtc, toUtc, search);
+        var take = maxRows is > 0 ? maxRows.Value : 100_000;
+
+        var rows = await query
+            .OrderByDescending(request => request.RequestDateUtc)
+            .Take(take)
+            .Select(request => new
+            {
+                request.PersonnelFile.FirstName,
+                request.PersonnelFile.LastName,
+                request.CertificateTypeCode,
+                request.TypeNameSnapshot,
+                request.PurposeCode,
+                request.RequestStatusCode,
+                request.AddressedTo,
+                request.DeliveryMethodCode,
+                request.RequestDateUtc,
+                request.IssuedDateUtc,
+                request.DeliveredDateUtc,
+                request.ResponseTimeDays
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(request => new CertificateRequestExportRow(
+                $"{request.FirstName} {request.LastName}".Trim(),
+                request.TypeNameSnapshot ?? request.CertificateTypeCode,
+                request.PurposeCode,
+                request.RequestStatusCode,
+                request.AddressedTo,
+                request.DeliveryMethodCode,
+                request.RequestDateUtc,
+                request.IssuedDateUtc,
+                request.DeliveredDateUtc,
+                request.ResponseTimeDays))
+            .ToArray();
+    }
+
     public async Task AddEconomicAidRequestDocumentAsync(
         EconomicAidRequestDocument entity,
         CancellationToken cancellationToken)

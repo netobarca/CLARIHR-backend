@@ -238,6 +238,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<EconomicAidStatusCatalogItem> EconomicAidStatusCatalogItems => Set<EconomicAidStatusCatalogItem>();
 
+    public DbSet<CertificateTypeCatalogItem> CertificateTypeCatalogItems => Set<CertificateTypeCatalogItem>();
+
+    public DbSet<CertificateRequestStatusCatalogItem> CertificateRequestStatusCatalogItems => Set<CertificateRequestStatusCatalogItem>();
+
+    public DbSet<CertificateDeliveryMethodCatalogItem> CertificateDeliveryMethodCatalogItems => Set<CertificateDeliveryMethodCatalogItem>();
+
+    public DbSet<CertificatePurposeCatalogItem> CertificatePurposeCatalogItems => Set<CertificatePurposeCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();
@@ -334,6 +342,12 @@ public sealed class ApplicationDbContext(
     public DbSet<PersonnelFileEconomicAidRequest> PersonnelFileEconomicAidRequests => Set<PersonnelFileEconomicAidRequest>();
 
     public DbSet<EconomicAidRequestDocument> EconomicAidRequestDocuments => Set<EconomicAidRequestDocument>();
+
+    public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
+
+    public DbSet<CertificateRequestDocument> CertificateRequestDocuments => Set<CertificateRequestDocument>();
+
+    public DbSet<CompanyCertificateSettings> CompanyCertificateSettings => Set<CompanyCertificateSettings>();
 
     public DbSet<PersonnelFilePerformanceEvaluation> PersonnelFilePerformanceEvaluations => Set<PersonnelFilePerformanceEvaluation>();
 

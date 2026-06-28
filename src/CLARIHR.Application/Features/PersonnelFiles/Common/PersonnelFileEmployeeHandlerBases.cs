@@ -402,6 +402,145 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
         return (null, personnelFile);
     }
 
+    /// <summary>
+    /// Manage gate for certificate requests (D-04): the dedicated <c>PersonnelFiles.ManageCertificateRequests</c>
+    /// permission (or Admin). Used by process/issue/deliver/reject/update/delete — RR. HH. only, no self-service.
+    /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass
+    /// <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageCertificateRequestsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageCertificateRequestsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Create/cancel gate for certificate requests (D-02 self-service): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageCertificateRequests</c> permission (or Admin), OR the caller is the employee
+    /// acting on their own file (self-service create / self-cancel of a pending request). Processing/issuance
+    /// stay manager-only (see <see cref="LoadForManageCertificateRequestsAsync{TResponse}"/>).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForCreateOwnOrManageCertificateAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageCertificateRequestsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canManageByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for certificate sub-resources (D-02): the caller has the dedicated
+    /// <c>ViewCertificateRequests</c> permission (or Admin), OR the caller is the employee reading their own
+    /// requests (self-service). Without the permission and without being the owner the caller gets 403. Requires
+    /// a completed employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForCertificateReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewCertificateRequestsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
     protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForReadAsync<TResponse>(
         Guid personnelFileId,
         ITenantContext tenantContext,

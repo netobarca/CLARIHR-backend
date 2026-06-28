@@ -713,6 +713,116 @@ public interface IPersonnelFileEmployeeRepository
         Guid economicAidRequestPublicId,
         CancellationToken cancellationToken);
 
+    // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
+    Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileCertificateRequest entity,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> UpdateCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CertificateRequestInput input,
+        string? typeNameSnapshot,
+        CancellationToken cancellationToken);
+
+    Task<bool> SoftDeleteCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> GetCertificateRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> GetCertificateRequestAsync(
+        Guid personnelFileId,
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken);
+
+    // Lifecycle actions (process/issue/deliver/reject/cancel — D-04): load the tracked entity, apply the domain
+    // transition (handlers pre-validate so the domain guards never throw), and return the refreshed response.
+    Task<PersonnelFileCertificateRequestResponse?> ProcessCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> IssueCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        Guid issuedByUserId,
+        DateTime issuedAtUtc,
+        string? notes,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> DeliverCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        DateTime deliveredAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> RejectCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        string? notes,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCertificateRequestResponse?> CancelCertificateRequestAsync(
+        Guid certificateRequestPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<long?> GetCertificateRequestInternalIdAsync(
+        Guid personnelFileId,
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken);
+
+    Task AddCertificateRequestDocumentAsync(
+        CertificateRequestDocument entity,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<CertificateRequestDocumentResponse>> GetCertificateRequestDocumentsAsync(
+        Guid certificateRequestPublicId,
+        CancellationToken cancellationToken);
+
+    Task<CertificateRequestDocumentResponse?> GetCertificateRequestDocumentAsync(
+        Guid certificateRequestPublicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken);
+
+    Task<CertificateRequestDocument?> GetCertificateRequestDocumentEntityAsync(
+        Guid certificateRequestPublicId,
+        Guid documentPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    // Company-wide certificate bandeja + export (D-08).
+    Task<CertificateRequestBandejaResponse> QueryCertificateRequestsAsync(
+        Guid companyId,
+        string? typeCode,
+        string? statusCode,
+        string? purposeCode,
+        Guid? employeeId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<CertificateRequestExportRow>> GetCertificateRequestExportRowsAsync(
+        Guid companyId,
+        string? typeCode,
+        string? statusCode,
+        string? purposeCode,
+        Guid? employeeId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? search,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
     Task AddEconomicAidRequestDocumentAsync(
         EconomicAidRequestDocument entity,
         CancellationToken cancellationToken);

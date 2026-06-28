@@ -199,6 +199,13 @@ public static class DependencyInjection
         // PDF rendering engine is selected from config (Reporting:Pdf:Engine);
         // QuestPDF today, swappable without touching document logic (doc 01 §4.2).
         services.AddDocumentPdfRendering(configuration);
+        // Certificate ("constancia") PDF generation (D-15): dedicated QuestPDF-direct renderer + merge-data
+        // provider + issuance service. The QuestPDF Community license is set here because the report PDF engine
+        // may be Gotenberg (which would not set it for the certificate renderer).
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICertificatePrintDataProvider, CLARIHR.Infrastructure.PersonnelFiles.CertificatePrintDataProvider>();
+        services.AddScoped<CLARIHR.Infrastructure.Reports.Documents.ICertificateDocumentRenderer, CLARIHR.Infrastructure.Reports.Documents.CertificateQuestPdfRenderer>();
+        services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICertificateIssuanceService, CLARIHR.Infrastructure.PersonnelFiles.CertificateIssuanceService>();
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
         services.AddScoped<IAllowedActionsResolver, AllowedActionsResolver>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -207,6 +214,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<ICompanyPreferenceRepository, CompanyPreferenceRepository>();
+        services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICompanyCertificateSettingsRepository, CLARIHR.Infrastructure.PersonnelFiles.CompanyCertificateSettingsRepository>();
         services.AddScoped<ICompanyPreferenceAuthorizationService, CompanyPreferenceAuthorizationService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IRbacAuthorizationService, RbacAuthorizationService>();
