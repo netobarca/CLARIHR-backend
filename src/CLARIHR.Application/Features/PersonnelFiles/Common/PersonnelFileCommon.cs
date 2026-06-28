@@ -168,6 +168,21 @@ public static class PersonnelFilePermissionCodes
     public const string ManageEconomicAidRequests = "PersonnelFiles.ManageEconomicAidRequests";
 
     /// <summary>
+    /// Dedicated permission to read employee certificate requests ("constancias": salario/laboral/embajada).
+    /// Lets configurable roles view another employee's requests and the company-wide bandeja; Admin is a superset.
+    /// Employees may read their OWN requests via a separate self-service check (D-02).
+    /// </summary>
+    public const string ViewCertificateRequests = "PersonnelFiles.ViewCertificateRequests";
+
+    /// <summary>
+    /// Dedicated permission to process, issue, deliver, reject, edit and delete certificate requests, plus the
+    /// company certificate settings (D-04/D-17). Admin is a superset. Employees may CREATE and CANCEL their OWN
+    /// pending requests via a separate self-service check (D-02). Issuing a salary-printing certificate
+    /// additionally requires <see cref="ViewCompensation"/> (D-20).
+    /// </summary>
+    public const string ManageCertificateRequests = "PersonnelFiles.ManageCertificateRequests";
+
+    /// <summary>
     /// Dedicated permission to design/publish/associate exit-interview forms (D-01). HR-only (no
     /// self-service — form building is design-time); Admin is a superset.
     /// </summary>

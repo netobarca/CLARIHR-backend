@@ -54,6 +54,10 @@ public static class GeneralCatalogKeyMap
             ["action-statuses"] = PersonnelCurriculumCatalogCategories.ActionStatus,
             ["economic-aid-types"] = PersonnelCurriculumCatalogCategories.EconomicAidType,
             ["economic-aid-statuses"] = PersonnelCurriculumCatalogCategories.EconomicAidStatus,
+            ["certificate-types"] = PersonnelCurriculumCatalogCategories.CertificateType,
+            ["certificate-request-statuses"] = PersonnelCurriculumCatalogCategories.CertificateRequestStatus,
+            ["certificate-delivery-methods"] = PersonnelCurriculumCatalogCategories.CertificateDeliveryMethod,
+            ["certificate-purposes"] = PersonnelCurriculumCatalogCategories.CertificatePurpose,
         };
 
     /// <summary>

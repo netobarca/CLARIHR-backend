@@ -403,3 +403,65 @@ internal sealed class EconomicAidStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class CertificateTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CertificateTypeCatalogItem>
+{
+    public CertificateTypeCatalogItemConfiguration()
+        : base(
+            "certificate_type_catalog_items",
+            "pk_certificate_type_catalog_items",
+            "uq_certificate_type_catalog_items__public_id",
+            "uq_certificate_type_catalog_items__country_code",
+            "ix_certificate_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetCertificateTypeCatalogItems())
+    {
+    }
+}
+
+internal sealed class CertificateRequestStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CertificateRequestStatusCatalogItem>
+{
+    public CertificateRequestStatusCatalogItemConfiguration()
+        : base(
+            "certificate_request_status_catalog_items",
+            "pk_certificate_request_status_catalog_items",
+            "uq_certificate_request_status_catalog_items__public_id",
+            "uq_certificate_request_status_catalog_items__country_code",
+            // Shortened (drops "country_") to stay within PostgreSQL's 63-char identifier limit.
+            "ix_certificate_request_status_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetCertificateRequestStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class CertificateDeliveryMethodCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CertificateDeliveryMethodCatalogItem>
+{
+    public CertificateDeliveryMethodCatalogItemConfiguration()
+        : base(
+            "certificate_delivery_method_catalog_items",
+            "pk_certificate_delivery_method_catalog_items",
+            "uq_certificate_delivery_method_catalog_items__public_id",
+            "uq_certificate_delivery_method_catalog_items__country_code",
+            // Shortened (drops "country_") to stay within PostgreSQL's 63-char identifier limit.
+            "ix_certificate_delivery_method_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetCertificateDeliveryMethodCatalogItems())
+    {
+    }
+}
+
+internal sealed class CertificatePurposeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CertificatePurposeCatalogItem>
+{
+    public CertificatePurposeCatalogItemConfiguration()
+        : base(
+            "certificate_purpose_catalog_items",
+            "pk_certificate_purpose_catalog_items",
+            "uq_certificate_purpose_catalog_items__public_id",
+            "uq_certificate_purpose_catalog_items__country_code",
+            "ix_certificate_purpose_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetCertificatePurposeCatalogItems())
+    {
+    }
+}

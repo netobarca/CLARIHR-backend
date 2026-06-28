@@ -116,6 +116,24 @@ public interface IPersonnelFileAuthorizationService
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     /// <summary>
+    /// Role gate for reading certificate requests ("constancias"): the dedicated
+    /// <c>PersonnelFiles.ViewCertificateRequests</c> permission, or Admin / IAM super-admin. (Employees reading
+    /// their OWN requests are allowed by a separate self-service check — D-02.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewCertificateRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for certificate requests (D-04): the dedicated <c>PersonnelFiles.ManageCertificateRequests</c>
+    /// permission, or Admin / IAM super-admin. Process/issue/deliver/reject/edit/delete are HR-only. (Employees
+    /// creating/cancelling their OWN pending requests are allowed by a separate self-service check — D-02.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageCertificateRequestsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
     /// Write gate for the exit-interview form builder (D-01): the dedicated
     /// <c>PersonnelFiles.ManageExitInterviewForms</c> permission, or Admin / IAM super-admin. HR-only —
     /// designing/publishing/associating exit-interview forms is not self-service.

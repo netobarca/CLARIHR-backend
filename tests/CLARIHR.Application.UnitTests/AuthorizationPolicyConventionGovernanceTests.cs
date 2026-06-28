@@ -109,6 +109,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // economic-aid handlers (EconomicAidRequestsController).
         PersonnelFilePolicies.ViewEconomicAidRequests,
         PersonnelFilePolicies.ManageEconomicAidRequests,
+        // Certificate requests (D-02/D-04/D-20): authn-only supersets used by CertificateRequestsController and
+        // CompanyCertificateSettingsController; the company-wide bandeja (CertificateRequestsReportingController)
+        // is intentionally not marked (it gates per-handler like PersonnelFileReportingController).
+        PersonnelFilePolicies.ViewCertificateRequests,
+        PersonnelFilePolicies.ManageCertificateRequests,
         // Exit-interview form builder (D-01): HR-only write policy used by ExitInterviewFormsController.
         PersonnelFilePolicies.ManageExitInterviewForms,
         // Exit-interview submissions (D-04/D-14): authn-only supersets used by ExitInterviewsController.

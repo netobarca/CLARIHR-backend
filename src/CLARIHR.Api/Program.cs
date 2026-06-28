@@ -518,6 +518,16 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageEconomicAidRequests, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Certificate requests ("constancias", D-02/D-04/D-20) — authn-only SUPERSETS for BOTH read and write, like
+    // economic aid: the employee creates/reads/cancels their OWN request (self-service) and HR processes/issues.
+    // The precise gate (View/ManageCertificateRequests permission or Admin, OR the employee acting on their own
+    // request; plus ViewCompensation at issuance of a salary-printing certificate, D-20) lives in the certificate
+    // handlers; kept authn-only so a self-service employee is never 403'd at the API layer.
+    options.AddPolicy(PersonnelFilePolicies.ViewCertificateRequests, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageCertificateRequests, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Exit-interview form builder (D-01) — HR-only: designing/publishing/associating exit-interview forms is
     // not self-service. RequireAssertion like ManageCompetencies, kept a superset of the precise
     // EnsureCanManageExitInterviewFormsAsync handler gate.

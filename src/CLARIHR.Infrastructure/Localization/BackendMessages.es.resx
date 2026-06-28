@@ -1846,6 +1846,36 @@
   <data name="ECONOMIC_AID_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>Un empleado no puede validar su propia solicitud de ayuda económica.</value>
   </data>
+  <data name="CERTIFICATE_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>El tipo de constancia no es válido para el catálogo activo.</value>
+  </data>
+  <data name="CERTIFICATE_REQUEST_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>El estado de la solicitud de constancia no es válido para el catálogo activo.</value>
+  </data>
+  <data name="CERTIFICATE_PURPOSE_CODE_INVALID" xml:space="preserve">
+    <value>El propósito de la constancia no es válido para el catálogo activo.</value>
+  </data>
+  <data name="CERTIFICATE_DELIVERY_METHOD_CODE_INVALID" xml:space="preserve">
+    <value>El medio de entrega de la constancia no es válido para el catálogo activo.</value>
+  </data>
+  <data name="CERTIFICATE_ADDRESSEE_REQUIRED" xml:space="preserve">
+    <value>El destinatario ("dirigida a") es obligatorio para una constancia para embajada.</value>
+  </data>
+  <data name="CERTIFICATE_DATE_INCOHERENT" xml:space="preserve">
+    <value>La fecha de emisión no puede ser anterior a la de solicitud, ni la de entrega anterior a la de emisión.</value>
+  </data>
+  <data name="CERTIFICATE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La solicitud de constancia no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="CERTIFICATE_GENERATION_DATA_UNAVAILABLE" xml:space="preserve">
+    <value>No están disponibles los datos requeridos para generar esta constancia (asignación activa, cargo o salario).</value>
+  </data>
+  <data name="CERTIFICATE_COMPENSATION_FORBIDDEN" xml:space="preserve">
+    <value>Emitir una constancia que imprime salario requiere el permiso de consulta de compensación.</value>
+  </data>
+  <data name="CERTIFICATE_GENERATION_FAILED" xml:space="preserve">
+    <value>No se pudo generar el PDF de la constancia.</value>
+  </data>
   <data name="validation.message.requestedamount_must_be_greater_than_zero" xml:space="preserve">
     <value>El monto solicitado debe ser mayor que cero.</value>
   </data>

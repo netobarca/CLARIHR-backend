@@ -98,6 +98,22 @@ public static class PersonnelFilePolicies
     public const string ManageEconomicAidRequests = "PersonnelFiles.ManageEconomicAidRequests";
 
     /// <summary>
+    /// Read policy for certificate sub-resources ("constancias") and the company-wide bandeja. Authn-only
+    /// superset: the precise check (ViewCertificateRequests / Admin, or the employee reading their own requests)
+    /// lives in the certificate read handlers (self-service, D-02).
+    /// </summary>
+    public const string ViewCertificateRequests = "PersonnelFiles.ViewCertificateRequests";
+
+    /// <summary>
+    /// Write policy for certificate sub-resources. Authn-only superset: the precise check
+    /// (ManageCertificateRequests / Admin, or the employee creating/cancelling their own request) lives in the
+    /// certificate handlers. Kept authn-only — NOT a RequireAssertion — so a self-service employee is not blocked
+    /// at the API layer (processing/issuance stay manager-only via the handler gate, D-04; salary printing also
+    /// requires ViewCompensation, D-20).
+    /// </summary>
+    public const string ManageCertificateRequests = "PersonnelFiles.ManageCertificateRequests";
+
+    /// <summary>
     /// Write policy for the exit-interview form builder (D-01/D-14): the dedicated
     /// <c>PersonnelFiles.ManageExitInterviewForms</c> permission, or Admin / IAM super-admin. HR-only —
     /// designing/publishing/associating exit-interview forms is not self-service. Assigned to both the read

@@ -1846,6 +1846,36 @@
   <data name="ECONOMIC_AID_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>An employee cannot validate their own economic-aid request.</value>
   </data>
+  <data name="CERTIFICATE_TYPE_CODE_INVALID" xml:space="preserve">
+    <value>The certificate type is not valid for the active catalog.</value>
+  </data>
+  <data name="CERTIFICATE_REQUEST_STATUS_CODE_INVALID" xml:space="preserve">
+    <value>The certificate-request status is not valid for the active catalog.</value>
+  </data>
+  <data name="CERTIFICATE_PURPOSE_CODE_INVALID" xml:space="preserve">
+    <value>The certificate purpose is not valid for the active catalog.</value>
+  </data>
+  <data name="CERTIFICATE_DELIVERY_METHOD_CODE_INVALID" xml:space="preserve">
+    <value>The certificate delivery method is not valid for the active catalog.</value>
+  </data>
+  <data name="CERTIFICATE_ADDRESSEE_REQUIRED" xml:space="preserve">
+    <value>An addressee ("dirigida a") is required for an embassy certificate.</value>
+  </data>
+  <data name="CERTIFICATE_DATE_INCOHERENT" xml:space="preserve">
+    <value>The issue date cannot precede the request date, nor the delivery date the issue date.</value>
+  </data>
+  <data name="CERTIFICATE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The certificate request is not in a state that allows this operation.</value>
+  </data>
+  <data name="CERTIFICATE_GENERATION_DATA_UNAVAILABLE" xml:space="preserve">
+    <value>The data required to generate this certificate (active assignment, job title or salary) is unavailable.</value>
+  </data>
+  <data name="CERTIFICATE_COMPENSATION_FORBIDDEN" xml:space="preserve">
+    <value>Issuing a certificate that prints salary requires the compensation-view permission.</value>
+  </data>
+  <data name="CERTIFICATE_GENERATION_FAILED" xml:space="preserve">
+    <value>The certificate PDF could not be generated.</value>
+  </data>
   <data name="validation.message.requestedamount_must_be_greater_than_zero" xml:space="preserve">
     <value>The requested amount must be greater than zero.</value>
   </data>
