@@ -64,10 +64,10 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
             .ToArrayAsync(cancellationToken);
-        return persisted.Append(entity)
+        var ordered = persisted.Append(entity)
             .OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate)
-            .Select(Map)
             .ToArray();
+        return await MapWithSlotLabelsAsync(ordered, cancellationToken);
     }
 
     public async Task<PersonnelFileEmploymentAssignmentResponse?> UpdateEmploymentAssignmentAsync(
@@ -93,7 +93,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .SingleOrDefaultAsync(x => x.PublicId == employmentAssignmentPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
         item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes, paymentMethodCode, paymentBankAccountPublicId);
-        return Map(item);
+        return await MapWithSlotLabelAsync(item, cancellationToken);
     }
 
     public async Task<PersonnelFileEmploymentAssignmentResponse?> PatchEmploymentAssignmentAsync(
@@ -126,7 +126,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.SetActive(isActive);
         }
 
-        return Map(item);
+        return await MapWithSlotLabelAsync(item, cancellationToken);
     }
 
     public async Task<bool> DeleteEmploymentAssignmentAsync(
@@ -143,14 +143,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
 
     public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> GetEmploymentAssignmentsAsync(
         Guid personnelFileId,
-        CancellationToken cancellationToken) =>
-        await dbContext.Set<PersonnelFileEmploymentAssignment>()
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
             .OrderByDescending(item => item.IsPrimary)
             .ThenBy(item => item.StartDate)
-            .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+        return await MapWithSlotLabelsAsync(items, cancellationToken);
+    }
 
     public async Task<PersonnelFileEmploymentAssignmentResponse?> GetEmploymentAssignmentAsync(
         Guid personnelFileId,
@@ -160,7 +162,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == employmentAssignmentPublicId, cancellationToken);
-        return item is null ? null : Map(item);
+        return item is null ? null : await MapWithSlotLabelAsync(item, cancellationToken);
     }
 
     public async Task<int> CountOverlappingActiveAssignmentsForSlotAsync(
@@ -2213,7 +2215,10 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.CreatedUtc,
             item.ModifiedUtc);
 
-    private static PersonnelFileEmploymentAssignmentResponse Map(PersonnelFileEmploymentAssignment item) =>
+    private static PersonnelFileEmploymentAssignmentResponse Map(
+        PersonnelFileEmploymentAssignment item,
+        string? positionSlotCode = null,
+        string? positionSlotTitle = null) =>
         new(
             item.PublicId,
             item.AssignmentTypeCode,
@@ -2231,7 +2236,62 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Notes,
             item.ConcurrencyToken,
             item.PaymentMethodCode,
-            item.PaymentBankAccountPublicId);
+            item.PaymentBankAccountPublicId,
+            positionSlotCode,
+            positionSlotTitle);
+
+    // Resolves each assignment's position-slot code/title in one extra batched query (keyed by the slot's
+    // public id) so the list/add paths stay O(1) queries instead of N+1. The slot reference is a loose Guid,
+    // not an FK, so a missing slot simply yields a null label.
+    private async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> MapWithSlotLabelsAsync(
+        IReadOnlyCollection<PersonnelFileEmploymentAssignment> items,
+        CancellationToken cancellationToken)
+    {
+        var slotIds = items
+            .Where(item => item.PositionSlotPublicId.HasValue)
+            .Select(item => item.PositionSlotPublicId!.Value)
+            .Distinct()
+            .ToArray();
+
+        var labels = new Dictionary<Guid, (string Code, string? Title)>();
+        if (slotIds.Length > 0)
+        {
+            var rows = await dbContext.Set<PositionSlot>()
+                .AsNoTracking()
+                .Where(slot => slotIds.Contains(slot.PublicId))
+                .Select(slot => new { slot.PublicId, slot.Code, slot.Title })
+                .ToArrayAsync(cancellationToken);
+            foreach (var row in rows)
+            {
+                labels[row.PublicId] = (row.Code, row.Title);
+            }
+        }
+
+        return items
+            .Select(item => item.PositionSlotPublicId is { } slotId && labels.TryGetValue(slotId, out var label)
+                ? Map(item, label.Code, label.Title)
+                : Map(item))
+            .ToArray();
+    }
+
+    // Single-item counterpart of <see cref="MapWithSlotLabelsAsync"/> for the by-id/update/patch paths.
+    private async Task<PersonnelFileEmploymentAssignmentResponse> MapWithSlotLabelAsync(
+        PersonnelFileEmploymentAssignment item,
+        CancellationToken cancellationToken)
+    {
+        if (item.PositionSlotPublicId is not { } slotId)
+        {
+            return Map(item);
+        }
+
+        var label = await dbContext.Set<PositionSlot>()
+            .AsNoTracking()
+            .Where(slot => slot.PublicId == slotId)
+            .Select(slot => new { slot.Code, slot.Title })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return label is null ? Map(item) : Map(item, label.Code, label.Title);
+    }
 
     private static PersonnelFileContractHistoryResponse Map(PersonnelFileContractHistory item) =>
         new(

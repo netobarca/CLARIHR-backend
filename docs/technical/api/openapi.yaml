@@ -44632,6 +44632,12 @@ components:
           type: string
           format: uuid
           nullable: true
+        positionSlotCode:
+          type: string
+          nullable: true
+        positionSlotTitle:
+          type: string
+          nullable: true
       additionalProperties: false
     PersonnelFileFamilyMemberResponse:
       type: object

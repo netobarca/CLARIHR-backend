@@ -34,7 +34,12 @@ public sealed record PersonnelFileEmploymentAssignmentResponse(
     string? Notes,
     Guid ConcurrencyToken,
     string? PaymentMethodCode = null,
-    Guid? PaymentBankAccountPublicId = null)
+    Guid? PaymentBankAccountPublicId = null,
+    // Human-readable label of the referenced position slot, resolved server-side from the slot it points to
+    // (LEFT JOIN: null when the assignment has no slot or the slot no longer exists). Lets the frontend show the
+    // plaza by code/title instead of a raw UUID; see docs/technical/respuesta-backend-* for the rationale.
+    string? PositionSlotCode = null,
+    string? PositionSlotTitle = null)
 {
     [JsonIgnore]
     public Guid Id => EmploymentAssignmentPublicId;

@@ -106,6 +106,39 @@ public sealed partial class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task EmploymentAssignment_ListAndCreate_ExposePositionSlotCodeAndTitle()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-MP-LBL", "Direccion MP LBL", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-MP-LBL", "Perfil MP LBL", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-MP-LBL", "Plaza Etiqueta", profile.Id, maxEmployees: 2);
+        var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Seis", "Empleado");
+
+        // The create response already carries the human-readable slot label (resolved server-side from the slot).
+        var created = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
+            EmploymentAssignmentBody(slot.Id));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using (var createdDoc = JsonDocument.Parse(await created.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PS-MP-LBL", createdDoc.RootElement.GetProperty("positionSlotCode").GetString());
+            Assert.Equal("Plaza Etiqueta", createdDoc.RootElement.GetProperty("positionSlotTitle").GetString());
+        }
+
+        // The list endpoint (the substitutions plaza combobox source) exposes the same label so the
+        // frontend never has to fall back to the raw UUID — this is the Hallazgo 2 fix.
+        var list = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions");
+        list.EnsureSuccessStatusCode();
+        using var listDoc = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
+        var item = listDoc.RootElement.EnumerateArray().Single(
+            entry => entry.GetProperty("positionSlotPublicId").GetGuid() == slot.Id);
+        Assert.Equal("PS-MP-LBL", item.GetProperty("positionSlotCode").GetString());
+        Assert.Equal("Plaza Etiqueta", item.GetProperty("positionSlotTitle").GetString());
+    }
+
+    [Fact]
     public async Task EmploymentAssignment_WhenSlotCapacityFull_IsRejected()
     {
         var scenario = await factory.ResetDatabaseAsync();
