@@ -916,6 +916,16 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Resolves the public id of the position slot of the employee's active primary employment assignment
+    /// (active &amp; primary assignment → position slot). Null when the employee has no resolvable active
+    /// primary plaza. Used by finalize to treat the already-assigned primary plaza as satisfying the
+    /// position-slot requirement without the caller re-sending it (single-active-primary invariant — RN-03).
+    /// </summary>
+    Task<Guid?> GetActivePrimaryPositionSlotPublicIdAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Builds the "Competencias del puesto" consultation (RF-002): the competency matrix of the employee's
     /// active assigned position combined with the employee's achieved results (latest + history), gap computed,
     /// grouped by competency type. Returns an empty result with <c>HasAssignedPosition = false</c> when the

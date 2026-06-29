@@ -195,6 +195,21 @@ internal sealed class AssetAccessTypeCatalogItemConfiguration
     }
 }
 
+internal sealed class BankAccountTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<BankAccountTypeCatalogItem>
+{
+    public BankAccountTypeCatalogItemConfiguration()
+        : base(
+            "bank_account_type_catalog_items",
+            "pk_bank_account_type_catalog_items",
+            "uq_bank_account_type_catalog_items__public_id",
+            "uq_bank_account_type_catalog_items__country_code",
+            "ix_bank_account_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetBankAccountTypeCatalogItems())
+    {
+    }
+}
+
 internal sealed class OffPayrollTransactionTypeCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<OffPayrollTransactionTypeCatalogItem>
 {
@@ -295,7 +310,8 @@ internal sealed class PayPeriodCatalogItemConfiguration
             "pk_pay_period_catalog_items",
             "uq_pay_period_catalog_items__public_id",
             "uq_pay_period_catalog_items__country_code",
-            "ix_pay_period_catalog_items__country_active_sort")
+            "ix_pay_period_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPayPeriodCatalogItems())
     {
     }
 }
@@ -309,7 +325,8 @@ internal sealed class CalculationBaseCatalogItemConfiguration
             "pk_calculation_base_catalog_items",
             "uq_calculation_base_catalog_items__public_id",
             "uq_calculation_base_catalog_items__country_code",
-            "ix_calculation_base_catalog_items__country_active_sort")
+            "ix_calculation_base_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetCalculationBaseCatalogItems())
     {
     }
 }

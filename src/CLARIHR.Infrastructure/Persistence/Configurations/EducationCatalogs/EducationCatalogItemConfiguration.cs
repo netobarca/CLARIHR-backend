@@ -13,7 +13,8 @@ internal abstract class EducationCatalogItemConfigurationBase<TCatalogItem>(
     string primaryKeyName,
     string publicIdIndexName,
     string uniqueCodeIndexName,
-    string activeSortIndexName)
+    string activeSortIndexName,
+    IEnumerable<object>? seedData = null)
     : IEntityTypeConfiguration<TCatalogItem>
     where TCatalogItem : EducationCatalogItem
 {
@@ -46,6 +47,13 @@ internal abstract class EducationCatalogItemConfigurationBase<TCatalogItem>(
 
         builder.HasIndex(item => new { item.IsActive, item.SortOrder })
             .HasDatabaseName(activeSortIndexName);
+
+        // System-scoped education catalogs were previously seeded only by DevSeedService; opt in to static HasData
+        // so they reach every environment via the migration pipeline (codes stay stable — records reference them).
+        if (seedData is not null)
+        {
+            builder.HasData(seedData);
+        }
     }
 }
 
@@ -58,7 +66,8 @@ internal sealed class EducationStatusCatalogItemConfiguration
             "pk_education_status_catalog_items",
             "uq_education_status_catalog_items__public_id",
             "uq_education_status_catalog_items__code",
-            "ix_education_status_catalog_items__active_sort")
+            "ix_education_status_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetEducationStatusCatalogItems())
     {
     }
 }
@@ -72,7 +81,8 @@ internal sealed class EducationStudyTypeCatalogItemConfiguration
             "pk_education_study_type_catalog_items",
             "uq_education_study_type_catalog_items__public_id",
             "uq_education_study_type_catalog_items__code",
-            "ix_education_study_type_catalog_items__active_sort")
+            "ix_education_study_type_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetEducationStudyTypeCatalogItems())
     {
     }
 }
@@ -86,7 +96,8 @@ internal sealed class EducationCareerCatalogItemConfiguration
             "pk_education_career_catalog_items",
             "uq_education_career_catalog_items__public_id",
             "uq_education_career_catalog_items__code",
-            "ix_education_career_catalog_items__active_sort")
+            "ix_education_career_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetEducationCareerCatalogItems())
     {
     }
 }
@@ -100,7 +111,8 @@ internal sealed class EducationShiftCatalogItemConfiguration
             "pk_education_shift_catalog_items",
             "uq_education_shift_catalog_items__public_id",
             "uq_education_shift_catalog_items__code",
-            "ix_education_shift_catalog_items__active_sort")
+            "ix_education_shift_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetEducationShiftCatalogItems())
     {
     }
 }
@@ -114,7 +126,8 @@ internal sealed class EducationModalityCatalogItemConfiguration
             "pk_education_modality_catalog_items",
             "uq_education_modality_catalog_items__public_id",
             "uq_education_modality_catalog_items__code",
-            "ix_education_modality_catalog_items__active_sort")
+            "ix_education_modality_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetEducationModalityCatalogItems())
     {
     }
 }

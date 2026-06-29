@@ -9,7 +9,8 @@ internal abstract class PersonnelReferenceCatalogItemConfigurationBase<TCatalogI
     string primaryKeyName,
     string publicIdIndexName,
     string countryCodeIndexName,
-    string countryActiveSortIndexName)
+    string countryActiveSortIndexName,
+    IEnumerable<object>? seedData = null)
     : IEntityTypeConfiguration<TCatalogItem>
     where TCatalogItem : PersonnelReferenceCatalogItemBase
 {
@@ -47,6 +48,14 @@ internal abstract class PersonnelReferenceCatalogItemConfigurationBase<TCatalogI
 
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
+
+        // Most reference catalogs are seeded per-country at runtime (DevSeedService); the ones that must exist in
+        // every environment opt in by passing static HasData here (insurance types/ranges — same proven pattern as
+        // the general catalogs). The parent type must be seeded for the range FK to resolve in the same migration.
+        if (seedData is not null)
+        {
+            builder.HasData(seedData);
+        }
     }
 
     /// <summary>
@@ -171,7 +180,8 @@ internal sealed class InsuranceTypeCatalogItemConfiguration
             "pk_insurance_type_catalog_items",
             "uq_insurance_type_catalog_items__public_id",
             "uq_insurance_type_catalog_items__country_code",
-            "ix_insurance_type_catalog_items__country_active_sort")
+            "ix_insurance_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetInsuranceTypeCatalogItems())
     {
     }
 }
@@ -185,7 +195,8 @@ internal sealed class InsuranceRangeCatalogItemConfiguration
             "pk_insurance_range_catalog_items",
             "uq_insurance_range_catalog_items__public_id",
             "uq_insurance_range_catalog_items__country_code",
-            "ix_insurance_range_catalog_items__country_active_sort")
+            "ix_insurance_range_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetInsuranceRangeCatalogItems())
     {
     }
 

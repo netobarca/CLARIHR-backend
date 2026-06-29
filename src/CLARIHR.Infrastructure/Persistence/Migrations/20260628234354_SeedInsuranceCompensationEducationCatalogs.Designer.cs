@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260628234354_SeedInsuranceCompensationEducationCatalogs")]
+    partial class SeedInsuranceCompensationEducationCatalogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5980,173 +5983,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "RECARGO DE FUNCIONES",
                             PublicId = new Guid("43838bcc-f194-b51f-d4d8-86847325a3f1"),
                             SortOrder = 90
-                        });
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.BankAccountTypeCatalogItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("code");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<long>("CountryCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("country_catalog_item_id");
-
-                    b.Property<string>("CountryCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)")
-                        .HasColumnName("country_code");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NormalizedCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("normalized_code");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("normalized_name");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_bank_account_type_catalog_items");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_bank_account_type_catalog_items__public_id");
-
-                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
-                        .IsUnique()
-                        .HasDatabaseName("uq_bank_account_type_catalog_items__country_code");
-
-                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_bank_account_type_catalog_items__country_active_sort");
-
-                    b.ToTable("bank_account_type_catalog_items", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = -9790L,
-                            Code = "AHORRO",
-                            ConcurrencyToken = new Guid("4cf629be-ce00-51de-6e4c-de1477d3c1e6"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuenta de ahorro",
-                            NormalizedCode = "AHORRO",
-                            NormalizedName = "CUENTA DE AHORRO",
-                            PublicId = new Guid("76a1fc1f-9f63-3f0b-29d9-91daefc4b6d7"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9791L,
-                            Code = "CORRIENTE",
-                            ConcurrencyToken = new Guid("c0e383be-dfd5-cfe8-efad-db1313409e10"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuenta corriente",
-                            NormalizedCode = "CORRIENTE",
-                            NormalizedName = "CUENTA CORRIENTE",
-                            PublicId = new Guid("566fd93e-3930-c8a7-33d4-b66dc83ee7d2"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9792L,
-                            Code = "PLANILLA",
-                            ConcurrencyToken = new Guid("a09b3460-76c1-63e0-bf78-2bea77e06439"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuenta de planilla",
-                            NormalizedCode = "PLANILLA",
-                            NormalizedName = "CUENTA DE PLANILLA",
-                            PublicId = new Guid("30a98fdf-9350-4afa-615f-f3c2f619f087"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9793L,
-                            Code = "A_LA_VISTA",
-                            ConcurrencyToken = new Guid("153c13c1-a323-4e05-4813-7cdd29d7f684"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuenta a la vista",
-                            NormalizedCode = "A_LA_VISTA",
-                            NormalizedName = "CUENTA A LA VISTA",
-                            PublicId = new Guid("e08c5a95-a29f-9aa4-b760-7accd997afd5"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9794L,
-                            Code = "OTRO",
-                            ConcurrencyToken = new Guid("c556c32d-e271-6ba0-980a-5b890e090064"),
-                            CountryCatalogItemId = -7068L,
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Otro",
-                            NormalizedCode = "OTRO",
-                            NormalizedName = "OTRO",
-                            PublicId = new Guid("bc243323-758f-9f00-8922-6703d9400b62"),
-                            SortOrder = 50
                         });
                 });
 
@@ -24578,17 +24414,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssignmentTypeCatalogItem", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("CountryCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CountryCatalogItem");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.BankAccountTypeCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()

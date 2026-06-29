@@ -44,6 +44,7 @@ public static class GeneralCatalogKeyMap
             ["pay-periods"] = PersonnelCurriculumCatalogCategories.PayPeriod,
             ["calculation-bases"] = PersonnelCurriculumCatalogCategories.CalculationBase,
             ["payment-methods"] = PersonnelCurriculumCatalogCategories.PaymentMethod,
+            ["account-types"] = PersonnelCurriculumCatalogCategories.BankAccountType,
             ["asset-access-types"] = PersonnelCurriculumCatalogCategories.AssetAccessType,
             ["delivery-statuses"] = PersonnelCurriculumCatalogCategories.DeliveryStatus,
             ["experience-metrics"] = PersonnelCurriculumCatalogCategories.ExperienceMetric,

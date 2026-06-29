@@ -102,6 +102,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string PayPeriod = "PayPeriod";
     public const string CalculationBase = "CalculationBase";
     public const string PaymentMethod = "PaymentMethod";
+    public const string BankAccountType = "BankAccountType";
     public const string AssetAccessType = "AssetAccessType";
     public const string DeliveryStatus = "DeliveryStatus";
     public const string ExperienceMetric = "ExperienceMetric";

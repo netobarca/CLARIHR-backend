@@ -58,9 +58,9 @@ internal sealed class DevSeedService(
 
         await SeedRbacAsync(user, company, tenantId, cancellationToken);
         SeedLocations(tenantId);
-        SeedGeneralCatalogItems(tenantId);
+        // General/compensation/education catalogs are seeded in EVERY environment via GlobalCatalogSeedData
+        // HasData (migration pipeline) — no longer per-tenant here. Income-tax brackets stay dev-only sample data.
         SeedIncomeTaxBrackets(tenantId);
-        SeedPersonnelEducationCatalogItems();
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var orgUnitType = await SeedOrgStructureCatalogsAsync(user.PublicId, tenantId, cancellationToken);
@@ -259,81 +259,6 @@ internal sealed class DevSeedService(
         muni2.Move(dept.Id);
     }
 
-    private SeedCompanyCountry GetSeedCompanyCountry(Guid tenantId)
-    {
-        var country = dbContext.Companies
-            .AsNoTracking()
-            .Where(company => company.PublicId == tenantId)
-            .Select(company => new SeedCompanyCountry(company.CountryCatalogItemId, company.CountryCode))
-            .SingleOrDefault();
-
-        return country ?? throw new InvalidOperationException($"Company country could not be resolved for tenant {tenantId}.");
-    }
-
-    private void SeedGeneralCatalogItems(Guid tenantId)
-    {
-        var companyCountry = GetSeedCompanyCountry(tenantId);
-
-        // The simple country-scoped general catalogs (languages, language-levels, training-types, duration-units,
-        // reference-types, currencies, payment-methods, substitution-types, asset-access-types, delivery-statuses,
-        // medical-claim-types, medical-claim-status, off-payroll-transaction-types) are now seeded in EVERY
-        // environment via GlobalCatalogSeedData HasData (migration pipeline), so they are intentionally NOT seeded
-        // here — re-seeding them per-tenant would collide with the HasData rows on the (country, normalized_code)
-        // unique index (same convention assignment-types / employment-statuses already follow).
-
-        // employment-statuses are seeded globally via GlobalCatalogSeedData.GetEmploymentStatusCatalogItems()
-        // (HasData) so they exist in every environment and backfill already-provisioned databases — not here,
-        // which would double-insert against the HasData rows on a fresh dev database.
-
-        var insuranceTypes = new (string Code, string Name, int SortOrder)[]
-        {
-            ("VIDA", "Vida", 10),
-            ("MEDICO_HOSPITALARIO", "Médico hospitalario", 20),
-            ("GASTOS_MEDICOS", "Gastos médicos", 30),
-            ("DENTAL", "Dental", 40),
-            ("VISION", "Visión", 50),
-            ("ACCIDENTES", "Accidentes personales", 60),
-            ("OTRO", "Otro", 70),
-        };
-
-        var insuranceTypeEntities = new Dictionary<string, InsuranceTypeCatalogItem>(StringComparer.Ordinal);
-        foreach (var item in insuranceTypes)
-        {
-            var entity = InsuranceTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
-            dbContext.InsuranceTypeCatalogItems.Add(entity);
-            insuranceTypeEntities[item.Code] = entity;
-        }
-
-        // Persist the insurance types so their generated ids are available for the hierarchical ranges
-        // below (same intermediate-save pattern SeedLocations uses for its location-group hierarchy).
-        dbContext.SaveChanges();
-
-        var insuranceRanges = new (string TypeCode, string Code, string Name, int SortOrder)[]
-        {
-            ("VIDA", "BASICO", "Básico", 10),
-            ("VIDA", "INTERMEDIO", "Intermedio", 20),
-            ("VIDA", "PREMIUM", "Premium", 30),
-            ("MEDICO_HOSPITALARIO", "BASICO", "Básico", 10),
-            ("MEDICO_HOSPITALARIO", "INTERMEDIO", "Intermedio", 20),
-            ("MEDICO_HOSPITALARIO", "PREMIUM", "Premium", 30),
-        };
-
-        foreach (var item in insuranceRanges)
-        {
-            var entity = InsuranceRangeCatalogItem.Create(
-                companyCountry.CountryCatalogItemId,
-                companyCountry.CountryCode,
-                item.Code,
-                item.Name,
-                true,
-                item.SortOrder,
-                insuranceTypeEntities[item.TypeCode].Id);
-            dbContext.InsuranceRangeCatalogItems.Add(entity);
-        }
-
-        SeedCompensationCatalogItems(companyCountry);
-    }
-
     private void SeedIncomeTaxBrackets(Guid tenantId)
     {
         // SV monthly ISR retention table (editable — D-19). Quincenal/semanal load with their own values.
@@ -361,142 +286,6 @@ internal sealed class DevSeedService(
                 true);
             entity.SetTenantId(tenantId);
             dbContext.IncomeTaxWithholdingBrackets.Add(entity);
-        }
-    }
-
-    private void SeedCompensationCatalogItems(SeedCompanyCountry companyCountry)
-    {
-        // Seed SV por defecto (editable en cualquier momento — D-19). Tasas ISSS/AFP y bases son defaults.
-        var conceptTypes = new (string Code, string Name, CompensationNature Nature, bool IsStatutory, DeductionClass? DefaultClass, CompensationCalculationType CalcType, string? BaseCode, decimal? EmployeeRate, decimal? EmployerRate, decimal? Cap, int SortOrder)[]
-        {
-            ("SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10),
-            ("HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20),
-            ("COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30),
-            ("BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40),
-            ("VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50),
-            ("AGUINALDO", "Aguinaldo", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 60),
-            ("OTRO_INGRESO", "Otro ingreso", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 70),
-            ("ISSS", "ISSS", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 3.00m, 7.50m, 1000.00m, 100),
-            ("AFP", "AFP", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 7.25m, 8.75m, null, 110),
-            ("RENTA", "Renta (ISR)", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "SALARIO_BRUTO", null, null, null, 120),
-            ("DANO_EQUIPO", "Dano de equipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 200),
-            ("ANTICIPO", "Anticipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 210),
-            ("PRESTAMO_INTERNO", "Prestamo interno", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 220),
-            ("PRESTAMO_BANCARIO", "Prestamo bancario", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 300),
-            ("EMBARGO", "Embargo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 310),
-            ("CUOTA_ALIMENTICIA", "Cuota alimenticia", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 320),
-            ("OTRO_EXTERNO", "Otro externo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 330),
-        };
-
-        foreach (var item in conceptTypes)
-        {
-            var entity = CompensationConceptTypeCatalogItem.Create(
-                companyCountry.CountryCatalogItemId,
-                companyCountry.CountryCode,
-                item.Code,
-                item.Name,
-                item.Nature,
-                item.IsStatutory,
-                item.DefaultClass,
-                item.CalcType,
-                item.BaseCode,
-                item.EmployeeRate,
-                item.EmployerRate,
-                item.Cap,
-                true,
-                item.SortOrder);
-            dbContext.CompensationConceptTypeCatalogItems.Add(entity);
-        }
-
-        var payPeriods = new (string Code, string Name, int SortOrder)[]
-        {
-            ("MENSUAL", "Mensual", 10),
-            ("QUINCENAL", "Quincenal", 20),
-            ("SEMANAL", "Semanal", 30),
-            ("UNICA", "Unica", 40),
-        };
-
-        foreach (var item in payPeriods)
-        {
-            var entity = PayPeriodCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
-            dbContext.PayPeriodCatalogItems.Add(entity);
-        }
-
-        var calculationBases = new (string Code, string Name, int SortOrder)[]
-        {
-            ("SALARIO_BASE", "Salario base", 10),
-            ("SALARIO_BRUTO", "Salario bruto", 20),
-            ("IBC", "Ingreso base de cotizacion", 30),
-            ("RUBRO_ESPECIFICO", "Rubro especifico", 40),
-        };
-
-        foreach (var item in calculationBases)
-        {
-            var entity = CalculationBaseCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
-            dbContext.CalculationBaseCatalogItems.Add(entity);
-        }
-    }
-
-    private void SeedPersonnelEducationCatalogItems()
-    {
-        var statuses = new (string Code, string Name, int SortOrder)[]
-        {
-            ("GRADUATED", "Graduado", 10),
-            ("IN_PROGRESS", "En curso", 20),
-        };
-
-        var studyTypes = new (string Code, string Name, int SortOrder)[]
-        {
-            ("BACHELOR", "Licenciatura", 10),
-            ("MASTER", "Maestria", 20),
-            ("TECHNICAL", "Tecnico", 30),
-        };
-
-        var shifts = new (string Code, string Name, int SortOrder)[]
-        {
-            ("MORNING", "Matutino", 10),
-            ("AFTERNOON", "Vespertino", 20),
-        };
-
-        var modalities = new (string Code, string Name, int SortOrder)[]
-        {
-            ("ONSITE", "Presencial", 10),
-            ("REMOTE", "Virtual", 20),
-        };
-
-        var careers = new (string Code, string Name, int SortOrder)[]
-        {
-            ("INDUSTRIAL_ENGINEERING", "Ingenieria Industrial", 10),
-            ("BUSINESS_ADMINISTRATION", "Administracion de Empresas", 20),
-            ("MBA", "Maestria en Administracion de Negocios", 30),
-            ("PSYCHOLOGY", "Psicologia", 40),
-            ("SYSTEMS_ENGINEERING", "Ingenieria en Sistemas Informaticos", 50),
-            ("ACCOUNTING_AUDITING", "Contaduria Publica y Auditoria", 60),
-        };
-
-        foreach (var item in statuses)
-        {
-            dbContext.EducationStatusCatalogItems.Add(EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder));
-        }
-
-        foreach (var item in studyTypes)
-        {
-            dbContext.EducationStudyTypeCatalogItems.Add(EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder));
-        }
-
-        foreach (var item in shifts)
-        {
-            dbContext.EducationShiftCatalogItems.Add(EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder));
-        }
-
-        foreach (var item in modalities)
-        {
-            dbContext.EducationModalityCatalogItems.Add(EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder));
-        }
-
-        foreach (var item in careers)
-        {
-            dbContext.EducationCareerCatalogItems.Add(EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
     }
 
@@ -998,7 +787,6 @@ internal sealed class DevSeedService(
         long CareerSystemsEngineeringId,
         long CareerAccountingAuditingId);
 
-    private sealed record SeedCompanyCountry(long CountryCatalogItemId, string CountryCode);
 
     private static void StampTenant(IEnumerable<TenantEntity> entities, Guid tenantId)
     {

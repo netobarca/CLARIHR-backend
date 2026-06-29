@@ -1735,6 +1735,22 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Guid?> GetActivePrimaryPositionSlotPublicIdAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var slotPublicId = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(assignment => assignment.PersonnelFile.PublicId == personnelFilePublicId
+                && assignment.IsActive
+                && assignment.IsPrimary
+                && assignment.PositionSlotPublicId != null)
+            .Select(assignment => assignment.PositionSlotPublicId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return slotPublicId is null || slotPublicId == Guid.Empty ? null : slotPublicId;
+    }
+
     public async Task<EmployeePositionCompetenciesResponse> GetEmployeePositionCompetenciesAsync(
         Guid personnelFilePublicId,
         CancellationToken cancellationToken)

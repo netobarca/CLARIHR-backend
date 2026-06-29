@@ -1,3 +1,4 @@
+using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Companies;
@@ -192,11 +193,67 @@ public sealed class FinalizePersonnelFileTests
         Assert.Equal(0, provisioningService.ProvisionCalls);
     }
 
+    [Fact]
+    public async Task Preview_WhenSlotOmittedButEmployeeHasActivePrimaryPlaza_ShouldDeduceItAndBeEligible()
+    {
+        var slotId = Guid.NewGuid();
+        var personnelFile = CreateDraftEmployee(slotId, institutionalEmail: "ana@clarihr.test");
+        var personnelFileRepository = new TestPersonnelFileRepository(personnelFile);
+        var positionSlotRepository = new TestPositionSlotRepository(
+            CreateSlot(slotId),
+            CreateSlotResponse(slotId, roleId: null));
+        var handler = CreatePreviewHandler(
+            personnelFileRepository,
+            positionSlotRepository,
+            new TestUserRepository(),
+            deducedPrimarySlotId: slotId);
+
+        // The caller does not send PositionSlotPublicId — the resolver must fall back to the already-assigned
+        // active primary plaza instead of reporting it as missing.
+        var result = await handler.Handle(
+            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: false, PositionSlotPublicId: null),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsEligible);
+        Assert.DoesNotContain(
+            result.Value.Issues,
+            issue => issue.Code == PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot.Code);
+    }
+
+    [Fact]
+    public async Task Preview_WhenSlotOmittedAndNoActivePrimaryPlaza_ShouldStillRequireSelection()
+    {
+        var slotId = Guid.NewGuid();
+        var personnelFile = CreateDraftEmployee(slotId, institutionalEmail: "ana@clarihr.test");
+        var personnelFileRepository = new TestPersonnelFileRepository(personnelFile);
+        var positionSlotRepository = new TestPositionSlotRepository(
+            CreateSlot(slotId),
+            CreateSlotResponse(slotId, roleId: null));
+        var handler = CreatePreviewHandler(
+            personnelFileRepository,
+            positionSlotRepository,
+            new TestUserRepository(),
+            deducedPrimarySlotId: null);
+
+        // No override and nothing deducible (several active plazas without a primary, or none) → keep asking.
+        var result = await handler.Handle(
+            new PreviewFinalizePersonnelFileQuery(personnelFile.PublicId, CreateUserAccount: false, PositionSlotPublicId: null),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.Value.IsEligible);
+        Assert.Contains(
+            result.Value.Issues,
+            issue => issue.Code == PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot.Code);
+    }
+
     private static FinalizePersonnelFileCommandHandler CreateHandler(
         TestPersonnelFileRepository personnelFileRepository,
         TestPositionSlotRepository positionSlotRepository,
         TestCompanyUserProvisioningService provisioningService,
-        TestUserRepository userRepository)
+        TestUserRepository userRepository,
+        Guid? deducedPrimarySlotId = null)
     {
         var authorizationService = new AllowPersonnelFileAuthorizationService();
         var auditService = new TestAuditService();
@@ -206,6 +263,7 @@ public sealed class FinalizePersonnelFileTests
         return new FinalizePersonnelFileCommandHandler(
             authorizationService,
             personnelFileRepository,
+            CreateEmployeeRepository(deducedPrimarySlotId),
             positionSlotRepository,
             new PersonnelFileFinalizationService(provisioningService),
             userRepository,
@@ -217,17 +275,26 @@ public sealed class FinalizePersonnelFileTests
     private static PreviewFinalizePersonnelFileQueryHandler CreatePreviewHandler(
         TestPersonnelFileRepository personnelFileRepository,
         TestPositionSlotRepository positionSlotRepository,
-        TestUserRepository userRepository)
+        TestUserRepository userRepository,
+        Guid? deducedPrimarySlotId = null)
     {
         var authorizationService = new AllowPersonnelFileAuthorizationService();
         var tenantContext = new TestTenantContext(TenantId);
         return new PreviewFinalizePersonnelFileQueryHandler(
             authorizationService,
             personnelFileRepository,
+            CreateEmployeeRepository(deducedPrimarySlotId),
             positionSlotRepository,
             userRepository,
             tenantContext);
     }
+
+    // The finalize resolver only calls GetActivePrimaryPositionSlotPublicIdAsync to deduce the already-assigned
+    // primary plaza when the caller omits the slot; every other member would throw if touched (it never is).
+    private static IPersonnelFileEmployeeRepository CreateEmployeeRepository(Guid? deducedPrimarySlotId) =>
+        ThrowingProxy<IPersonnelFileEmployeeRepository>.Create(handlers =>
+            handlers[nameof(IPersonnelFileEmployeeRepository.GetActivePrimaryPositionSlotPublicIdAsync)] =
+                _ => Task.FromResult(deducedPrimarySlotId));
 
     private static PersonnelFile CreateDraftEmployee(Guid slotId, string? institutionalEmail)
     {
@@ -603,5 +670,31 @@ public sealed class FinalizePersonnelFileTests
         public Task<PersonnelFileAnalyticsSummaryResponse> GetAnalyticsSummaryAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(Guid tenantId, Guid assignedPositionSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Minimal <see cref="DispatchProxy"/>-based stub: throws for any interface member except the handful
+    /// configured by name, so a test can satisfy a large interface without hand-writing ~100 stubs.
+    /// Not sealed: <see cref="DispatchProxy"/> generates a runtime subclass of this type.
+    /// </summary>
+    private class ThrowingProxy<T> : DispatchProxy
+        where T : class
+    {
+        private Dictionary<string, Func<object?[]?, object?>> _handlers = new(StringComparer.Ordinal);
+
+        public static T Create(Action<IDictionary<string, Func<object?[]?, object?>>> configure)
+        {
+            var proxy = DispatchProxy.Create<T, ThrowingProxy<T>>();
+            var handlers = new Dictionary<string, Func<object?[]?, object?>>(StringComparer.Ordinal);
+            configure(handlers);
+            ((ThrowingProxy<T>)(object)proxy!)._handlers = handlers;
+            return proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            targetMethod is not null && _handlers.TryGetValue(targetMethod.Name, out var handler)
+                ? handler(args)
+                : throw new NotSupportedException(
+                    $"{typeof(T).Name}.{targetMethod?.Name} is not configured on this test stub.");
     }
 }

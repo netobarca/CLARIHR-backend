@@ -232,6 +232,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<AssetAccessTypeCatalogItem> AssetAccessTypeCatalogItems => Set<AssetAccessTypeCatalogItem>();
 
+    public DbSet<BankAccountTypeCatalogItem> BankAccountTypeCatalogItems => Set<BankAccountTypeCatalogItem>();
+
     public DbSet<OffPayrollTransactionTypeCatalogItem> OffPayrollTransactionTypeCatalogItems => Set<OffPayrollTransactionTypeCatalogItem>();
 
     public DbSet<EconomicAidTypeCatalogItem> EconomicAidTypeCatalogItems => Set<EconomicAidTypeCatalogItem>();

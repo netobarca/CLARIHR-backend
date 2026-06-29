@@ -72,6 +72,7 @@ internal sealed class PreviewFinalizePersonnelFileQueryValidator : AbstractValid
 internal sealed class FinalizePersonnelFileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository personnelFileEmployeeRepository,
     IPositionSlotRepository positionSlotRepository,
     IPersonnelFileFinalizationService finalizationService,
     IUserRepository userRepository,
@@ -119,6 +120,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             authorizationService,
             positionSlotRepository,
             personnelFileRepository,
+            personnelFileEmployeeRepository,
             userRepository,
             cancellationToken);
         if (!validation.IsEligible)
@@ -181,6 +183,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
 internal sealed class PreviewFinalizePersonnelFileQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository personnelFileEmployeeRepository,
     IPositionSlotRepository positionSlotRepository,
     IUserRepository userRepository,
     ITenantContext tenantContext)
@@ -220,6 +223,7 @@ internal sealed class PreviewFinalizePersonnelFileQueryHandler(
             authorizationService,
             positionSlotRepository,
             personnelFileRepository,
+            personnelFileEmployeeRepository,
             userRepository,
             cancellationToken);
 
@@ -274,6 +278,7 @@ internal static class FinalizePersonnelFileValidationResolver
         IPersonnelFileAuthorizationService authorizationService,
         IPositionSlotRepository positionSlotRepository,
         IPersonnelFileRepository personnelFileRepository,
+        IPersonnelFileEmployeeRepository personnelFileEmployeeRepository,
         IUserRepository userRepository,
         CancellationToken cancellationToken)
     {
@@ -295,18 +300,24 @@ internal static class FinalizePersonnelFileValidationResolver
             issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresInstitutionalEmail, "personnel-file", "institutionalEmail"));
         }
 
-        if (!requestedPositionSlotPublicId.HasValue)
+        // Treat the employee's already-assigned active primary plaza as satisfying the requirement: when the
+        // caller does not send an explicit override, deduce it from the aggregate. The single-active-primary
+        // invariant (RN-03) makes the deduction unambiguous. When neither an override nor a deducible primary
+        // plaza exists (several active plazas without a primary, or no active plaza at all), keep requiring an
+        // explicit selection so the caller resolves the ambiguity.
+        var slotPublicId = requestedPositionSlotPublicId
+            ?? await personnelFileEmployeeRepository.GetActivePrimaryPositionSlotPublicIdAsync(personnelFile.PublicId, cancellationToken);
+        if (!slotPublicId.HasValue)
         {
             issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot, "employment", "assignedPositionSlotPublicId"));
             return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
         }
 
-        var slotPublicId = requestedPositionSlotPublicId.Value;
-        var slot = await positionSlotRepository.GetByIdAsync(slotPublicId, cancellationToken);
+        var slot = await positionSlotRepository.GetByIdAsync(slotPublicId.Value, cancellationToken);
         if (slot is null)
         {
             if (includeRelatedResourceTenantMismatch &&
-                await positionSlotRepository.ExistsOutsideTenantAsync(slotPublicId, cancellationToken))
+                await positionSlotRepository.ExistsOutsideTenantAsync(slotPublicId.Value, cancellationToken))
             {
                 issues.Add(CreateIssue(authorizationService.TenantMismatch(RbacPermissionAction.Update), "employment", "assignedPositionSlotPublicId"));
             }

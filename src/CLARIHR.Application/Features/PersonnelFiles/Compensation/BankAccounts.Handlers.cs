@@ -138,6 +138,18 @@ internal sealed class AddPersonnelFileBankAccountCommandHandler(
                     }));
         }
 
+        var accountTypeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "accountTypeCode",
+            PersonnelCurriculumCatalogCategories.BankAccountType,
+            command.BankAccount.AccountTypeCode,
+            cancellationToken);
+        if (accountTypeError != Error.None)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(accountTypeError);
+        }
+
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
         var bankAccount = PersonnelFileBankAccount.Create(
             bankLookup.InternalId,
@@ -253,6 +265,18 @@ internal sealed class UpdatePersonnelFileBankAccountCommandHandler(
                             "BankPublicId must reference an active bank catalog item for the company country."
                         ]
                     }));
+        }
+
+        var accountTypeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "accountTypeCode",
+            PersonnelCurriculumCatalogCategories.BankAccountType,
+            command.BankAccount.AccountTypeCode,
+            cancellationToken);
+        if (accountTypeError != Error.None)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(accountTypeError);
         }
 
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
@@ -485,6 +509,18 @@ internal sealed class PatchPersonnelFileBankAccountCommandHandler(
                             "BankPublicId must reference an active bank catalog item for the company country."
                         ]
                     }));
+        }
+
+        var accountTypeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "accountTypeCode",
+            PersonnelCurriculumCatalogCategories.BankAccountType,
+            input.AccountTypeCode,
+            cancellationToken);
+        if (accountTypeError != Error.None)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(accountTypeError);
         }
 
         var beforeList = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);

@@ -72,7 +72,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
             bankPublicId = selectedBank.Id,
             currencyCode = "USD",
             accountNumber = "0001-1111-2222",
-            accountTypeCode = "SAVINGS",
+            accountTypeCode = "AHORRO",
             isPrimary = true
         });
         replaceResponse.EnsureSuccessStatusCode();

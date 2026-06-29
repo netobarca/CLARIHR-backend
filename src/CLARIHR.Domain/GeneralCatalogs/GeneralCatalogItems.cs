@@ -246,6 +246,39 @@ public sealed class AssetAccessTypeCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of bank-account types ("tipos de cuenta bancaria": ahorro, corriente, planilla…),
+/// backing the MANDATORY <c>accountTypeCode</c> of personnel-file bank accounts (general-catalogs key
+/// <c>account-types</c>). Previously the field was free text with no catalog to populate a combobox.
+/// </summary>
+public sealed class BankAccountTypeCatalogItem : GeneralCatalogItem
+{
+    private BankAccountTypeCatalogItem()
+    {
+    }
+
+    private BankAccountTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static BankAccountTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Catalog of off-payroll transaction types ("tipos de transacción fuera de nómina": herramientas, EPP,
 /// uniformes, promocionales, reconocimientos, regalos…). Country-scoped and user-managed: the <c>Code</c> is
 /// entered by the administrator (D-03) and <c>Name</c> is the business "Descripción". Distinct from

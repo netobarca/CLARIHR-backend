@@ -5,7 +5,11 @@
 | **Endpoint** | `POST` / `PUT` `/api/v1/personnel-files/{publicId}/bank-accounts` |
 | **Tipo** | Código de catálogo sin endpoint expuesto |
 | **Fecha** | 2026-06-27 |
-| **Estado** | 🟡 Abierto |
+| **Estado** | 🟢 Resuelto (backend) — pendiente deploy · 2026-06-28 |
+
+## ✅ Resolución backend (2026-06-28)
+
+Catálogo `account-types` **creado** (country-scoped, mismo patrón que `asset-access-types`): expuesto en `GET /api/v1/general-catalogs/account-types?countryCode=SV`, con SV sembrado (`AHORRO`, `CORRIENTE`, `PLANILLA`, `A_LA_VISTA`, `OTRO`) vía migración `20260628235800` → llega a **todos los entornos** por el pipeline de migraciones. Un `accountTypeCode` inválido ahora devuelve **422 controlado** (validación en POST/PUT/PATCH). El FE puede convertir el campo a combobox de `account-types`. Verificado: build limpio (0 warnings), 2049 unit + 456 integration tests verdes. **Acción pendiente: desplegar.**
 
 ## Contrato (`AddBankAccountRequest`)
 

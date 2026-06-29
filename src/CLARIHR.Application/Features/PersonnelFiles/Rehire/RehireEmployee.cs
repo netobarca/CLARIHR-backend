@@ -215,6 +215,7 @@ internal sealed class RehireEmployeeCommandHandler(
                 authorizationService,
                 positionSlotRepository,
                 personnelFileRepository,
+                employeeRepository,
                 userRepository,
                 cancellationToken);
             if (!validation.IsEligible)

@@ -53,5 +53,9 @@ internal sealed class CompensationConceptTypeCatalogItemConfiguration : IEntityT
 
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.Nature, item.IsActive })
             .HasDatabaseName("ix_compensation_concept_type_catalog_items__country_nature_active");
+
+        // Previously seeded only by DevSeedService (dev) → empty in staging/prod, hard-blocking the Ingresos/Egresos
+        // section (conceptTypeCode is required). Static HasData lands the SV defaults in every environment.
+        builder.HasData(GlobalCatalogSeedData.GetCompensationConceptTypeCatalogItems());
     }
 }

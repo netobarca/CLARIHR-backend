@@ -1639,29 +1639,32 @@ public sealed class PersonnelFileEducation : TenantEntity
         int? totalSubjects,
         int? approvedSubjects)
     {
-        if (educationStatusCatalogItemId <= 0)
+        // Catalog FK ids must be set (≠ 0). They may be negative: country/system-scoped catalogs seeded via
+        // HasData use stable negative ids by convention (collision-safe vs runtime identity values), and those
+        // are valid references — only the unset default (0) is rejected.
+        if (educationStatusCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationStatusCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationStatusCatalogItemId must reference a catalog item.");
         }
 
-        if (educationStudyTypeCatalogItemId <= 0)
+        if (educationStudyTypeCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must reference a catalog item.");
         }
 
-        if (educationCareerCatalogItemId <= 0)
+        if (educationCareerCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationCareerCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationCareerCatalogItemId must reference a catalog item.");
         }
 
-        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value <= 0)
+        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value == 0)
         {
-            throw new InvalidOperationException("EducationShiftCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationShiftCatalogItemId must reference a catalog item.");
         }
 
-        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value <= 0)
+        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value == 0)
         {
-            throw new InvalidOperationException("EducationModalityCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationModalityCatalogItemId must reference a catalog item.");
         }
 
         if (endDate.HasValue && endDate.Value.Date < startDate.Date)
@@ -1798,29 +1801,32 @@ public sealed class PersonnelFileEducation : TenantEntity
         int? totalSubjects,
         int? approvedSubjects)
     {
-        if (educationStatusCatalogItemId <= 0)
+        // Catalog FK ids must be set (≠ 0). They may be negative: country/system-scoped catalogs seeded via
+        // HasData use stable negative ids by convention (collision-safe vs runtime identity values), and those
+        // are valid references — only the unset default (0) is rejected.
+        if (educationStatusCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationStatusCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationStatusCatalogItemId must reference a catalog item.");
         }
 
-        if (educationStudyTypeCatalogItemId <= 0)
+        if (educationStudyTypeCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must reference a catalog item.");
         }
 
-        if (educationCareerCatalogItemId <= 0)
+        if (educationCareerCatalogItemId == 0)
         {
-            throw new InvalidOperationException("EducationCareerCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationCareerCatalogItemId must reference a catalog item.");
         }
 
-        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value <= 0)
+        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value == 0)
         {
-            throw new InvalidOperationException("EducationShiftCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationShiftCatalogItemId must reference a catalog item.");
         }
 
-        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value <= 0)
+        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value == 0)
         {
-            throw new InvalidOperationException("EducationModalityCatalogItemId must be greater than zero.");
+            throw new InvalidOperationException("EducationModalityCatalogItemId must reference a catalog item.");
         }
 
         if (endDate.HasValue && endDate.Value.Date < startDate.Date)

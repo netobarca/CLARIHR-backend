@@ -6,7 +6,13 @@
 | **Severidad** | Media-Alta — bloquea la publicación pese a tener los datos requeridos |
 | **Tipo** | El backend no deduce la plaza primaria ya asignada |
 | **Fecha** | 2026-06-27 |
-| **Estado** | 🟡 Abierto |
+| **Estado** | 🟢 Resuelto (backend) · 2026-06-28 |
+
+## ✅ Resolución backend (2026-06-28)
+
+`finalize/preview` y `finalize` ahora **deducen la plaza activa+primaria** del expediente (`GetActivePrimaryPositionSlotPublicIdAsync`) cuando el cliente no envía `positionSlotPublicId`: si existe una plaza activa marcada `isPrimary`, se usa y `isEligible` pasa a `true` sin reenviar el slot. Se mantiene `positionSlotPublicId` como **override opcional**, y se sigue exigiendo selección solo cuando hay varias plazas activas sin ninguna primaria. Fix en el resolver compartido (cubre GET preview y PATCH finalize). +2 tests de regresión. Verificado: 2049 unit + 456 integration tests verdes.
+
+> El checklist guiado **completo** de "requisitos mínimos para publicar" (más allá de email+plaza: identidad, contrato, compensación…) está diseñado en `docs/technical/plan-tecnico-requisitos-minimos-publicacion-expediente.md` y requiere ratificar de negocio qué requisitos **bloquean** vs. **advierten**.
 
 ## Resumen
 

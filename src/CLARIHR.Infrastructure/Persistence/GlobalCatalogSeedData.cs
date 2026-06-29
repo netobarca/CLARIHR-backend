@@ -2,6 +2,7 @@ using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Compensation;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 
@@ -453,6 +454,17 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("PAYMENT_METHOD_CATALOG", -9322L, "SV", "EFECTIVO", "Efectivo", 30),
     ];
 
+    // Bank-account types (general-catalogs `account-types`), backing the bank-account `accountTypeCode`
+    // that was free text before (frontend incident "bank-accounts: falta catálogo accountTypeCode").
+    public static IEnumerable<object> GetBankAccountTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("BANK_ACCOUNT_TYPE_CATALOG", -9790L, "SV", "AHORRO", "Cuenta de ahorro", 10),
+        CreateGeneralCatalogSeed("BANK_ACCOUNT_TYPE_CATALOG", -9791L, "SV", "CORRIENTE", "Cuenta corriente", 20),
+        CreateGeneralCatalogSeed("BANK_ACCOUNT_TYPE_CATALOG", -9792L, "SV", "PLANILLA", "Cuenta de planilla", 30),
+        CreateGeneralCatalogSeed("BANK_ACCOUNT_TYPE_CATALOG", -9793L, "SV", "A_LA_VISTA", "Cuenta a la vista", 40),
+        CreateGeneralCatalogSeed("BANK_ACCOUNT_TYPE_CATALOG", -9794L, "SV", "OTRO", "Otro", 50),
+    ];
+
     public static IEnumerable<object> GetSubstitutionTypeCatalogItems() =>
     [
         CreateGeneralCatalogSeed("SUBSTITUTION_TYPE_CATALOG", -9330L, "SV", "VACACIONES", "Vacaciones", 10),
@@ -714,6 +726,196 @@ internal static class GlobalCatalogSeedData
             LowerBoundMonths = lowerBoundMonths,
             UpperBoundMonths = upperBoundMonths,
             ConcurrencyToken = CreateSeedPublicId("SENIORITY_RANGE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    // ── Catalogs previously seeded ONLY by DevSeedService (dev) → now HasData so they reach EVERY environment ──
+    // These backed required `code` fields on the Seguros / Ingresos-Egresos / Formación-académica sections and came
+    // up EMPTY in staging/prod (frontend incident "Catálogos de personnel-files vacíos", 2026-06-27 sweep). Values
+    // mirror the dev seed verbatim; their DevSeedService blocks were removed to avoid colliding with these rows on
+    // the unique code index. SV only for this phase.
+
+    // Insurance: country-scoped type (reference-catalogs `insurance-types`) → hierarchical range child
+    // (`insurance-ranges`, unique on (country, type, code) so the same range code repeats under different types).
+    public static IEnumerable<object> GetInsuranceTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9700L, "SV", "VIDA", "Vida", 10),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9701L, "SV", "MEDICO_HOSPITALARIO", "Médico hospitalario", 20),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9702L, "SV", "GASTOS_MEDICOS", "Gastos médicos", 30),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9703L, "SV", "DENTAL", "Dental", 40),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9704L, "SV", "VISION", "Visión", 50),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9705L, "SV", "ACCIDENTES", "Accidentes personales", 60),
+        CreateGeneralCatalogSeed("INSURANCE_TYPE_CATALOG", -9706L, "SV", "OTRO", "Otro", 70),
+    ];
+
+    public static IEnumerable<object> GetInsuranceRangeCatalogItems() =>
+    [
+        CreateInsuranceRangeSeed(-9710L, "SV", "BASICO", "Básico", 10, -9700L),
+        CreateInsuranceRangeSeed(-9711L, "SV", "INTERMEDIO", "Intermedio", 20, -9700L),
+        CreateInsuranceRangeSeed(-9712L, "SV", "PREMIUM", "Premium", 30, -9700L),
+        CreateInsuranceRangeSeed(-9713L, "SV", "BASICO", "Básico", 10, -9701L),
+        CreateInsuranceRangeSeed(-9714L, "SV", "INTERMEDIO", "Intermedio", 20, -9701L),
+        CreateInsuranceRangeSeed(-9715L, "SV", "PREMIUM", "Premium", 30, -9701L),
+    ];
+
+    // Compensation concept types (general-catalogs `compensation-concept-types`): enriched country-scoped catalog
+    // carrying payroll defaults (nature, statutory flag, deduction class, calc type/base, ISSS/AFP rates + cap).
+    public static IEnumerable<object> GetCompensationConceptTypeCatalogItems() =>
+    [
+        CreateCompensationConceptTypeSeed(-9720L, "SV", "SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10),
+        CreateCompensationConceptTypeSeed(-9721L, "SV", "HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20),
+        CreateCompensationConceptTypeSeed(-9722L, "SV", "COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30),
+        CreateCompensationConceptTypeSeed(-9723L, "SV", "BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40),
+        CreateCompensationConceptTypeSeed(-9724L, "SV", "VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50),
+        CreateCompensationConceptTypeSeed(-9725L, "SV", "AGUINALDO", "Aguinaldo", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 60),
+        CreateCompensationConceptTypeSeed(-9726L, "SV", "OTRO_INGRESO", "Otro ingreso", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 70),
+        CreateCompensationConceptTypeSeed(-9727L, "SV", "ISSS", "ISSS", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 3.00m, 7.50m, 1000.00m, 100),
+        CreateCompensationConceptTypeSeed(-9728L, "SV", "AFP", "AFP", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 7.25m, 8.75m, null, 110),
+        CreateCompensationConceptTypeSeed(-9729L, "SV", "RENTA", "Renta (ISR)", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "SALARIO_BRUTO", null, null, null, 120),
+        CreateCompensationConceptTypeSeed(-9730L, "SV", "DANO_EQUIPO", "Dano de equipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 200),
+        CreateCompensationConceptTypeSeed(-9731L, "SV", "ANTICIPO", "Anticipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 210),
+        CreateCompensationConceptTypeSeed(-9732L, "SV", "PRESTAMO_INTERNO", "Prestamo interno", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 220),
+        CreateCompensationConceptTypeSeed(-9733L, "SV", "PRESTAMO_BANCARIO", "Prestamo bancario", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 300),
+        CreateCompensationConceptTypeSeed(-9734L, "SV", "EMBARGO", "Embargo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 310),
+        CreateCompensationConceptTypeSeed(-9735L, "SV", "CUOTA_ALIMENTICIA", "Cuota alimenticia", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 320),
+        CreateCompensationConceptTypeSeed(-9736L, "SV", "OTRO_EXTERNO", "Otro externo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 330),
+    ];
+
+    public static IEnumerable<object> GetPayPeriodCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9740L, "SV", "MENSUAL", "Mensual", 10),
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9741L, "SV", "QUINCENAL", "Quincenal", 20),
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9742L, "SV", "SEMANAL", "Semanal", 30),
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9743L, "SV", "UNICA", "Unica", 40),
+    ];
+
+    public static IEnumerable<object> GetCalculationBaseCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9750L, "SV", "SALARIO_BASE", "Salario base", 10),
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9751L, "SV", "SALARIO_BRUTO", "Salario bruto", 20),
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9752L, "SV", "IBC", "Ingreso base de cotizacion", 30),
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9753L, "SV", "RUBRO_ESPECIFICO", "Rubro especifico", 40),
+    ];
+
+    // Education catalogs are SYSTEM-scoped (no country) — codes must stay stable as personnel-file education
+    // records reference them by code (and the dev sample file resolves these very codes at seed time).
+    public static IEnumerable<object> GetEducationStatusCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("EDUCATION_STATUS_CATALOG", -9760L, "GRADUATED", "Graduado", 10),
+        CreateEducationCatalogSeed("EDUCATION_STATUS_CATALOG", -9761L, "IN_PROGRESS", "En curso", 20),
+    ];
+
+    public static IEnumerable<object> GetEducationStudyTypeCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("EDUCATION_STUDY_TYPE_CATALOG", -9765L, "BACHELOR", "Licenciatura", 10),
+        CreateEducationCatalogSeed("EDUCATION_STUDY_TYPE_CATALOG", -9766L, "MASTER", "Maestria", 20),
+        CreateEducationCatalogSeed("EDUCATION_STUDY_TYPE_CATALOG", -9767L, "TECHNICAL", "Tecnico", 30),
+    ];
+
+    public static IEnumerable<object> GetEducationShiftCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("EDUCATION_SHIFT_CATALOG", -9770L, "MORNING", "Matutino", 10),
+        CreateEducationCatalogSeed("EDUCATION_SHIFT_CATALOG", -9771L, "AFTERNOON", "Vespertino", 20),
+    ];
+
+    public static IEnumerable<object> GetEducationModalityCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("EDUCATION_MODALITY_CATALOG", -9775L, "ONSITE", "Presencial", 10),
+        CreateEducationCatalogSeed("EDUCATION_MODALITY_CATALOG", -9776L, "REMOTE", "Virtual", 20),
+    ];
+
+    public static IEnumerable<object> GetEducationCareerCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9780L, "INDUSTRIAL_ENGINEERING", "Ingenieria Industrial", 10),
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9781L, "BUSINESS_ADMINISTRATION", "Administracion de Empresas", 20),
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9782L, "MBA", "Maestria en Administracion de Negocios", 30),
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9783L, "PSYCHOLOGY", "Psicologia", 40),
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9784L, "SYSTEMS_ENGINEERING", "Ingenieria en Sistemas Informaticos", 50),
+        CreateEducationCatalogSeed("EDUCATION_CAREER_CATALOG", -9785L, "ACCOUNTING_AUDITING", "Contaduria Publica y Auditoria", 60),
+    ];
+
+    private static object CreateInsuranceRangeSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder,
+        long insuranceTypeCatalogItemId) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("INSURANCE_RANGE_CATALOG", $"{countryCode}:{insuranceTypeCatalogItemId}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            InsuranceTypeCatalogItemId = insuranceTypeCatalogItemId,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("INSURANCE_RANGE_CATALOG_CONCURRENCY", $"{countryCode}:{insuranceTypeCatalogItemId}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static object CreateCompensationConceptTypeSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        CompensationNature nature,
+        bool isStatutory,
+        DeductionClass? defaultDeductionClass,
+        CompensationCalculationType defaultCalculationType,
+        string? defaultCalculationBaseCode,
+        decimal? defaultEmployeeRate,
+        decimal? defaultEmployerRate,
+        decimal? contributionCap,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("COMPENSATION_CONCEPT_TYPE_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            Nature = nature,
+            IsStatutory = isStatutory,
+            DefaultDeductionClass = defaultDeductionClass,
+            DefaultCalculationType = defaultCalculationType,
+            DefaultCalculationBaseCode = defaultCalculationBaseCode,
+            DefaultEmployeeRate = defaultEmployeeRate,
+            DefaultEmployerRate = defaultEmployerRate,
+            ContributionCap = contributionCap,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("COMPENSATION_CONCEPT_TYPE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static object CreateEducationCatalogSeed(
+        string seedPrefix,
+        long id,
+        string code,
+        string name,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId(seedPrefix, code),
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId($"{seedPrefix}_CONCURRENCY", code),
             CreatedUtc = SeededAtUtc,
             ModifiedUtc = SeededAtUtc
         };
