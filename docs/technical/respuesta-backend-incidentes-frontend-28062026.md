@@ -36,15 +36,15 @@
 - Sembrado para SV vía migración `20260628235800` (HasData → **todos los entornos**): `AHORRO`, `CORRIENTE`, `PLANILLA`, `A_LA_VISTA`, `OTRO`.
 - Un `accountTypeCode` inválido ahora devuelve **422 controlado** en `POST` / `PUT` / `PATCH` (campo `accountTypeCode` en `errors`).
 
-Respuesta del catálogo (igual que `banks`/`currencies`, que ya consumes):
+Respuesta del catálogo (forma real verificada en el dev server, igual que `banks`/`currencies` que ya consumes):
 ```jsonc
 [
-  { "id": "…uuid…", "code": "AHORRO",    "name": "Cuenta de ahorro",   "isActive": true, "sortOrder": 10 },
-  { "id": "…uuid…", "code": "CORRIENTE", "name": "Cuenta corriente",   "isActive": true, "sortOrder": 20 },
-  { "id": "…uuid…", "code": "PLANILLA",  "name": "Cuenta de planilla", "isActive": true, "sortOrder": 30 }
-  // A_LA_VISTA, OTRO …
+  { "publicId": "76a1fc1f-…", "category": "BankAccountType", "code": "AHORRO",    "name": "Cuenta de ahorro",   "isSystem": true, "isActive": true, "sortOrder": 10, "normalizedCode": "AHORRO" },
+  { "publicId": "566fd93e-…", "category": "BankAccountType", "code": "CORRIENTE", "name": "Cuenta corriente",   "isSystem": true, "isActive": true, "sortOrder": 20, "normalizedCode": "CORRIENTE" }
+  // PLANILLA, A_LA_VISTA, OTRO …
 ]
 ```
+> El **valor** que envías en `accountTypeCode` es `code` (p. ej. `"AHORRO"`); el **label** es `name`.
 
 **Acción Frontend.**
 - Cambia `accountTypeCode` de **texto libre → combobox** de `account-types` (el mismo patrón que ya aplicaste a `bankPublicId`/`currencyCode`). El **valor enviado es `code`** (p. ej. `"AHORRO"`), el **label es `name`**.
@@ -115,6 +115,10 @@ Los catálogos **no aparecen en el servidor hasta desplegar**: las filas `HasDat
 - `20260627212537` (27/06) — los 3 catálogos reportados + payment-methods/medical-claim/off-payroll. **Si esta no está aplicada, ese es el origen del reporte INC‑02.**
 - `20260628234354` (esta sesión) — insurance/compensation/pay-periods/calculation-bases/education.
 - `20260628235800` (esta sesión) — `account-types` (INC‑01).
+
+### ✅ DEV ya verificado en vivo (2026-06-28)
+
+Verificado contra `https://apiclarihrdev.azurewebsites.net` vía API: **los 17 catálogos responden con datos** (account-types=5, asset-access-types=8, delivery-statuses=7, substitution-types=6, payment-methods=3, medical-claim-types=9, off-payroll=6, insurance-types=7, insurance-ranges=6, compensation-concept-types=17, pay-periods=4, calculation-bases=4, education-statuses=2/study-types=3/shifts=2/modalities=2/careers=6). **El FE ya puede integrar contra dev.** Falta replicar el deploy a staging/prod. Cómo re-verificar: `docs/technical/verificacion-catalogos-servidor.md`.
 
 ---
 
