@@ -59,6 +59,11 @@ public static class GeneralCatalogKeyMap
             ["certificate-request-statuses"] = PersonnelCurriculumCatalogCategories.CertificateRequestStatus,
             ["certificate-delivery-methods"] = PersonnelCurriculumCatalogCategories.CertificateDeliveryMethod,
             ["certificate-purposes"] = PersonnelCurriculumCatalogCategories.CertificatePurpose,
+            ["hobbies"] = PersonnelCurriculumCatalogCategories.Hobby,
+            ["associations"] = PersonnelCurriculumCatalogCategories.Association,
+            ["additional-benefit-types"] = PersonnelCurriculumCatalogCategories.AdditionalBenefitType,
+            ["education-levels"] = PersonnelCurriculumCatalogCategories.EducationLevel,
+            ["afps"] = PersonnelCurriculumCatalogCategories.Afp,
         };
 
     /// <summary>
@@ -77,6 +82,8 @@ public static class GeneralCatalogKeyMap
             ["insurance-ranges"] = PersonnelReferenceCatalogCategories.InsuranceRange,
             ["retirement-categories"] = PersonnelReferenceCatalogCategories.RetirementCategory,
             ["retirement-reasons"] = PersonnelReferenceCatalogCategories.RetirementReason,
+            ["personal-titles"] = PersonnelReferenceCatalogCategories.PersonalTitle,
+            ["address-types"] = PersonnelReferenceCatalogCategories.AddressType,
         };
 
     /// <summary>Resolves a <c>general-catalogs</c> wire key to its category; <c>false</c> for an unknown key.</summary>

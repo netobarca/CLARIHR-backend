@@ -87,7 +87,7 @@ public sealed class PersonnelFileInterestsController(
         var result = await commandDispatcher.SendAsync(
             new AddPersonnelFileHobbyCommand(
                 publicId,
-                new HobbyInput(request.HobbyName)),
+                new HobbyInput(request.HobbyCode, request.HobbyName)),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -118,7 +118,7 @@ public sealed class PersonnelFileInterestsController(
             new UpdatePersonnelFileHobbyCommand(
                 publicId,
                 hobbyPublicId,
-                new HobbyInput(request.HobbyName),
+                new HobbyInput(request.HobbyCode, request.HobbyName),
                 concurrencyToken),
             cancellationToken);
 
@@ -239,6 +239,7 @@ public sealed class PersonnelFileInterestsController(
             new AddPersonnelFileAssociationCommand(
                 publicId,
                 new AssociationInput(
+                    request.AssociationCode,
                     request.AssociationName,
                     request.Role,
                     request.JoinedDate,
@@ -275,6 +276,7 @@ public sealed class PersonnelFileInterestsController(
                 publicId,
                 associationPublicId,
                 new AssociationInput(
+                    request.AssociationCode,
                     request.AssociationName,
                     request.Role,
                     request.JoinedDate,

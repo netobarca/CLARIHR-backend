@@ -29,6 +29,9 @@ internal sealed class CompensationConceptTypeCatalogItemConfiguration : IEntityT
         builder.Property(item => item.DefaultEmployeeRate).HasColumnName("default_employee_rate").HasColumnType("numeric(11,8)");
         builder.Property(item => item.DefaultEmployerRate).HasColumnName("default_employer_rate").HasColumnType("numeric(11,8)");
         builder.Property(item => item.ContributionCap).HasColumnName("contribution_cap").HasColumnType("numeric(18,2)");
+        builder.Property(item => item.IsBaseSalary).HasColumnName("is_base_salary");
+        builder.Property(item => item.DefaultPensionedEmployerRate).HasColumnName("default_pensioned_employer_rate").HasColumnType("numeric(11,8)");
+        builder.Property(item => item.MinContributionBase).HasColumnName("min_contribution_base").HasColumnType("numeric(18,2)");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
         builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();

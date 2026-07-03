@@ -113,6 +113,17 @@ internal sealed class AddPersonnelFileEmergencyContactCommandHandler(
 
         var personnelFile = file!;
 
+        // Relationship is now catalog-backed (RF-004, D-11): must be an active Kinship code.
+        var relationshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "relationship",
+            command.EmergencyContact.Relationship,
+            cancellationToken);
+        if (relationshipValidation != Error.None)
+        {
+            return Result<PersonnelFileEmergencyContactResponse>.Failure(relationshipValidation);
+        }
 
         var before = await repository.GetEmergencyContactsAsync(personnelFile.PublicId, cancellationToken);
         var emergencyContact = PersonnelFileEmergencyContact.Create(
@@ -204,6 +215,18 @@ internal sealed class UpdatePersonnelFileEmergencyContactCommandHandler(
         if (emergencyContact.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileEmergencyContactResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // Relationship is now catalog-backed (RF-004, D-11): must be an active Kinship code.
+        var relationshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "relationship",
+            command.EmergencyContact.Relationship,
+            cancellationToken);
+        if (relationshipValidation != Error.None)
+        {
+            return Result<PersonnelFileEmergencyContactResponse>.Failure(relationshipValidation);
         }
 
         var before = await repository.GetEmergencyContactsAsync(personnelFile.PublicId, cancellationToken);
@@ -416,6 +439,18 @@ internal sealed class PatchPersonnelFileEmergencyContactCommandHandler(
         }
 
         var input = state.ToInput();
+
+        // Relationship is now catalog-backed (RF-004, D-11): must be an active Kinship code.
+        var relationshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "relationship",
+            input.Relationship,
+            cancellationToken);
+        if (relationshipValidation != Error.None)
+        {
+            return Result<PersonnelFileEmergencyContactResponse>.Failure(relationshipValidation);
+        }
 
         var beforeList = await repository.GetEmergencyContactsAsync(personnelFile.PublicId, cancellationToken);
 

@@ -17,6 +17,8 @@ public sealed class CreatePersonnelFileRequest
     public DateTime BirthDate { get; init; }
     public string? MaritalStatusCode { get; init; }
     public string? ProfessionCode { get; init; }
+    public string? PersonalTitleCode { get; init; }
+    public string? AfpCode { get; init; }
     public string? Nationality { get; init; }
     public string? PersonalEmail { get; init; }
     public string? InstitutionalEmail { get; init; }
@@ -42,6 +44,8 @@ public sealed record UpdatePersonnelFileRequest(
     DateTime BirthDate,
     string? MaritalStatusCode,
     string? ProfessionCode,
+    string? PersonalTitleCode,
+    string? AfpCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -67,6 +71,8 @@ public sealed class PatchPersonnelFileRequest
     public DateTime BirthDate { get; set; }
     public string? MaritalStatusCode { get; set; }
     public string? ProfessionCode { get; set; }
+    public string? PersonalTitleCode { get; set; }
+    public string? AfpCode { get; set; }
     public string? Nationality { get; set; }
     public string? PersonalEmail { get; set; }
     public string? InstitutionalEmail { get; set; }
@@ -702,6 +708,7 @@ public sealed class PatchIdentificationRequest
 
 public sealed record AddAddressRequest(
     string AddressLine,
+    string? AddressTypeCode,
     string? Country,
     string? Department,
     string? Municipality,
@@ -710,6 +717,7 @@ public sealed record AddAddressRequest(
 
 public sealed record UpdateAddressRequest(
     string AddressLine,
+    string? AddressTypeCode,
     string? Country,
     string? Department,
     string? Municipality,
@@ -719,6 +727,7 @@ public sealed record UpdateAddressRequest(
 public sealed class PatchAddressRequest
 {
     public string AddressLine { get; set; } = string.Empty;
+    public string? AddressTypeCode { get; set; }
     public string? Country { get; set; }
     public string? Department { get; set; }
     public string? Municipality { get; set; }
@@ -823,13 +832,14 @@ public sealed class PatchFamilyMemberRequest
     public DateTime? DeceasedDate { get; set; }
 }
 
-public sealed record AddHobbyRequest(string HobbyName);
+public sealed record AddHobbyRequest(string HobbyCode, string? HobbyName = null);
 
-public sealed record UpdateHobbyRequest(string HobbyName);
+public sealed record UpdateHobbyRequest(string HobbyCode, string? HobbyName = null);
 
 public sealed class PatchHobbyRequest
 {
-    public string HobbyName { get; set; } = string.Empty;
+    public string HobbyCode { get; set; } = string.Empty;
+    public string? HobbyName { get; set; }
 }
 
 public sealed record AddEmployeeRelationRequest(
@@ -870,6 +880,7 @@ public sealed class PatchBankAccountRequest
 }
 
 public sealed record AddAssociationRequest(
+    string AssociationCode,
     string AssociationName,
     string? Role,
     DateTime? JoinedDate,
@@ -877,6 +888,7 @@ public sealed record AddAssociationRequest(
     decimal? Payment);
 
 public sealed record UpdateAssociationRequest(
+    string AssociationCode,
     string AssociationName,
     string? Role,
     DateTime? JoinedDate,
@@ -885,6 +897,7 @@ public sealed record UpdateAssociationRequest(
 
 public sealed class PatchAssociationRequest
 {
+    public string AssociationCode { get; set; } = string.Empty;
     public string AssociationName { get; set; } = string.Empty;
     public string? Role { get; set; }
     public DateTime? JoinedDate { get; set; }

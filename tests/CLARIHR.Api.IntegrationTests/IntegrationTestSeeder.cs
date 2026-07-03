@@ -636,12 +636,37 @@ internal static class IntegrationTestSeeder
             }
         }
 
+        // Careers are COUNTRY-scoped + enriched since RF-009/DP-06: they need the company country and a
+        // study-type FK (the HasData UNIVERSITARIA row, falling back to any existing study type).
+        var careerCountry = GetSeedCompanyCountry(dbContext, tenantId);
+        var careerStudyTypeId = dbContext.EducationStudyTypeCatalogItems
+            .Where(entity => entity.NormalizedCode == "UNIVERSITARIA")
+            .Select(entity => entity.Id)
+            .FirstOrDefault();
+        if (careerStudyTypeId == 0)
+        {
+            careerStudyTypeId = dbContext.EducationStudyTypeCatalogItems
+                .Select(entity => entity.Id)
+                .First();
+        }
+
         foreach (var item in careers)
         {
             if (!dbContext.EducationCareerCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == careerCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+                var entity = EducationCareerCatalogItem.Create(
+                    careerCountry.CountryCatalogItemId,
+                    careerCountry.CountryCode,
+                    item.Code,
+                    item.Name,
+                    true,
+                    item.SortOrder,
+                    abbreviation: null,
+                    increment: 0m,
+                    isRecognized: true,
+                    educationStudyTypeCatalogItemId: careerStudyTypeId);
                 dbContext.EducationCareerCatalogItems.Add(entity);
             }
         }

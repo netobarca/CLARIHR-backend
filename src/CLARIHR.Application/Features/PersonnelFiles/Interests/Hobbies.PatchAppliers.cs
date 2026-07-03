@@ -76,9 +76,9 @@ internal static class PersonnelFileHobbyPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        if (string.IsNullOrWhiteSpace(state.HobbyName))
+        if (string.IsNullOrWhiteSpace(state.HobbyCode))
         {
-            errors["hobbyName"] = ["HobbyName is required."];
+            errors["hobbyCode"] = ["HobbyCode is required."];
         }
 
         return errors.Count == 0
@@ -95,9 +95,14 @@ internal static class PersonnelFileHobbyPatchApplier
     {
         var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
 
+        if (IsSegment(property, "hobbyCode"))
+        {
+            return Mutate(state, () => state.HobbyCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
         if (IsSegment(property, "hobbyName"))
         {
-            return Mutate(state, () => state.HobbyName = isRemove ? string.Empty : ReadRequiredString(value, path));
+            return Mutate(state, () => state.HobbyName = isRemove ? null : ReadNullableString(value, path));
         }
 
         return ValidationFailure(path, $"Unsupported patch path '{path}'.");

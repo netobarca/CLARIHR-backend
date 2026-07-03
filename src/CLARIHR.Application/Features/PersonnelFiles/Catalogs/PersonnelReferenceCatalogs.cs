@@ -117,6 +117,11 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string CertificateRequestStatus = "CertificateRequestStatus";
     public const string CertificateDeliveryMethod = "CertificateDeliveryMethod";
     public const string CertificatePurpose = "CertificatePurpose";
+    public const string Hobby = "Hobby";
+    public const string Association = "Association";
+    public const string AdditionalBenefitType = "AdditionalBenefitType";
+    public const string EducationLevel = "CurriculumEducationLevel";
+    public const string Afp = "Afp";
 }
 
 internal static class PersonnelCurriculumCatalogValidation
@@ -150,7 +155,8 @@ internal static class PersonnelReferenceCatalogValidation
         string? birthCountryCode,
         string? birthDepartmentCode,
         string? birthMunicipalityCode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? personalTitleCode = null)
     {
         if (!string.IsNullOrWhiteSpace(maritalStatusCode))
         {
@@ -182,6 +188,21 @@ internal static class PersonnelReferenceCatalogValidation
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(personalTitleCode))
+        {
+            var personalTitleError = await ValidateOptionalReferenceCodeAsync(
+                repository,
+                "personalTitleCode",
+                await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken),
+                PersonnelReferenceCatalogCategories.PersonalTitle,
+                personalTitleCode,
+                cancellationToken);
+            if (personalTitleError != Error.None)
+            {
+                return personalTitleError;
+            }
+        }
+
         return await ValidateBirthLocationAsync(
             repository,
             birthCountryCode,
@@ -203,6 +224,50 @@ internal static class PersonnelReferenceCatalogValidation
             identificationTypeCode,
             cancellationToken);
 
+    /// <summary>
+    /// Validates the identification number against the anchored regex configured for the
+    /// identification type (RF-003). Types without a configured format keep the generic
+    /// validation only (no-op). Runs against the trimmed, upper-cased number (the same
+    /// normalization the entity stores). An unparsable/pathological pattern fails safe (no-op)
+    /// so a bad admin regex can never block writes.
+    /// </summary>
+    public static async Task<Error> ValidateIdentificationNumberFormatAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string identificationTypeCode,
+        string identificationNumber,
+        CancellationToken cancellationToken)
+    {
+        var pattern = await repository.GetIdentificationTypeNumberFormatAsync(companyId, identificationTypeCode, cancellationToken);
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return Error.None;
+        }
+
+        var normalizedNumber = identificationNumber.Trim().ToUpperInvariant();
+        try
+        {
+            if (!global::System.Text.RegularExpressions.Regex.IsMatch(
+                normalizedNumber,
+                pattern,
+                global::System.Text.RegularExpressions.RegexOptions.None,
+                TimeSpan.FromMilliseconds(250)))
+            {
+                return PersonnelFileErrors.IdentificationNumberFormatInvalid;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return Error.None;
+        }
+        catch (global::System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return Error.None;
+        }
+
+        return Error.None;
+    }
+
     public static Task<Error> ValidateKinshipCodeAsync(
         IPersonnelFileRepository repository,
         Guid companyId,
@@ -215,6 +280,20 @@ internal static class PersonnelReferenceCatalogValidation
             fieldName,
             PersonnelReferenceCatalogCategories.Kinship,
             kinshipCode,
+            cancellationToken);
+
+    public static Task<Error> ValidateAddressTypeCodeAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string fieldName,
+        string? addressTypeCode,
+        CancellationToken cancellationToken) =>
+        ValidateOptionalReferenceCodeForCompanyAsync(
+            repository,
+            companyId,
+            fieldName,
+            PersonnelReferenceCatalogCategories.AddressType,
+            addressTypeCode,
             cancellationToken);
 
     public static Task<Error> ValidateInsuranceTypeCodeAsync(

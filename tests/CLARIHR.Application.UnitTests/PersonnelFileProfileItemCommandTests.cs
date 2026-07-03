@@ -27,7 +27,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileAddressCommand(
                 personnelFile.PublicId,
-                new AddressInput("Colonia Escalon", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true)),
+                new AddressInput("Colonia Escalon", null, "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -196,7 +196,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileAssociationCommand(
                 personnelFile.PublicId,
-                new AssociationInput("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m)),
+                new AssociationInput("COLEGIO_PROF", "Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -211,7 +211,7 @@ public sealed class PersonnelFileProfileItemCommandTests
     public async Task DeleteAssociation_WhenItemExists_ShouldRemoveItem()
     {
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
-        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+        var association = PersonnelFileAssociation.Create("COLEGIO_PROF", "Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
         personnelFile.AddAssociation(association);
         var repository = new TestPersonnelFileRepository(personnelFile);
         var handler = CreateDeleteAssociationHandler(repository);
@@ -635,6 +635,7 @@ public sealed class PersonnelFileProfileItemCommandTests
                 file.Addresses.Select(item => new PersonnelFileAddressResponse(
                     item.PublicId,
                     item.AddressLine,
+                    item.AddressTypeCode,
                     item.Country,
                     item.Department,
                     item.Municipality,
@@ -760,6 +761,7 @@ public sealed class PersonnelFileProfileItemCommandTests
             return Task.FromResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>(
                 file.Associations.Select(item => new PersonnelFileAssociationResponse(
                     item.PublicId,
+                    item.AssociationCode,
                     item.AssociationName,
                     item.Role,
                     item.JoinedDate,

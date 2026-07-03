@@ -210,6 +210,9 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem> EducationStudyTypeCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem>();
 
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationLevelCatalogItem> EducationLevelCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationLevelCatalogItem>();
+
+    // Careers are COUNTRY-scoped since RF-009/DP-06 (kept in this block for discoverability).
     public DbSet<CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem> EducationCareerCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem>();
 
     public DbSet<CLARIHR.Domain.EducationCatalogs.EducationShiftCatalogItem> EducationShiftCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationShiftCatalogItem>();
@@ -272,6 +275,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<ActionStatusCatalogItem> ActionStatusCatalogItems => Set<ActionStatusCatalogItem>();
 
+    public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
+
+    public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();
+
+    public DbSet<AdditionalBenefitTypeCatalogItem> AdditionalBenefitTypeCatalogItems => Set<AdditionalBenefitTypeCatalogItem>();
+
+    public DbSet<CLARIHR.Domain.Afps.AfpCatalogItem> AfpCatalogItems => Set<CLARIHR.Domain.Afps.AfpCatalogItem>();
+
     public DbSet<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem> CompensationConceptTypeCatalogItems => Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>();
 
     public DbSet<PayPeriodCatalogItem> PayPeriodCatalogItems => Set<PayPeriodCatalogItem>();
@@ -299,6 +310,10 @@ public sealed class ApplicationDbContext(
     public DbSet<RetirementCategoryCatalogItem> RetirementCategoryCatalogItems => Set<RetirementCategoryCatalogItem>();
 
     public DbSet<RetirementReasonCatalogItem> RetirementReasonCatalogItems => Set<RetirementReasonCatalogItem>();
+
+    public DbSet<PersonalTitleCatalogItem> PersonalTitleCatalogItems => Set<PersonalTitleCatalogItem>();
+
+    public DbSet<AddressTypeCatalogItem> AddressTypeCatalogItems => Set<AddressTypeCatalogItem>();
 
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
 

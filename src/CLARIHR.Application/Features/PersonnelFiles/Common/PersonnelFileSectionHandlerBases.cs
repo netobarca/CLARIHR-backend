@@ -181,10 +181,27 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
             values.BirthCountryCode,
             values.BirthDepartmentCode,
             values.BirthMunicipalityCode,
-            cancellationToken);
+            cancellationToken,
+            values.PersonalTitleCode);
         if (personalInfoCatalogValidation != Error.None)
         {
             return Result<PersonnelFilePersonalInfoResponse>.Failure(personalInfoCatalogValidation);
+        }
+
+        // AFP is a General-family catalog (RF-007): validated separately from the Reference codes.
+        if (!string.IsNullOrWhiteSpace(values.AfpCode))
+        {
+            var afpValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+                repository,
+                personnelFile.TenantId,
+                "afpCode",
+                PersonnelCurriculumCatalogCategories.Afp,
+                values.AfpCode,
+                cancellationToken);
+            if (afpValidation != Error.None)
+            {
+                return Result<PersonnelFilePersonalInfoResponse>.Failure(afpValidation);
+            }
         }
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -224,7 +241,9 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
                     values.BirthDepartmentCode,
                     values.BirthMunicipalityCode,
                     photoWritePlan.PersistedPhotoFilePublicId,
-                    values.OrgUnitId);
+                    values.OrgUnitId,
+                    values.PersonalTitleCode,
+                    values.AfpCode);
             }
             catch (InvalidOperationException)
             {

@@ -251,12 +251,13 @@ public sealed class PersonnelFileDomainTests
         var tenantId = Guid.NewGuid();
         file.SetTenantId(tenantId);
         var initialToken = file.ConcurrencyToken;
-        var address = PersonnelFileAddress.Create("Calle 1", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true);
+        var address = PersonnelFileAddress.Create("Calle 1", "CASA", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true);
 
         file.AddAddress(address);
 
         var stored = Assert.Single(file.Addresses);
         Assert.Equal("Calle 1", stored.AddressLine);
+        Assert.Equal("CASA", stored.AddressTypeCode);
         Assert.Equal(tenantId, stored.TenantId);
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
     }
@@ -265,14 +266,15 @@ public sealed class PersonnelFileDomainTests
     public void PersonnelFile_UpdateAddress_ShouldUpdateRowAndRefreshConcurrencyToken()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
-        var address = PersonnelFileAddress.Create("Calle 1", "SV", null, null, null, true);
+        var address = PersonnelFileAddress.Create("Calle 1", null, "SV", null, null, null, true);
         file.AddAddress(address);
         var initialToken = file.ConcurrencyToken;
 
-        file.UpdateAddress(address.PublicId, "Avenida 2", "GT", "GUATEMALA", "MIXCO", "01057", false);
+        file.UpdateAddress(address.PublicId, "Avenida 2", "trabajo", "GT", "GUATEMALA", "MIXCO", "01057", false);
 
         var stored = Assert.Single(file.Addresses);
         Assert.Equal("Avenida 2", stored.AddressLine);
+        Assert.Equal("TRABAJO", stored.AddressTypeCode);
         Assert.Equal("GT", stored.Country);
         Assert.False(stored.IsCurrent);
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
@@ -282,7 +284,7 @@ public sealed class PersonnelFileDomainTests
     public void PersonnelFile_RemoveAddress_ShouldRemoveRowAndRefreshConcurrencyToken()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
-        var address = PersonnelFileAddress.Create("Calle 1", "SV", null, null, null, true);
+        var address = PersonnelFileAddress.Create("Calle 1", null, "SV", null, null, null, true);
         file.AddAddress(address);
         var initialToken = file.ConcurrencyToken;
 
@@ -763,7 +765,7 @@ public sealed class PersonnelFileDomainTests
         var tenantId = Guid.NewGuid();
         file.SetTenantId(tenantId);
         var initialToken = file.ConcurrencyToken;
-        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+        var association = PersonnelFileAssociation.Create("COLEGIO_PROF", "Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
 
         file.AddAssociation(association);
 
@@ -779,11 +781,11 @@ public sealed class PersonnelFileDomainTests
     public void PersonnelFile_UpdateAssociation_ShouldUpdateFieldsAndRefreshConcurrencyToken()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
-        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+        var association = PersonnelFileAssociation.Create("COLEGIO_PROF", "Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
         file.AddAssociation(association);
         var initialToken = file.ConcurrencyToken;
 
-        file.UpdateAssociation(association.PublicId, "Camara de Comercio", "Presidente", new DateTime(2021, 1, 1), new DateTime(2023, 12, 31), 100.00m);
+        file.UpdateAssociation(association.PublicId, "CAMARA", "Camara de Comercio", "Presidente", new DateTime(2021, 1, 1), new DateTime(2023, 12, 31), 100.00m);
 
         var stored = Assert.Single(file.Associations);
         Assert.Equal("Camara de Comercio", stored.AssociationName);
@@ -800,14 +802,14 @@ public sealed class PersonnelFileDomainTests
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
 
         Assert.Throws<InvalidOperationException>(() => file.UpdateAssociation(
-            Guid.NewGuid(), "Test", null, null, null, null));
+            Guid.NewGuid(), "OTRA", "Test", null, null, null, null));
     }
 
     [Fact]
     public void PersonnelFile_RemoveAssociation_ShouldRemoveRowAndRefreshConcurrencyToken()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
-        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", null, null, null);
+        var association = PersonnelFileAssociation.Create("COLEGIO_PROF", "Colegio de Abogados", "Miembro", null, null, null);
         file.AddAssociation(association);
         var initialToken = file.ConcurrencyToken;
 
@@ -829,11 +831,12 @@ public sealed class PersonnelFileDomainTests
     public void PersonnelFileAssociation_Update_WhenLeftDateBeforeJoinedDate_ShouldThrow()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
-        var association = PersonnelFileAssociation.Create("Test", null, null, null, null);
+        var association = PersonnelFileAssociation.Create("OTRA", "Test", null, null, null, null);
         file.AddAssociation(association);
 
         Assert.Throws<InvalidOperationException>(() => file.UpdateAssociation(
             association.PublicId,
+            "OTRA",
             "Test",
             null,
             new DateTime(2025, 6, 1),

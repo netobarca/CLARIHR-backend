@@ -249,6 +249,21 @@ public sealed class SystemCatalogsController(
             case "municipalities":
                 catalogType = SystemCatalogType.Municipality;
                 return true;
+            case "personal-titles":
+                catalogType = SystemCatalogType.PersonalTitle;
+                return true;
+            case "address-types":
+                catalogType = SystemCatalogType.AddressType;
+                return true;
+            case "hobbies":
+                catalogType = SystemCatalogType.Hobby;
+                return true;
+            case "associations":
+                catalogType = SystemCatalogType.Association;
+                return true;
+            case "additional-benefit-types":
+                catalogType = SystemCatalogType.AdditionalBenefitType;
+                return true;
             default:
                 catalogType = default;
                 return false;

@@ -6,12 +6,13 @@ namespace CLARIHR.Application.UnitTests;
 /// <summary>
 /// Unit coverage for the canonical Hobby JSON Patch surface (PersonnelFileInterests
 /// remediation): the pure <see cref="PersonnelFileHobbyPatchApplier"/> and the
-/// <see cref="PersonnelFileHobbyPatchState"/> projection.
+/// <see cref="PersonnelFileHobbyPatchState"/> projection. hobbyCode is the required,
+/// catalog-backed field (RF-005, DP-07); hobbyName is an optional free-text label.
 /// </summary>
 public sealed class PersonnelFileHobbyPatchTests
 {
     private static PersonnelFileHobbyResponse Baseline() =>
-        new(Guid.NewGuid(), "Reading", Guid.NewGuid());
+        new(Guid.NewGuid(), "LECTURA", "Reading", Guid.NewGuid());
 
     private static PersonnelFileHobbyPatchOperation Replace<T>(string path, T value) =>
         new("replace", path, null, JsonSerializer.SerializeToElement(value));
@@ -24,6 +25,7 @@ public sealed class PersonnelFileHobbyPatchTests
     {
         var state = PersonnelFileHobbyPatchState.From(Baseline());
 
+        Assert.Equal("LECTURA", state.HobbyCode);
         Assert.Equal("Reading", state.HobbyName);
         Assert.False(state.HasMutation);
     }
@@ -33,7 +35,18 @@ public sealed class PersonnelFileHobbyPatchTests
     {
         var input = PersonnelFileHobbyPatchState.From(Baseline()).ToInput();
 
+        Assert.Equal("LECTURA", input.HobbyCode);
         Assert.Equal("Reading", input.HobbyName);
+    }
+
+    [Fact]
+    public void Apply_ReplaceHobbyCode_Mutates()
+    {
+        var state = PersonnelFileHobbyPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Replace("/hobbyCode", "DEPORTE")], state).IsSuccess);
+        Assert.Equal("DEPORTE", state.HobbyCode);
+        Assert.True(state.HasMutation);
     }
 
     [Fact]
@@ -47,21 +60,31 @@ public sealed class PersonnelFileHobbyPatchTests
     }
 
     [Fact]
-    public void Apply_RemoveRequired_Fails()
+    public void Apply_RemoveRequiredCode_FailsValidate()
     {
         var state = PersonnelFileHobbyPatchState.From(Baseline());
 
         // Remove clears the value to empty, which the subsequent Validate rejects.
-        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Remove("/hobbyName")], state).IsSuccess);
+        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Remove("/hobbyCode")], state).IsSuccess);
         Assert.True(PersonnelFileHobbyPatchApplier.Validate(state).IsFailure);
     }
 
     [Fact]
-    public void Apply_NonStringForHobbyName_Fails()
+    public void Apply_RemoveOptionalName_ValidateSucceeds()
     {
         var state = PersonnelFileHobbyPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Replace("/hobbyName", 42)], state).IsFailure);
+        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Remove("/hobbyName")], state).IsSuccess);
+        Assert.Null(state.HobbyName);
+        Assert.True(PersonnelFileHobbyPatchApplier.Validate(state).IsSuccess);
+    }
+
+    [Fact]
+    public void Apply_NonStringForHobbyCode_Fails()
+    {
+        var state = PersonnelFileHobbyPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Replace("/hobbyCode", 42)], state).IsFailure);
     }
 
     [Fact]
@@ -70,7 +93,7 @@ public sealed class PersonnelFileHobbyPatchTests
         var state = PersonnelFileHobbyPatchState.From(Baseline());
 
         Assert.True(PersonnelFileHobbyPatchApplier.Apply(
-            [new PersonnelFileHobbyPatchOperation("copy", "/hobbyName", "/hobbyName", null)], state).IsFailure);
+            [new PersonnelFileHobbyPatchOperation("copy", "/hobbyCode", "/hobbyCode", null)], state).IsFailure);
     }
 
     [Fact]
@@ -86,7 +109,7 @@ public sealed class PersonnelFileHobbyPatchTests
     {
         var state = PersonnelFileHobbyPatchState.From(Baseline());
 
-        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Replace("/hobbyName/0", "x")], state).IsFailure);
+        Assert.True(PersonnelFileHobbyPatchApplier.Apply([Replace("/hobbyCode/0", "x")], state).IsFailure);
     }
 
     [Fact]
@@ -105,10 +128,10 @@ public sealed class PersonnelFileHobbyPatchTests
     }
 
     [Fact]
-    public void Validate_BlankHobbyName_Fails()
+    public void Validate_BlankHobbyCode_Fails()
     {
         var state = PersonnelFileHobbyPatchState.From(Baseline());
-        state.HobbyName = " ";
+        state.HobbyCode = " ";
 
         Assert.True(PersonnelFileHobbyPatchApplier.Validate(state).IsFailure);
     }

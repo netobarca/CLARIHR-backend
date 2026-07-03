@@ -159,10 +159,27 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthCountryCode,
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
-            cancellationToken);
+            cancellationToken,
+            command.PersonalTitleCode);
         if (personalInfoCatalogValidation != Error.None)
         {
             return Result<PersonnelFileShellResponse>.Failure(personalInfoCatalogValidation);
+        }
+
+        // AFP is a General-family catalog (RF-007): validated separately from the Reference codes.
+        if (!string.IsNullOrWhiteSpace(command.AfpCode))
+        {
+            var afpValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+                repository,
+                command.CompanyId,
+                "afpCode",
+                PersonnelCurriculumCatalogCategories.Afp,
+                command.AfpCode,
+                cancellationToken);
+            if (afpValidation != Error.None)
+            {
+                return Result<PersonnelFileShellResponse>.Failure(afpValidation);
+            }
         }
 
         var personnelFile = PersonnelFile.Create(
@@ -181,7 +198,9 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
             photoFilePublicId: null,
-            command.OrgUnitId);
+            command.OrgUnitId,
+            personalTitle: command.PersonalTitleCode,
+            afpCode: command.AfpCode);
         personnelFile.SetTenantId(command.CompanyId);
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -212,7 +231,9 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
             photoWritePlan.PersistedPhotoFilePublicId,
-            command.OrgUnitId);
+            command.OrgUnitId,
+            command.PersonalTitleCode,
+            command.AfpCode);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -407,6 +428,8 @@ internal sealed class PatchPersonnelFileCommandHandler(
             state.BirthDate,
             state.MaritalStatusCode,
             state.ProfessionCode,
+            state.PersonalTitleCode,
+            state.AfpCode,
             state.Nationality,
             state.PersonalEmail,
             state.InstitutionalEmail,

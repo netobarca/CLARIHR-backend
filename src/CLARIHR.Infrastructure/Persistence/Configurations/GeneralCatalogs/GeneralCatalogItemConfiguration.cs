@@ -359,6 +359,60 @@ internal sealed class ContractTypeCatalogItemConfiguration
             GlobalCatalogSeedData.GetContractTypeCatalogItems())
     {
     }
+
+    // Enriched columns (RF-011): abbreviation + temporary flag, delivered by seed (DP-03).
+    public override void Configure(EntityTypeBuilder<ContractTypeCatalogItem> builder)
+    {
+        base.Configure(builder);
+
+        builder.Property(item => item.Abbreviation).HasColumnName("abbreviation").HasMaxLength(20);
+        builder.Property(item => item.IsTemporary).HasColumnName("is_temporary");
+    }
+}
+
+internal sealed class HobbyCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<HobbyCatalogItem>
+{
+    public HobbyCatalogItemConfiguration()
+        : base(
+            "hobby_catalog_items",
+            "pk_hobby_catalog_items",
+            "uq_hobby_catalog_items__public_id",
+            "uq_hobby_catalog_items__country_code",
+            "ix_hobby_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetHobbyCatalogItems())
+    {
+    }
+}
+
+internal sealed class AssociationCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<AssociationCatalogItem>
+{
+    public AssociationCatalogItemConfiguration()
+        : base(
+            "association_catalog_items",
+            "pk_association_catalog_items",
+            "uq_association_catalog_items__public_id",
+            "uq_association_catalog_items__country_code",
+            "ix_association_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetAssociationCatalogItems())
+    {
+    }
+}
+
+internal sealed class AdditionalBenefitTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<AdditionalBenefitTypeCatalogItem>
+{
+    public AdditionalBenefitTypeCatalogItemConfiguration()
+        : base(
+            "additional_benefit_type_catalog_items",
+            "pk_additional_benefit_type_catalog_items",
+            "uq_additional_benefit_type_catalog_items__public_id",
+            "uq_additional_benefit_type_catalog_items__country_code",
+            "ix_additional_benefit_type_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetAdditionalBenefitTypeCatalogItems())
+    {
+    }
 }
 
 internal sealed class ActionTypeCatalogItemConfiguration

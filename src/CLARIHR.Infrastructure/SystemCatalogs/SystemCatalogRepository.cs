@@ -51,6 +51,21 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             case MunicipalityCatalogItem municipality:
                 dbContext.MunicipalityCatalogItems.Add(municipality);
                 return;
+            case PersonalTitleCatalogItem personalTitle:
+                dbContext.PersonalTitleCatalogItems.Add(personalTitle);
+                return;
+            case AddressTypeCatalogItem addressType:
+                dbContext.AddressTypeCatalogItems.Add(addressType);
+                return;
+            case HobbyCatalogItem hobby:
+                dbContext.HobbyCatalogItems.Add(hobby);
+                return;
+            case AssociationCatalogItem association:
+                dbContext.AssociationCatalogItems.Add(association);
+                return;
+            case AdditionalBenefitTypeCatalogItem additionalBenefitType:
+                dbContext.AdditionalBenefitTypeCatalogItems.Add(additionalBenefitType);
+                return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(item), item.GetType().Name, "Unsupported system catalog item type.");
         }
@@ -74,6 +89,11 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.Kinship => GetByIdAsync<KinshipCatalogItem>(id, cancellationToken),
             SystemCatalogType.Department => GetByIdAsync<DepartmentCatalogItem>(id, cancellationToken),
             SystemCatalogType.Municipality => GetByIdAsync<MunicipalityCatalogItem>(id, cancellationToken),
+            SystemCatalogType.PersonalTitle => GetByIdAsync<PersonalTitleCatalogItem>(id, cancellationToken),
+            SystemCatalogType.AddressType => GetByIdAsync<AddressTypeCatalogItem>(id, cancellationToken),
+            SystemCatalogType.Hobby => GetByIdAsync<HobbyCatalogItem>(id, cancellationToken),
+            SystemCatalogType.Association => GetByIdAsync<AssociationCatalogItem>(id, cancellationToken),
+            SystemCatalogType.AdditionalBenefitType => GetByIdAsync<AdditionalBenefitTypeCatalogItem>(id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported system catalog type.")
         };
 
@@ -97,6 +117,11 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.Kinship => ExistsByCodeAsync<KinshipCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.Department => ExistsByCodeAsync<DepartmentCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.Municipality => ExistsByCodeAsync<MunicipalityCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
+            SystemCatalogType.PersonalTitle => ExistsByCodeAsync<PersonalTitleCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
+            SystemCatalogType.AddressType => ExistsByCodeAsync<AddressTypeCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
+            SystemCatalogType.Hobby => ExistsByCodeAsync<HobbyCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
+            SystemCatalogType.Association => ExistsByCodeAsync<AssociationCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
+            SystemCatalogType.AdditionalBenefitType => ExistsByCodeAsync<AdditionalBenefitTypeCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported system catalog type.")
         };
 
@@ -123,6 +148,11 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.Kinship => SearchAsync<KinshipCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.Department => SearchAsync<DepartmentCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.Municipality => SearchMunicipalitiesAsync(catalogType, countryCatalogItemId, isActive, search, parentPublicId, pageNumber, pageSize, cancellationToken),
+            SystemCatalogType.PersonalTitle => SearchAsync<PersonalTitleCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
+            SystemCatalogType.AddressType => SearchAsync<AddressTypeCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
+            SystemCatalogType.Hobby => SearchAsync<HobbyCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
+            SystemCatalogType.Association => SearchAsync<AssociationCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
+            SystemCatalogType.AdditionalBenefitType => SearchAsync<AdditionalBenefitTypeCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported system catalog type.")
         };
 
@@ -144,6 +174,11 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.MaritalStatus => GetResponseByIdAsync<MaritalStatusCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.Kinship => GetResponseByIdAsync<KinshipCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.Department => GetResponseByIdAsync<DepartmentCatalogItem>(catalogType, id, cancellationToken),
+            SystemCatalogType.PersonalTitle => GetResponseByIdAsync<PersonalTitleCatalogItem>(catalogType, id, cancellationToken),
+            SystemCatalogType.AddressType => GetResponseByIdAsync<AddressTypeCatalogItem>(catalogType, id, cancellationToken),
+            SystemCatalogType.Hobby => GetResponseByIdAsync<HobbyCatalogItem>(catalogType, id, cancellationToken),
+            SystemCatalogType.Association => GetResponseByIdAsync<AssociationCatalogItem>(catalogType, id, cancellationToken),
+            SystemCatalogType.AdditionalBenefitType => GetResponseByIdAsync<AdditionalBenefitTypeCatalogItem>(catalogType, id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported system catalog type.")
         };
 

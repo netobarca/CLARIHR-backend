@@ -225,6 +225,11 @@ public static class PersonnelFileErrors
         "Another personnel file already uses the requested identification.",
         ErrorType.Conflict);
 
+    public static readonly Error IdentificationNumberFormatInvalid = new(
+        "PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID",
+        "The identification number does not match the format configured for the identification type.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error ConcurrencyConflict = new(
         "CONCURRENCY_CONFLICT",
         "The resource was modified by another request. Refresh and try again.",

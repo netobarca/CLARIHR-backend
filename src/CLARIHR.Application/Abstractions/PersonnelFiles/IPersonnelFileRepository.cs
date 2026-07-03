@@ -203,6 +203,42 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyCollection<CompensationConceptTypeResponse>>([]);
 
+    /// <summary>
+    /// Normalized codes of the concept types flagged as base salary (IsBaseSalary, D-12/DP-08) for the
+    /// company's country. The single-active-base-salary rule matches concepts against these codes,
+    /// falling back to the legacy <c>SALARIO_BASE</c> constant when the catalog carries no flag.
+    /// Empty default so test doubles need not implement it.
+    /// </summary>
+    Task<IReadOnlyCollection<string>> GetBaseSalaryConceptTypeCodesAsync(
+        Guid companyId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<string>>([]);
+
+    // Enriched contract-type read (RF-011): abbreviation + IsTemporary. Empty default so test doubles
+    // need not implement it; the production repository overrides it with the real country-scoped query.
+    Task<IReadOnlyCollection<ContractTypeResponse>> GetContractTypesAsync(
+        string? countryCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<ContractTypeResponse>>([]);
+
+    /// <summary>
+    /// Anchored regex configured for the identification type (RF-003), for the company's country;
+    /// null when the type has no format (generic validation applies). No-op default (no format) so
+    /// test doubles need not implement it.
+    /// </summary>
+    Task<string?> GetIdentificationTypeNumberFormatAsync(
+        Guid companyId,
+        string identificationTypeCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
+    // Enriched AFP master read (RF-007): identity/contact columns. Empty default so test doubles
+    // need not implement it; the production repository overrides it with the real country-scoped query.
+    Task<IReadOnlyCollection<AfpResponse>> GetAfpsAsync(
+        string? countryCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<AfpResponse>>([]);
+
     Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
         string countryCode,
         string category,

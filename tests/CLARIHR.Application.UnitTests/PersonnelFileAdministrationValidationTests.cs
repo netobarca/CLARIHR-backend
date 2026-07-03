@@ -58,6 +58,8 @@ public sealed class PersonnelFileAdministrationValidationTests
             BirthDate: new DateTime(1990, 1, 1),
             MaritalStatusCode: null,
             ProfessionCode: null,
+            PersonalTitleCode: null,
+            AfpCode: null,
             Nationality: null,
             PersonalEmail: null,
             InstitutionalEmail: null,

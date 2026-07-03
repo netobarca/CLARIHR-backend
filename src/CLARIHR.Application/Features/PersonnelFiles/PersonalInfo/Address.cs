@@ -33,6 +33,7 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 public sealed record PersonnelFileAddressResponse(
     Guid AddressPublicId,
     string AddressLine,
+    string? AddressTypeCode,
     string? Country,
     string? Department,
     string? Municipality,
@@ -82,6 +83,7 @@ public sealed record PatchPersonnelFileAddressCommand(
 
 public sealed record AddressInput(
     string AddressLine,
+    string? AddressTypeCode,
     string? Country,
     string? Department,
     string? Municipality,
@@ -159,6 +161,11 @@ internal sealed class AddressInputValidator : AbstractValidator<AddressInput>
     public AddressInputValidator()
     {
         RuleFor(input => input.AddressLine).NotEmpty().MaximumLength(500);
+        RuleFor(input => input.AddressTypeCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode!)
+            .When(input => !string.IsNullOrWhiteSpace(input.AddressTypeCode))
+            .WithMessage("AddressTypeCode format is invalid.");
         RuleFor(input => input.Country).MaximumLength(120);
         RuleFor(input => input.Department).MaximumLength(120);
         RuleFor(input => input.Municipality).MaximumLength(120);
@@ -169,6 +176,7 @@ internal sealed class AddressInputValidator : AbstractValidator<AddressInput>
 internal sealed class PersonnelFileAddressPatchState
 {
     public string AddressLine { get; set; } = string.Empty;
+    public string? AddressTypeCode { get; set; }
     public string? Country { get; set; }
     public string? Department { get; set; }
     public string? Municipality { get; set; }
@@ -180,6 +188,7 @@ internal sealed class PersonnelFileAddressPatchState
         new()
         {
             AddressLine = response.AddressLine,
+            AddressTypeCode = response.AddressTypeCode,
             Country = response.Country,
             Department = response.Department,
             Municipality = response.Municipality,
@@ -190,6 +199,7 @@ internal sealed class PersonnelFileAddressPatchState
     public AddressInput ToInput() =>
         new(
             AddressLine,
+            AddressTypeCode,
             Country,
             Department,
             Municipality,

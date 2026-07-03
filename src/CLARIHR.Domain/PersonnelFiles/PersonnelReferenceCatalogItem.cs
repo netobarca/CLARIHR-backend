@@ -34,10 +34,19 @@ public sealed class IdentificationTypeCatalogItem : PersonnelReferenceCatalogIte
         string code,
         string name,
         bool isActive,
-        int sortOrder)
+        int sortOrder,
+        string? numberFormat)
         : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
     {
+        NumberFormat = string.IsNullOrWhiteSpace(numberFormat) ? null : numberFormat.Trim();
     }
+
+    /// <summary>
+    /// Optional ANCHORED regex the identification number must match for this type (RF-003, BT-04).
+    /// Null keeps the generic length/character validation only. Seed-delivered defaults per §20.3
+    /// (e.g. DUI <c>^\d{8}-\d$</c>); editable via migration/admin later (DP-03).
+    /// </summary>
+    public string? NumberFormat { get; private set; }
 
     public static IdentificationTypeCatalogItem Create(
         long countryCatalogItemId,
@@ -45,8 +54,9 @@ public sealed class IdentificationTypeCatalogItem : PersonnelReferenceCatalogIte
         string code,
         string name,
         bool isActive,
-        int sortOrder) =>
-        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+        int sortOrder,
+        string? numberFormat = null) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder, numberFormat);
 }
 
 public sealed class ProfessionCatalogItem : PersonnelReferenceCatalogItemBase
@@ -291,4 +301,70 @@ public sealed class InsuranceRangeCatalogItem : PersonnelReferenceCatalogItemBas
         InsuranceTypeCatalogItemId = insuranceTypeCatalogItemId;
         RefreshConcurrencyToken();
     }
+}
+
+/// <summary>
+/// Country-scoped catalog of personal titles / salutations (reference-catalogs key
+/// <c>personal-titles</c>) backing the optional <c>personalTitleCode</c> person attribute
+/// (RF-001). Mirrors <see cref="MaritalStatusCatalogItem"/>; seeded for SV via HasData.
+/// </summary>
+public sealed class PersonalTitleCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private PersonalTitleCatalogItem()
+    {
+    }
+
+    private PersonalTitleCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PersonalTitleCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of address types (reference-catalogs key <c>address-types</c>) backing
+/// the optional <c>addressTypeCode</c> of a personnel-file address (RF-002). Mirrors
+/// <see cref="KinshipCatalogItem"/>; seeded for SV via HasData.
+/// </summary>
+public sealed class AddressTypeCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private AddressTypeCatalogItem()
+    {
+    }
+
+    private AddressTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static AddressTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }

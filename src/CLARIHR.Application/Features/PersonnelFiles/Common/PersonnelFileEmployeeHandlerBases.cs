@@ -599,7 +599,9 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
             personnelFile.BirthDepartment,
             personnelFile.BirthMunicipality,
             personnelFile.PhotoFilePublicId,
-            personnelFile.OrgUnitPublicId);
+            personnelFile.OrgUnitPublicId,
+            personnelFile.PersonalTitle,
+            personnelFile.AfpCode);
     }
 
     /// <summary>

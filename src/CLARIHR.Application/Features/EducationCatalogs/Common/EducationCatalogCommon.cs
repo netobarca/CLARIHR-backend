@@ -9,7 +9,8 @@ public enum EducationCatalogType
     StudyType = 2,
     Career = 3,
     Shift = 4,
-    Modality = 5
+    Modality = 5,
+    Level = 6
 }
 
 public static partial class EducationCatalogValidationRules
