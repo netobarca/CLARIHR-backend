@@ -129,6 +129,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.BirthDate,
                 file.MaritalStatus,
                 file.Profession,
+                file.PersonalTitle,
+                file.AfpCode,
                 file.OrgUnitPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
@@ -148,6 +150,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             PersonnelReferenceCatalogCategories.Profession,
             rows.Select(static row => row.Profession),
             cancellationToken);
+        var personalTitleNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.PersonalTitle,
+            rows.Select(static row => row.PersonalTitle),
+            cancellationToken);
 
         var items = rows
             .Select(file => new PersonnelFileListItemResponse(
@@ -161,6 +168,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 TryResolveName(maritalStatusNames, file.MaritalStatus),
                 file.Profession,
                 TryResolveName(professionNames, file.Profession),
+                file.PersonalTitle,
+                TryResolveName(personalTitleNames, file.PersonalTitle),
+                file.AfpCode,
                 file.OrgUnitPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
@@ -232,6 +242,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             PersonnelReferenceCatalogCategories.Profession,
             [file.Profession],
             cancellationToken);
+        var personalTitleNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.PersonalTitle,
+            [file.PersonalTitle],
+            cancellationToken);
         var identificationTypeNames = await ResolveReferenceNamesByCodeAsync(
             LocationValidationRules.ElSalvadorCountryCode,
             PersonnelReferenceCatalogCategories.IdentificationType,
@@ -263,6 +278,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             TryResolveName(maritalStatusNames, file.MaritalStatus),
             file.Profession,
             TryResolveName(professionNames, file.Profession),
+            file.PersonalTitle,
+            TryResolveName(personalTitleNames, file.PersonalTitle),
+            file.AfpCode,
             file.Nationality,
             file.PersonalEmail,
             file.InstitutionalEmail,
@@ -302,6 +320,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 .Select(item => new PersonnelFileAddressResponse(
                     item.PublicId,
                     item.AddressLine,
+                    item.AddressTypeCode,
                     item.Country,
                     item.Department,
                     item.Municipality,
@@ -351,7 +370,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 .ToArray(),
             file.Hobbies
                 .OrderBy(item => item.HobbyName)
-                .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyName, item.ConcurrencyToken))
+                .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyCode, item.HobbyName, item.ConcurrencyToken))
                 .ToArray(),
             file.EmployeeRelations
                 .OrderBy(item => item.RelatedPersonnelFile.FullName)
@@ -384,6 +403,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 .OrderBy(item => item.AssociationName)
                 .Select(item => new PersonnelFileAssociationResponse(
                     item.PublicId,
+                    item.AssociationCode,
                     item.AssociationName,
                     item.Role,
                     item.JoinedDate,
@@ -512,6 +532,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             PersonnelReferenceCatalogCategories.Profession,
             [file.Profession],
             cancellationToken);
+        var personalTitleNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.PersonalTitle,
+            [file.PersonalTitle],
+            cancellationToken);
         var birthCountryNames = await ResolveCountryNamesByCodeAsync([file.BirthCountry], cancellationToken);
         var birthDepartmentNames = await ResolveReferenceNamesByCodeAsync(
             file.BirthCountry ?? LocationValidationRules.ElSalvadorCountryCode,
@@ -538,6 +563,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             TryResolveName(maritalStatusNames, file.MaritalStatus),
             file.Profession,
             TryResolveName(professionNames, file.Profession),
+            file.PersonalTitle,
+            TryResolveName(personalTitleNames, file.PersonalTitle),
+            file.AfpCode,
             file.Nationality,
             file.PersonalEmail,
             file.InstitutionalEmail,
@@ -656,6 +684,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Select(item => new PersonnelFileAddressResponse(
                 item.PublicId,
                 item.AddressLine,
+                item.AddressTypeCode,
                 item.Country,
                 item.Department,
                 item.Municipality,
@@ -674,6 +703,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Select(item => new PersonnelFileAddressResponse(
                 item.PublicId,
                 item.AddressLine,
+                item.AddressTypeCode,
                 item.Country,
                 item.Department,
                 item.Municipality,
@@ -793,7 +823,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
             .OrderBy(item => item.HobbyName)
-            .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyName, item.ConcurrencyToken))
+            .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyCode, item.HobbyName, item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
 
     public async Task<PersonnelFileHobbyResponse?> GetHobbyAsync(
@@ -803,7 +833,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         await dbContext.Set<PersonnelFileHobby>()
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == hobbyPublicId)
-            .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyName, item.ConcurrencyToken))
+            .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyCode, item.HobbyName, item.ConcurrencyToken))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(
@@ -900,6 +930,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .OrderBy(item => item.AssociationName)
             .Select(item => new PersonnelFileAssociationResponse(
                 item.PublicId,
+                item.AssociationCode,
                 item.AssociationName,
                 item.Role,
                 item.JoinedDate,
@@ -917,6 +948,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == associationPublicId)
             .Select(item => new PersonnelFileAssociationResponse(
                 item.PublicId,
+                item.AssociationCode,
                 item.AssociationName,
                 item.Role,
                 item.JoinedDate,
@@ -1287,12 +1319,12 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 return await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken);
             case "CURRICULUMSTUDYTYPE":
                 return await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken);
+            case "CURRICULUMEDUCATIONLEVEL":
+                return await GetSystemScopedCatalogItemsAsync<EducationLevelCatalogItem>("CurriculumEducationLevel", cancellationToken);
             case "CURRICULUMSHIFT":
                 return await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken);
             case "CURRICULUMMODALITY":
                 return await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken);
-            case "CURRICULUMCAREER":
-                return await GetSystemScopedCatalogItemsAsync<EducationCareerCatalogItem>("CurriculumCareer", cancellationToken);
             case "FILEDOCUMENTTYPE":
                 return await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken);
         }
@@ -1307,6 +1339,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
 
         return normalizedCategory switch
         {
+            // Careers are COUNTRY-scoped since RF-009/DP-06 (moved from the system-scoped block above).
+            "CURRICULUMCAREER" => await GetCountryScopedCatalogItemsAsync<EducationCareerCatalogItem>(countryCatalogItemId.Value, "CurriculumCareer", cancellationToken),
             "CURRICULUMLANGUAGE" => await GetCountryScopedCatalogItemsAsync<LanguageCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguage", cancellationToken),
             "CURRICULUMLANGUAGELEVEL" => await GetCountryScopedCatalogItemsAsync<LanguageLevelCatalogItem>(countryCatalogItemId.Value, "CurriculumLanguageLevel", cancellationToken),
             "CURRICULUMTRAININGTYPE" => await GetCountryScopedCatalogItemsAsync<TrainingTypeCatalogItem>(countryCatalogItemId.Value, "CurriculumTrainingType", cancellationToken),
@@ -1334,6 +1368,10 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "ACTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<ActionStatusCatalogItem>(countryCatalogItemId.Value, "ActionStatus", cancellationToken),
             "ECONOMICAIDTYPE" => await GetCountryScopedCatalogItemsAsync<EconomicAidTypeCatalogItem>(countryCatalogItemId.Value, "EconomicAidType", cancellationToken),
             "ECONOMICAIDSTATUS" => await GetCountryScopedCatalogItemsAsync<EconomicAidStatusCatalogItem>(countryCatalogItemId.Value, "EconomicAidStatus", cancellationToken),
+            "HOBBY" => await GetCountryScopedCatalogItemsAsync<HobbyCatalogItem>(countryCatalogItemId.Value, "Hobby", cancellationToken),
+            "AFP" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Afps.AfpCatalogItem>(countryCatalogItemId.Value, "Afp", cancellationToken),
+            "ASSOCIATION" => await GetCountryScopedCatalogItemsAsync<AssociationCatalogItem>(countryCatalogItemId.Value, "Association", cancellationToken),
+            "ADDITIONALBENEFITTYPE" => await GetCountryScopedCatalogItemsAsync<AdditionalBenefitTypeCatalogItem>(countryCatalogItemId.Value, "AdditionalBenefitType", cancellationToken),
             _ => []
         };
     }
@@ -1373,6 +1411,83 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 item.DefaultEmployeeRate,
                 item.DefaultEmployerRate,
                 item.ContributionCap,
+                item.IsBaseSalary,
+                item.DefaultPensionedEmployerRate,
+                item.MinContributionBase,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<string>> GetBaseSalaryConceptTypeCodesAsync(
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return [];
+        }
+
+        return await dbContext.Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountry.CountryCatalogItemId
+                && item.IsActive
+                && item.IsBaseSalary)
+            .Select(item => item.NormalizedCode)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<ContractTypeResponse>> GetContractTypesAsync(
+        string? countryCode,
+        CancellationToken cancellationToken)
+    {
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
+        {
+            return [];
+        }
+
+        return await dbContext.Set<ContractTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId.Value)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.NormalizedCode)
+            .Select(item => new ContractTypeResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.Abbreviation,
+                item.IsTemporary,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<AfpResponse>> GetAfpsAsync(
+        string? countryCode,
+        CancellationToken cancellationToken)
+    {
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
+        {
+            return [];
+        }
+
+        return await dbContext.Set<CLARIHR.Domain.Afps.AfpCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId.Value)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.NormalizedCode)
+            .Select(item => new AfpResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.Abbreviation,
+                item.Address,
+                item.Phone,
+                item.Fax,
+                item.ContactName,
                 item.IsActive,
                 item.SortOrder))
             .ToArrayAsync(cancellationToken);
@@ -1407,6 +1522,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "INSURANCERANGE" => await GetInsuranceRangeCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
             "RETIREMENTCATEGORY" => await GetFlatReferenceCatalogItemsAsync<RetirementCategoryCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             "RETIREMENTREASON" => await GetRetirementReasonCatalogItemsAsync(countryCatalogItemId.Value, normalizedParentCode, cancellationToken),
+            "PERSONALTITLE" => await GetFlatReferenceCatalogItemsAsync<PersonalTitleCatalogItem>(countryCatalogItemId.Value, cancellationToken),
+            "ADDRESSTYPE" => await GetFlatReferenceCatalogItemsAsync<AddressTypeCatalogItem>(countryCatalogItemId.Value, cancellationToken),
             _ => []
         };
     }
@@ -1466,6 +1583,10 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CONTRACTTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ContractTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ACTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<ActionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<ActionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "HOBBY" => await IsCountryScopedCatalogCodeActiveAsync<HobbyCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "AFP" => await IsCountryScopedCatalogCodeActiveAsync<CLARIHR.Domain.Afps.AfpCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ASSOCIATION" => await IsCountryScopedCatalogCodeActiveAsync<AssociationCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "ADDITIONALBENEFITTYPE" => await IsCountryScopedCatalogCodeActiveAsync<AdditionalBenefitTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ECONOMICAIDTYPE" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ECONOMICAIDSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EconomicAidStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CERTIFICATETYPE" => await IsCountryScopedCatalogCodeActiveAsync<CertificateTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
@@ -1535,6 +1656,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "INSURANCERANGE" => IsCountryScopedCatalogCodeActiveAsync<InsuranceRangeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "RETIREMENTCATEGORY" => IsCountryScopedCatalogCodeActiveAsync<RetirementCategoryCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             "RETIREMENTREASON" => IsCountryScopedCatalogCodeActiveAsync<RetirementReasonCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "PERSONALTITLE" => IsCountryScopedCatalogCodeActiveAsync<PersonalTitleCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
+            "ADDRESSTYPE" => IsCountryScopedCatalogCodeActiveAsync<AddressTypeCatalogItem>(normalizedCountryCode, normalizedCode, cancellationToken),
             _ => Task.FromResult(false)
         };
     }
@@ -1668,6 +1791,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 file.BirthDate,
                 file.MaritalStatus,
                 file.Profession,
+                file.PersonalTitle,
+                file.AfpCode,
                 file.OrgUnitPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
@@ -1687,6 +1812,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             PersonnelReferenceCatalogCategories.Profession,
             rows.Select(static row => row.Profession),
             cancellationToken);
+        var personalTitleNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.PersonalTitle,
+            rows.Select(static row => row.PersonalTitle),
+            cancellationToken);
 
         var items = rows
             .Select(file => new PersonnelFileListItemResponse(
@@ -1700,6 +1830,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 TryResolveName(maritalStatusNames, file.MaritalStatus),
                 file.Profession,
                 TryResolveName(professionNames, file.Profession),
+                file.PersonalTitle,
+                TryResolveName(personalTitleNames, file.PersonalTitle),
+                file.AfpCode,
                 file.OrgUnitPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
@@ -2671,6 +2804,27 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Select(item => (string?)item.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<string?> GetIdentificationTypeNumberFormatAsync(
+        Guid companyId,
+        string identificationTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCode = identificationTypeCode.Trim().ToUpperInvariant();
+        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return null;
+        }
+
+        return await dbContext.Set<IdentificationTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountry.CountryCatalogItemId
+                && item.NormalizedCode == normalizedCode
+                && item.IsActive)
+            .Select(item => item.NumberFormat)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private Task<CompanyCountryLookup?> GetCompanyCountryLookupAsync(Guid companyId, CancellationToken cancellationToken) =>
         dbContext.Companies
             .AsNoTracking()
@@ -2767,6 +2921,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "KINSHIP" => await ResolveReferenceNamesByCodeAsync<KinshipCatalogItem>(normalizedCountry, normalizedCodes, cancellationToken),
             "DEPARTMENT" => await ResolveReferenceNamesByCodeAsync<DepartmentCatalogItem>(normalizedCountry, normalizedCodes, cancellationToken),
             "MUNICIPALITY" => await ResolveReferenceNamesByCodeAsync<MunicipalityCatalogItem>(normalizedCountry, normalizedCodes, cancellationToken),
+            "PERSONALTITLE" => await ResolveReferenceNamesByCodeAsync<PersonalTitleCatalogItem>(normalizedCountry, normalizedCodes, cancellationToken),
+            "ADDRESSTYPE" => await ResolveReferenceNamesByCodeAsync<AddressTypeCatalogItem>(normalizedCountry, normalizedCodes, cancellationToken),
             _ => new Dictionary<string, string>(StringComparer.Ordinal)
         };
     }

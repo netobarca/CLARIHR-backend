@@ -30,6 +30,9 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         decimal? defaultEmployeeRate,
         decimal? defaultEmployerRate,
         decimal? contributionCap,
+        bool isBaseSalary,
+        decimal? defaultPensionedEmployerRate,
+        decimal? minContributionBase,
         bool isActive,
         int sortOrder)
         : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
@@ -42,6 +45,9 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         DefaultEmployeeRate = defaultEmployeeRate;
         DefaultEmployerRate = defaultEmployerRate;
         ContributionCap = contributionCap;
+        IsBaseSalary = isBaseSalary;
+        DefaultPensionedEmployerRate = defaultPensionedEmployerRate;
+        MinContributionBase = minContributionBase;
     }
 
     public CompensationNature Nature { get; private set; }
@@ -60,6 +66,25 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
 
     public decimal? ContributionCap { get; private set; }
 
+    /// <summary>
+    /// Marks the concept type that represents the employee's base salary (D-12/DP-08). The
+    /// single-active-base-salary rule keys off this flag instead of the magic
+    /// <c>SALARIO_BASE</c> code (kept only as fallback for unflagged catalogs).
+    /// </summary>
+    public bool IsBaseSalary { get; private set; }
+
+    /// <summary>
+    /// Employer rate applied when the employee is a working pensioner (RF-007/DP-05; SV LISP 2022:
+    /// same 8.75% as the regular employer rate, with annual CIAP refund). Editable legal default.
+    /// </summary>
+    public decimal? DefaultPensionedEmployerRate { get; private set; }
+
+    /// <summary>
+    /// Minimum contribution base — IBC mínimo (RF-007/DP-05; SV: the current minimum wage).
+    /// Editable legal default; <see cref="ContributionCap"/> carries the IBC máximo.
+    /// </summary>
+    public decimal? MinContributionBase { get; private set; }
+
     public static CompensationConceptTypeCatalogItem Create(
         long countryCatalogItemId,
         string countryCode,
@@ -73,8 +98,11 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         decimal? defaultEmployeeRate,
         decimal? defaultEmployerRate,
         decimal? contributionCap,
+        bool isBaseSalary,
         bool isActive,
-        int sortOrder) =>
+        int sortOrder,
+        decimal? defaultPensionedEmployerRate = null,
+        decimal? minContributionBase = null) =>
         new(
             Guid.NewGuid(),
             countryCatalogItemId,
@@ -89,6 +117,9 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
             defaultEmployeeRate,
             defaultEmployerRate,
             contributionCap,
+            isBaseSalary,
+            defaultPensionedEmployerRate,
+            minContributionBase,
             isActive,
             sortOrder);
 
@@ -105,6 +136,7 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         decimal? defaultEmployeeRate,
         decimal? defaultEmployerRate,
         decimal? contributionCap,
+        bool isBaseSalary,
         int sortOrder)
     {
         base.Update(countryCatalogItemId, countryCode, code, name, sortOrder);
@@ -116,6 +148,7 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         DefaultEmployeeRate = defaultEmployeeRate;
         DefaultEmployerRate = defaultEmployerRate;
         ContributionCap = contributionCap;
+        IsBaseSalary = isBaseSalary;
     }
 
     private static string? NormalizeOptionalCode(string? code) =>

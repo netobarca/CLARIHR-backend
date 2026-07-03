@@ -758,8 +758,10 @@ public sealed class ExperienceMetricCatalogItem : GeneralCatalogItem
 
 /// <summary>
 /// Country-scoped catalog of employment contract types (general-catalogs key <c>contract-types</c>) backing
-/// the <c>contractTypeCode</c> of the manual contract-history endpoint. Mirrors
-/// <see cref="AssignmentTypeCatalogItem"/>; user-facing values are managed per country and seeded for SV.
+/// the <c>contractTypeCode</c> of the manual contract-history endpoint. Enriched (RF-011, DP-03): carries
+/// an optional short <see cref="Abbreviation"/> and the <see cref="IsTemporary"/> flag that marks
+/// fixed-term/temporary modalities; both are delivered by seed and surfaced via the dedicated
+/// <c>GET /api/v1/contract-types</c> read (the generic catalog DTO stays thin).
 /// </summary>
 public sealed class ContractTypeCatalogItem : GeneralCatalogItem
 {
@@ -774,10 +776,20 @@ public sealed class ContractTypeCatalogItem : GeneralCatalogItem
         string code,
         string name,
         bool isActive,
-        int sortOrder)
+        int sortOrder,
+        string? abbreviation,
+        bool isTemporary)
         : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
     {
+        Abbreviation = NormalizeOptionalAbbreviation(abbreviation);
+        IsTemporary = isTemporary;
     }
+
+    /// <summary>Optional short label (e.g. INDEF, PF) for compact grids/prints.</summary>
+    public string? Abbreviation { get; private set; }
+
+    /// <summary>True for fixed-term/temporary contract modalities (plazo fijo, obra, eventual…).</summary>
+    public bool IsTemporary { get; private set; }
 
     public static ContractTypeCatalogItem Create(
         long countryCatalogItemId,
@@ -785,8 +797,13 @@ public sealed class ContractTypeCatalogItem : GeneralCatalogItem
         string code,
         string name,
         bool isActive,
-        int sortOrder) =>
-        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+        int sortOrder,
+        string? abbreviation = null,
+        bool isTemporary = false) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder, abbreviation, isTemporary);
+
+    private static string? NormalizeOptionalAbbreviation(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 }
 
 /// <summary>
@@ -846,6 +863,103 @@ public sealed class ActionStatusCatalogItem : GeneralCatalogItem
     }
 
     public static ActionStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of hobbies (general-catalogs key <c>hobbies</c>) backing the required
+/// <c>hobbyCode</c> of a personnel-file hobby (RF-005, DP-07). Seeded for SV.
+/// </summary>
+public sealed class HobbyCatalogItem : GeneralCatalogItem
+{
+    private HobbyCatalogItem()
+    {
+    }
+
+    private HobbyCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static HobbyCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of association TYPES (general-catalogs key <c>associations</c>) backing the
+/// required <c>associationCode</c> of a personnel-file association (RF-006, DP-07). Seeded for SV.
+/// </summary>
+public sealed class AssociationCatalogItem : GeneralCatalogItem
+{
+    private AssociationCatalogItem()
+    {
+    }
+
+    private AssociationCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static AssociationCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of additional-benefit types (general-catalogs key
+/// <c>additional-benefit-types</c>) backing the existing <c>benefitTypeCode</c> of a personnel-file
+/// additional benefit (RF-010). Seeded for SV.
+/// </summary>
+public sealed class AdditionalBenefitTypeCatalogItem : GeneralCatalogItem
+{
+    private AdditionalBenefitTypeCatalogItem()
+    {
+    }
+
+    private AdditionalBenefitTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static AdditionalBenefitTypeCatalogItem Create(
         long countryCatalogItemId,
         string countryCode,
         string code,

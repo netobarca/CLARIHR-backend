@@ -113,9 +113,21 @@ internal sealed class AddPersonnelFileHobbyCommandHandler(
 
         var personnelFile = file!;
 
+        // hobbyCode is catalog-backed (RF-005, DP-07): must be an active Hobby catalog code.
+        var hobbyCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "hobbyCode",
+            PersonnelCurriculumCatalogCategories.Hobby,
+            command.Hobby.HobbyCode,
+            cancellationToken);
+        if (hobbyCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileHobbyResponse>.Failure(hobbyCodeValidation);
+        }
 
         var before = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);
-        var hobby = PersonnelFileHobby.Create(command.Hobby.HobbyName);
+        var hobby = PersonnelFileHobby.Create(command.Hobby.HobbyCode, command.Hobby.HobbyName);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -201,12 +213,25 @@ internal sealed class UpdatePersonnelFileHobbyCommandHandler(
             return Result<PersonnelFileHobbyResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        // hobbyCode is catalog-backed (RF-005, DP-07): must be an active Hobby catalog code.
+        var hobbyCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "hobbyCode",
+            PersonnelCurriculumCatalogCategories.Hobby,
+            command.Hobby.HobbyCode,
+            cancellationToken);
+        if (hobbyCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileHobbyResponse>.Failure(hobbyCodeValidation);
+        }
+
         var before = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            personnelFile.UpdateHobby(command.HobbyPublicId, command.Hobby.HobbyName);
+            personnelFile.UpdateHobby(command.HobbyPublicId, command.Hobby.HobbyCode, command.Hobby.HobbyName);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);
@@ -405,12 +430,25 @@ internal sealed class PatchPersonnelFileHobbyCommandHandler(
 
         var input = state.ToInput();
 
+        // hobbyCode is catalog-backed (RF-005, DP-07): must be an active Hobby catalog code.
+        var hobbyCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "hobbyCode",
+            PersonnelCurriculumCatalogCategories.Hobby,
+            input.HobbyCode,
+            cancellationToken);
+        if (hobbyCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileHobbyResponse>.Failure(hobbyCodeValidation);
+        }
+
         var beforeList = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            personnelFile.UpdateHobby(command.HobbyPublicId, input.HobbyName);
+            personnelFile.UpdateHobby(command.HobbyPublicId, input.HobbyCode, input.HobbyName);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var afterList = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);

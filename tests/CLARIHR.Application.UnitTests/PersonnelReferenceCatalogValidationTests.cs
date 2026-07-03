@@ -153,14 +153,89 @@ public sealed class PersonnelReferenceCatalogValidationTests
         Assert.Contains("items[0].beneficiaries[0].kinshipCode", error.ValidationErrors!.Keys);
     }
 
+    [Fact]
+    public async Task ValidateIdentificationNumberFormatAsync_WhenNumberMatchesPattern_ShouldReturnNone()
+    {
+        var repository = new TestPersonnelFileRepository();
+        repository.SetIdentificationNumberFormat("DUI", @"^\d{8}-\d$");
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            Guid.NewGuid(),
+            "DUI",
+            "01234567-8",
+            CancellationToken.None);
+
+        Assert.Equal(Error.None, error);
+    }
+
+    [Fact]
+    public async Task ValidateIdentificationNumberFormatAsync_WhenNumberDoesNotMatchPattern_ShouldReturnFormatError()
+    {
+        var repository = new TestPersonnelFileRepository();
+        repository.SetIdentificationNumberFormat("DUI", @"^\d{8}-\d$");
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            Guid.NewGuid(),
+            "DUI",
+            "1234-5",
+            CancellationToken.None);
+
+        Assert.Equal("PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID", error.Code);
+    }
+
+    [Fact]
+    public async Task ValidateIdentificationNumberFormatAsync_WhenTypeHasNoPattern_ShouldReturnNone()
+    {
+        var repository = new TestPersonnelFileRepository();
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            Guid.NewGuid(),
+            "OTRO",
+            "cualquier valor 123",
+            CancellationToken.None);
+
+        Assert.Equal(Error.None, error);
+    }
+
+    [Fact]
+    public async Task ValidateIdentificationNumberFormatAsync_WhenPatternIsInvalidRegex_ShouldFailSafeToNone()
+    {
+        var repository = new TestPersonnelFileRepository();
+        repository.SetIdentificationNumberFormat("DUI", "[unclosed");
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            Guid.NewGuid(),
+            "DUI",
+            "01234567-8",
+            CancellationToken.None);
+
+        Assert.Equal(Error.None, error);
+    }
+
     private sealed class TestPersonnelFileRepository : IPersonnelFileRepository
     {
         private readonly HashSet<string> _activeCountries = new(StringComparer.Ordinal);
         private readonly HashSet<string> _activeReferenceCodes = new(StringComparer.Ordinal);
         private readonly HashSet<string> _municipalityDepartmentLinks = new(StringComparer.Ordinal);
         private readonly HashSet<string> _insuranceTypeRangeLinks = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _identificationNumberFormats = new(StringComparer.Ordinal);
 
         public void AddActiveCountry(string countryCode) => _activeCountries.Add(Normalize(countryCode));
+
+        public void SetIdentificationNumberFormat(string identificationTypeCode, string pattern) =>
+            _identificationNumberFormats[Normalize(identificationTypeCode)] = pattern;
+
+        public Task<string?> GetIdentificationTypeNumberFormatAsync(
+            Guid companyId,
+            string identificationTypeCode,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(_identificationNumberFormats.TryGetValue(Normalize(identificationTypeCode), out var pattern)
+                ? pattern
+                : null);
 
         public void AddActiveReferenceCode(string countryCode, string category, string code) =>
             _activeReferenceCodes.Add($"{Normalize(countryCode)}|{Normalize(category)}|{Normalize(code)}");

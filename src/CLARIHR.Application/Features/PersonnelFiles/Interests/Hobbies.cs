@@ -30,7 +30,7 @@ using FluentValidation.Results;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
-public sealed record PersonnelFileHobbyResponse(Guid HobbyPublicId, string HobbyName, Guid ConcurrencyToken)
+public sealed record PersonnelFileHobbyResponse(Guid HobbyPublicId, string HobbyCode, string? HobbyName, Guid ConcurrencyToken)
 {
     [JsonIgnore]
     public Guid Id => HobbyPublicId;
@@ -72,7 +72,7 @@ public sealed record PatchPersonnelFileHobbyCommand(
     IReadOnlyCollection<PersonnelFileHobbyPatchOperation> Operations)
     : ICommand<PersonnelFileHobbyResponse>;
 
-public sealed record HobbyInput(string HobbyName);
+public sealed record HobbyInput(string HobbyCode, string? HobbyName = null);
 
 internal sealed class GetPersonnelFileHobbiesQueryValidator : AbstractValidator<GetPersonnelFileHobbiesQuery>
 {
@@ -144,22 +144,29 @@ internal sealed class HobbyInputValidator : AbstractValidator<HobbyInput>
 {
     public HobbyInputValidator()
     {
-        RuleFor(input => input.HobbyName).NotEmpty().MaximumLength(120);
+        RuleFor(input => input.HobbyCode)
+            .NotEmpty()
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .WithMessage("HobbyCode format is invalid.");
+        RuleFor(input => input.HobbyName).MaximumLength(120);
     }
 }
 
 internal sealed class PersonnelFileHobbyPatchState
 {
-    public string HobbyName { get; set; } = string.Empty;
+    public string HobbyCode { get; set; } = string.Empty;
+    public string? HobbyName { get; set; }
     public bool HasMutation { get; set; }
 
     public static PersonnelFileHobbyPatchState From(PersonnelFileHobbyResponse response) =>
         new()
         {
+            HobbyCode = response.HobbyCode,
             HobbyName = response.HobbyName
         };
 
     public HobbyInput ToInput() =>
-        new(HobbyName);
+        new(HobbyCode, HobbyName);
 }
 

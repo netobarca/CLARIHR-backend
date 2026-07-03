@@ -514,7 +514,7 @@ internal sealed class DevSeedService(
             PersonnelFileIdentification.Create("DUI", "00000000-0", SeedDate, null, "CNR", isPrimary: true),
         ]);
         maria.ReplaceAddresses([
-            PersonnelFileAddress.Create("Col. Escalon, Calle 5, #123", "SV", "San Salvador", "San Salvador", null, isCurrent: true),
+            PersonnelFileAddress.Create("Col. Escalon, Calle 5, #123", "CASA", "SV", "San Salvador", "San Salvador", null, isCurrent: true),
         ]);
         maria.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Ana Gonzalez", "Madre", "+503 7000-5678", null, null),
@@ -552,7 +552,7 @@ internal sealed class DevSeedService(
             PersonnelFileIdentification.Create("NIT", "0614-031185-101-0", null, null, "MH", isPrimary: false),
         ]);
         carlos.ReplaceAddresses([
-            PersonnelFileAddress.Create("Res. San Luis, Psj. 3, #45", "SV", "San Salvador", "Mejicanos", null, isCurrent: true),
+            PersonnelFileAddress.Create("Res. San Luis, Psj. 3, #45", "CASA", "SV", "San Salvador", "Mejicanos", null, isCurrent: true),
         ]);
         carlos.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Laura de Ramirez", "Esposa", "+503 7111-3333", null, null),
@@ -613,7 +613,7 @@ internal sealed class DevSeedService(
             PersonnelFileIdentification.Create("DUI", "22222222-2", SeedDate, null, "CNR", isPrimary: true),
         ]);
         andrea.ReplaceAddresses([
-            PersonnelFileAddress.Create("Urb. Lomas de San Francisco, #78", "SV", "San Salvador", "San Salvador", null, isCurrent: true),
+            PersonnelFileAddress.Create("Urb. Lomas de San Francisco, #78", "CASA", "SV", "San Salvador", "San Salvador", null, isCurrent: true),
         ]);
         andrea.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Roberto Lopez", "Padre", "+503 7222-4444", null, null),
@@ -665,7 +665,7 @@ internal sealed class DevSeedService(
                 new DateTime(2030, 12, 31, 0, 0, 0, DateTimeKind.Utc), "MREE", isPrimary: false),
         ]);
         jose.ReplaceAddresses([
-            PersonnelFileAddress.Create("Col. Las Mercedes, Av. Norte, #200", "SV", "San Salvador", "Apopa", null, isCurrent: true),
+            PersonnelFileAddress.Create("Col. Las Mercedes, Av. Norte, #200", "CASA", "SV", "San Salvador", "Apopa", null, isCurrent: true),
         ]);
         jose.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Carmen de Martinez", "Esposa", "+503 7333-5555", null, null),
@@ -717,7 +717,7 @@ internal sealed class DevSeedService(
             PersonnelFileIdentification.Create("DPI", "1234567890101", SeedDate, null, "RENAP", isPrimary: true),
         ]);
         lucia.ReplaceAddresses([
-            PersonnelFileAddress.Create("Zona 10, 4a Calle, #12", "GT", "Guatemala", "Guatemala City", "01010", isCurrent: true),
+            PersonnelFileAddress.Create("Zona 10, 4a Calle, #12", "CASA", "GT", "Guatemala", "Guatemala City", "01010", isCurrent: true),
         ]);
         lucia.AddEducation(
             PersonnelFileEducation.Create(
@@ -754,21 +754,29 @@ internal sealed class DevSeedService(
                 .Select(item => item.Id)
                 .SingleAsync(cancellationToken);
 
+        // Careers left the education base type (country-scoped, RF-009); codes stay unique per country
+        // (SV-only data), so resolving by code alone remains unambiguous.
+        async Task<long> ResolveCareerAsync(string code) =>
+            await dbContext.EducationCareerCatalogItems
+                .Where(item => item.NormalizedCode == code)
+                .Select(item => item.Id)
+                .SingleAsync(cancellationToken);
+
         return new EducationCatalogIds(
             await ResolveAsync<EducationStatusCatalogItem>("GRADUATED"),
             await ResolveAsync<EducationStatusCatalogItem>("IN_PROGRESS"),
-            await ResolveAsync<EducationStudyTypeCatalogItem>("BACHELOR"),
-            await ResolveAsync<EducationStudyTypeCatalogItem>("MASTER"),
+            await ResolveAsync<EducationStudyTypeCatalogItem>("UNIVERSITARIA"),
+            await ResolveAsync<EducationStudyTypeCatalogItem>("POSGRADO"),
             await ResolveAsync<EducationShiftCatalogItem>("MORNING"),
             await ResolveAsync<EducationShiftCatalogItem>("AFTERNOON"),
             await ResolveAsync<EducationModalityCatalogItem>("ONSITE"),
             await ResolveAsync<EducationModalityCatalogItem>("REMOTE"),
-            await ResolveAsync<EducationCareerCatalogItem>("INDUSTRIAL_ENGINEERING"),
-            await ResolveAsync<EducationCareerCatalogItem>("BUSINESS_ADMINISTRATION"),
-            await ResolveAsync<EducationCareerCatalogItem>("MBA"),
-            await ResolveAsync<EducationCareerCatalogItem>("PSYCHOLOGY"),
-            await ResolveAsync<EducationCareerCatalogItem>("SYSTEMS_ENGINEERING"),
-            await ResolveAsync<EducationCareerCatalogItem>("ACCOUNTING_AUDITING"));
+            await ResolveCareerAsync("ING_INDUSTRIAL"),
+            await ResolveCareerAsync("LIC_ADMIN"),
+            await ResolveCareerAsync("MBA"),
+            await ResolveCareerAsync("LIC_PSICOLOGIA"),
+            await ResolveCareerAsync("ING_SISTEMAS"),
+            await ResolveCareerAsync("LIC_CONTADURIA"));
     }
 
     private sealed record EducationCatalogIds(

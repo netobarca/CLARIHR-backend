@@ -14,6 +14,7 @@ public sealed class PersonnelFileAddressPatchTests
         new(
             Guid.NewGuid(),
             "Colonia Escalon",
+            "CASA",
             "SV",
             "SAN_SALVADOR",
             "SAN_SALVADOR_CENTRO",

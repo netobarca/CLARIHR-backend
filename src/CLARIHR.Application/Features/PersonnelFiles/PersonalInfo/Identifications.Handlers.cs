@@ -125,6 +125,18 @@ internal sealed class AddPersonnelFileIdentificationCommandHandler(
             return Result<PersonnelFileIdentificationResponse>.Failure(identificationTypeValidation);
         }
 
+        // RF-003: the number must match the anchored regex configured for the type (no-op when none).
+        var numberFormatValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            personnelFile.TenantId,
+            normalizedIdentificationTypeCode,
+            command.Identification.IdentificationNumber,
+            cancellationToken);
+        if (numberFormatValidation != Error.None)
+        {
+            return Result<PersonnelFileIdentificationResponse>.Failure(numberFormatValidation);
+        }
+
         var normalizedIdentificationNumber = command.Identification.IdentificationNumber.Trim().ToUpperInvariant();
         var exists = await repository.IdentificationExistsAsync(
             personnelFile.TenantId,
@@ -240,6 +252,18 @@ internal sealed class UpdatePersonnelFileIdentificationCommandHandler(
         if (identificationTypeValidation != Error.None)
         {
             return Result<PersonnelFileIdentificationResponse>.Failure(identificationTypeValidation);
+        }
+
+        // RF-003: the number must match the anchored regex configured for the type (no-op when none).
+        var numberFormatValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            personnelFile.TenantId,
+            normalizedIdentificationTypeCode,
+            command.Identification.IdentificationNumber,
+            cancellationToken);
+        if (numberFormatValidation != Error.None)
+        {
+            return Result<PersonnelFileIdentificationResponse>.Failure(numberFormatValidation);
         }
 
         var normalizedIdentificationNumber = command.Identification.IdentificationNumber.Trim().ToUpperInvariant();
@@ -475,6 +499,18 @@ internal sealed class PatchPersonnelFileIdentificationCommandHandler(
         if (identificationTypeValidation != Error.None)
         {
             return Result<PersonnelFileIdentificationResponse>.Failure(identificationTypeValidation);
+        }
+
+        // RF-003: the number must match the anchored regex configured for the type (no-op when none).
+        var numberFormatValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationNumberFormatAsync(
+            repository,
+            personnelFile.TenantId,
+            normalizedIdentificationTypeCode,
+            input.IdentificationNumber,
+            cancellationToken);
+        if (numberFormatValidation != Error.None)
+        {
+            return Result<PersonnelFileIdentificationResponse>.Failure(numberFormatValidation);
         }
 
         var normalizedIdentificationNumber = input.IdentificationNumber.Trim().ToUpperInvariant();

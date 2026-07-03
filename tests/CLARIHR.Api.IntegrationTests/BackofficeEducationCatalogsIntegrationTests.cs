@@ -9,7 +9,9 @@ namespace CLARIHR.Api.IntegrationTests;
 public sealed class BackofficeEducationCatalogsIntegrationTests(BackofficeIntegrationTestWebApplicationFactory factory)
     : IClassFixture<BackofficeIntegrationTestWebApplicationFactory>
 {
-    private const string CatalogKey = "careers";
+    // Career administration is seed-only since RF-009/DP-06 (the "careers" key now yields 404);
+    // study-types exercises the same generic CRUD machinery.
+    private const string CatalogKey = "study-types";
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
     private static readonly Guid AdminUserId = Guid.Parse("90000000-0000-0000-0000-000000000071");
 

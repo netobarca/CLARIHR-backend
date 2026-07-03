@@ -20,8 +20,8 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
             case EducationStudyTypeCatalogItem studyType:
                 dbContext.EducationStudyTypeCatalogItems.Add(studyType);
                 return;
-            case EducationCareerCatalogItem career:
-                dbContext.EducationCareerCatalogItems.Add(career);
+            case EducationLevelCatalogItem level:
+                dbContext.EducationLevelCatalogItems.Add(level);
                 return;
             case EducationShiftCatalogItem shift:
                 dbContext.EducationShiftCatalogItems.Add(shift);
@@ -42,9 +42,10 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
         {
             EducationCatalogType.EducationStatus => GetByIdAsync<EducationStatusCatalogItem>(id, cancellationToken),
             EducationCatalogType.StudyType => GetByIdAsync<EducationStudyTypeCatalogItem>(id, cancellationToken),
-            EducationCatalogType.Career => GetByIdAsync<EducationCareerCatalogItem>(id, cancellationToken),
+            EducationCatalogType.Career => throw new NotSupportedException("Career catalog administration is seed-only in this phase (country-scoped, RF-009/DP-06)."),
             EducationCatalogType.Shift => GetByIdAsync<EducationShiftCatalogItem>(id, cancellationToken),
             EducationCatalogType.Modality => GetByIdAsync<EducationModalityCatalogItem>(id, cancellationToken),
+            EducationCatalogType.Level => GetByIdAsync<EducationLevelCatalogItem>(id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -57,9 +58,10 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
         {
             EducationCatalogType.EducationStatus => CodeExistsAsync<EducationStatusCatalogItem>(normalizedCode, excludingId, cancellationToken),
             EducationCatalogType.StudyType => CodeExistsAsync<EducationStudyTypeCatalogItem>(normalizedCode, excludingId, cancellationToken),
-            EducationCatalogType.Career => CodeExistsAsync<EducationCareerCatalogItem>(normalizedCode, excludingId, cancellationToken),
+            EducationCatalogType.Career => throw new NotSupportedException("Career catalog administration is seed-only in this phase (country-scoped, RF-009/DP-06)."),
             EducationCatalogType.Shift => CodeExistsAsync<EducationShiftCatalogItem>(normalizedCode, excludingId, cancellationToken),
             EducationCatalogType.Modality => CodeExistsAsync<EducationModalityCatalogItem>(normalizedCode, excludingId, cancellationToken),
+            EducationCatalogType.Level => CodeExistsAsync<EducationLevelCatalogItem>(normalizedCode, excludingId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -74,9 +76,10 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
         {
             EducationCatalogType.EducationStatus => SearchAsync<EducationStatusCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
             EducationCatalogType.StudyType => SearchAsync<EducationStudyTypeCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
-            EducationCatalogType.Career => SearchAsync<EducationCareerCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            EducationCatalogType.Career => throw new NotSupportedException("Career catalog administration is seed-only in this phase (country-scoped, RF-009/DP-06)."),
             EducationCatalogType.Shift => SearchAsync<EducationShiftCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
             EducationCatalogType.Modality => SearchAsync<EducationModalityCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            EducationCatalogType.Level => SearchAsync<EducationLevelCatalogItem>(catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -88,9 +91,10 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
         {
             EducationCatalogType.EducationStatus => GetResponseByIdAsync<EducationStatusCatalogItem>(catalogType, id, cancellationToken),
             EducationCatalogType.StudyType => GetResponseByIdAsync<EducationStudyTypeCatalogItem>(catalogType, id, cancellationToken),
-            EducationCatalogType.Career => GetResponseByIdAsync<EducationCareerCatalogItem>(catalogType, id, cancellationToken),
+            EducationCatalogType.Career => throw new NotSupportedException("Career catalog administration is seed-only in this phase (country-scoped, RF-009/DP-06)."),
             EducationCatalogType.Shift => GetResponseByIdAsync<EducationShiftCatalogItem>(catalogType, id, cancellationToken),
             EducationCatalogType.Modality => GetResponseByIdAsync<EducationModalityCatalogItem>(catalogType, id, cancellationToken),
+            EducationCatalogType.Level => GetResponseByIdAsync<EducationLevelCatalogItem>(catalogType, id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -102,9 +106,12 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
         {
             EducationCatalogType.EducationStatus => GetActiveLookupByIdAsync<EducationStatusCatalogItem>(id, cancellationToken),
             EducationCatalogType.StudyType => GetActiveLookupByIdAsync<EducationStudyTypeCatalogItem>(id, cancellationToken),
-            EducationCatalogType.Career => GetActiveLookupByIdAsync<EducationCareerCatalogItem>(id, cancellationToken),
+            // Careers left the education base type (country-scoped, RF-009) but the personnel-file
+            // education flow still resolves them by publicId — dedicated query below.
+            EducationCatalogType.Career => GetActiveCareerLookupByIdAsync(id, cancellationToken),
             EducationCatalogType.Shift => GetActiveLookupByIdAsync<EducationShiftCatalogItem>(id, cancellationToken),
             EducationCatalogType.Modality => GetActiveLookupByIdAsync<EducationModalityCatalogItem>(id, cancellationToken),
+            EducationCatalogType.Level => GetActiveLookupByIdAsync<EducationLevelCatalogItem>(id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -124,6 +131,9 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
                 item => item.EducationShiftCatalogItemId == catalogItemId, cancellationToken),
             EducationCatalogType.Modality => dbContext.PersonnelFileEducations.AnyAsync(
                 item => item.EducationModalityCatalogItemId == catalogItemId, cancellationToken),
+            // A level is "in use" when a study type references it (not personnel-file educations).
+            EducationCatalogType.Level => dbContext.EducationStudyTypeCatalogItems.AnyAsync(
+                item => item.EducationLevelCatalogItemId == catalogItemId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
@@ -207,6 +217,13 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
                 item.ConcurrencyToken,
                 item.CreatedUtc,
                 item.ModifiedUtc))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    private Task<EducationCatalogLookupInternal?> GetActiveCareerLookupByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.EducationCareerCatalogItems
+            .AsNoTracking()
+            .Where(item => item.PublicId == id && item.IsActive)
+            .Select(item => new EducationCatalogLookupInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 
     private Task<EducationCatalogLookupInternal?> GetActiveLookupByIdAsync<TCatalogItem>(Guid id, CancellationToken cancellationToken)

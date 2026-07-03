@@ -113,10 +113,22 @@ internal sealed class AddPersonnelFileAddressCommandHandler(
 
         var personnelFile = file!;
 
+        // Optional address type validated against the AddressType reference catalog (RF-002, D-03).
+        var addressTypeValidation = await PersonnelReferenceCatalogValidation.ValidateAddressTypeCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "addressTypeCode",
+            command.Address.AddressTypeCode,
+            cancellationToken);
+        if (addressTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAddressResponse>.Failure(addressTypeValidation);
+        }
 
         var before = await repository.GetAddressesAsync(personnelFile.PublicId, cancellationToken);
         var address = PersonnelFileAddress.Create(
             command.Address.AddressLine,
+            command.Address.AddressTypeCode,
             command.Address.Country,
             command.Address.Department,
             command.Address.Municipality,
@@ -207,6 +219,18 @@ internal sealed class UpdatePersonnelFileAddressCommandHandler(
             return Result<PersonnelFileAddressResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        // Optional address type validated against the AddressType reference catalog (RF-002, D-03).
+        var addressTypeValidation = await PersonnelReferenceCatalogValidation.ValidateAddressTypeCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "addressTypeCode",
+            command.Address.AddressTypeCode,
+            cancellationToken);
+        if (addressTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAddressResponse>.Failure(addressTypeValidation);
+        }
+
         var before = await repository.GetAddressesAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -215,6 +239,7 @@ internal sealed class UpdatePersonnelFileAddressCommandHandler(
             personnelFile.UpdateAddress(
                 command.AddressPublicId,
                 command.Address.AddressLine,
+                command.Address.AddressTypeCode,
                 command.Address.Country,
                 command.Address.Department,
                 command.Address.Municipality,
@@ -419,6 +444,18 @@ internal sealed class PatchPersonnelFileAddressCommandHandler(
 
         var input = state.ToInput();
 
+        // Optional address type validated against the AddressType reference catalog (RF-002, D-03).
+        var addressTypeValidation = await PersonnelReferenceCatalogValidation.ValidateAddressTypeCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "addressTypeCode",
+            input.AddressTypeCode,
+            cancellationToken);
+        if (addressTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAddressResponse>.Failure(addressTypeValidation);
+        }
+
         var beforeList = await repository.GetAddressesAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -427,6 +464,7 @@ internal sealed class PatchPersonnelFileAddressCommandHandler(
             personnelFile.UpdateAddress(
                 command.AddressPublicId,
                 input.AddressLine,
+                input.AddressTypeCode,
                 input.Country,
                 input.Department,
                 input.Municipality,

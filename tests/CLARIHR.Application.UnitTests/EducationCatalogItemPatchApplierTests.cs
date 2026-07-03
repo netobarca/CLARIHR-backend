@@ -14,7 +14,7 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class EducationCatalogItemPatchApplierTests
 {
     private static EducationCatalogItemPatchState NewState() =>
-        EducationCatalogItemPatchState.From(EducationCareerCatalogItem.Create("DOC", "Document", 10));
+        EducationCatalogItemPatchState.From(EducationStatusCatalogItem.Create("DOC", "Document", 10));
 
     private static EducationCatalogItemPatchOperation Op(string op, string path, object? value) =>
         new(op, path, null, value is null ? null : JsonSerializer.SerializeToElement(value));

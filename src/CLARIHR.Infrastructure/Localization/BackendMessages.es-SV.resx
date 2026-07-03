@@ -124,4 +124,7 @@
   <data name="validation.message.filedata_is_required_for_new_documents" xml:space="preserve">
     <value>El archivo es obligatorio al crear un nuevo documento.</value>
   </data>
+  <data name="PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID" xml:space="preserve">
+    <value>El número de documento no cumple el formato configurado para el tipo de documento.</value>
+  </data>
 </root>

@@ -263,9 +263,11 @@ internal static class EducationCatalogFactory
         {
             EducationCatalogType.EducationStatus => EducationStatusCatalogItem.Create(code, name, sortOrder),
             EducationCatalogType.StudyType => EducationStudyTypeCatalogItem.Create(code, name, sortOrder),
-            EducationCatalogType.Career => EducationCareerCatalogItem.Create(code, name, sortOrder),
+            // Career CRUD is deferred (RF-009, DP-03/DP-06): country-scoped + enriched, seed-administered.
+            EducationCatalogType.Career => throw new NotSupportedException("Career catalog administration is seed-only in this phase (country-scoped, RF-009/DP-06)."),
             EducationCatalogType.Shift => EducationShiftCatalogItem.Create(code, name, sortOrder),
             EducationCatalogType.Modality => EducationModalityCatalogItem.Create(code, name, sortOrder),
+            EducationCatalogType.Level => EducationLevelCatalogItem.Create(code, name, sortOrder),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 }

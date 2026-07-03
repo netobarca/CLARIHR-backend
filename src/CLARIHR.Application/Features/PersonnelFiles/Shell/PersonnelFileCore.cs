@@ -41,6 +41,9 @@ public sealed record PersonnelFileListItemResponse(
     string? MaritalStatusName,
     string? ProfessionCode,
     string? ProfessionName,
+    string? PersonalTitleCode,
+    string? PersonalTitleName,
+    string? AfpCode,
     Guid? OrgUnitId,
     Guid? LinkedUserId,
     bool IsActive,
@@ -77,6 +80,9 @@ public sealed record PersonnelFileResponse(
     string? MaritalStatusName,
     string? ProfessionCode,
     string? ProfessionName,
+    string? PersonalTitleCode,
+    string? PersonalTitleName,
+    string? AfpCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -148,6 +154,8 @@ public sealed record CreatePersonnelFileCommand(
     DateTime BirthDate,
     string? MaritalStatusCode,
     string? ProfessionCode,
+    string? PersonalTitleCode,
+    string? AfpCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -168,6 +176,8 @@ public sealed record UpdatePersonnelFileCommand(
     DateTime BirthDate,
     string? MaritalStatusCode,
     string? ProfessionCode,
+    string? PersonalTitleCode,
+    string? AfpCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -268,6 +278,16 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.ProfessionCode))
             .WithMessage("ProfessionCode format is invalid.");
+        RuleFor(command => command.PersonalTitleCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.PersonalTitleCode))
+            .WithMessage("PersonalTitleCode format is invalid.");
+        RuleFor(command => command.AfpCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.AfpCode))
+            .WithMessage("AfpCode format is invalid.");
         RuleFor(command => command.BirthCountryCode)
             .MaximumLength(3)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -314,6 +334,16 @@ internal sealed class UpdatePersonnelFileCommandValidator : AbstractValidator<Up
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.ProfessionCode))
             .WithMessage("ProfessionCode format is invalid.");
+        RuleFor(command => command.PersonalTitleCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.PersonalTitleCode))
+            .WithMessage("PersonalTitleCode format is invalid.");
+        RuleFor(command => command.AfpCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.AfpCode))
+            .WithMessage("AfpCode format is invalid.");
         RuleFor(command => command.BirthCountryCode)
             .MaximumLength(3)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -353,6 +383,8 @@ internal sealed class PersonnelFilePatchState
         BirthDate = file.BirthDate;
         MaritalStatusCode = file.MaritalStatus;
         ProfessionCode = file.Profession;
+        PersonalTitleCode = file.PersonalTitle;
+        AfpCode = file.AfpCode;
         Nationality = file.Nationality;
         PersonalEmail = file.PersonalEmail;
         InstitutionalEmail = file.InstitutionalEmail;
@@ -374,6 +406,8 @@ internal sealed class PersonnelFilePatchState
     public DateTime BirthDate { get; set; }
     public string? MaritalStatusCode { get; set; }
     public string? ProfessionCode { get; set; }
+    public string? PersonalTitleCode { get; set; }
+    public string? AfpCode { get; set; }
     public string? Nationality { get; set; }
     public string? PersonalEmail { get; set; }
     public string? InstitutionalEmail { get; set; }

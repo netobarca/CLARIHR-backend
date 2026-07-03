@@ -113,11 +113,24 @@ internal sealed class AddPersonnelFileAssociationCommandHandler(
 
         var personnelFile = file!;
 
+        // associationCode is catalog-backed (RF-006, DP-07): must be an active Association type code.
+        var associationCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "associationCode",
+            PersonnelCurriculumCatalogCategories.Association,
+            command.Association.AssociationCode,
+            cancellationToken);
+        if (associationCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(associationCodeValidation);
+        }
 
         PersonnelFileAssociation association;
         try
         {
             association = PersonnelFileAssociation.Create(
+                command.Association.AssociationCode,
                 command.Association.AssociationName,
                 command.Association.Role,
                 command.Association.JoinedDate,
@@ -215,6 +228,19 @@ internal sealed class UpdatePersonnelFileAssociationCommandHandler(
             return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        // associationCode is catalog-backed (RF-006, DP-07): must be an active Association type code.
+        var associationCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "associationCode",
+            PersonnelCurriculumCatalogCategories.Association,
+            command.Association.AssociationCode,
+            cancellationToken);
+        if (associationCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(associationCodeValidation);
+        }
+
         var before = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -222,6 +248,7 @@ internal sealed class UpdatePersonnelFileAssociationCommandHandler(
         {
             personnelFile.UpdateAssociation(
                 command.AssociationPublicId,
+                command.Association.AssociationCode,
                 command.Association.AssociationName,
                 command.Association.Role,
                 command.Association.JoinedDate,
@@ -429,6 +456,19 @@ internal sealed class PatchPersonnelFileAssociationCommandHandler(
 
         var input = state.ToInput();
 
+        // associationCode is catalog-backed (RF-006, DP-07): must be an active Association type code.
+        var associationCodeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "associationCode",
+            PersonnelCurriculumCatalogCategories.Association,
+            input.AssociationCode,
+            cancellationToken);
+        if (associationCodeValidation != Error.None)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(associationCodeValidation);
+        }
+
         var beforeList = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -436,6 +476,7 @@ internal sealed class PatchPersonnelFileAssociationCommandHandler(
         {
             personnelFile.UpdateAssociation(
                 command.AssociationPublicId,
+                input.AssociationCode,
                 input.AssociationName,
                 input.Role,
                 input.JoinedDate,

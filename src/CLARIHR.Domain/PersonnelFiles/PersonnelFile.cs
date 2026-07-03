@@ -43,7 +43,9 @@ public sealed class PersonnelFile : TenantEntity
         string? birthDepartment,
         string? birthMunicipality,
         Guid? photoFilePublicId,
-        Guid? orgUnitPublicId)
+        Guid? orgUnitPublicId,
+        string? personalTitle,
+        string? afpCode)
     {
         PublicId = publicId;
         RecordType = recordType;
@@ -52,6 +54,8 @@ public sealed class PersonnelFile : TenantEntity
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         MaritalStatus = NormalizeOptionalCode(maritalStatus);
         Profession = NormalizeOptionalCode(profession);
+        PersonalTitle = NormalizeOptionalCode(personalTitle);
+        AfpCode = NormalizeOptionalCode(afpCode);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
@@ -83,6 +87,15 @@ public sealed class PersonnelFile : TenantEntity
     public string? MaritalStatus { get; private set; }
 
     public string? Profession { get; private set; }
+
+    /// <summary>Optional personal title / salutation code validated against the PersonalTitle reference catalog (RF-001).</summary>
+    public string? PersonalTitle { get; private set; }
+
+    /// <summary>
+    /// Optional AFP affiliation code validated against the AFP master catalog (RF-007, DP-04/RT-05).
+    /// Person-level: the pension account is lifelong and survives employment periods.
+    /// </summary>
+    public string? AfpCode { get; private set; }
 
     public string? Nationality { get; private set; }
 
@@ -172,7 +185,9 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
-        IReadOnlyCollection<PersonnelFileIdentification>? identifications = null)
+        IReadOnlyCollection<PersonnelFileIdentification>? identifications = null,
+        string? personalTitle = null,
+        string? afpCode = null)
     {
         var file = new PersonnelFile(
             Guid.NewGuid(),
@@ -191,7 +206,9 @@ public sealed class PersonnelFile : TenantEntity
             birthDepartment,
             birthMunicipality,
             photoFilePublicId,
-            orgUnitPublicId);
+            orgUnitPublicId,
+            personalTitle,
+            afpCode);
 
         if (identifications is not null)
         {
@@ -217,7 +234,9 @@ public sealed class PersonnelFile : TenantEntity
         string? birthDepartment,
         string? birthMunicipality,
         Guid? photoFilePublicId,
-        Guid? orgUnitPublicId)
+        Guid? orgUnitPublicId,
+        string? personalTitle = null,
+        string? afpCode = null)
     {
         var normalizedInstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
@@ -233,6 +252,8 @@ public sealed class PersonnelFile : TenantEntity
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         MaritalStatus = NormalizeOptionalCode(maritalStatus);
         Profession = NormalizeOptionalCode(profession);
+        PersonalTitle = NormalizeOptionalCode(personalTitle);
+        AfpCode = NormalizeOptionalCode(afpCode);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = normalizedInstitutionalEmail;
@@ -338,6 +359,7 @@ public sealed class PersonnelFile : TenantEntity
     public void UpdateAddress(
         Guid addressPublicId,
         string addressLine,
+        string? addressTypeCode,
         string? country,
         string? department,
         string? municipality,
@@ -347,7 +369,7 @@ public sealed class PersonnelFile : TenantEntity
         var address = _addresses.FirstOrDefault(i => i.PublicId == addressPublicId)
             ?? throw new InvalidOperationException($"Address with public id {addressPublicId} not found.");
 
-        address.Update(addressLine, country, department, municipality, postalCode, isCurrent);
+        address.Update(addressLine, addressTypeCode, country, department, municipality, postalCode, isCurrent);
         RefreshConcurrencyToken();
     }
 
@@ -493,12 +515,12 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void UpdateHobby(Guid hobbyPublicId, string hobbyName)
+    public void UpdateHobby(Guid hobbyPublicId, string hobbyCode, string? hobbyName)
     {
         var hobby = _hobbies.FirstOrDefault(i => i.PublicId == hobbyPublicId)
             ?? throw new InvalidOperationException($"Hobby with public id {hobbyPublicId} not found.");
 
-        hobby.Update(hobbyName);
+        hobby.Update(hobbyCode, hobbyName);
         RefreshConcurrencyToken();
     }
 
@@ -580,6 +602,7 @@ public sealed class PersonnelFile : TenantEntity
 
     public void UpdateAssociation(
         Guid associationPublicId,
+        string associationCode,
         string associationName,
         string? role,
         DateTime? joinedDate,
@@ -589,7 +612,7 @@ public sealed class PersonnelFile : TenantEntity
         var association = _associations.FirstOrDefault(i => i.PublicId == associationPublicId)
             ?? throw new InvalidOperationException($"Association with public id {associationPublicId} not found.");
 
-        association.Update(associationName, role, joinedDate, leftDate, payment);
+        association.Update(associationCode, associationName, role, joinedDate, leftDate, payment);
         RefreshConcurrencyToken();
     }
 
@@ -1028,6 +1051,7 @@ public sealed class PersonnelFileAddress : TenantEntity
 
     private PersonnelFileAddress(
         string addressLine,
+        string? addressTypeCode,
         string? country,
         string? department,
         string? municipality,
@@ -1036,6 +1060,7 @@ public sealed class PersonnelFileAddress : TenantEntity
     {
         PublicId = Guid.NewGuid();
         AddressLine = PersonnelFileNormalization.Clean(addressLine, nameof(addressLine));
+        AddressTypeCode = NormalizeOptionalCode(addressTypeCode);
         Country = PersonnelFileNormalization.CleanOptional(country);
         Department = PersonnelFileNormalization.CleanOptional(department);
         Municipality = PersonnelFileNormalization.CleanOptional(municipality);
@@ -1049,6 +1074,9 @@ public sealed class PersonnelFileAddress : TenantEntity
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
     public string AddressLine { get; private set; } = string.Empty;
+
+    /// <summary>Optional address type code validated against the AddressType reference catalog (RF-002, D-03).</summary>
+    public string? AddressTypeCode { get; private set; }
 
     public string? Country { get; private set; }
 
@@ -1064,15 +1092,17 @@ public sealed class PersonnelFileAddress : TenantEntity
 
     public static PersonnelFileAddress Create(
         string addressLine,
+        string? addressTypeCode,
         string? country,
         string? department,
         string? municipality,
         string? postalCode,
         bool isCurrent) =>
-        new(addressLine, country, department, municipality, postalCode, isCurrent);
+        new(addressLine, addressTypeCode, country, department, municipality, postalCode, isCurrent);
 
     internal void Update(
         string addressLine,
+        string? addressTypeCode,
         string? country,
         string? department,
         string? municipality,
@@ -1080,6 +1110,7 @@ public sealed class PersonnelFileAddress : TenantEntity
         bool isCurrent)
     {
         AddressLine = PersonnelFileNormalization.Clean(addressLine, nameof(addressLine));
+        AddressTypeCode = NormalizeOptionalCode(addressTypeCode);
         Country = PersonnelFileNormalization.CleanOptional(country);
         Department = PersonnelFileNormalization.CleanOptional(department);
         Municipality = PersonnelFileNormalization.CleanOptional(municipality);
@@ -1087,6 +1118,9 @@ public sealed class PersonnelFileAddress : TenantEntity
         IsCurrent = isCurrent;
         ConcurrencyToken = Guid.NewGuid();
     }
+
+    private static string? NormalizeOptionalCode(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpperInvariant();
 }
 
 public sealed class PersonnelFileEmergencyContact : TenantEntity
@@ -1398,10 +1432,11 @@ public sealed class PersonnelFileHobby : TenantEntity
     {
     }
 
-    private PersonnelFileHobby(string hobbyName)
+    private PersonnelFileHobby(string hobbyCode, string? hobbyName)
     {
         PublicId = Guid.NewGuid();
-        HobbyName = PersonnelFileNormalization.Clean(hobbyName, nameof(hobbyName));
+        HobbyCode = PersonnelFileNormalization.NormalizeCode(hobbyCode);
+        HobbyName = PersonnelFileNormalization.CleanOptional(hobbyName);
         ConcurrencyToken = Guid.NewGuid();
     }
 
@@ -1409,16 +1444,21 @@ public sealed class PersonnelFileHobby : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public string HobbyName { get; private set; } = string.Empty;
+    /// <summary>Required hobby code validated against the Hobby general catalog (RF-005, DP-07).</summary>
+    public string HobbyCode { get; private set; } = string.Empty;
+
+    /// <summary>Optional free-text detail label (e.g. "Fútbol 11" under DEPORTE).</summary>
+    public string? HobbyName { get; private set; }
 
     public Guid ConcurrencyToken { get; private set; }
 
-    public static PersonnelFileHobby Create(string hobbyName) =>
-        new(hobbyName);
+    public static PersonnelFileHobby Create(string hobbyCode, string? hobbyName) =>
+        new(hobbyCode, hobbyName);
 
-    internal void Update(string hobbyName)
+    internal void Update(string hobbyCode, string? hobbyName)
     {
-        HobbyName = PersonnelFileNormalization.Clean(hobbyName, nameof(hobbyName));
+        HobbyCode = PersonnelFileNormalization.NormalizeCode(hobbyCode);
+        HobbyName = PersonnelFileNormalization.CleanOptional(hobbyName);
         ConcurrencyToken = Guid.NewGuid();
     }
 }
@@ -1552,6 +1592,7 @@ public sealed class PersonnelFileAssociation : TenantEntity
     }
 
     private PersonnelFileAssociation(
+        string associationCode,
         string associationName,
         string? role,
         DateTime? joinedDate,
@@ -1564,6 +1605,7 @@ public sealed class PersonnelFileAssociation : TenantEntity
         }
 
         PublicId = Guid.NewGuid();
+        AssociationCode = PersonnelFileNormalization.NormalizeCode(associationCode);
         AssociationName = PersonnelFileNormalization.Clean(associationName, nameof(associationName));
         Role = PersonnelFileNormalization.CleanOptional(role);
         JoinedDate = PersonnelFileNormalization.NormalizeDate(joinedDate);
@@ -1576,6 +1618,10 @@ public sealed class PersonnelFileAssociation : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
+    /// <summary>Required association TYPE code validated against the Association general catalog (RF-006, DP-07).</summary>
+    public string AssociationCode { get; private set; } = string.Empty;
+
+    /// <summary>Specific organization name (free text; the catalog code carries the type).</summary>
     public string AssociationName { get; private set; } = string.Empty;
 
     public string? Role { get; private set; }
@@ -1589,14 +1635,16 @@ public sealed class PersonnelFileAssociation : TenantEntity
     public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileAssociation Create(
+        string associationCode,
         string associationName,
         string? role,
         DateTime? joinedDate,
         DateTime? leftDate,
         decimal? payment) =>
-        new(associationName, role, joinedDate, leftDate, payment);
+        new(associationCode, associationName, role, joinedDate, leftDate, payment);
 
     internal void Update(
+        string associationCode,
         string associationName,
         string? role,
         DateTime? joinedDate,
@@ -1608,6 +1656,7 @@ public sealed class PersonnelFileAssociation : TenantEntity
             throw new InvalidOperationException("LeftDate cannot be earlier than JoinedDate.");
         }
 
+        AssociationCode = PersonnelFileNormalization.NormalizeCode(associationCode);
         AssociationName = PersonnelFileNormalization.Clean(associationName, nameof(associationName));
         Role = PersonnelFileNormalization.CleanOptional(role);
         JoinedDate = PersonnelFileNormalization.NormalizeDate(joinedDate);

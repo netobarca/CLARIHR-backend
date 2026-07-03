@@ -48,6 +48,19 @@ internal sealed class AddPersonnelFileAdditionalBenefitCommandHandler(
             return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        // benefitTypeCode is catalog-backed now (RF-010): must be an active AdditionalBenefitType code.
+        var benefitTypeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            personnelFileRepository,
+            personnelFile.TenantId,
+            "benefitTypeCode",
+            PersonnelCurriculumCatalogCategories.AdditionalBenefitType,
+            command.Item.BenefitTypeCode,
+            cancellationToken);
+        if (benefitTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(benefitTypeValidation);
+        }
+
         var entity = PersonnelFileAdditionalBenefit.Create(
             command.Item.BenefitTypeCode,
             command.Item.StartDate,
@@ -120,6 +133,19 @@ internal sealed class UpdatePersonnelFileAdditionalBenefitCommandHandler(
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // benefitTypeCode is catalog-backed now (RF-010): must be an active AdditionalBenefitType code.
+        var benefitTypeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            personnelFileRepository,
+            personnelFile.TenantId,
+            "benefitTypeCode",
+            PersonnelCurriculumCatalogCategories.AdditionalBenefitType,
+            command.Item.BenefitTypeCode,
+            cancellationToken);
+        if (benefitTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(benefitTypeValidation);
         }
 
         // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
@@ -217,6 +243,20 @@ internal sealed class PatchPersonnelFileAdditionalBenefitCommandHandler(
         }
 
         var input = state.ToInput();
+
+        // benefitTypeCode is catalog-backed now (RF-010): must be an active AdditionalBenefitType code.
+        var benefitTypeValidation = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            personnelFileRepository,
+            personnelFile.TenantId,
+            "benefitTypeCode",
+            PersonnelCurriculumCatalogCategories.AdditionalBenefitType,
+            input.BenefitTypeCode,
+            cancellationToken);
+        if (benefitTypeValidation != Error.None)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(benefitTypeValidation);
+        }
+
         var response = await employeeRepository.PatchAdditionalBenefitAsync(
             command.AdditionalBenefitPublicId,
             personnelFile.TenantId,

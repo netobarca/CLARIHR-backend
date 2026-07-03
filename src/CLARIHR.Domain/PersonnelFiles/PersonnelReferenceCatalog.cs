@@ -177,4 +177,6 @@ public static class PersonnelReferenceCatalogCategories
     public const string InsuranceRange = "InsuranceRange";
     public const string RetirementCategory = "RetirementCategory";
     public const string RetirementReason = "RetirementReason";
+    public const string PersonalTitle = "PersonalTitle";
+    public const string AddressType = "AddressType";
 }

@@ -22,14 +22,17 @@ public sealed class EducationCatalogsController(
     IQueryDispatcher queryDispatcher)
     : ControllerBase
 {
+    // Career CRUD is DEFERRED since the catalog became country-scoped + enriched (RF-009, DP-03/DP-06):
+    // this thin global contract cannot carry country/FK/extra columns, so careers are seed-administered
+    // and the "careers" key resolves to 404 here. Reads stay on general-catalogs/education-careers.
     private static readonly IReadOnlyDictionary<string, EducationCatalogType> KeyMap =
         new Dictionary<string, EducationCatalogType>(StringComparer.OrdinalIgnoreCase)
         {
             ["education-statuses"]   = EducationCatalogType.EducationStatus,
             ["study-types"]          = EducationCatalogType.StudyType,
-            ["careers"]              = EducationCatalogType.Career,
             ["shifts"]               = EducationCatalogType.Shift,
-            ["modalities"]           = EducationCatalogType.Modality
+            ["modalities"]           = EducationCatalogType.Modality,
+            ["levels"]               = EducationCatalogType.Level
         };
 
     // GET api/platform/education-catalogs/{catalogKey}

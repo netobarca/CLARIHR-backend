@@ -272,6 +272,7 @@ public sealed class PersonnelFilePersonalInfoController(
                 publicId,
                 new AddressInput(
                     request.AddressLine,
+                    request.AddressTypeCode,
                     request.Country,
                     request.Department,
                     request.Municipality,
@@ -309,6 +310,7 @@ public sealed class PersonnelFilePersonalInfoController(
                 addressPublicId,
                 new AddressInput(
                     request.AddressLine,
+                    request.AddressTypeCode,
                     request.Country,
                     request.Department,
                     request.Municipality,

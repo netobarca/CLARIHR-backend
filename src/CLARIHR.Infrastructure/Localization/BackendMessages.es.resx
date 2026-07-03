@@ -1273,6 +1273,21 @@
   <data name="validation.message.price_per_active_employee_cannot_exceed_2_decimal_places" xml:space="preserve">
     <value>El precio por empleado activo no puede exceder 2 decimales.</value>
   </data>
+  <data name="validation.message.afpcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de AfpCode no es válido.</value>
+  </data>
+  <data name="validation.message.addresstypecode_format_is_invalid" xml:space="preserve">
+    <value>El formato de AddressTypeCode no es válido.</value>
+  </data>
+  <data name="validation.message.associationcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de AssociationCode no es válido.</value>
+  </data>
+  <data name="validation.message.hobbycode_format_is_invalid" xml:space="preserve">
+    <value>El formato de HobbyCode no es válido.</value>
+  </data>
+  <data name="validation.message.personaltitlecode_format_is_invalid" xml:space="preserve">
+    <value>El formato de PersonalTitleCode no es válido.</value>
+  </data>
   <data name="validation.message.professioncode_format_is_invalid" xml:space="preserve">
     <value>El formato de ProfessionCode no es valido.</value>
   </data>
@@ -1884,5 +1899,8 @@
   </data>
   <data name="validation.message.approvedamount_must_be_greater_than_zero" xml:space="preserve">
     <value>El monto aprobado debe ser mayor que cero.</value>
+  </data>
+  <data name="PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID" xml:space="preserve">
+    <value>El número de documento no cumple el formato configurado para el tipo de documento.</value>
   </data>
 </root>

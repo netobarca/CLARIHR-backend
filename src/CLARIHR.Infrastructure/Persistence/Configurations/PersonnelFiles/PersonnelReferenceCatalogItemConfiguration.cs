@@ -82,6 +82,14 @@ internal sealed class IdentificationTypeCatalogItemConfiguration
             "ix_identification_type_catalog_items__country_active_sort")
     {
     }
+
+    // Enriched column (RF-003): optional anchored regex for the identification number; seeded per §20.3.
+    public override void Configure(EntityTypeBuilder<IdentificationTypeCatalogItem> builder)
+    {
+        base.Configure(builder);
+
+        builder.Property(item => item.NumberFormat).HasColumnName("number_format").HasMaxLength(300);
+    }
 }
 
 internal sealed class ProfessionCatalogItemConfiguration
@@ -224,4 +232,34 @@ internal sealed class InsuranceRangeCatalogItemConfiguration
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.InsuranceTypeCatalogItemId, item.NormalizedCode })
             .IsUnique()
             .HasDatabaseName("uq_insurance_range_catalog_items__country_code");
+}
+
+internal sealed class PersonalTitleCatalogItemConfiguration
+    : PersonnelReferenceCatalogItemConfigurationBase<PersonalTitleCatalogItem>
+{
+    public PersonalTitleCatalogItemConfiguration()
+        : base(
+            "personal_title_catalog_items",
+            "pk_personal_title_catalog_items",
+            "uq_personal_title_catalog_items__public_id",
+            "uq_personal_title_catalog_items__country_code",
+            "ix_personal_title_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPersonalTitleCatalogItems())
+    {
+    }
+}
+
+internal sealed class AddressTypeCatalogItemConfiguration
+    : PersonnelReferenceCatalogItemConfigurationBase<AddressTypeCatalogItem>
+{
+    public AddressTypeCatalogItemConfiguration()
+        : base(
+            "address_type_catalog_items",
+            "pk_address_type_catalog_items",
+            "uq_address_type_catalog_items__public_id",
+            "uq_address_type_catalog_items__country_code",
+            "ix_address_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetAddressTypeCatalogItems())
+    {
+    }
 }

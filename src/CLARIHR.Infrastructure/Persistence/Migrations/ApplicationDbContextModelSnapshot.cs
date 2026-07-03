@@ -22,6 +22,169 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CLARIHR.Domain.Afps.AfpCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Abbreviation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("abbreviation");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("address");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("contact_name");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("Fax")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("fax");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("phone");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_afp_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_afp_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_afp_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_afp_catalog_items__country_active_sort");
+
+                    b.ToTable("afp_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9690L,
+                            Abbreviation = "CONFIA",
+                            Code = "CONFIA",
+                            ConcurrencyToken = new Guid("89b556d1-9c8a-250e-510e-1999c6b41026"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "AFP Confía",
+                            NormalizedCode = "CONFIA",
+                            NormalizedName = "AFP CONFÍA",
+                            PublicId = new Guid("dc93ff0a-e139-c2b4-f708-e9d7743dcb7c"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9691L,
+                            Abbreviation = "CRECER",
+                            Code = "CRECER",
+                            ConcurrencyToken = new Guid("2dfdac36-102a-1d6a-7716-bf80c75641d8"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "AFP Crecer",
+                            NormalizedCode = "CRECER",
+                            NormalizedName = "AFP CRECER",
+                            PublicId = new Guid("a6c14192-2481-21cb-9087-fabb0160c2b9"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9692L,
+                            Abbreviation = "OTRA",
+                            Code = "OTRA",
+                            ConcurrencyToken = new Guid("61ac7813-3e76-6d47-05dd-7a4ce1ba87dc"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otra AFP",
+                            NormalizedCode = "OTRA",
+                            NormalizedName = "OTRA AFP",
+                            PublicId = new Guid("dab6246f-1e7d-60d1-ea79-1628bdfacfad"),
+                            SortOrder = 30
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Auditing.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -2824,13 +2987,25 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(11,8)")
                         .HasColumnName("default_employer_rate");
 
+                    b.Property<decimal?>("DefaultPensionedEmployerRate")
+                        .HasColumnType("numeric(11,8)")
+                        .HasColumnName("default_pensioned_employer_rate");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<bool>("IsBaseSalary")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_base_salary");
+
                     b.Property<bool>("IsStatutory")
                         .HasColumnType("boolean")
                         .HasColumnName("is_statutory");
+
+                    b.Property<decimal?>("MinContributionBase")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("min_contribution_base");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -2898,6 +3073,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = true,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Salario base",
@@ -2917,6 +3093,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Horas extra",
@@ -2937,6 +3114,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationBaseCode = "SALARIO_BASE",
                             DefaultCalculationType = "Percentage",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Comision",
@@ -2956,6 +3134,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bono",
@@ -2975,6 +3154,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Viaticos",
@@ -2994,6 +3174,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Aguinaldo",
@@ -3013,6 +3194,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Otro ingreso",
@@ -3037,7 +3219,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultEmployeeRate = 3.00m,
                             DefaultEmployerRate = 7.50m,
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = true,
+                            MinContributionBase = 365.00m,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "ISSS",
                             Nature = "Egreso",
@@ -3051,6 +3235,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -9728L,
                             Code = "AFP",
                             ConcurrencyToken = new Guid("cebacf52-a154-3da6-08b4-498787259ed4"),
+                            ContributionCap = 7045.06m,
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -3059,8 +3244,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultDeductionClass = "Ley",
                             DefaultEmployeeRate = 7.25m,
                             DefaultEmployerRate = 8.75m,
+                            DefaultPensionedEmployerRate = 8.75m,
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = true,
+                            MinContributionBase = 365.00m,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "AFP",
                             Nature = "Egreso",
@@ -3081,6 +3269,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Percentage",
                             DefaultDeductionClass = "Ley",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Renta (ISR)",
@@ -3101,6 +3290,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Interno",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Dano de equipo",
@@ -3121,6 +3311,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Interno",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Anticipo",
@@ -3141,6 +3332,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Interno",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Prestamo interno",
@@ -3161,6 +3353,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Externo",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Prestamo bancario",
@@ -3181,6 +3374,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Externo",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Embargo",
@@ -3201,6 +3395,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Externo",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cuota alimenticia",
@@ -3221,6 +3416,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             DefaultCalculationType = "Fixed",
                             DefaultDeductionClass = "Externo",
                             IsActive = true,
+                            IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Otro externo",
@@ -4154,6 +4350,292 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Abbreviation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("abbreviation");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<long>("EducationStudyTypeCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("education_study_type_catalog_item_id");
+
+                    b.Property<decimal>("Increment")
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("increment");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsRecognized")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_recognized");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_education_career_catalog_items");
+
+                    b.HasIndex("EducationStudyTypeCatalogItemId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_education_career_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_education_career_catalog_items__code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_career_catalog_items__active_sort");
+
+                    b.ToTable("education_career_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9780L,
+                            Abbreviation = "II",
+                            Code = "ING_INDUSTRIAL",
+                            ConcurrencyToken = new Guid("7ce40fe1-d2f8-f290-5672-8fcb37038f34"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ingeniería Industrial",
+                            NormalizedCode = "ING_INDUSTRIAL",
+                            NormalizedName = "INGENIERÍA INDUSTRIAL",
+                            PublicId = new Guid("733f504c-1093-a8f7-4d4d-938442bad597"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9781L,
+                            Abbreviation = "LAE",
+                            Code = "LIC_ADMIN",
+                            ConcurrencyToken = new Guid("4780f727-d0d6-bfe8-00d7-f8b36609983a"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Lic. Administración de Empresas",
+                            NormalizedCode = "LIC_ADMIN",
+                            NormalizedName = "LIC. ADMINISTRACIÓN DE EMPRESAS",
+                            PublicId = new Guid("e6bcea2c-7f23-8b4d-2e4f-a4209a51b572"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9782L,
+                            Abbreviation = "MBA",
+                            Code = "MBA",
+                            ConcurrencyToken = new Guid("36fb82c4-4147-82ed-8d88-8089d31a8cc5"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9766L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Maestría en Administración (MBA)",
+                            NormalizedCode = "MBA",
+                            NormalizedName = "MAESTRÍA EN ADMINISTRACIÓN (MBA)",
+                            PublicId = new Guid("9c3e3d65-719c-2631-74e1-7105183a1c25"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9783L,
+                            Abbreviation = "LP",
+                            Code = "LIC_PSICOLOGIA",
+                            ConcurrencyToken = new Guid("1bd28f5f-9d23-1a7f-d148-fc8d901c62f2"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Lic. Psicología",
+                            NormalizedCode = "LIC_PSICOLOGIA",
+                            NormalizedName = "LIC. PSICOLOGÍA",
+                            PublicId = new Guid("1ccb5620-a23c-88fe-98a0-22e4a78d5fd7"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9784L,
+                            Abbreviation = "IS",
+                            Code = "ING_SISTEMAS",
+                            ConcurrencyToken = new Guid("bae5c4d8-4c94-b3cd-8df6-c72520cd7ed0"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ingeniería en Sistemas/Computación",
+                            NormalizedCode = "ING_SISTEMAS",
+                            NormalizedName = "INGENIERÍA EN SISTEMAS/COMPUTACIÓN",
+                            PublicId = new Guid("172cd5f5-d2ef-005e-aefb-a4cc45414e01"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9785L,
+                            Abbreviation = "LCP",
+                            Code = "LIC_CONTADURIA",
+                            ConcurrencyToken = new Guid("914769fb-fab8-2ca3-4c25-dac393c9c35c"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Lic. Contaduría Pública",
+                            NormalizedCode = "LIC_CONTADURIA",
+                            NormalizedName = "LIC. CONTADURÍA PÚBLICA",
+                            PublicId = new Guid("15971151-d673-8b54-98cb-0929fb549ece"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9786L,
+                            Abbreviation = "LCJ",
+                            Code = "LIC_DERECHO",
+                            ConcurrencyToken = new Guid("a52a5732-4ba2-4102-ff26-d03a0a2b0eb3"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Lic. Ciencias Jurídicas",
+                            NormalizedCode = "LIC_DERECHO",
+                            NormalizedName = "LIC. CIENCIAS JURÍDICAS",
+                            PublicId = new Guid("ba7c835d-8954-718b-2b8e-fbee25384d6d"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9787L,
+                            Abbreviation = "TC",
+                            Code = "TEC_COMPUTACION",
+                            ConcurrencyToken = new Guid("3e1cac0f-b740-95b6-42d8-64df447e08f8"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9767L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Técnico en Computación",
+                            NormalizedCode = "TEC_COMPUTACION",
+                            NormalizedName = "TÉCNICO EN COMPUTACIÓN",
+                            PublicId = new Guid("96ada74e-49f3-3efb-cdeb-7fa32358ddeb"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9788L,
+                            Abbreviation = "OTRA",
+                            Code = "OTRA",
+                            ConcurrencyToken = new Guid("8d09e1e1-71ff-9e23-1e1e-6524864dbe7c"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationStudyTypeCatalogItemId = -9765L,
+                            Increment = 0m,
+                            IsActive = true,
+                            IsRecognized = false,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otra carrera",
+                            NormalizedCode = "OTRA",
+                            NormalizedName = "OTRA CARRERA",
+                            PublicId = new Guid("555b7eab-70ad-8c46-ac1a-2665f4243c7f"),
+                            SortOrder = 90
+                        });
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.EducationCatalogs.EducationLevelCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -4204,105 +4686,91 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("sort_order");
 
                     b.HasKey("Id")
-                        .HasName("pk_education_career_catalog_items");
+                        .HasName("pk_education_level_catalog_items");
 
                     b.HasIndex("NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_career_catalog_items__code");
+                        .HasDatabaseName("uq_education_level_catalog_items__code");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_career_catalog_items__public_id");
+                        .HasDatabaseName("uq_education_level_catalog_items__public_id");
 
                     b.HasIndex("IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_career_catalog_items__active_sort");
+                        .HasDatabaseName("ix_education_level_catalog_items__active_sort");
 
-                    b.ToTable("education_career_catalog_items", (string)null);
+                    b.ToTable("education_level_catalog_items", (string)null);
 
                     b.HasData(
                         new
                         {
-                            Id = -9780L,
-                            Code = "INDUSTRIAL_ENGINEERING",
-                            ConcurrencyToken = new Guid("62755550-1ec4-7e9c-edff-bb6e550df223"),
+                            Id = -9800L,
+                            Code = "BASICO",
+                            ConcurrencyToken = new Guid("320fb3df-51ef-0d14-3d67-f4cca66ef701"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingenieria Industrial",
-                            NormalizedCode = "INDUSTRIAL_ENGINEERING",
-                            NormalizedName = "INGENIERIA INDUSTRIAL",
-                            PublicId = new Guid("be53dc66-851f-9cf6-abf3-5aa2e5cf1efa"),
+                            Name = "Básico",
+                            NormalizedCode = "BASICO",
+                            NormalizedName = "BÁSICO",
+                            PublicId = new Guid("1f2540b5-f7e8-5417-f470-33686cd30a2a"),
                             SortOrder = 10
                         },
                         new
                         {
-                            Id = -9781L,
-                            Code = "BUSINESS_ADMINISTRATION",
-                            ConcurrencyToken = new Guid("787f07c6-8397-f725-d811-e458ec01865f"),
+                            Id = -9801L,
+                            Code = "MEDIO",
+                            ConcurrencyToken = new Guid("bea0f175-3578-e2d8-de15-ec24d4caad99"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Administracion de Empresas",
-                            NormalizedCode = "BUSINESS_ADMINISTRATION",
-                            NormalizedName = "ADMINISTRACION DE EMPRESAS",
-                            PublicId = new Guid("b0129fc7-71c9-63cb-4d2c-b985e4ff0d55"),
+                            Name = "Medio",
+                            NormalizedCode = "MEDIO",
+                            NormalizedName = "MEDIO",
+                            PublicId = new Guid("72c6cd86-987b-8f0f-e256-b93d2c59d007"),
                             SortOrder = 20
                         },
                         new
                         {
-                            Id = -9782L,
-                            Code = "MBA",
-                            ConcurrencyToken = new Guid("80b373e8-5d54-d636-fd88-88dce6c42232"),
+                            Id = -9802L,
+                            Code = "TECNICO",
+                            ConcurrencyToken = new Guid("f3c0561e-e93b-4b30-a0e5-5e39a17f0f40"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Maestria en Administracion de Negocios",
-                            NormalizedCode = "MBA",
-                            NormalizedName = "MAESTRIA EN ADMINISTRACION DE NEGOCIOS",
-                            PublicId = new Guid("3354f6c2-3352-1491-52f6-be24d9eb394c"),
+                            Name = "Técnico",
+                            NormalizedCode = "TECNICO",
+                            NormalizedName = "TÉCNICO",
+                            PublicId = new Guid("8b58115f-1fb3-d737-0723-c61056fa34db"),
                             SortOrder = 30
                         },
                         new
                         {
-                            Id = -9783L,
-                            Code = "PSYCHOLOGY",
-                            ConcurrencyToken = new Guid("fa96fe26-112b-ebbf-fd7a-fc316063633c"),
+                            Id = -9803L,
+                            Code = "SUPERIOR",
+                            ConcurrencyToken = new Guid("c4279da5-a0f4-6acf-de55-0b259df34785"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Psicologia",
-                            NormalizedCode = "PSYCHOLOGY",
-                            NormalizedName = "PSICOLOGIA",
-                            PublicId = new Guid("9b5502a1-bce5-aadd-fbcd-e863bdcbcf1f"),
+                            Name = "Superior / Universitario",
+                            NormalizedCode = "SUPERIOR",
+                            NormalizedName = "SUPERIOR / UNIVERSITARIO",
+                            PublicId = new Guid("93eea75a-eee5-5071-bfeb-e65199eadd6d"),
                             SortOrder = 40
                         },
                         new
                         {
-                            Id = -9784L,
-                            Code = "SYSTEMS_ENGINEERING",
-                            ConcurrencyToken = new Guid("782fa29f-6fd2-087e-64e8-4c4ef2c3468d"),
+                            Id = -9804L,
+                            Code = "POSGRADO",
+                            ConcurrencyToken = new Guid("51b5adb0-9ea6-f652-870d-dd737c02d8a1"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingenieria en Sistemas Informaticos",
-                            NormalizedCode = "SYSTEMS_ENGINEERING",
-                            NormalizedName = "INGENIERIA EN SISTEMAS INFORMATICOS",
-                            PublicId = new Guid("a923e36d-c203-b34c-1dc3-acee89173b40"),
+                            Name = "Posgrado",
+                            NormalizedCode = "POSGRADO",
+                            NormalizedName = "POSGRADO",
+                            PublicId = new Guid("19f1c3c5-31de-4edc-e501-1b18da26429d"),
                             SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9785L,
-                            Code = "ACCOUNTING_AUDITING",
-                            ConcurrencyToken = new Guid("b5103c21-65fb-d8d3-179e-f79b185ed44d"),
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Contaduria Publica y Auditoria",
-                            NormalizedCode = "ACCOUNTING_AUDITING",
-                            NormalizedName = "CONTADURIA PUBLICA Y AUDITORIA",
-                            PublicId = new Guid("f79ebd75-9240-0d8e-e4f5-3d73e10cb0d7"),
-                            SortOrder = 60
                         });
                 });
 
@@ -4630,6 +5098,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Abbreviation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("abbreviation");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -4644,6 +5117,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
+
+                    b.Property<long?>("EducationLevelCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("education_level_catalog_item_id");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -4682,6 +5159,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_education_study_type_catalog_items");
 
+                    b.HasIndex("EducationLevelCatalogItemId");
+
                     b.HasIndex("NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_education_study_type_catalog_items__code");
@@ -4699,44 +5178,82 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9765L,
-                            Code = "BACHELOR",
-                            ConcurrencyToken = new Guid("77e9f2d7-c902-2ec4-ad82-5303c1606e63"),
+                            Abbreviation = "UNIV",
+                            Code = "UNIVERSITARIA",
+                            ConcurrencyToken = new Guid("80f8b0bf-eb9a-74ff-8077-23eed89af25e"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationLevelCatalogItemId = -9803L,
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Licenciatura",
-                            NormalizedCode = "BACHELOR",
-                            NormalizedName = "LICENCIATURA",
-                            PublicId = new Guid("4fe0f4aa-a1b6-8289-3a20-7f0dcd74df47"),
-                            SortOrder = 10
+                            Name = "Universitaria",
+                            NormalizedCode = "UNIVERSITARIA",
+                            NormalizedName = "UNIVERSITARIA",
+                            PublicId = new Guid("5a7c2efc-5774-8905-3aad-521a6475220e"),
+                            SortOrder = 40
                         },
                         new
                         {
                             Id = -9766L,
-                            Code = "MASTER",
-                            ConcurrencyToken = new Guid("e43200e0-ed00-158f-6c54-5e354b9dbe5d"),
+                            Abbreviation = "POSG",
+                            Code = "POSGRADO",
+                            ConcurrencyToken = new Guid("1130a7cb-9858-e441-19f2-4c40046ab2fb"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationLevelCatalogItemId = -9804L,
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Maestria",
-                            NormalizedCode = "MASTER",
-                            NormalizedName = "MAESTRIA",
-                            PublicId = new Guid("2e8468ba-c9cf-7a25-a0cf-67a55d16d0a5"),
-                            SortOrder = 20
+                            Name = "Posgrado",
+                            NormalizedCode = "POSGRADO",
+                            NormalizedName = "POSGRADO",
+                            PublicId = new Guid("559e572f-b503-902f-c787-106bb7b39104"),
+                            SortOrder = 50
                         },
                         new
                         {
                             Id = -9767L,
-                            Code = "TECHNICAL",
-                            ConcurrencyToken = new Guid("9aff6f4c-7538-8ec2-5928-137af7642871"),
+                            Abbreviation = "TEC",
+                            Code = "TECNICO",
+                            ConcurrencyToken = new Guid("2fb6997c-ca2b-8153-aa9d-8157854fadb4"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationLevelCatalogItemId = -9802L,
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Tecnico",
-                            NormalizedCode = "TECHNICAL",
-                            NormalizedName = "TECNICO",
-                            PublicId = new Guid("95b4d3b3-e4f5-822d-5233-6c225402dc1f"),
+                            Name = "Técnico / Tecnólogo",
+                            NormalizedCode = "TECNICO",
+                            NormalizedName = "TÉCNICO / TECNÓLOGO",
+                            PublicId = new Guid("890644df-f7b1-f0d2-c72b-33d4bd8f71ee"),
                             SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9768L,
+                            Abbreviation = "BAS",
+                            Code = "BASICA",
+                            ConcurrencyToken = new Guid("753cafb4-ca6f-2bea-c43a-777facd81e05"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationLevelCatalogItemId = -9800L,
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Educación Básica",
+                            NormalizedCode = "BASICA",
+                            NormalizedName = "EDUCACIÓN BÁSICA",
+                            PublicId = new Guid("995417fc-a4c4-f6a6-ac89-5c7764388ca7"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9769L,
+                            Abbreviation = "BACH",
+                            Code = "BACHILLERATO",
+                            ConcurrencyToken = new Guid("b24f39c3-a8b5-203f-31ea-41a1e5d9cace"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EducationLevelCatalogItemId = -9801L,
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Bachillerato",
+                            NormalizedCode = "BACHILLERATO",
+                            NormalizedName = "BACHILLERATO",
+                            PublicId = new Guid("ea2e2a99-e14a-ddcd-1252-01ae99bb86ac"),
+                            SortOrder = 20
                         });
                 });
 
@@ -5350,6 +5867,253 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "OTRO",
                             PublicId = new Guid("b5efa4bd-f928-9487-68de-33c7de98dca5"),
                             SortOrder = 120
+                        });
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AdditionalBenefitTypeCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_additional_benefit_type_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_additional_benefit_type_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_additional_benefit_type_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_additional_benefit_type_catalog_items__active_sort");
+
+                    b.ToTable("additional_benefit_type_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9670L,
+                            Code = "SEGURO_VIDA",
+                            ConcurrencyToken = new Guid("5e2128ff-71b4-411a-2db0-6c970e06c595"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Seguro de vida",
+                            NormalizedCode = "SEGURO_VIDA",
+                            NormalizedName = "SEGURO DE VIDA",
+                            PublicId = new Guid("60b33bf7-0ea6-0122-1ab4-017d2bd5e15c"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9671L,
+                            Code = "SEGURO_MEDICO",
+                            ConcurrencyToken = new Guid("8028f30b-a893-0f26-a79b-f12e578a84a9"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Seguro médico privado",
+                            NormalizedCode = "SEGURO_MEDICO",
+                            NormalizedName = "SEGURO MÉDICO PRIVADO",
+                            PublicId = new Guid("8ba5a025-6481-a306-0a9d-ffc7509664d7"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9672L,
+                            Code = "BONO_ALIMENTACION",
+                            ConcurrencyToken = new Guid("6f33d93e-e139-e9ca-0245-bc87d153273d"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Bono de alimentación",
+                            NormalizedCode = "BONO_ALIMENTACION",
+                            NormalizedName = "BONO DE ALIMENTACIÓN",
+                            PublicId = new Guid("11121838-b81d-849f-2cbe-fa587f1953db"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9673L,
+                            Code = "VALE_DESPENSA",
+                            ConcurrencyToken = new Guid("33973c2e-a0a0-8e9f-24f9-5c605a06a121"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Vale de despensa",
+                            NormalizedCode = "VALE_DESPENSA",
+                            NormalizedName = "VALE DE DESPENSA",
+                            PublicId = new Guid("ef4a81c9-7383-86e8-93fd-c8ac90bcec4b"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9674L,
+                            Code = "AYUDA_TRANSPORTE",
+                            ConcurrencyToken = new Guid("4624bb09-2977-eee9-0fc6-0911debdd866"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ayuda de transporte",
+                            NormalizedCode = "AYUDA_TRANSPORTE",
+                            NormalizedName = "AYUDA DE TRANSPORTE",
+                            PublicId = new Guid("96baa928-4910-2be1-dffd-15112163c6f0"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9675L,
+                            Code = "GIMNASIO",
+                            ConcurrencyToken = new Guid("cbd3671f-f028-3982-d699-07c271074770"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Gimnasio",
+                            NormalizedCode = "GIMNASIO",
+                            NormalizedName = "GIMNASIO",
+                            PublicId = new Guid("99f7588c-bb3a-e7ca-8afe-c5f0e2fd16da"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9676L,
+                            Code = "BECA_CAPACITACION",
+                            ConcurrencyToken = new Guid("b9e80de9-9570-269a-5db5-6ceb505f0779"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Beca / capacitación",
+                            NormalizedCode = "BECA_CAPACITACION",
+                            NormalizedName = "BECA / CAPACITACIÓN",
+                            PublicId = new Guid("4a9fbc05-b3b4-7a90-7317-627def869e03"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9677L,
+                            Code = "PLAN_TELEFONO",
+                            ConcurrencyToken = new Guid("d7abb578-eafb-46b2-6e24-35457a130d0b"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Plan de teléfono",
+                            NormalizedCode = "PLAN_TELEFONO",
+                            NormalizedName = "PLAN DE TELÉFONO",
+                            PublicId = new Guid("9cfe7827-5475-2b52-334c-aefbcf5ace94"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9678L,
+                            Code = "VEHICULO",
+                            ConcurrencyToken = new Guid("0383d855-80db-8327-e415-48f990e87f3d"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Vehículo / combustible",
+                            NormalizedCode = "VEHICULO",
+                            NormalizedName = "VEHÍCULO / COMBUSTIBLE",
+                            PublicId = new Guid("fb55ff6c-d4cd-5634-1f85-5e10a4510cb9"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9679L,
+                            Code = "OTRO",
+                            ConcurrencyToken = new Guid("ca3b80f6-62fa-d5ce-b15a-33556c4742f3"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otro",
+                            NormalizedCode = "OTRO",
+                            NormalizedName = "OTRO",
+                            PublicId = new Guid("42613ecb-1d60-b177-c5a2-2b60e116ed2b"),
+                            SortOrder = 100
                         });
                 });
 
@@ -5980,6 +6744,221 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "RECARGO DE FUNCIONES",
                             PublicId = new Guid("43838bcc-f194-b51f-d4d8-86847325a3f1"),
                             SortOrder = 90
+                        });
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssociationCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_association_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_association_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_association_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_association_catalog_items__country_active_sort");
+
+                    b.ToTable("association_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9650L,
+                            Code = "SINDICATO",
+                            ConcurrencyToken = new Guid("c7e5f33d-21df-d843-ea29-7cd3f12247a1"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sindicato",
+                            NormalizedCode = "SINDICATO",
+                            NormalizedName = "SINDICATO",
+                            PublicId = new Guid("122e4a77-74fd-c0e1-e0ab-0d8cd637e9da"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9651L,
+                            Code = "COLEGIO_PROF",
+                            ConcurrencyToken = new Guid("d3ada356-5f90-e672-3878-83ddb961bcd7"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Colegio profesional",
+                            NormalizedCode = "COLEGIO_PROF",
+                            NormalizedName = "COLEGIO PROFESIONAL",
+                            PublicId = new Guid("1ef21328-132a-9c39-f4c9-becf96915b9c"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9652L,
+                            Code = "CAMARA",
+                            ConcurrencyToken = new Guid("c5892eef-e944-a699-ecf4-c7ca16db4afd"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cámara empresarial/gremial",
+                            NormalizedCode = "CAMARA",
+                            NormalizedName = "CÁMARA EMPRESARIAL/GREMIAL",
+                            PublicId = new Guid("05d33a2e-f488-dbca-5b33-d73bd68baaba"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9653L,
+                            Code = "ONG",
+                            ConcurrencyToken = new Guid("7524969a-8e6b-76e3-5404-300703211ef3"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "ONG / Fundación",
+                            NormalizedCode = "ONG",
+                            NormalizedName = "ONG / FUNDACIÓN",
+                            PublicId = new Guid("09032e17-7cce-6ebf-19a9-44dec449f4af"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9654L,
+                            Code = "CLUB",
+                            ConcurrencyToken = new Guid("b20d5101-d87c-3605-c29d-fbc6079ade75"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Club social o deportivo",
+                            NormalizedCode = "CLUB",
+                            NormalizedName = "CLUB SOCIAL O DEPORTIVO",
+                            PublicId = new Guid("5bc40f28-fccb-9987-1aed-5780c35aa2fa"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9655L,
+                            Code = "RELIGIOSA",
+                            ConcurrencyToken = new Guid("dce58469-6590-8629-7a08-4d4f39c729c4"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Asociación religiosa",
+                            NormalizedCode = "RELIGIOSA",
+                            NormalizedName = "ASOCIACIÓN RELIGIOSA",
+                            PublicId = new Guid("18b88133-4d68-93f1-fb94-74bd58834a3e"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9656L,
+                            Code = "COOPERATIVA",
+                            ConcurrencyToken = new Guid("19f5eebc-d8a9-1cf3-2ff3-bb693a05fffa"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cooperativa",
+                            NormalizedCode = "COOPERATIVA",
+                            NormalizedName = "COOPERATIVA",
+                            PublicId = new Guid("e8a5d11b-b065-acbf-73a8-44142d559922"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9657L,
+                            Code = "OTRA",
+                            ConcurrencyToken = new Guid("a8359e59-c435-d7fb-b89c-89022f41541c"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otra",
+                            NormalizedCode = "OTRA",
+                            NormalizedName = "OTRA",
+                            PublicId = new Guid("9e5e29f2-20ee-ec64-cf43-aa40964e2f8f"),
+                            SortOrder = 80
                         });
                 });
 
@@ -6994,6 +7973,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Abbreviation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("abbreviation");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -7022,6 +8006,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsTemporary")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_temporary");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -7073,12 +8061,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9460L,
+                            Abbreviation = "INDEF",
                             Code = "INDEFINIDO",
                             ConcurrencyToken = new Guid("fd78dd59-2c62-c10e-a26d-fec47f3f873c"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato por tiempo indefinido",
                             NormalizedCode = "INDEFINIDO",
@@ -7089,12 +8079,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9461L,
+                            Abbreviation = "PF",
                             Code = "PLAZO_FIJO",
                             ConcurrencyToken = new Guid("4de7ec14-541a-1ac2-a767-a5b99c2692ef"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato a plazo fijo",
                             NormalizedCode = "PLAZO_FIJO",
@@ -7105,12 +8097,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9462L,
+                            Abbreviation = "OBRA",
                             Code = "POR_OBRA",
                             ConcurrencyToken = new Guid("2abadeb3-1e68-5b6a-1c33-dcaed412a638"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato por obra o labor",
                             NormalizedCode = "POR_OBRA",
@@ -7121,12 +8115,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9463L,
+                            Abbreviation = "EVEN",
                             Code = "EVENTUAL",
                             ConcurrencyToken = new Guid("6b3ed6c4-7448-9279-ab22-deee304190b2"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato eventual",
                             NormalizedCode = "EVENTUAL",
@@ -7137,12 +8133,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9464L,
+                            Abbreviation = "APREN",
                             Code = "APRENDIZAJE",
                             ConcurrencyToken = new Guid("79cbadbd-7173-6a1e-5d23-d570d5b9756d"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato de aprendizaje",
                             NormalizedCode = "APRENDIZAJE",
@@ -7153,12 +8151,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9465L,
+                            Abbreviation = "SP",
                             Code = "SERVICIOS_PROFESIONALES",
                             ConcurrencyToken = new Guid("dbd9c16f-18ba-0ffc-419f-c7da125517c2"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Servicios profesionales",
                             NormalizedCode = "SERVICIOS_PROFESIONALES",
@@ -7169,12 +8169,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9466L,
+                            Abbreviation = "TEMP",
                             Code = "TEMPORAL",
                             ConcurrencyToken = new Guid("ad795c44-19f3-2413-8d73-6c0c5c910224"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Contrato temporal",
                             NormalizedCode = "TEMPORAL",
@@ -7185,12 +8187,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9467L,
+                            Abbreviation = "OTRO",
                             Code = "OTRO",
                             ConcurrencyToken = new Guid("96fced9c-8f86-ea7a-7c33-6eda436dfdb2"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsTemporary = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Otro",
                             NormalizedCode = "OTRO",
@@ -8622,6 +9626,285 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.HobbyCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_hobby_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_hobby_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_hobby_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_hobby_catalog_items__country_active_sort");
+
+                    b.ToTable("hobby_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9630L,
+                            Code = "DEPORTE",
+                            ConcurrencyToken = new Guid("b0a2a5eb-a311-3f1a-32c4-62f351c476e7"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Deportes",
+                            NormalizedCode = "DEPORTE",
+                            NormalizedName = "DEPORTES",
+                            PublicId = new Guid("a5ee0a76-2d29-bbf1-6cd5-b1459bf047ca"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9631L,
+                            Code = "LECTURA",
+                            ConcurrencyToken = new Guid("c6c3bc21-40f9-246b-e25e-29dd63cbf4ee"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Lectura",
+                            NormalizedCode = "LECTURA",
+                            NormalizedName = "LECTURA",
+                            PublicId = new Guid("1a250e77-d51c-e84e-f020-a18c20766dcd"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9632L,
+                            Code = "MUSICA",
+                            ConcurrencyToken = new Guid("6bf2ca89-f902-a531-7159-7ab259f4694b"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Música",
+                            NormalizedCode = "MUSICA",
+                            NormalizedName = "MÚSICA",
+                            PublicId = new Guid("38517cfd-3f71-fa61-21fc-4faf841c7974"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9633L,
+                            Code = "CINE",
+                            ConcurrencyToken = new Guid("1e42bf1c-936c-7e86-0e0d-2e5df0233a8a"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cine y series",
+                            NormalizedCode = "CINE",
+                            NormalizedName = "CINE Y SERIES",
+                            PublicId = new Guid("da5df596-e87d-d45b-17c9-d6592d6fca6f"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9634L,
+                            Code = "VIAJES",
+                            ConcurrencyToken = new Guid("05ea0cfd-ff5b-6950-0688-0b7d95714bb1"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Viajes",
+                            NormalizedCode = "VIAJES",
+                            NormalizedName = "VIAJES",
+                            PublicId = new Guid("2afc70c8-59ac-c0fa-cf5a-1fd13cb3fc1a"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9635L,
+                            Code = "COCINA",
+                            ConcurrencyToken = new Guid("3e5573f0-7ce0-4e0c-34d7-cf3e23558f15"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cocina",
+                            NormalizedCode = "COCINA",
+                            NormalizedName = "COCINA",
+                            PublicId = new Guid("cc04700e-c51e-3f26-cc14-b0eae83c898d"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9636L,
+                            Code = "ARTE",
+                            ConcurrencyToken = new Guid("1936eb6a-48a3-23e8-7eea-f7f04e99c29d"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Arte y pintura",
+                            NormalizedCode = "ARTE",
+                            NormalizedName = "ARTE Y PINTURA",
+                            PublicId = new Guid("1b941897-a535-b598-1f3a-4dea2cf3fbe4"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9637L,
+                            Code = "TECNOLOGIA",
+                            ConcurrencyToken = new Guid("995b6cff-f474-381f-42ef-854e8e0b3a9f"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Tecnología",
+                            NormalizedCode = "TECNOLOGIA",
+                            NormalizedName = "TECNOLOGÍA",
+                            PublicId = new Guid("eede32ae-dd4e-5284-6340-7498eae829f1"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9638L,
+                            Code = "FOTOGRAFIA",
+                            ConcurrencyToken = new Guid("70e8649e-c48e-2c8b-945c-68d3069dff18"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Fotografía",
+                            NormalizedCode = "FOTOGRAFIA",
+                            NormalizedName = "FOTOGRAFÍA",
+                            PublicId = new Guid("3a011a71-8763-9c50-042f-140fb87f0935"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9639L,
+                            Code = "JARDINERIA",
+                            ConcurrencyToken = new Guid("53fa2e21-cab4-59af-bad5-cfbdac053f3a"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Jardinería",
+                            NormalizedCode = "JARDINERIA",
+                            NormalizedName = "JARDINERÍA",
+                            PublicId = new Guid("5dc275a6-aaac-cbae-2c66-f651197208e4"),
+                            SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9640L,
+                            Code = "VOLUNTARIADO",
+                            ConcurrencyToken = new Guid("64650b6b-9dcb-5f9f-e421-f920de1781d2"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Voluntariado",
+                            NormalizedCode = "VOLUNTARIADO",
+                            NormalizedName = "VOLUNTARIADO",
+                            PublicId = new Guid("0637051d-e64e-3e89-4668-2c0942019127"),
+                            SortOrder = 110
+                        },
+                        new
+                        {
+                            Id = -9641L,
+                            Code = "OTRO",
+                            ConcurrencyToken = new Guid("484767a5-808b-f053-40f6-32495b2edc43"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otro",
+                            NormalizedCode = "OTRO",
+                            NormalizedName = "OTRO",
+                            PublicId = new Guid("e367df88-b37e-a4d6-d4b5-fc64f0b909e3"),
+                            SortOrder = 120
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.LanguageCatalogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -9788,6 +11071,22 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "EFECTIVO",
                             PublicId = new Guid("7918b3d3-395e-0205-ca7a-63b0d6fc3e85"),
                             SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9323L,
+                            Code = "BOLETA",
+                            ConcurrencyToken = new Guid("e153412c-514f-d60f-f73f-7aa19ab500af"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Boleta de pago",
+                            NormalizedCode = "BOLETA",
+                            NormalizedName = "BOLETA DE PAGO",
+                            PublicId = new Guid("411f8590-bc59-21bf-afe7-0219ecffe457"),
+                            SortOrder = 40
                         });
                 });
 
@@ -16696,6 +17995,173 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("org_units", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.AddressTypeCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_address_type_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_address_type_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_address_type_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_address_type_catalog_items__country_active_sort");
+
+                    b.ToTable("address_type_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9620L,
+                            Code = "CASA",
+                            ConcurrencyToken = new Guid("e6dbba53-38be-9d00-079f-4fbe5683d2f0"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Casa / Habitación",
+                            NormalizedCode = "CASA",
+                            NormalizedName = "CASA / HABITACIÓN",
+                            PublicId = new Guid("2fa34acc-adf8-a342-8162-4b40943f0b3f"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9621L,
+                            Code = "TRABAJO",
+                            ConcurrencyToken = new Guid("c29d5501-1b04-7a66-e512-4e4ac7e961ad"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Trabajo",
+                            NormalizedCode = "TRABAJO",
+                            NormalizedName = "TRABAJO",
+                            PublicId = new Guid("79e07032-8e23-b57b-0b5d-717f782a1810"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9622L,
+                            Code = "FACTURACION",
+                            ConcurrencyToken = new Guid("1f565487-062b-0728-838e-f50b602f27f3"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Facturación",
+                            NormalizedCode = "FACTURACION",
+                            NormalizedName = "FACTURACIÓN",
+                            PublicId = new Guid("ff8f9c9d-f42e-57e0-c903-d8a45441b038"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9623L,
+                            Code = "TEMPORAL",
+                            ConcurrencyToken = new Guid("5917e21d-0033-6a95-7593-f8173ef2bdf7"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Temporal",
+                            NormalizedCode = "TEMPORAL",
+                            NormalizedName = "TEMPORAL",
+                            PublicId = new Guid("585c0364-1688-a2c1-0daf-98e8481e7a3c"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9624L,
+                            Code = "OTRA",
+                            ConcurrencyToken = new Guid("92b686b3-0adf-88d0-4460-a36673fe6aea"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otra",
+                            NormalizedCode = "OTRA",
+                            NormalizedName = "OTRA",
+                            PublicId = new Guid("7f50ef28-8221-aae0-fdb5-5e2350165cd5"),
+                            SortOrder = 50
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.CertificateRequestDocument", b =>
                 {
                     b.Property<long>("Id")
@@ -17660,6 +19126,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("normalized_name");
 
+                    b.Property<string>("NumberFormat")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("number_format");
+
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -18518,6 +19989,285 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("off_payroll_transaction_documents", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonalTitleCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_personal_title_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personal_title_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personal_title_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_personal_title_catalog_items__country_active_sort");
+
+                    b.ToTable("personal_title_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9600L,
+                            Code = "ING",
+                            ConcurrencyToken = new Guid("dbbe1114-a031-370b-578c-18aa6746c4cc"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ingeniero/a",
+                            NormalizedCode = "ING",
+                            NormalizedName = "INGENIERO/A",
+                            PublicId = new Guid("94864ec0-a6ed-c168-7ebc-f53cd53d956f"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9601L,
+                            Code = "LIC",
+                            ConcurrencyToken = new Guid("0d678cef-f100-e0cc-fee1-f980ed7b4428"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Licenciado/a",
+                            NormalizedCode = "LIC",
+                            NormalizedName = "LICENCIADO/A",
+                            PublicId = new Guid("eebc1c01-59ec-d3c5-f38c-6c87358e8038"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9602L,
+                            Code = "ARQ",
+                            ConcurrencyToken = new Guid("15ee8b23-f1ed-bf13-d715-1acc5b3faa5f"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Arquitecto/a",
+                            NormalizedCode = "ARQ",
+                            NormalizedName = "ARQUITECTO/A",
+                            PublicId = new Guid("22c5f416-af51-69a8-0322-b857c8885005"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9603L,
+                            Code = "DR",
+                            ConcurrencyToken = new Guid("cadf579d-5642-6a8a-10df-9eda310c0e1c"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Doctor",
+                            NormalizedCode = "DR",
+                            NormalizedName = "DOCTOR",
+                            PublicId = new Guid("d066db5e-6307-7502-64e5-83f855675eb0"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9604L,
+                            Code = "DRA",
+                            ConcurrencyToken = new Guid("a985678a-f488-c7c8-9015-3c874614871c"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Doctora",
+                            NormalizedCode = "DRA",
+                            NormalizedName = "DOCTORA",
+                            PublicId = new Guid("a4362367-8d71-28c5-15d0-5e26c64803e0"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9605L,
+                            Code = "MSC",
+                            ConcurrencyToken = new Guid("ee561806-b95e-0c06-e14c-a39e2cf7a596"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Máster",
+                            NormalizedCode = "MSC",
+                            NormalizedName = "MÁSTER",
+                            PublicId = new Guid("0495e165-077e-6e6f-4829-0c56116902ae"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9606L,
+                            Code = "TEC",
+                            ConcurrencyToken = new Guid("569f13f0-d6da-5846-5bce-5b32d5443a72"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Técnico/a",
+                            NormalizedCode = "TEC",
+                            NormalizedName = "TÉCNICO/A",
+                            PublicId = new Guid("57f1a17a-3bc6-afb5-e31c-4e8451e314e4"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9607L,
+                            Code = "PROF",
+                            ConcurrencyToken = new Guid("bc322b76-8d40-e3ec-ebdb-28ba5b0c08ac"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Profesor/a",
+                            NormalizedCode = "PROF",
+                            NormalizedName = "PROFESOR/A",
+                            PublicId = new Guid("2d247c07-23f8-e0ee-a96e-908c11b74b5d"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9608L,
+                            Code = "SR",
+                            ConcurrencyToken = new Guid("06ee8e2c-d02a-f63b-42f1-011a123e38b7"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Señor",
+                            NormalizedCode = "SR",
+                            NormalizedName = "SEÑOR",
+                            PublicId = new Guid("132d0723-1a3f-9447-deb2-ee7d9540b787"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9609L,
+                            Code = "SRA",
+                            ConcurrencyToken = new Guid("2d43f3dd-6b54-783c-d505-e4ad71fedc8b"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Señora",
+                            NormalizedCode = "SRA",
+                            NormalizedName = "SEÑORA",
+                            PublicId = new Guid("d9e89ada-a9a9-f0fe-5ecb-2acf6fb08c03"),
+                            SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9610L,
+                            Code = "SRTA",
+                            ConcurrencyToken = new Guid("9a21116a-7182-2abd-a1c6-177800d60925"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Señorita",
+                            NormalizedCode = "SRTA",
+                            NormalizedName = "SEÑORITA",
+                            PublicId = new Guid("96bb078d-5047-c39e-94bc-135a00bcae59"),
+                            SortOrder = 110
+                        },
+                        new
+                        {
+                            Id = -9611L,
+                            Code = "OTRO",
+                            ConcurrencyToken = new Guid("7f752f3e-5807-9279-f70a-e9eae2dace20"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otro",
+                            NormalizedCode = "OTRO",
+                            NormalizedName = "OTRO",
+                            PublicId = new Guid("d7ea6c25-2d95-5673-e62a-50f0ca1828ef"),
+                            SortOrder = 120
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFile", b =>
                 {
                     b.Property<long>("Id")
@@ -18526,6 +20276,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AfpCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("afp_code");
 
                     b.Property<string>("BirthCountry")
                         .HasMaxLength(120)
@@ -18636,6 +20391,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("personal_phone");
+
+                    b.Property<string>("PersonalTitle")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("personal_title_code");
 
                     b.Property<Guid?>("PhotoFilePublicId")
                         .HasColumnType("uuid")
@@ -18787,6 +20547,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("address_line");
+
+                    b.Property<string>("AddressTypeCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("address_type_code");
 
                     b.Property<Guid>("ConcurrencyToken")
                         .IsConcurrencyToken()
@@ -18957,6 +20722,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AssociationCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("association_code");
 
                     b.Property<string>("AssociationName")
                         .IsRequired()
@@ -20565,8 +22336,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
-                    b.Property<string>("HobbyName")
+                    b.Property<string>("HobbyCode")
                         .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("hobby_code");
+
+                    b.Property<string>("HobbyName")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
                         .HasColumnName("hobby_name");
@@ -24130,6 +25906,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("salary_tabulator_lines", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Afps.AfpCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Auth.EmailVerificationToken", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Auth.User", null)
@@ -24533,6 +26320,37 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_cost_centers__cost_center_types");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem", "EducationStudyTypeCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("EducationStudyTypeCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_education_career_catalog_items__education_study_type");
+
+                    b.Navigation("CountryCatalogItem");
+
+                    b.Navigation("EducationStudyTypeCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.EducationCatalogs.EducationLevelCatalogItem", "EducationLevelCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("EducationLevelCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_education_study_type_catalog_items__education_level");
+
+                    b.Navigation("EducationLevelCatalogItem");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.ActionStatusCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
@@ -24545,6 +26363,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.ActionTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AdditionalBenefitTypeCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()
@@ -24578,6 +26407,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssignmentTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.AssociationCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()
@@ -24743,6 +26583,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.FormControlTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.HobbyCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()
@@ -25195,6 +27046,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_org_units__parent");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.AddressTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.CertificateRequestDocument", b =>
                 {
                     b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFileCertificateRequest", "CertificateRequest")
@@ -25448,6 +27310,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("DocumentTypeCatalogItem");
 
                     b.Navigation("OffPayrollTransaction");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonalTitleCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileAdditionalBenefit", b =>

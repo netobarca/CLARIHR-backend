@@ -32,6 +32,7 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 
 public sealed record PersonnelFileAssociationResponse(
     Guid AssociationPublicId,
+    string AssociationCode,
     string AssociationName,
     string? Role,
     DateTime? JoinedDate,
@@ -80,6 +81,7 @@ public sealed record PatchPersonnelFileAssociationCommand(
     : ICommand<PersonnelFileAssociationResponse>;
 
 public sealed record AssociationInput(
+    string AssociationCode,
     string AssociationName,
     string? Role,
     DateTime? JoinedDate,
@@ -156,6 +158,11 @@ internal sealed class AssociationInputValidator : AbstractValidator<AssociationI
 {
     public AssociationInputValidator()
     {
+        RuleFor(input => input.AssociationCode)
+            .NotEmpty()
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .WithMessage("AssociationCode format is invalid.");
         RuleFor(input => input.AssociationName).NotEmpty().MaximumLength(200);
         RuleFor(input => input.Role).MaximumLength(120);
         RuleFor(input => input.Payment).GreaterThanOrEqualTo(0).When(static input => input.Payment.HasValue);
@@ -167,6 +174,7 @@ internal sealed class AssociationInputValidator : AbstractValidator<AssociationI
 
 internal sealed class PersonnelFileAssociationPatchState
 {
+    public string AssociationCode { get; set; } = string.Empty;
     public string AssociationName { get; set; } = string.Empty;
     public string? Role { get; set; }
     public DateTime? JoinedDate { get; set; }
@@ -177,6 +185,7 @@ internal sealed class PersonnelFileAssociationPatchState
     public static PersonnelFileAssociationPatchState From(PersonnelFileAssociationResponse response) =>
         new()
         {
+            AssociationCode = response.AssociationCode,
             AssociationName = response.AssociationName,
             Role = response.Role,
             JoinedDate = response.JoinedDate,
@@ -185,6 +194,6 @@ internal sealed class PersonnelFileAssociationPatchState
         };
 
     public AssociationInput ToInput() =>
-        new(AssociationName, Role, JoinedDate, LeftDate, Payment);
+        new(AssociationCode, AssociationName, Role, JoinedDate, LeftDate, Payment);
 }
 

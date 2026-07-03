@@ -11,8 +11,27 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 /// </summary>
 internal static class CompensationConceptRules
 {
-    /// <summary>Concept type code representing the employee's base salary (one active per plaza).</summary>
+    /// <summary>
+    /// Legacy concept type code representing the employee's base salary (one active per plaza). Kept as
+    /// fallback: the authoritative signal is the catalog's <c>IsBaseSalary</c> flag (D-12/DP-08).
+    /// </summary>
     public const string BaseSalaryConceptTypeCode = "SALARIO_BASE";
+
+    /// <summary>
+    /// True when the concept type is a base salary: either flagged in the catalog (IsBaseSalary,
+    /// passed in as normalized codes) or matching the legacy <see cref="BaseSalaryConceptTypeCode"/>.
+    /// </summary>
+    public static bool IsBaseSalaryConcept(string? conceptTypeCode, IReadOnlyCollection<string> baseSalaryConceptTypeCodes)
+    {
+        if (string.IsNullOrWhiteSpace(conceptTypeCode))
+        {
+            return false;
+        }
+
+        var normalized = conceptTypeCode.Trim().ToUpperInvariant();
+        return baseSalaryConceptTypeCodes.Contains(normalized)
+            || string.Equals(normalized, BaseSalaryConceptTypeCode, StringComparison.Ordinal);
+    }
 
     internal sealed record Candidate(
         CompensationNature Nature,

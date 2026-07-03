@@ -76,6 +76,11 @@ internal static class PersonnelFileAssociationPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
+        if (string.IsNullOrWhiteSpace(state.AssociationCode))
+        {
+            errors["associationCode"] = ["AssociationCode is required."];
+        }
+
         if (string.IsNullOrWhiteSpace(state.AssociationName))
         {
             errors["associationName"] = ["AssociationName is required."];
@@ -104,6 +109,11 @@ internal static class PersonnelFileAssociationPatchApplier
         string path)
     {
         var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "associationCode"))
+        {
+            return Mutate(state, () => state.AssociationCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
 
         if (IsSegment(property, "associationName"))
         {

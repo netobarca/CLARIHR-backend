@@ -33,6 +33,8 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.BirthDate).HasColumnName("birth_date");
         builder.Property(file => file.MaritalStatus).HasColumnName("marital_status").HasMaxLength(80);
         builder.Property(file => file.Profession).HasColumnName("profession").HasMaxLength(120);
+        builder.Property(file => file.PersonalTitle).HasColumnName("personal_title_code").HasMaxLength(80);
+        builder.Property(file => file.AfpCode).HasColumnName("afp_code").HasMaxLength(80);
         builder.Property(file => file.Nationality).HasColumnName("nationality").HasMaxLength(120);
         builder.Property(file => file.PersonalEmail).HasColumnName("personal_email").HasMaxLength(320);
         builder.Property(file => file.InstitutionalEmail).HasColumnName("institutional_email").HasMaxLength(320);
@@ -243,6 +245,7 @@ internal sealed class PersonnelFileAddressConfiguration : IEntityTypeConfigurati
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.AddressLine).HasColumnName("address_line").HasMaxLength(500);
+        builder.Property(item => item.AddressTypeCode).HasColumnName("address_type_code").HasMaxLength(80);
         builder.Property(item => item.Country).HasColumnName("country").HasMaxLength(120);
         builder.Property(item => item.Department).HasColumnName("department").HasMaxLength(120);
         builder.Property(item => item.Municipality).HasColumnName("municipality").HasMaxLength(120);
@@ -362,6 +365,7 @@ internal sealed class PersonnelFileHobbyConfiguration : IEntityTypeConfiguration
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.HobbyCode).HasColumnName("hobby_code").HasMaxLength(80);
         builder.Property(item => item.HobbyName).HasColumnName("hobby_name").HasMaxLength(120);
         builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
@@ -471,6 +475,7 @@ internal sealed class PersonnelFileAssociationConfiguration : IEntityTypeConfigu
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.AssociationCode).HasColumnName("association_code").HasMaxLength(80);
         builder.Property(item => item.AssociationName).HasColumnName("association_name").HasMaxLength(200);
         builder.Property(item => item.Role).HasColumnName("role").HasMaxLength(120);
         builder.Property(item => item.JoinedDate).HasColumnName("joined_date");

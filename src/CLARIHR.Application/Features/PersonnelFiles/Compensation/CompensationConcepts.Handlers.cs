@@ -66,16 +66,25 @@ internal static class CompensationConceptCommandSupport
     /// line). Only applies to a plaza-scoped income whose concept type is the base salary.
     /// </summary>
     public static async Task<Result> ValidateBaseSalaryAsync(
+        IPersonnelFileRepository personnelFileRepository,
         IPersonnelFileEmployeeRepository employeeRepository,
         IPositionSlotRepository positionSlotRepository,
+        Guid tenantId,
         Guid personnelFilePublicId,
         CompensationConceptInput item,
         Guid? excludeConceptPublicId,
         CancellationToken cancellationToken)
     {
         if (item.Nature != CompensationNature.Ingreso
-            || !string.Equals(item.ConceptTypeCode.Trim(), CompensationConceptRules.BaseSalaryConceptTypeCode, StringComparison.OrdinalIgnoreCase)
             || item.AssignedPositionPublicId is not { } assignedPositionPublicId)
+        {
+            return Result.Success();
+        }
+
+        // Base salary is detected via the catalog's IsBaseSalary flag (D-12/DP-08), with the legacy
+        // SALARIO_BASE code as fallback for catalogs seeded before the flag existed.
+        var baseSalaryCodes = await personnelFileRepository.GetBaseSalaryConceptTypeCodesAsync(tenantId, cancellationToken);
+        if (!CompensationConceptRules.IsBaseSalaryConcept(item.ConceptTypeCode, baseSalaryCodes))
         {
             return Result.Success();
         }
@@ -90,7 +99,7 @@ internal static class CompensationConceptCommandSupport
         var anotherActiveBaseSalaryExists = concepts.Any(concept =>
             concept.IsActive
             && concept.Nature == CompensationNature.Ingreso
-            && string.Equals(concept.ConceptTypeCode, CompensationConceptRules.BaseSalaryConceptTypeCode, StringComparison.OrdinalIgnoreCase)
+            && CompensationConceptRules.IsBaseSalaryConcept(concept.ConceptTypeCode, baseSalaryCodes)
             && concept.AssignedPositionPublicId == assignedPositionPublicId
             && (excludeConceptPublicId is null || concept.CompensationConceptPublicId != excludeConceptPublicId.Value));
 
@@ -148,7 +157,7 @@ internal sealed class AddPersonnelFileCompensationConceptCommandHandler(
         }
 
         var baseSalaryValidation = await CompensationConceptCommandSupport.ValidateBaseSalaryAsync(
-            employeeRepository, positionSlotRepository, personnelFile.PublicId, command.Item, excludeConceptPublicId: null, cancellationToken);
+            personnelFileRepository, employeeRepository, positionSlotRepository, personnelFile.TenantId, personnelFile.PublicId, command.Item, excludeConceptPublicId: null, cancellationToken);
         if (baseSalaryValidation.IsFailure)
         {
             return Result<PersonnelFileCompensationConceptResponse>.Failure(baseSalaryValidation.Error);
@@ -251,7 +260,7 @@ internal sealed class UpdatePersonnelFileCompensationConceptCommandHandler(
         }
 
         var baseSalaryValidation = await CompensationConceptCommandSupport.ValidateBaseSalaryAsync(
-            employeeRepository, positionSlotRepository, personnelFile.PublicId, command.Item, command.CompensationConceptPublicId, cancellationToken);
+            personnelFileRepository, employeeRepository, positionSlotRepository, personnelFile.TenantId, personnelFile.PublicId, command.Item, command.CompensationConceptPublicId, cancellationToken);
         if (baseSalaryValidation.IsFailure)
         {
             return Result<PersonnelFileCompensationConceptResponse>.Failure(baseSalaryValidation.Error);
@@ -368,7 +377,7 @@ internal sealed class PatchPersonnelFileCompensationConceptCommandHandler(
         }
 
         var baseSalaryValidation = await CompensationConceptCommandSupport.ValidateBaseSalaryAsync(
-            employeeRepository, positionSlotRepository, personnelFile.PublicId, input, command.CompensationConceptPublicId, cancellationToken);
+            personnelFileRepository, employeeRepository, positionSlotRepository, personnelFile.TenantId, personnelFile.PublicId, input, command.CompensationConceptPublicId, cancellationToken);
         if (baseSalaryValidation.IsFailure)
         {
             return Result<PersonnelFileCompensationConceptResponse>.Failure(baseSalaryValidation.Error);

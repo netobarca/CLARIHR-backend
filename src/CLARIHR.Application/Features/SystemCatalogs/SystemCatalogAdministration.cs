@@ -31,7 +31,12 @@ public enum SystemCatalogType
     MaritalStatus,
     Kinship,
     Department,
-    Municipality
+    Municipality,
+    PersonalTitle,
+    AddressType,
+    Hobby,
+    Association,
+    AdditionalBenefitType
 }
 
 public sealed record SystemCatalogItemResponse(
@@ -459,6 +464,11 @@ internal static class SystemCatalogFactory
             SystemCatalogType.MaritalStatus => MaritalStatusCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
             SystemCatalogType.Kinship => KinshipCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
             SystemCatalogType.Department => DepartmentCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
+            SystemCatalogType.PersonalTitle => PersonalTitleCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
+            SystemCatalogType.AddressType => AddressTypeCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
+            SystemCatalogType.Hobby => HobbyCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
+            SystemCatalogType.Association => AssociationCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
+            SystemCatalogType.AdditionalBenefitType => AdditionalBenefitTypeCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder),
             SystemCatalogType.Municipality when parentInternalId.HasValue => MunicipalityCatalogItem.Create(countryCatalogItemId, countryCode, code, name, true, sortOrder, parentInternalId.Value),
             SystemCatalogType.Municipality => throw new InvalidOperationException("Municipality requires a department parent."),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported system catalog type.")
@@ -573,6 +583,21 @@ internal static class SystemCatalogKeyMap
                 return true;
             case "municipalities":
                 catalogType = SystemCatalogType.Municipality;
+                return true;
+            case "personal-titles":
+                catalogType = SystemCatalogType.PersonalTitle;
+                return true;
+            case "address-types":
+                catalogType = SystemCatalogType.AddressType;
+                return true;
+            case "hobbies":
+                catalogType = SystemCatalogType.Hobby;
+                return true;
+            case "associations":
+                catalogType = SystemCatalogType.Association;
+                return true;
+            case "additional-benefit-types":
+                catalogType = SystemCatalogType.AdditionalBenefitType;
                 return true;
             default:
                 catalogType = default;

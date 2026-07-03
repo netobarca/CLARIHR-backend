@@ -13,6 +13,7 @@ public sealed class PersonnelFileAssociationPatchTests
     private static PersonnelFileAssociationResponse Baseline() =>
         new(
             Guid.NewGuid(),
+            "COLEGIO_PROF",
             "Bar Association",
             "Member",
             new DateTime(2020, 1, 1),

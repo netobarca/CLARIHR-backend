@@ -23,6 +23,9 @@ public sealed record CompensationConceptTypeResponse(
     decimal? DefaultEmployeeRate,
     decimal? DefaultEmployerRate,
     decimal? ContributionCap,
+    bool IsBaseSalary,
+    decimal? DefaultPensionedEmployerRate,
+    decimal? MinContributionBase,
     bool IsActive,
     int SortOrder);
 

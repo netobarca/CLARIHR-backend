@@ -100,6 +100,11 @@ internal static class PersonnelFileAddressPatchApplier
             return Mutate(state, () => state.AddressLine = isRemove ? string.Empty : ReadRequiredString(value, path));
         }
 
+        if (IsSegment(property, "addressTypeCode"))
+        {
+            return Mutate(state, () => state.AddressTypeCode = isRemove ? null : ReadNullableString(value, path));
+        }
+
         if (IsSegment(property, "country"))
         {
             return Mutate(state, () => state.Country = isRemove ? null : ReadNullableString(value, path));

@@ -3605,7 +3605,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         // NEGATIVE side: the reader lacks Manage, so a write is forbidden (Read ⊉ Manage).
         var writeResponse = await readerClient.PostJsonAsync(
-            $"/api/v1/personnel-files/{created.Id}/hobbies", new { hobbyName = "Reading" });
+            $"/api/v1/personnel-files/{created.Id}/hobbies", new { hobbyCode = "LECTURA" });
         Assert.Equal(HttpStatusCode.Forbidden, writeResponse.StatusCode);
     }
 
@@ -3619,27 +3619,30 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/hobbies", new
         {
+            hobbyCode = "FOTOGRAFIA",
             hobbyName = "Photography"
         });
         Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
         var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileHobbyItem>(JsonOptions);
         Assert.NotNull(added);
+        Assert.Equal("FOTOGRAFIA", added!.HobbyCode);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/hobbies/{added!.Id}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/hobbies/{added.Id}")
         {
-            Content = JsonContent.Create(new { hobbyName = "Cycling" })
+            Content = JsonContent.Create(new { hobbyCode = "DEPORTE", hobbyName = "Cycling" })
         };
         updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
         var updateResponse = await client.SendAsync(updateRequest);
         updateResponse.EnsureSuccessStatusCode();
         var updated = await updateResponse.Content.ReadFromJsonAsync<PersonnelFileHobbyItem>(JsonOptions);
         Assert.NotNull(updated);
-        Assert.Equal("Cycling", updated!.HobbyName);
+        Assert.Equal("DEPORTE", updated!.HobbyCode);
+        Assert.Equal("Cycling", updated.HobbyName);
 
         // Stale If-Match (the now-rotated original token) must be rejected with 409.
         using var staleRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/hobbies/{added.Id}")
         {
-            Content = JsonContent.Create(new { hobbyName = "Running" })
+            Content = JsonContent.Create(new { hobbyCode = "LECTURA", hobbyName = "Running" })
         };
         staleRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
         var staleResponse = await client.SendAsync(staleRequest);
@@ -10899,8 +10902,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         string routeSegment,
         string code)
     {
+        // Careers are country-scoped since RF-009/DP-06; countryCode is harmless for the
+        // system-scoped education catalogs (they ignore it).
         var response = await client.GetAsync(
-            $"/api/v1/general-catalogs/{routeSegment}");
+            $"/api/v1/general-catalogs/{routeSegment}?countryCode=SV");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelEducationCatalogLookupItem>>(JsonOptions);
@@ -11300,7 +11305,8 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
     private sealed record PersonnelFileHobbyItem(
         [property: JsonPropertyName("hobbyPublicId")] Guid Id,
-        string HobbyName,
+        string HobbyCode,
+        string? HobbyName,
         Guid ConcurrencyToken);
 
     private sealed record PersonnelFileListProjectionItem(
