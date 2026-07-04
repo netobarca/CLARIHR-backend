@@ -2849,6 +2849,147 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return captures;
     }
 
+    private IQueryable<PersonnelFileRetirementRequest> FilteredRetirementRequests(
+        Guid companyId,
+        string? statusCode,
+        string? categoryCode,
+        string? reasonCode,
+        Guid? employeeId,
+        DateTime? requestFromUtc,
+        DateTime? requestToUtc,
+        DateTime? retirementFromUtc,
+        DateTime? retirementToUtc,
+        string? search)
+    {
+        var query = dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == companyId && item.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = statusCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RequestStatusCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(categoryCode))
+        {
+            var normalized = categoryCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RetirementCategoryCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(reasonCode))
+        {
+            var normalized = reasonCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RetirementReasonCode == normalized);
+        }
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(item => item.PersonnelFile.PublicId == employeePublicId);
+        }
+
+        if (requestFromUtc is { } requestFrom)
+        {
+            query = query.Where(item => item.RequestDate >= requestFrom.Date);
+        }
+
+        if (requestToUtc is { } requestTo)
+        {
+            query = query.Where(item => item.RequestDate <= requestTo.Date);
+        }
+
+        if (retirementFromUtc is { } retirementFrom)
+        {
+            query = query.Where(item => item.RetirementDate >= retirementFrom.Date);
+        }
+
+        if (retirementToUtc is { } retirementTo)
+        {
+            query = query.Where(item => item.RetirementDate <= retirementTo.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalized = search.Trim().ToUpperInvariant();
+            query = query.Where(item =>
+                (item.RequesterNameSnapshot != null && item.RequesterNameSnapshot.ToUpper().Contains(normalized)) ||
+                (item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName).ToUpper().Contains(normalized));
+        }
+
+        return query;
+    }
+
+    public async Task<RetirementRequestBandejaResponse> QueryRetirementRequestsAsync(
+        QueryRetirementRequestsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredRetirementRequests(
+            query.CompanyId, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+            query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var statusCounts = await filtered
+            .GroupBy(item => item.RequestStatusCode)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(item => new RetirementRequestListItemResponse(
+                item.PublicId,
+                item.PersonnelFile.PublicId,
+                item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RequesterNameSnapshot,
+                item.RequestDate,
+                item.RetirementDate,
+                item.RetirementCategoryCode,
+                item.RetirementCategoryNameSnapshot,
+                item.RetirementReasonCode,
+                item.RetirementReasonNameSnapshot,
+                item.RequestStatusCode,
+                item.ResolutionDateUtc,
+                item.ExecutionDateUtc,
+                item.ReversalDateUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return new RetirementRequestBandejaResponse(
+            items,
+            query.PageNumber,
+            query.PageSize,
+            totalCount,
+            statusCounts.ToDictionary(entry => entry.Status, entry => entry.Count));
+    }
+
+    public async Task<IReadOnlyCollection<RetirementRequestExportRow>> GetRetirementRequestExportRowsAsync(
+        ExportRetirementRequestsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var take = query.MaxRows ?? 100_000;
+        return await FilteredRetirementRequests(
+                query.CompanyId, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+                query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search)
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .Take(take)
+            .Select(item => new RetirementRequestExportRow(
+                item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RequesterNameSnapshot,
+                item.RequestDate,
+                item.RetirementDate,
+                item.RetirementCategoryNameSnapshot ?? item.RetirementCategoryCode,
+                item.RetirementReasonNameSnapshot ?? item.RetirementReasonCode,
+                item.RequestStatusCode,
+                item.ResolutionDateUtc,
+                item.ExecutionDateUtc,
+                item.ReversalDateUtc,
+                item.Notes))
+            .ToArrayAsync(cancellationToken);
+    }
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

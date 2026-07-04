@@ -793,6 +793,16 @@ public interface IPersonnelFileEmployeeRepository
         DateTime endDateUtc,
         CancellationToken cancellationToken);
 
+    /// <summary>Company-wide retirement bandeja (RF-002): filters + paging + per-status counts.</summary>
+    Task<RetirementRequestBandejaResponse> QueryRetirementRequestsAsync(
+        QueryRetirementRequestsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>Export rows for the retirement bandeja (RF-002), same filters, capped at MaxRows.</summary>
+    Task<IReadOnlyCollection<RetirementRequestExportRow>> GetRetirementRequestExportRowsAsync(
+        ExportRetirementRequestsQuery query,
+        CancellationToken cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

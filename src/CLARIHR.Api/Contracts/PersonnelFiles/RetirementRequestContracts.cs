@@ -38,3 +38,17 @@ public sealed record ExecuteRetirementRequestRequest(
 
 /// <summary>Reverts an EJECUTADA retirement within the 30-day window (RF-010); the reason is mandatory.</summary>
 public sealed record RevertRetirementRequestRequest(string Reason);
+
+/// <summary>Filters of the company-wide retirement bandeja (RF-002). All optional; paging defaults 1/25.</summary>
+public sealed record QueryRetirementRequestsRequest(
+    string? StatusCode,
+    string? CategoryCode,
+    string? ReasonCode,
+    Guid? EmployeeId,
+    DateTime? RequestFromUtc,
+    DateTime? RequestToUtc,
+    DateTime? RetirementFromUtc,
+    DateTime? RetirementToUtc,
+    string? Search,
+    int? PageNumber,
+    int? PageSize);
