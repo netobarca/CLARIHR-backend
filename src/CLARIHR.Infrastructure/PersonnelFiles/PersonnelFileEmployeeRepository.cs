@@ -2764,6 +2764,91 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 requester.LinkedUserPublicId);
     }
 
+    public Task<PersonnelFileEmployeeProfile?> GetEmployeeProfileEntityAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileEmployeeProfile>()
+            .SingleOrDefaultAsync(
+                profile => profile.TenantId == tenantId && profile.PersonnelFileId == personnelFileInternalId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<DateTime>> GetActiveRowStartDatesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var assignmentStarts = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .Select(item => item.StartDate)
+            .ToArrayAsync(cancellationToken);
+
+        var contractStarts = await dbContext.Set<PersonnelFileContractHistory>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .Select(item => item.ContractDate)
+            .ToArrayAsync(cancellationToken);
+
+        return assignmentStarts.Concat(contractStarts).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveEmploymentAssignmentsCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToArrayAsync(cancellationToken);
+
+        var captures = new List<RetirementClosedRowCapture>(assignments.Length);
+        foreach (var assignment in assignments)
+        {
+            // Capture the pre-execution end date BEFORE mutating (null ⇒ the execution set it — D-11).
+            captures.Add(new RetirementClosedRowCapture(assignment.PublicId, assignment.EndDate));
+            if (assignment.EndDate is null)
+            {
+                assignment.Close(endDateUtc);
+            }
+            else
+            {
+                // Preserve an already-fixed end date (same semantics as CloseActiveEmploymentAssignmentsAsync).
+                assignment.SetActive(false);
+            }
+        }
+
+        return captures;
+    }
+
+    public async Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveContractHistoriesCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var contracts = await dbContext.Set<PersonnelFileContractHistory>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToArrayAsync(cancellationToken);
+
+        var captures = new List<RetirementClosedRowCapture>(contracts.Length);
+        foreach (var contract in contracts)
+        {
+            captures.Add(new RetirementClosedRowCapture(contract.PublicId, contract.ContractEndDate));
+            if (contract.ContractEndDate is null)
+            {
+                contract.Close(endDateUtc);
+            }
+            else
+            {
+                contract.SetActive(false);
+            }
+        }
+
+        return captures;
+    }
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

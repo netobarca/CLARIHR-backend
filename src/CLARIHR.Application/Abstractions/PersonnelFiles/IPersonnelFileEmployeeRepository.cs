@@ -758,6 +758,41 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    /// <summary>Tracked 1:1 employee profile entity for the retirement execution/reversal orchestration.</summary>
+    Task<PersonnelFileEmployeeProfile?> GetEmployeeProfileEntityAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// R-T5 guard input: start dates of the employee's ACTIVE assignments + contracts, to reject an execution
+    /// whose retirement date precedes any of them (end-after-start check constraints).
+    /// </summary>
+    Task<IReadOnlyCollection<DateTime>> GetActiveRowStartDatesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Same closing semantics as <see cref="CloseActiveEmploymentAssignmentsAsync"/> but CAPTURING each closed
+    /// row's public id + previous end date for the reversal snapshot (D-11).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveEmploymentAssignmentsCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Same closing semantics as <see cref="CloseActiveContractHistoriesAsync"/> but CAPTURING each closed
+    /// row's public id + previous contract end date for the reversal snapshot (D-11).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveContractHistoriesCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

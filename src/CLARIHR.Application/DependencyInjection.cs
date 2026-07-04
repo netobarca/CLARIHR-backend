@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryDispatcher, RequestDispatcher>();
         services.AddScoped<ICompanyProvisioningService, CompanyProvisioningService>();
         services.AddScoped<ICompanyUserProvisioningService, CompanyUserProvisioningService>();
+        services.AddScoped<ICompanyUserLifecycleService, CompanyUserLifecycleService>();
         services.AddScoped<IPersonnelFileFinalizationService, PersonnelFileFinalizationService>();
         services.AddScoped<IReportExportResourceAuthorizer, ReportExportResourceAuthorizer>();
 

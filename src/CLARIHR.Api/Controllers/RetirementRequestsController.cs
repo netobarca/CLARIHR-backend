@@ -154,6 +154,37 @@ public sealed class RetirementRequestsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/retirement-requests/{retirementRequestPublicId:guid}/execution")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileRetirementRequestResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Execute an AUTHORIZED retirement (orchestrated baja)",
+        Description = """
+            Consumes the baja in ONE transaction (RF-006): stamps the profile (retirement metadata +
+            `RETIRADO`), deactivates the personnel file (optionally blocking rehire — D-18), closes all active
+            plaza assignments and contracts at the retirement date, deactivates the linked login and revokes its
+            sessions (D-06), journals the `BAJA` personnel action and moves the request to `EJECUTADA`, capturing
+            the reversal snapshot (D-11). Manual action, only when the retirement date has arrived (`FechaRetiro ≤
+            hoy` UTC — D-05; retroactive bajas allowed). Guards: subject ≠ executor (403), profile divergence,
+            rows starting after the retirement date, and the company's LAST ACTIVE ADMIN cannot be retired until
+            the administration is transferred (422). Requires `If-Match` with the request's `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileRetirementRequestResponse>> ExecuteRetirementRequest(
+        Guid publicId,
+        Guid retirementRequestPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ExecuteRetirementRequestRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ExecuteRetirementRequestCommand(publicId, retirementRequestPublicId, request.BlockRehire, request.RehireBlockReason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
     private static RetirementRequestInput ToInput(
         Guid requesterFilePublicId,
         DateTime requestDate,

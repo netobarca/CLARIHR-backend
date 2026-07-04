@@ -59,6 +59,15 @@ public sealed record RetirementRequesterLookup(
     Guid? LinkedUserPublicId);
 
 /// <summary>
+/// One plaza-assignment/contract row the execution closed, captured BEFORE closing (D-11): the row's public id
+/// and the end date it had (null when the execution set it). Persisted as <c>RetirementRequestClosedRecord</c>
+/// child rows so the reversal reopens EXACTLY these rows.
+/// </summary>
+public sealed record RetirementClosedRowCapture(
+    Guid EntityPublicId,
+    DateTime? PreviousEndDate);
+
+/// <summary>
 /// Single response mapper shared by the repository (read models / repo-side mutations) and the action
 /// handlers that mutate a tracked entity in place — one projection, no drift.
 /// </summary>
