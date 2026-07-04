@@ -3081,6 +3081,60 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return items.ToArray();
     }
 
+    public Task<bool> HasPersonnelActionSinceAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        string actionTypeCode,
+        DateTime sinceUtc,
+        CancellationToken cancellationToken)
+    {
+        var normalizedType = actionTypeCode.Trim().ToUpperInvariant();
+        return dbContext.Set<PersonnelFilePersonnelAction>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.ActionTypeCode == normalizedType
+                    && item.CreatedUtc > sinceUtc,
+                cancellationToken);
+    }
+
+    public Task<bool> HasLaterExecutedRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        Guid excludingRequestPublicId,
+        DateTime executionDateUtc,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.PublicId != excludingRequestPublicId
+                    && item.ExecutionDateUtc != null
+                    && item.ExecutionDateUtc > executionDateUtc,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignment>> GetEmploymentAssignmentsByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken) =>
+        publicIds.Count == 0
+            ? []
+            : await dbContext.Set<PersonnelFileEmploymentAssignment>()
+                .Where(item => item.TenantId == tenantId && publicIds.Contains(item.PublicId))
+                .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileContractHistory>> GetContractHistoriesByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken) =>
+        publicIds.Count == 0
+            ? []
+            : await dbContext.Set<PersonnelFileContractHistory>()
+                .Where(item => item.TenantId == tenantId && publicIds.Contains(item.PublicId))
+                .ToArrayAsync(cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

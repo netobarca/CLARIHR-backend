@@ -811,6 +811,34 @@ public interface IPersonnelFileEmployeeRepository
         GetRetirementInterviewTrayQuery query,
         CancellationToken cancellationToken);
 
+    /// <summary>D-10 signal: whether a personnel action of the given type was journaled after a moment.</summary>
+    Task<bool> HasPersonnelActionSinceAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        string actionTypeCode,
+        DateTime sinceUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>RN-012.3: whether the employee has another retirement request executed after the given moment.</summary>
+    Task<bool> HasLaterExecutedRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        Guid excludingRequestPublicId,
+        DateTime executionDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked assignment rows by public id (reversal reopen, D-11).</summary>
+    Task<IReadOnlyCollection<PersonnelFileEmploymentAssignment>> GetEmploymentAssignmentsByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked contract rows by public id (reversal reopen, D-11).</summary>
+    Task<IReadOnlyCollection<PersonnelFileContractHistory>> GetContractHistoriesByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,
