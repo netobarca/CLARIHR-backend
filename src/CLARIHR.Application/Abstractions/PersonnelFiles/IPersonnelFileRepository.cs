@@ -267,6 +267,19 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
+    /// <summary>
+    /// Resolves the display names of a retirement category + reason pair (country-scoped reference catalogs)
+    /// so the retirement-request write handlers can persist name snapshots (D-02 of the retirement module).
+    /// Fail-safe default (no snapshot) so hand-written test doubles need not implement it; the production
+    /// repository overrides it with the real country-scoped lookup.
+    /// </summary>
+    Task<(string? CategoryName, string? ReasonName)> GetRetirementCatalogNamesAsync(
+        Guid companyId,
+        string retirementCategoryCode,
+        string retirementReasonCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<(string?, string?)>((null, null));
+
     Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(

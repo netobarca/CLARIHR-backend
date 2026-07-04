@@ -247,6 +247,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CertificateRequestStatusCatalogItem> CertificateRequestStatusCatalogItems => Set<CertificateRequestStatusCatalogItem>();
 
+    public DbSet<RetirementRequestStatusCatalogItem> RetirementRequestStatusCatalogItems => Set<RetirementRequestStatusCatalogItem>();
+
     public DbSet<CertificateDeliveryMethodCatalogItem> CertificateDeliveryMethodCatalogItems => Set<CertificateDeliveryMethodCatalogItem>();
 
     public DbSet<CertificatePurposeCatalogItem> CertificatePurposeCatalogItems => Set<CertificatePurposeCatalogItem>();
@@ -359,6 +361,10 @@ public sealed class ApplicationDbContext(
     public DbSet<PersonnelFileEconomicAidRequest> PersonnelFileEconomicAidRequests => Set<PersonnelFileEconomicAidRequest>();
 
     public DbSet<EconomicAidRequestDocument> EconomicAidRequestDocuments => Set<EconomicAidRequestDocument>();
+
+    public DbSet<PersonnelFileRetirementRequest> PersonnelFileRetirementRequests => Set<PersonnelFileRetirementRequest>();
+
+    public DbSet<RetirementRequestClosedRecord> RetirementRequestClosedRecords => Set<RetirementRequestClosedRecord>();
 
     public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
 

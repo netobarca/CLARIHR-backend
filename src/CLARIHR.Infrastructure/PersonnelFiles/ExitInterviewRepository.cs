@@ -411,17 +411,26 @@ internal sealed class ExitInterviewRepository(ApplicationDbContext dbContext) : 
 
     public async Task<ExitInterviewSubmissionSnapshot> GetSubmissionSnapshotAsync(Guid tenantId, long personnelFileId, CancellationToken cancellationToken)
     {
-        var profile = await dbContext.Set<PersonnelFileEmployeeProfile>()
+        // RF-009 of the retirement module (D-01/D-07/D-08 ratified): the motivo/categoría/fecha are resolved
+        // SOLELY from the employee's retirement request in force (AUTORIZADA — interview before the exit — or
+        // EJECUTADA). The legacy profile fallback was removed together with the legacy write path and its
+        // test data: with the single door, every interviewable baja has a request.
+        var request = await dbContext.Set<PersonnelFileRetirementRequest>()
             .AsNoTracking()
-            .Where(item => item.PersonnelFileId == personnelFileId)
+            .Where(item => item.TenantId == tenantId
+                && item.PersonnelFileId == personnelFileId
+                && item.IsActive
+                && (item.RequestStatusCode == RetirementRequestStatuses.Autorizada
+                    || item.RequestStatusCode == RetirementRequestStatuses.Ejecutada))
+            .OrderByDescending(item => item.Id)
             .Select(item => new { item.RetirementReasonCode, item.RetirementCategoryCode, item.RetirementDate })
-            .SingleOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
         string? separationType = null;
-        if (!string.IsNullOrWhiteSpace(profile?.RetirementCategoryCode))
+        if (!string.IsNullOrWhiteSpace(request?.RetirementCategoryCode))
         {
             var country = await GetTenantCountryAsync(tenantId, cancellationToken);
-            var normalizedCategory = profile.RetirementCategoryCode.Trim().ToUpperInvariant();
+            var normalizedCategory = request.RetirementCategoryCode.Trim().ToUpperInvariant();
             separationType = await dbContext.Set<RetirementCategoryCatalogItem>()
                 .AsNoTracking()
                 .Where(item => item.CountryCode == country && item.NormalizedCode == normalizedCategory)
@@ -429,19 +438,28 @@ internal sealed class ExitInterviewRepository(ApplicationDbContext dbContext) : 
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
+        // After the execution the plazas are CLOSED (D-06) — fall back to the most recent assignment so the
+        // interview remains capturable in EJECUTADA (D-07).
         var positionSlotPublicId = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
             .Where(item => item.PersonnelFileId == personnelFileId && item.IsActive)
             .OrderByDescending(item => item.IsPrimary)
             .Select(item => item.PositionSlotPublicId)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? await dbContext.Set<PersonnelFileEmploymentAssignment>()
+                .AsNoTracking()
+                .Where(item => item.PersonnelFileId == personnelFileId && item.PositionSlotPublicId != null)
+                .OrderByDescending(item => item.StartDate)
+                .ThenByDescending(item => item.IsPrimary)
+                .Select(item => item.PositionSlotPublicId)
+                .FirstOrDefaultAsync(cancellationToken);
 
         return new ExitInterviewSubmissionSnapshot(
-            profile?.RetirementReasonCode,
-            profile?.RetirementCategoryCode,
+            request?.RetirementReasonCode,
+            request?.RetirementCategoryCode,
             separationType,
             positionSlotPublicId,
-            profile?.RetirementDate);
+            request?.RetirementDate);
     }
 
     public Task<int> ArchiveSubmissionsForFileAsync(Guid tenantId, long personnelFileId, CancellationToken cancellationToken) =>

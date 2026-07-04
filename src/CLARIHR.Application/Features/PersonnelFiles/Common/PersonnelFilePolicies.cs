@@ -135,4 +135,32 @@ public static class PersonnelFilePolicies
     /// check (ManageExitInterviews / Admin, or the employee on their own file) lives in the handlers.
     /// </summary>
     public const string ManageExitInterviews = "PersonnelFiles.ManageExitInterviews";
+
+    /// <summary>
+    /// Read policy for retirement requests (D-12). Authn-only superset; the precise RRHH-only gate
+    /// (ViewRetirements / Admin) lives in the retirement read handlers. No self-service in Fase 1 (D-03).
+    /// </summary>
+    public const string ViewRetirements = "PersonnelFiles.ViewRetirements";
+
+    /// <summary>
+    /// Write policy for retirement requests (register/edit/cancel/execute — D-12). HR-only (no
+    /// self-service), so it uses a RequireAssertion like ManageSubstitutions, kept a superset of the
+    /// precise EnsureCanManageRetirementsAsync handler gate.
+    /// </summary>
+    public const string ManageRetirements = "PersonnelFiles.ManageRetirements";
+
+    /// <summary>
+    /// Write policy for authorizing/rejecting a retirement request (and annulling an authorized one).
+    /// RequireAssertion over the dedicated AuthorizeRetirement grant (or IAM super-admin) —
+    /// <c>PersonnelFiles.Admin</c> is deliberately excluded (D-12/D-13, separation of duties; mirrors
+    /// the AuthorizeRehire handler gate).
+    /// </summary>
+    public const string AuthorizeRetirement = "PersonnelFiles.AuthorizeRetirement";
+
+    /// <summary>
+    /// Write policy for reverting an executed retirement. RequireAssertion over the dedicated
+    /// RevertRetirement grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is deliberately
+    /// excluded (D-12).
+    /// </summary>
+    public const string RevertRetirement = "PersonnelFiles.RevertRetirement";
 }

@@ -28,14 +28,12 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             return Map(profile);
         }
 
+        // Retirement metadata is deliberately NOT part of the upsert (D-01 of the retirement module):
+        // ApplyRetirement/ClearRetirement are its only writers.
         existing.Update(
             profile.EmployeeCode,
             profile.EmploymentStatusCode,
-            profile.HireDate,
-            profile.RetirementCategoryCode,
-            profile.RetirementReasonCode,
-            profile.RetirementNotes,
-            profile.RetirementDate);
+            profile.HireDate);
 
         return Map(existing);
     }
@@ -2642,6 +2640,500 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == economicAidRequestPublicId)
             .Select(item => (long?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
+
+    // ── Retirement requests ("retiro definitivo") — D-01…D-19 ───────────────────────────────────────────
+    public async Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> AddRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRetirementRequest entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileRetirementRequest>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.RequestDate)
+            .Select(RetirementRequestMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<PersonnelFileRetirementRequestResponse?> UpdateRetirementRequestAsync(
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        RetirementRequestInput input,
+        string requesterNameSnapshot,
+        string? categoryNameSnapshot,
+        string? reasonNameSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == retirementRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(
+            input.RequesterFilePublicId,
+            requesterNameSnapshot,
+            input.RequestDate,
+            input.RetirementDate,
+            input.RetirementCategoryCode,
+            categoryNameSnapshot,
+            input.RetirementReasonCode,
+            reasonNameSnapshot,
+            input.Notes);
+        return RetirementRequestMapping.ToResponse(item);
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> GetRetirementRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(RetirementRequestMapping.ToResponse).ToArray();
+    }
+
+    public async Task<PersonnelFileRetirementRequestResponse?> GetRetirementRequestAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == retirementRequestPublicId, cancellationToken);
+        return item is null ? null : RetirementRequestMapping.ToResponse(item);
+    }
+
+    public async Task<PersonnelFileRetirementRequest?> GetRetirementRequestEntityAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        bool includeClosedRecords,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileRetirementRequest>().AsQueryable();
+        if (includeClosedRecords)
+        {
+            query = query.Include(item => item.ClosedRecords);
+        }
+
+        return await query.SingleOrDefaultAsync(
+            item => item.TenantId == tenantId
+                && item.PublicId == retirementRequestPublicId
+                && item.PersonnelFile.PublicId == personnelFileId,
+            cancellationToken);
+    }
+
+    public Task<bool> HasOpenRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.IsActive
+                    && RetirementRequestStatuses.Open.Contains(item.RequestStatusCode),
+                cancellationToken);
+
+    public async Task<RetirementRequesterLookup?> GetRetirementRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var requester = await dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(file => file.TenantId == tenantId && file.PublicId == requesterFilePublicId)
+            .Select(file => new { file.PublicId, file.FirstName, file.LastName, file.IsActive, file.LinkedUserPublicId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return requester is null
+            ? null
+            : new RetirementRequesterLookup(
+                requester.PublicId,
+                $"{requester.FirstName} {requester.LastName}".Trim(),
+                requester.IsActive,
+                requester.LinkedUserPublicId);
+    }
+
+    public Task<PersonnelFileEmployeeProfile?> GetEmployeeProfileEntityAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileEmployeeProfile>()
+            .SingleOrDefaultAsync(
+                profile => profile.TenantId == tenantId && profile.PersonnelFileId == personnelFileInternalId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<DateTime>> GetActiveRowStartDatesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var assignmentStarts = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .Select(item => item.StartDate)
+            .ToArrayAsync(cancellationToken);
+
+        var contractStarts = await dbContext.Set<PersonnelFileContractHistory>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .Select(item => item.ContractDate)
+            .ToArrayAsync(cancellationToken);
+
+        return assignmentStarts.Concat(contractStarts).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveEmploymentAssignmentsCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToArrayAsync(cancellationToken);
+
+        var captures = new List<RetirementClosedRowCapture>(assignments.Length);
+        foreach (var assignment in assignments)
+        {
+            // Capture the pre-execution end date BEFORE mutating (null ⇒ the execution set it — D-11).
+            captures.Add(new RetirementClosedRowCapture(assignment.PublicId, assignment.EndDate));
+            if (assignment.EndDate is null)
+            {
+                assignment.Close(endDateUtc);
+            }
+            else
+            {
+                // Preserve an already-fixed end date (same semantics as CloseActiveEmploymentAssignmentsAsync).
+                assignment.SetActive(false);
+            }
+        }
+
+        return captures;
+    }
+
+    public async Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveContractHistoriesCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken)
+    {
+        var contracts = await dbContext.Set<PersonnelFileContractHistory>()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
+            .ToArrayAsync(cancellationToken);
+
+        var captures = new List<RetirementClosedRowCapture>(contracts.Length);
+        foreach (var contract in contracts)
+        {
+            captures.Add(new RetirementClosedRowCapture(contract.PublicId, contract.ContractEndDate));
+            if (contract.ContractEndDate is null)
+            {
+                contract.Close(endDateUtc);
+            }
+            else
+            {
+                contract.SetActive(false);
+            }
+        }
+
+        return captures;
+    }
+
+    private IQueryable<PersonnelFileRetirementRequest> FilteredRetirementRequests(
+        Guid companyId,
+        string? statusCode,
+        string? categoryCode,
+        string? reasonCode,
+        Guid? employeeId,
+        DateTime? requestFromUtc,
+        DateTime? requestToUtc,
+        DateTime? retirementFromUtc,
+        DateTime? retirementToUtc,
+        string? search)
+    {
+        var query = dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == companyId && item.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = statusCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RequestStatusCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(categoryCode))
+        {
+            var normalized = categoryCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RetirementCategoryCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(reasonCode))
+        {
+            var normalized = reasonCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.RetirementReasonCode == normalized);
+        }
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(item => item.PersonnelFile.PublicId == employeePublicId);
+        }
+
+        if (requestFromUtc is { } requestFrom)
+        {
+            query = query.Where(item => item.RequestDate >= requestFrom.Date);
+        }
+
+        if (requestToUtc is { } requestTo)
+        {
+            query = query.Where(item => item.RequestDate <= requestTo.Date);
+        }
+
+        if (retirementFromUtc is { } retirementFrom)
+        {
+            query = query.Where(item => item.RetirementDate >= retirementFrom.Date);
+        }
+
+        if (retirementToUtc is { } retirementTo)
+        {
+            query = query.Where(item => item.RetirementDate <= retirementTo.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalized = search.Trim().ToUpperInvariant();
+            query = query.Where(item =>
+                (item.RequesterNameSnapshot != null && item.RequesterNameSnapshot.ToUpper().Contains(normalized)) ||
+                (item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName).ToUpper().Contains(normalized));
+        }
+
+        return query;
+    }
+
+    public async Task<RetirementRequestBandejaResponse> QueryRetirementRequestsAsync(
+        QueryRetirementRequestsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredRetirementRequests(
+            query.CompanyId, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+            query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var statusCounts = await filtered
+            .GroupBy(item => item.RequestStatusCode)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(item => new RetirementRequestListItemResponse(
+                item.PublicId,
+                item.PersonnelFile.PublicId,
+                item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RequesterNameSnapshot,
+                item.RequestDate,
+                item.RetirementDate,
+                item.RetirementCategoryCode,
+                item.RetirementCategoryNameSnapshot,
+                item.RetirementReasonCode,
+                item.RetirementReasonNameSnapshot,
+                item.RequestStatusCode,
+                item.ResolutionDateUtc,
+                item.ExecutionDateUtc,
+                item.ReversalDateUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return new RetirementRequestBandejaResponse(
+            items,
+            query.PageNumber,
+            query.PageSize,
+            totalCount,
+            statusCounts.ToDictionary(entry => entry.Status, entry => entry.Count));
+    }
+
+    public async Task<IReadOnlyCollection<RetirementRequestExportRow>> GetRetirementRequestExportRowsAsync(
+        ExportRetirementRequestsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var take = query.MaxRows ?? 100_000;
+        return await FilteredRetirementRequests(
+                query.CompanyId, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+                query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search)
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .Take(take)
+            .Select(item => new RetirementRequestExportRow(
+                item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RequesterNameSnapshot,
+                item.RequestDate,
+                item.RetirementDate,
+                item.RetirementCategoryNameSnapshot ?? item.RetirementCategoryCode,
+                item.RetirementReasonNameSnapshot ?? item.RetirementReasonCode,
+                item.RequestStatusCode,
+                item.ResolutionDateUtc,
+                item.ExecutionDateUtc,
+                item.ReversalDateUtc,
+                item.Notes))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<RetirementInterviewTrayItemResponse>> GetRetirementInterviewTrayAsync(
+        GetRetirementInterviewTrayQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == query.CompanyId
+                && item.IsActive
+                && (item.RequestStatusCode == RetirementRequestStatuses.Autorizada
+                    || item.RequestStatusCode == RetirementRequestStatuses.Ejecutada));
+
+        if (!string.IsNullOrWhiteSpace(query.CategoryCode))
+        {
+            var normalized = query.CategoryCode.Trim().ToUpperInvariant();
+            baseQuery = baseQuery.Where(item => item.RetirementCategoryCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ReasonCode))
+        {
+            var normalized = query.ReasonCode.Trim().ToUpperInvariant();
+            baseQuery = baseQuery.Where(item => item.RetirementReasonCode == normalized);
+        }
+
+        if (query.RetirementFromUtc is { } retirementFrom)
+        {
+            baseQuery = baseQuery.Where(item => item.RetirementDate >= retirementFrom.Date);
+        }
+
+        if (query.RetirementToUtc is { } retirementTo)
+        {
+            baseQuery = baseQuery.Where(item => item.RetirementDate <= retirementTo.Date);
+        }
+
+        // One projected query (no N+1): the active-form existence and the latest non-archived submission are
+        // correlated subqueries; the derived InterviewStatus is composed in memory.
+        var rows = await baseQuery
+            .OrderBy(item => item.RetirementDate)
+            .ThenBy(item => item.Id)
+            .Select(item => new
+            {
+                item.PublicId,
+                FilePublicId = item.PersonnelFile.PublicId,
+                EmployeeFullName = item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RetirementCategoryCode,
+                item.RetirementCategoryNameSnapshot,
+                item.RetirementReasonCode,
+                item.RetirementReasonNameSnapshot,
+                item.RetirementDate,
+                item.RequestStatusCode,
+                HasActiveForm = dbContext.ExitInterviewForms.Any(form =>
+                    form.TenantId == query.CompanyId
+                    && form.Status == ExitInterviewFormStatus.Published
+                    && form.IsActiveForReason
+                    && form.RetirementReasonCode == item.RetirementReasonCode),
+                Submission = dbContext.ExitInterviewSubmissions
+                    .Where(submission => submission.TenantId == query.CompanyId
+                        && submission.PersonnelFileId == item.PersonnelFileId
+                        && submission.Status != ExitInterviewSubmissionStatus.Archived)
+                    .OrderByDescending(submission => submission.Id)
+                    .Select(submission => new { submission.PublicId, submission.Status })
+                    .FirstOrDefault()
+            })
+            .ToArrayAsync(cancellationToken);
+
+        var items = rows
+            .Select(row => new RetirementInterviewTrayItemResponse(
+                row.PublicId,
+                row.FilePublicId,
+                row.EmployeeFullName,
+                row.RetirementCategoryCode,
+                row.RetirementCategoryNameSnapshot,
+                row.RetirementReasonCode,
+                row.RetirementReasonNameSnapshot,
+                row.RetirementDate,
+                row.RequestStatusCode,
+                !row.HasActiveForm
+                    ? RetirementInterviewStatuses.SinFormulario
+                    : row.Submission is null
+                        ? RetirementInterviewStatuses.Pendiente
+                        : row.Submission.Status == ExitInterviewSubmissionStatus.Submitted
+                            ? RetirementInterviewStatuses.Enviada
+                            : RetirementInterviewStatuses.Borrador,
+                row.Submission?.PublicId));
+
+        if (!string.IsNullOrWhiteSpace(query.InterviewStatus))
+        {
+            var normalized = query.InterviewStatus.Trim().ToUpperInvariant();
+            items = items.Where(item => item.InterviewStatus == normalized);
+        }
+
+        return items.ToArray();
+    }
+
+    public Task<bool> HasPersonnelActionSinceAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        string actionTypeCode,
+        DateTime sinceUtc,
+        CancellationToken cancellationToken)
+    {
+        var normalizedType = actionTypeCode.Trim().ToUpperInvariant();
+        return dbContext.Set<PersonnelFilePersonnelAction>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.ActionTypeCode == normalizedType
+                    && item.CreatedUtc > sinceUtc,
+                cancellationToken);
+    }
+
+    public Task<bool> HasLaterExecutedRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        Guid excludingRequestPublicId,
+        DateTime executionDateUtc,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.PublicId != excludingRequestPublicId
+                    && item.ExecutionDateUtc != null
+                    && item.ExecutionDateUtc > executionDateUtc,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignment>> GetEmploymentAssignmentsByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken) =>
+        publicIds.Count == 0
+            ? []
+            : await dbContext.Set<PersonnelFileEmploymentAssignment>()
+                .Where(item => item.TenantId == tenantId && publicIds.Contains(item.PublicId))
+                .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileContractHistory>> GetContractHistoriesByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken) =>
+        publicIds.Count == 0
+            ? []
+            : await dbContext.Set<PersonnelFileContractHistory>()
+                .Where(item => item.TenantId == tenantId && publicIds.Contains(item.PublicId))
+                .ToArrayAsync(cancellationToken);
 
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(

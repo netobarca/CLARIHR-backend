@@ -506,6 +506,22 @@ internal sealed class CertificateRequestStatusCatalogItemConfiguration
     }
 }
 
+internal sealed class RetirementRequestStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RetirementRequestStatusCatalogItem>
+{
+    public RetirementRequestStatusCatalogItemConfiguration()
+        : base(
+            "retirement_request_status_catalog_items",
+            "pk_retirement_request_status_catalog_items",
+            "uq_retirement_request_status_catalog_items__public_id",
+            "uq_retirement_request_status_catalog_items__country_code",
+            // Shortened (drops "country_") to stay within PostgreSQL's 63-char identifier limit.
+            "ix_retirement_request_status_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetRetirementRequestStatusCatalogItems())
+    {
+    }
+}
+
 internal sealed class CertificateDeliveryMethodCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<CertificateDeliveryMethodCatalogItem>
 {

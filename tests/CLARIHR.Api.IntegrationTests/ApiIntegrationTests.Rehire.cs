@@ -87,12 +87,15 @@ public sealed partial class ApiIntegrationTests
 
         var profile = PersonnelFileEmployeeProfile.Create(
             employeeCode,
-            isEmploymentActive ? "ACTIVO" : "RETIRADO",
-            PriorHireDate,
-            retirementCategoryCode: null,
-            retirementReasonCode: isEmploymentActive ? null : "RENUNCIA",
-            retirementNotes: null,
-            retirementDate: isEmploymentActive ? null : PriorRetirementDate);
+            "ACTIVO",
+            PriorHireDate);
+        if (!isEmploymentActive)
+        {
+            // Retirement metadata is module-written only (D-01): seed the baja through the same domain
+            // operation the retirement execution uses.
+            profile.ApplyRetirement("VOLUNTARIA", "RENUNCIA", retirementNotes: null, PriorRetirementDate);
+        }
+
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);

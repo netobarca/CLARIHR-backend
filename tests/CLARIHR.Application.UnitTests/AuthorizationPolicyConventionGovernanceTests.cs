@@ -119,6 +119,15 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // Exit-interview submissions (D-04/D-14): authn-only supersets used by ExitInterviewsController.
         PersonnelFilePolicies.ViewExitInterviews,
         PersonnelFilePolicies.ManageExitInterviews,
+        // Retirement requests ("retiro definitivo", D-12/D-13): authn-only read superset + RequireAssertion
+        // write policies (no self-service, D-03). AuthorizeRetirement/RevertRetirement deliberately exclude
+        // PersonnelFiles.Admin (separation of duties). Used by RetirementRequestsController /
+        // RetirementRequestResolutionController / RetirementRequestReversalController; the company bandeja
+        // (RetirementRequestsReportingController) gates per-handler like the other reporting controllers.
+        PersonnelFilePolicies.ViewRetirements,
+        PersonnelFilePolicies.ManageRetirements,
+        PersonnelFilePolicies.AuthorizeRetirement,
+        PersonnelFilePolicies.RevertRetirement,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

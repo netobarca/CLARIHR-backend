@@ -74,15 +74,14 @@ public sealed record EmployeeSeniority(int Years, int Months, int Days, int Tota
     }
 }
 
+// D-01 of the retirement module (ratified, no fallbacks): the retirement metadata (category/reason/notes/
+// date) left this contract — the ONLY door for the baja is the retirement-request execution. The GET/response
+// keeps exposing the fields.
 public sealed record UpdatePersonnelFileEmployeeProfileCommand(
     Guid PersonnelFileId,
     string EmployeeCode,
     string EmploymentStatusCode,
     DateTime HireDate,
-    string? RetirementCategoryCode,
-    string? RetirementReasonCode,
-    string? RetirementNotes,
-    DateTime? RetirementDate,
     Guid ConcurrencyToken,
     // The institutional email is the employee's login account identifier. When supplied and changed, the
     // handler re-syncs the linked account so sign-in stays consistent (full edit). Null leaves it unchanged.
@@ -97,6 +96,13 @@ internal static class EmploymentStatusErrors
     public static readonly Error StatusCodeInvalid = new(
         "EMPLOYMENT_STATUS_CODE_INVALID",
         "The employment status code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
+
+    // D-01 (retirement module, ratified) + pre-development clarification #1: the RETIRADO status and every
+    // profile already retired are reserved to the retirement module (execution/reversal) and the rehire.
+    public static readonly Error RetiradoReserved = new(
+        "EMPLOYMENT_STATUS_RETIRADO_RESERVED",
+        "The employment information of a retired employee is managed by the retirement module (reversal or rehire); the RETIRADO status is reserved to its execution.",
         ErrorType.UnprocessableEntity);
 }
 
@@ -122,9 +128,6 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : Abstr
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.EmployeeCode).NotEmpty().MaximumLength(80);
         RuleFor(command => command.EmploymentStatusCode).NotEmpty().MaximumLength(80);
-        RuleFor(command => command.RetirementCategoryCode).MaximumLength(80);
-        RuleFor(command => command.RetirementReasonCode).MaximumLength(80);
-        RuleFor(command => command.RetirementNotes).MaximumLength(2000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.InstitutionalEmail)
             .MaximumLength(256)
@@ -181,6 +184,14 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
             return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        // D-01 (single door, both directions — pre-development clarification #1): a retired profile is only
+        // touched by the retirement module's reversal or by a rehire. Editing it here could silently
+        // "un-retire" the employee and corrupt the executed request + its reversal snapshot.
+        if (existing?.RetirementDate is not null)
+        {
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.RetiradoReserved);
+        }
+
         // EmploymentStatusCode is now a validated catalog code (replaces the former IsEmploymentActive flag).
         if (!await personnelFileRepository.CatalogCodeIsActiveAsync(
             personnelFile.TenantId, PersonnelCurriculumCatalogCategories.EmploymentStatus, command.EmploymentStatusCode, cancellationToken))
@@ -188,17 +199,13 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
             return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.StatusCodeInvalid);
         }
 
-        // "Motivo de baja" is now validated against the hierarchical retirement catalogs (D-02/D-03):
-        // category + reason must be active for the country and the reason must belong to the category.
-        var retirementCodesError = await PersonnelReferenceCatalogValidation.ValidateRetirementCodesAsync(
-            personnelFileRepository,
-            personnelFile.TenantId,
-            command.RetirementCategoryCode,
-            command.RetirementReasonCode,
-            cancellationToken);
-        if (retirementCodesError != Error.None)
+        // D-01: RETIRADO is reserved to the retirement-module execution (ApplyRetirement).
+        if (string.Equals(
+                command.EmploymentStatusCode.Trim(),
+                PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                StringComparison.OrdinalIgnoreCase))
         {
-            return Result<PersonnelFileEmployeeProfileResponse>.Failure(retirementCodesError);
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(EmploymentStatusErrors.RetiradoReserved);
         }
 
         // Institutional-email edit (record + login): the institutional email is the employee's account
@@ -229,11 +236,7 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
         var entity = PersonnelFileEmployeeProfile.Create(
             command.EmployeeCode,
             command.EmploymentStatusCode,
-            command.HireDate,
-            command.RetirementCategoryCode,
-            command.RetirementReasonCode,
-            command.RetirementNotes,
-            command.RetirementDate);
+            command.HireDate);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 

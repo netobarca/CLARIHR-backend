@@ -184,7 +184,9 @@ public sealed class PersonnelFileEmploymentController(
             create requires no `If-Match`. Supplying `institutionalEmail` changes the employee's institutional
             email — which is the linked sign-in account's identifier, so the account is re-synced to it; omit it
             (or send `null`) to leave it unchanged. A `409` is returned when the email already belongs to
-            another account.
+            another account. The retirement metadata is NOT written here (retirement module D-01): the baja is
+            registered through `…/retirement-requests`, the `RETIRADO` status is reserved to its execution, and
+            a retired profile rejects this PUT entirely (`422`) — only the reversal or a rehire touch it.
             """)]
     public async Task<ActionResult<PersonnelFileEmployeeProfileResponse>> UpdateEmployeeProfile(
         Guid publicId,
@@ -198,10 +200,6 @@ public sealed class PersonnelFileEmploymentController(
                 request.EmployeeCode,
                 request.EmploymentStatusCode,
                 request.HireDate,
-                request.RetirementCategoryCode,
-                request.RetirementReasonCode,
-                request.RetirementNotes,
-                request.RetirementDate,
                 concurrencyToken,
                 request.InstitutionalEmail),
             cancellationToken);

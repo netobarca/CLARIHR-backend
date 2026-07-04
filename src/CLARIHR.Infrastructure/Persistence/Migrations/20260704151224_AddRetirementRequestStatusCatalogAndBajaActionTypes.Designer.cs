@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704151224_AddRetirementRequestStatusCatalogAndBajaActionTypes")]
+    partial class AddRetirementRequestStatusCatalogAndBajaActionTypes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -23858,187 +23861,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileRetirementRequest", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<Guid?>("CanceledByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("canceled_by_user_id");
-
-                    b.Property<DateTime?>("CancellationDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancellation_date_utc");
-
-                    b.Property<string>("CancellationNotes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("cancellation_notes");
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<Guid?>("ExecutedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("executed_by_user_id");
-
-                    b.Property<DateTime?>("ExecutionDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("execution_date_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("notes");
-
-                    b.Property<long>("PersonnelFileId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("personnel_file_id");
-
-                    b.Property<string>("PriorEmploymentStatusCode")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("prior_employment_status_code");
-
-                    b.Property<bool?>("PriorLoginWasActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("prior_login_was_active");
-
-                    b.Property<string>("PriorRehireBlockReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("prior_rehire_block_reason");
-
-                    b.Property<bool?>("PriorRehireBlocked")
-                        .HasColumnType("boolean")
-                        .HasColumnName("prior_rehire_blocked");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<DateTime>("RequestDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("request_date");
-
-                    b.Property<string>("RequestStatusCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("request_status_code");
-
-                    b.Property<Guid>("RequestedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("requested_by_user_id");
-
-                    b.Property<Guid>("RequesterFilePublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("requester_file_public_id");
-
-                    b.Property<string>("RequesterNameSnapshot")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("requester_name_snapshot");
-
-                    b.Property<DateTime?>("ResolutionDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("resolution_date_utc");
-
-                    b.Property<string>("ResolutionNotes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("resolution_notes");
-
-                    b.Property<Guid?>("ResolvedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("resolved_by_user_id");
-
-                    b.Property<string>("RetirementCategoryCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("retirement_category_code");
-
-                    b.Property<string>("RetirementCategoryNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("retirement_category_name_snapshot");
-
-                    b.Property<DateTime>("RetirementDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("retirement_date");
-
-                    b.Property<string>("RetirementReasonCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("retirement_reason_code");
-
-                    b.Property<string>("RetirementReasonNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("retirement_reason_name_snapshot");
-
-                    b.Property<DateTime?>("ReversalDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reversal_date_utc");
-
-                    b.Property<string>("ReversalReason")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("reversal_reason");
-
-                    b.Property<Guid?>("RevertedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reverted_by_user_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_personnel_file_retirement_requests");
-
-                    b.HasIndex("PersonnelFileId");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_personnel_file_retirement_requests__public_id");
-
-                    b.HasIndex("TenantId", "PersonnelFileId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_personnel_file_retirement_requests__tenant_file_open")
-                        .HasFilter("request_status_code in ('SOLICITADA','AUTORIZADA') and is_active");
-
-                    b.HasIndex("TenantId", "PersonnelFileId", "RequestDate")
-                        .HasDatabaseName("ix_personnel_file_retirement_requests__tenant_file_date");
-
-                    b.HasIndex("TenantId", "PersonnelFileId", "RequestStatusCode")
-                        .HasDatabaseName("ix_personnel_file_retirement_requests__tenant_file_status");
-
-                    b.ToTable("personnel_file_retirement_requests", (string)null);
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileSelectionContest", b =>
                 {
                     b.Property<long>("Id")
@@ -25064,69 +24886,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             RetirementCategoryCatalogItemId = -9207L,
                             SortOrder = 10
                         });
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.RetirementRequestClosedRecord", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<Guid>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid")
-                        .HasColumnName("concurrency_token");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("EntityKind")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("entity_kind");
-
-                    b.Property<Guid>("EntityPublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("entity_public_id");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<DateTime?>("PreviousEndDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("previous_end_date");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<long>("RetirementRequestId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("retirement_request_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_personnel_file_retirement_closed_records");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_personnel_file_retirement_closed_records__public_id");
-
-                    b.HasIndex("RetirementRequestId");
-
-                    b.HasIndex("TenantId", "RetirementRequestId")
-                        .HasDatabaseName("ix_personnel_file_retirement_closed_records__tenant_request");
-
-                    b.ToTable("personnel_file_retirement_closed_records", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformAuditLog", b =>
@@ -28266,18 +28025,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("PersonnelFile");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileRetirementRequest", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFile", "PersonnelFile")
-                        .WithMany()
-                        .HasForeignKey("PersonnelFileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_personnel_file_retirement_requests__personnel_file");
-
-                    b.Navigation("PersonnelFile");
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileSelectionContest", b =>
                 {
                     b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFile", "PersonnelFile")
@@ -28342,18 +28089,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("CountryCatalogItem");
 
                     b.Navigation("RetirementCategoryCatalogItem");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.RetirementRequestClosedRecord", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelFileRetirementRequest", "RetirementRequest")
-                        .WithMany("ClosedRecords")
-                        .HasForeignKey("RetirementRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_personnel_file_retirement_closed_records__request");
-
-                    b.Navigation("RetirementRequest");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformOperator", b =>
@@ -28583,11 +28318,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileInsurance", b =>
                 {
                     b.Navigation("Beneficiaries");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileRetirementRequest", b =>
-                {
-                    b.Navigation("ClosedRecords");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Preferences.UserPreference", b =>

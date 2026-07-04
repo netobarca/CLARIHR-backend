@@ -594,6 +594,18 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("CERTIFICATE_PURPOSE_CATALOG", -9595L, "SV", "OTRO", "Otro", 60),
     ];
 
+    // Retirement-request lifecycle statuses (D-04/D-16 of the retirement module). Codes are structural:
+    // the state machine references RetirementRequestStatuses canonical constants.
+    public static IEnumerable<object> GetRetirementRequestStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9810L, "SV", "SOLICITADA", "Solicitada", 10),
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9811L, "SV", "AUTORIZADA", "Autorizada", 20),
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9812L, "SV", "RECHAZADA", "Rechazada", 30),
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9813L, "SV", "ANULADA", "Anulada", 40),
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9814L, "SV", "EJECUTADA", "Ejecutada", 50),
+        CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9815L, "SV", "REVERTIDA", "Revertida", 60),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -724,6 +736,8 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9479L, "SV", "PERMISO", "Permiso", 100),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9480L, "SV", "REINTEGRO", "Reintegro", 110),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9481L, "SV", "OTRO", "Otro", 120),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9482L, "SV", "BAJA", "Baja / retiro definitivo", 130),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9483L, "SV", "REVERSION_BAJA", "Reversión de baja", 140),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>

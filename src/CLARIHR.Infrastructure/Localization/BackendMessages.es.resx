@@ -1903,4 +1903,61 @@
   <data name="PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID" xml:space="preserve">
     <value>El número de documento no cumple el formato configurado para el tipo de documento.</value>
   </data>
+  <data name="RETIREMENT_REQUEST_NOT_FOUND" xml:space="preserve">
+    <value>La solicitud de retiro no fue encontrada.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_EMPLOYEE_NOT_ELIGIBLE" xml:space="preserve">
+    <value>El empleado no es elegible para una solicitud de retiro (debe ser un expediente de empleado completado, activo y sin retiro vigente).</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_ALREADY_OPEN" xml:space="preserve">
+    <value>El empleado ya tiene una solicitud de retiro abierta (SOLICITADA o AUTORIZADA).</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_REQUESTER_INVALID" xml:space="preserve">
+    <value>El solicitante debe referenciar un expediente válido y activo de la empresa.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_DATE_INCOHERENT" xml:space="preserve">
+    <value>La fecha de solicitud no puede ser futura, la fecha de retiro no puede ser anterior a la fecha de ingreso, y ninguna plaza o contrato activo puede iniciar después de la fecha de retiro.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La solicitud de retiro no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="RETIREMENT_RESOLUTION_TARGET_INVALID" xml:space="preserve">
+    <value>El estado de resolución debe ser AUTORIZADA o RECHAZADA.</value>
+  </data>
+  <data name="RETIREMENT_RESOLUTION_NOTES_REQUIRED" xml:space="preserve">
+    <value>Rechazar una solicitud de retiro requiere una nota.</value>
+  </data>
+  <data name="RETIREMENT_SELF_ACTION_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto no puede autorizar, ejecutar ni revertir su propio retiro.</value>
+  </data>
+  <data name="RETIREMENT_REQUESTER_CANNOT_AUTHORIZE" xml:space="preserve">
+    <value>El solicitante de un retiro no puede autorizarlo (separación de funciones).</value>
+  </data>
+  <data name="RETIREMENT_EXECUTION_DATE_NOT_REACHED" xml:space="preserve">
+    <value>El retiro no puede ejecutarse antes de su fecha de retiro.</value>
+  </data>
+  <data name="RETIREMENT_EXECUTION_STATE_CONFLICT" xml:space="preserve">
+    <value>El perfil del empleado ya no está en un estado ejecutable (pudo haber sido retirado o modificado por otra operación).</value>
+  </data>
+  <data name="RETIREMENT_LAST_ADMIN_CONFLICT" xml:space="preserve">
+    <value>El empleado es el último administrador activo de la empresa; transfiera la administración antes de ejecutar el retiro.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_REASON_REQUIRED" xml:space="preserve">
+    <value>Revertir un retiro requiere un motivo.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_WINDOW_EXPIRED" xml:space="preserve">
+    <value>La ventana de reversión de 30 días desde la ejecución ha vencido; use una recontratación para reincorporar al empleado.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_BLOCKED_BY_REHIRE" xml:space="preserve">
+    <value>El retiro no puede revertirse porque el empleado fue recontratado después de la ejecución.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_STATE_DIVERGED" xml:space="preserve">
+    <value>El estado actual del empleado ya no coincide con lo que dejó la ejecución; la reversión se bloqueó para no restaurar sobre datos modificados.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_NOT_MOST_RECENT" xml:space="preserve">
+    <value>Solo puede revertirse el retiro ejecutado más reciente del empleado.</value>
+  </data>
+  <data name="EMPLOYMENT_STATUS_RETIRADO_RESERVED" xml:space="preserve">
+    <value>La información de empleo de un empleado retirado se gestiona desde el módulo de retiro (reversión o recontratación); el estado RETIRADO está reservado a su ejecución.</value>
+  </data>
 </root>

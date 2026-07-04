@@ -713,6 +713,132 @@ public interface IPersonnelFileEmployeeRepository
         Guid economicAidRequestPublicId,
         CancellationToken cancellationToken);
 
+    // ── Retirement requests ("retiro definitivo") — D-01…D-19 ───────────────────────────────────────────
+    Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> AddRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRetirementRequest entity,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileRetirementRequestResponse?> UpdateRetirementRequestAsync(
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        RetirementRequestInput input,
+        string requesterNameSnapshot,
+        string? categoryNameSnapshot,
+        string? reasonNameSnapshot,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> GetRetirementRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileRetirementRequestResponse?> GetRetirementRequestAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked entity for the action handlers (cancel/resolve/execute/revert) — tenant + file fenced.</summary>
+    Task<PersonnelFileRetirementRequest?> GetRetirementRequestEntityAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        bool includeClosedRecords,
+        CancellationToken cancellationToken);
+
+    /// <summary>RN-001.2: whether the employee already has an open (SOLICITADA/AUTORIZADA) active request.</summary>
+    Task<bool> HasOpenRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Requester lookup (D-02/D-13): display name + linked login of a personnel file of the company.</summary>
+    Task<RetirementRequesterLookup?> GetRetirementRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked 1:1 employee profile entity for the retirement execution/reversal orchestration.</summary>
+    Task<PersonnelFileEmployeeProfile?> GetEmployeeProfileEntityAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// R-T5 guard input: start dates of the employee's ACTIVE assignments + contracts, to reject an execution
+    /// whose retirement date precedes any of them (end-after-start check constraints).
+    /// </summary>
+    Task<IReadOnlyCollection<DateTime>> GetActiveRowStartDatesAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Same closing semantics as <see cref="CloseActiveEmploymentAssignmentsAsync"/> but CAPTURING each closed
+    /// row's public id + previous end date for the reversal snapshot (D-11).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveEmploymentAssignmentsCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Same closing semantics as <see cref="CloseActiveContractHistoriesAsync"/> but CAPTURING each closed
+    /// row's public id + previous contract end date for the reversal snapshot (D-11).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementClosedRowCapture>> CloseActiveContractHistoriesCapturingAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        DateTime endDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>Company-wide retirement bandeja (RF-002): filters + paging + per-status counts.</summary>
+    Task<RetirementRequestBandejaResponse> QueryRetirementRequestsAsync(
+        QueryRetirementRequestsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>Export rows for the retirement bandeja (RF-002), same filters, capped at MaxRows.</summary>
+    Task<IReadOnlyCollection<RetirementRequestExportRow>> GetRetirementRequestExportRowsAsync(
+        ExportRetirementRequestsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Interview tray (RF-008): employees whose retirement is AUTORIZADA/EJECUTADA with the derived state of
+    /// their exit interview (no active form / pending / draft / submitted).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementInterviewTrayItemResponse>> GetRetirementInterviewTrayAsync(
+        GetRetirementInterviewTrayQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>D-10 signal: whether a personnel action of the given type was journaled after a moment.</summary>
+    Task<bool> HasPersonnelActionSinceAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        string actionTypeCode,
+        DateTime sinceUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>RN-012.3: whether the employee has another retirement request executed after the given moment.</summary>
+    Task<bool> HasLaterExecutedRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        Guid excludingRequestPublicId,
+        DateTime executionDateUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked assignment rows by public id (reversal reopen, D-11).</summary>
+    Task<IReadOnlyCollection<PersonnelFileEmploymentAssignment>> GetEmploymentAssignmentsByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>Tracked contract rows by public id (reversal reopen, D-11).</summary>
+    Task<IReadOnlyCollection<PersonnelFileContractHistory>> GetContractHistoriesByPublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> publicIds,
+        CancellationToken cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

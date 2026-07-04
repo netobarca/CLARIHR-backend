@@ -77,7 +77,9 @@ internal sealed class RehireEmployeeCommandHandler(
 {
     private const string EmploymentStatusActive = "ACTIVO";
     private const string RehireActionTypeCode = "RECONTRATACION";
-    private const string RehireActionStatusCode = "COMPLETADA";
+    // APLICADA is the seeded ActionStatus for system-applied actions; the previous "COMPLETADA" was
+    // never seeded in the catalog (D-15 of the retirement module fixes the orphan code + data).
+    private const string RehireActionStatusCode = "APLICADA";
 
     public async Task<Result<RehireEmployeeResponse>> Handle(
         RehireEmployeeCommand command,
@@ -162,19 +164,20 @@ internal sealed class RehireEmployeeCommandHandler(
             }
 
             // [5] Upsert the 1:1 profile for the new period: new hire date (resets antigüedad, D-03),
-            // active status, retirement metadata cleared, EmployeeCode preserved. Contract data and the
-            // structural units now live per-plaza on the assignment, not the profile.
+            // active status, EmployeeCode preserved. Contract data and the structural units now live
+            // per-plaza on the assignment, not the profile.
             var profile = PersonnelFileEmployeeProfile.Create(
                 existingProfile.EmployeeCode,
                 EmploymentStatusActive,
-                command.NewHireDate,
-                retirementCategoryCode: null,
-                retirementReasonCode: null,
-                retirementNotes: null,
-                retirementDate: null);
+                command.NewHireDate);
             profile.BindToPersonnelFile(personnelFile.Id);
             profile.SetTenantId(tenantId);
             _ = await employeeRepository.UpsertEmployeeProfileAsync(profile, cancellationToken);
+
+            // The upsert deliberately no longer touches the retirement metadata (retirement module D-01),
+            // so the rehire clears the closed period's baja explicitly on the tracked row.
+            var trackedProfile = await employeeRepository.GetEmployeeProfileEntityAsync(personnelFile.Id, tenantId, cancellationToken);
+            trackedProfile?.ClearRetirement(EmploymentStatusActive);
 
             // Flush so the new-assignment capacity/overlap query below observes the closed prior
             // period (same connection/transaction) instead of the still-active rows.

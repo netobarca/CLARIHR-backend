@@ -122,6 +122,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string AdditionalBenefitType = "AdditionalBenefitType";
     public const string EducationLevel = "CurriculumEducationLevel";
     public const string Afp = "Afp";
+    public const string RetirementRequestStatus = "RetirementRequestStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation
