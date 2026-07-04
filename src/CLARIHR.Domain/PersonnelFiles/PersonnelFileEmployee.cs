@@ -17,22 +17,11 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     private PersonnelFileEmployeeProfile(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate,
-        string? retirementCategoryCode,
-        string? retirementReasonCode,
-        string? retirementNotes,
-        DateTime? retirementDate)
+        DateTime hireDate)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
-        Update(
-            employeeCode,
-            employmentStatusCode,
-            hireDate,
-            retirementCategoryCode,
-            retirementReasonCode,
-            retirementNotes,
-            retirementDate);
+        Update(employeeCode, employmentStatusCode, hireDate);
     }
 
     public long PersonnelFileId { get; private set; }
@@ -67,37 +56,23 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     public static PersonnelFileEmployeeProfile Create(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate,
-        string? retirementCategoryCode,
-        string? retirementReasonCode,
-        string? retirementNotes,
-        DateTime? retirementDate) =>
-        new(
-            employeeCode,
-            employmentStatusCode,
-            hireDate,
-            retirementCategoryCode,
-            retirementReasonCode,
-            retirementNotes,
-            retirementDate);
+        DateTime hireDate) =>
+        new(employeeCode, employmentStatusCode, hireDate);
 
+    /// <summary>
+    /// Updates the editable employment data. The retirement metadata is DELIBERATELY untouched (D-01 of the
+    /// retirement module, ratified): only <see cref="ApplyRetirement"/> writes it and only
+    /// <see cref="ClearRetirement"/> (reversal) or the rehire clear it.
+    /// </summary>
     public void Update(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate,
-        string? retirementCategoryCode,
-        string? retirementReasonCode,
-        string? retirementNotes,
-        DateTime? retirementDate)
+        DateTime hireDate)
     {
         EmployeeCode = PersonnelFileNormalization.Clean(employeeCode, nameof(employeeCode));
         NormalizedEmployeeCode = PersonnelFileNormalization.NormalizeCode(employeeCode);
         EmploymentStatusCode = PersonnelFileNormalization.Clean(employmentStatusCode, nameof(employmentStatusCode));
         HireDate = PersonnelFileNormalization.NormalizeDate(hireDate);
-        RetirementCategoryCode = PersonnelFileNormalization.CleanOptional(retirementCategoryCode);
-        RetirementReasonCode = PersonnelFileNormalization.CleanOptional(retirementReasonCode);
-        RetirementNotes = PersonnelFileNormalization.CleanOptional(retirementNotes);
-        RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
         ConcurrencyToken = Guid.NewGuid();
     }
 

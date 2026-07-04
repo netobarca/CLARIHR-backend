@@ -112,14 +112,14 @@ public sealed record RehireEmployeeRequest(
     bool PriorPeriodClosureConfirmed,
     string? AuthorizationReason);
 
+// BREAKING (retirement module D-01, ratified — no fallbacks): the retirement fields (category/reason/notes/
+// date) left this contract; the baja is registered exclusively through the retirement-request module, and a
+// retired profile rejects this PUT entirely (reversal/rehire are the only paths). The GET response keeps
+// exposing the retirement fields.
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,
     string EmploymentStatusCode,
     DateTime HireDate,
-    string? RetirementCategoryCode,
-    string? RetirementReasonCode,
-    string? RetirementNotes,
-    DateTime? RetirementDate,
     // The institutional email is the employee's login. Supply it to change it (record + linked account);
     // omit/leave null to keep the current one — it cannot be cleared while a login account is linked.
     string? InstitutionalEmail = null);

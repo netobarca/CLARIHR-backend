@@ -1957,4 +1957,7 @@
   <data name="RETIREMENT_REVERSAL_NOT_MOST_RECENT" xml:space="preserve">
     <value>Only the employee's most recent executed retirement can be reverted.</value>
   </data>
+  <data name="EMPLOYMENT_STATUS_RETIRADO_RESERVED" xml:space="preserve">
+    <value>The employment information of a retired employee is managed by the retirement module (reversal or rehire); the RETIRADO status is reserved to its execution.</value>
+  </data>
 </root>

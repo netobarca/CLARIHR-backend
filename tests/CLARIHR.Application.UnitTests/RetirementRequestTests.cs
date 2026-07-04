@@ -325,11 +325,7 @@ public sealed class RetirementRequestTests
         PersonnelFileEmployeeProfile.Create(
             "EMP-001",
             "ACTIVO",
-            new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc),
-            retirementCategoryCode: null,
-            retirementReasonCode: null,
-            retirementNotes: null,
-            retirementDate: null);
+            new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc));
 
     [Fact]
     public void ApplyRetirement_StampsFieldsAndRetiradoStatus()

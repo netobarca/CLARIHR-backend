@@ -136,10 +136,6 @@ public sealed class PersonnelFileEmployeeProfileEmailChangeTests
             EmployeeCode: "EMP-0001",
             EmploymentStatusCode: "ACTIVO",
             HireDate: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            RetirementCategoryCode: null,
-            RetirementReasonCode: null,
-            RetirementNotes: null,
-            RetirementDate: null,
             ConcurrencyToken: Guid.NewGuid(),
             InstitutionalEmail: institutionalEmail);
 

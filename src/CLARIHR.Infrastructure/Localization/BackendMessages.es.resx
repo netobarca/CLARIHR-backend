@@ -1957,4 +1957,7 @@
   <data name="RETIREMENT_REVERSAL_NOT_MOST_RECENT" xml:space="preserve">
     <value>Solo puede revertirse el retiro ejecutado más reciente del empleado.</value>
   </data>
+  <data name="EMPLOYMENT_STATUS_RETIRADO_RESERVED" xml:space="preserve">
+    <value>La información de empleo de un empleado retirado se gestiona desde el módulo de retiro (reversión o recontratación); el estado RETIRADO está reservado a su ejecución.</value>
+  </data>
 </root>

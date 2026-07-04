@@ -28,14 +28,12 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             return Map(profile);
         }
 
+        // Retirement metadata is deliberately NOT part of the upsert (D-01 of the retirement module):
+        // ApplyRetirement/ClearRetirement are its only writers.
         existing.Update(
             profile.EmployeeCode,
             profile.EmploymentStatusCode,
-            profile.HireDate,
-            profile.RetirementCategoryCode,
-            profile.RetirementReasonCode,
-            profile.RetirementNotes,
-            profile.RetirementDate);
+            profile.HireDate);
 
         return Map(existing);
     }

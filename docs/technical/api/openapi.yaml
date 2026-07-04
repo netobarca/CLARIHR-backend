@@ -48019,19 +48019,6 @@ components:
         hireDate:
           type: string
           format: date-time
-        retirementCategoryCode:
-          type: string
-          nullable: true
-        retirementReasonCode:
-          type: string
-          nullable: true
-        retirementNotes:
-          type: string
-          nullable: true
-        retirementDate:
-          type: string
-          format: date-time
-          nullable: true
         institutionalEmail:
           type: string
           nullable: true
