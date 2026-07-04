@@ -65,6 +65,39 @@ public sealed class RetirementRequestsReportingController(
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/retirement-requests/interview-tray")]
+    [Produces("application/json")]
+    [ProducesResponseType<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "List employees authorized for retirement with their exit-interview state (interview tray)",
+        Description = """
+            The entry point of the exit interview (RF-008, D-07): employees whose retirement request is
+            `AUTORIZADA` or `EJECUTADA`, each with the derived state of their interview — `SIN_FORMULARIO`
+            (no active published form for the reason), `PENDIENTE`, `BORRADOR` or `ENVIADA` — and the
+            submission id to navigate to. `REVERTIDA`/`ANULADA`/`RECHAZADA` never appear. Access with
+            `ViewExitInterviews` OR `ViewRetirements` (RN-008.1); reading the interview ANSWERS remains
+            governed by the exit-interview module. The interview stays OPTIONAL and never blocks the
+            execution (RN-008.3).
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>> GetInterviewTray(
+        Guid companyId,
+        [FromQuery] string? interviewStatus = null,
+        [FromQuery] string? categoryCode = null,
+        [FromQuery] string? reasonCode = null,
+        [FromQuery] DateTime? retirementFromUtc = null,
+        [FromQuery] DateTime? retirementToUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetRetirementInterviewTrayQuery(companyId, interviewStatus, categoryCode, reasonCode, retirementFromUtc, retirementToUtc),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/retirement-requests/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]

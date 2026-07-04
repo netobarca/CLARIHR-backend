@@ -2990,6 +2990,99 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<RetirementInterviewTrayItemResponse>> GetRetirementInterviewTrayAsync(
+        GetRetirementInterviewTrayQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == query.CompanyId
+                && item.IsActive
+                && (item.RequestStatusCode == RetirementRequestStatuses.Autorizada
+                    || item.RequestStatusCode == RetirementRequestStatuses.Ejecutada));
+
+        if (!string.IsNullOrWhiteSpace(query.CategoryCode))
+        {
+            var normalized = query.CategoryCode.Trim().ToUpperInvariant();
+            baseQuery = baseQuery.Where(item => item.RetirementCategoryCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ReasonCode))
+        {
+            var normalized = query.ReasonCode.Trim().ToUpperInvariant();
+            baseQuery = baseQuery.Where(item => item.RetirementReasonCode == normalized);
+        }
+
+        if (query.RetirementFromUtc is { } retirementFrom)
+        {
+            baseQuery = baseQuery.Where(item => item.RetirementDate >= retirementFrom.Date);
+        }
+
+        if (query.RetirementToUtc is { } retirementTo)
+        {
+            baseQuery = baseQuery.Where(item => item.RetirementDate <= retirementTo.Date);
+        }
+
+        // One projected query (no N+1): the active-form existence and the latest non-archived submission are
+        // correlated subqueries; the derived InterviewStatus is composed in memory.
+        var rows = await baseQuery
+            .OrderBy(item => item.RetirementDate)
+            .ThenBy(item => item.Id)
+            .Select(item => new
+            {
+                item.PublicId,
+                FilePublicId = item.PersonnelFile.PublicId,
+                EmployeeFullName = item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                item.RetirementCategoryCode,
+                item.RetirementCategoryNameSnapshot,
+                item.RetirementReasonCode,
+                item.RetirementReasonNameSnapshot,
+                item.RetirementDate,
+                item.RequestStatusCode,
+                HasActiveForm = dbContext.ExitInterviewForms.Any(form =>
+                    form.TenantId == query.CompanyId
+                    && form.Status == ExitInterviewFormStatus.Published
+                    && form.IsActiveForReason
+                    && form.RetirementReasonCode == item.RetirementReasonCode),
+                Submission = dbContext.ExitInterviewSubmissions
+                    .Where(submission => submission.TenantId == query.CompanyId
+                        && submission.PersonnelFileId == item.PersonnelFileId
+                        && submission.Status != ExitInterviewSubmissionStatus.Archived)
+                    .OrderByDescending(submission => submission.Id)
+                    .Select(submission => new { submission.PublicId, submission.Status })
+                    .FirstOrDefault()
+            })
+            .ToArrayAsync(cancellationToken);
+
+        var items = rows
+            .Select(row => new RetirementInterviewTrayItemResponse(
+                row.PublicId,
+                row.FilePublicId,
+                row.EmployeeFullName,
+                row.RetirementCategoryCode,
+                row.RetirementCategoryNameSnapshot,
+                row.RetirementReasonCode,
+                row.RetirementReasonNameSnapshot,
+                row.RetirementDate,
+                row.RequestStatusCode,
+                !row.HasActiveForm
+                    ? RetirementInterviewStatuses.SinFormulario
+                    : row.Submission is null
+                        ? RetirementInterviewStatuses.Pendiente
+                        : row.Submission.Status == ExitInterviewSubmissionStatus.Submitted
+                            ? RetirementInterviewStatuses.Enviada
+                            : RetirementInterviewStatuses.Borrador,
+                row.Submission?.PublicId));
+
+        if (!string.IsNullOrWhiteSpace(query.InterviewStatus))
+        {
+            var normalized = query.InterviewStatus.Trim().ToUpperInvariant();
+            items = items.Where(item => item.InterviewStatus == normalized);
+        }
+
+        return items.ToArray();
+    }
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

@@ -803,6 +803,14 @@ public interface IPersonnelFileEmployeeRepository
         ExportRetirementRequestsQuery query,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Interview tray (RF-008): employees whose retirement is AUTORIZADA/EJECUTADA with the derived state of
+    /// their exit interview (no active form / pending / draft / submitted).
+    /// </summary>
+    Task<IReadOnlyCollection<RetirementInterviewTrayItemResponse>> GetRetirementInterviewTrayAsync(
+        GetRetirementInterviewTrayQuery query,
+        CancellationToken cancellationToken);
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

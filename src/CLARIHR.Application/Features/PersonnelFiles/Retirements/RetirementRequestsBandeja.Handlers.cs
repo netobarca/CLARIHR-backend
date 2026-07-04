@@ -44,3 +44,25 @@ internal sealed class ExportRetirementRequestsQueryHandler(
         return Result<IReadOnlyCollection<RetirementRequestExportRow>>.Success(rows);
     }
 }
+
+internal sealed class GetRetirementInterviewTrayQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileEmployeeRepository employeeRepository)
+    : IQueryHandler<GetRetirementInterviewTrayQuery, IReadOnlyCollection<RetirementInterviewTrayItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>> Handle(
+        GetRetirementInterviewTrayQuery query,
+        CancellationToken cancellationToken)
+    {
+        // Dual gate (RN-008.1): the interviewer (ViewExitInterviews) OR the retirement reader
+        // (ViewRetirements). Reading the interview ANSWERS remains governed by the exit-interview module.
+        var authorizationResult = await authorizationService.EnsureCanViewRetirementInterviewTrayAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>.Failure(authorizationResult.Error);
+        }
+
+        var items = await employeeRepository.GetRetirementInterviewTrayAsync(query, cancellationToken);
+        return Result<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>.Success(items);
+    }
+}

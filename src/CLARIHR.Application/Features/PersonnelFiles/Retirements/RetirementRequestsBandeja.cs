@@ -101,3 +101,55 @@ internal sealed class ExportRetirementRequestsQueryValidator : AbstractValidator
             .When(query => query.RetirementFromUtc.HasValue && query.RetirementToUtc.HasValue);
     }
 }
+
+/// <summary>Derived interview state of a tray row (RF-008).</summary>
+public static class RetirementInterviewStatuses
+{
+    /// <summary>No published form is active for the employee's retirement reason.</summary>
+    public const string SinFormulario = "SIN_FORMULARIO";
+
+    /// <summary>A form applies but the employee has no (non-archived) submission yet.</summary>
+    public const string Pendiente = "PENDIENTE";
+
+    /// <summary>The employee has a draft submission.</summary>
+    public const string Borrador = "BORRADOR";
+
+    /// <summary>The employee's submission was submitted (immutable).</summary>
+    public const string Enviada = "ENVIADA";
+}
+
+/// <summary>
+/// A row of the interview tray (RF-008): an employee whose retirement is AUTORIZADA/EJECUTADA (D-07) with the
+/// derived state of their exit interview. REVERTIDA/ANULADA/RECHAZADA never appear (RN-008.2).
+/// </summary>
+public sealed record RetirementInterviewTrayItemResponse(
+    Guid RetirementRequestPublicId,
+    Guid PersonnelFilePublicId,
+    string EmployeeFullName,
+    string RetirementCategoryCode,
+    string? RetirementCategoryName,
+    string RetirementReasonCode,
+    string? RetirementReasonName,
+    DateTime RetirementDate,
+    string RequestStatusCode,
+    string InterviewStatus,
+    Guid? SubmissionPublicId);
+
+public sealed record GetRetirementInterviewTrayQuery(
+    Guid CompanyId,
+    string? InterviewStatus,
+    string? CategoryCode,
+    string? ReasonCode,
+    DateTime? RetirementFromUtc,
+    DateTime? RetirementToUtc) : IQuery<IReadOnlyCollection<RetirementInterviewTrayItemResponse>>;
+
+internal sealed class GetRetirementInterviewTrayQueryValidator : AbstractValidator<GetRetirementInterviewTrayQuery>
+{
+    public GetRetirementInterviewTrayQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.RetirementToUtc)
+            .GreaterThanOrEqualTo(query => query.RetirementFromUtc!.Value)
+            .When(query => query.RetirementFromUtc.HasValue && query.RetirementToUtc.HasValue);
+    }
+}

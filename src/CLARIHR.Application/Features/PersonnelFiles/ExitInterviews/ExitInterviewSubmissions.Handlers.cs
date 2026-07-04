@@ -108,7 +108,7 @@ internal sealed class SaveExitInterviewSubmissionCommandHandler(
         if (string.IsNullOrWhiteSpace(snapshot.RetirementReasonCode))
         {
             return Result<ExitInterviewSubmissionResponse>.Failure(ErrorCatalog.Validation(
-                new Dictionary<string, string[]> { ["personnelFile"] = ["The employee has no retirement reason recorded; register the baja reason first."] }));
+                new Dictionary<string, string[]> { ["personnelFile"] = ["The employee has no retirement request in force (AUTORIZADA/EJECUTADA); register and authorize the retirement first."] }));
         }
 
         var form = await repository.GetActiveFormForReasonAsync(tenantId, snapshot.RetirementReasonCode!, excludingFormPublicId: null, cancellationToken);
