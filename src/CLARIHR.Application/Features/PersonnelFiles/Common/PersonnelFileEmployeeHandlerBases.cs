@@ -403,6 +403,159 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Manage gate for retirement requests (D-12): the dedicated <c>PersonnelFiles.ManageRetirements</c>
+    /// permission (or Admin). Register/edit/cancel(SOLICITADA)/execute — RRHH only, no self-service (D-03).
+    /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass
+    /// <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageRetirementsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageRetirementsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Gate for the AUTHORIZER actions on a retirement request (resolution / annulment of an AUTORIZADA —
+    /// D-12/D-13): the dedicated <c>PersonnelFiles.AuthorizeRetirement</c> permission or the IAM super-admin.
+    /// <c>PersonnelFiles.Admin</c> is deliberately EXCLUDED (separation of duties, mirrors AuthorizeRehire).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForAuthorizeRetirementAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanAuthorizeRetirementAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Gate for REVERTING an executed retirement (D-12): the dedicated <c>PersonnelFiles.RevertRetirement</c>
+    /// permission or the IAM super-admin. <c>PersonnelFiles.Admin</c> is deliberately EXCLUDED.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForRevertRetirementAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanRevertRetirementAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for retirement requests (D-12): the dedicated <c>PersonnelFiles.ViewRetirements</c>
+    /// permission (or Admin). RRHH-only — no self-service read in Fase 1 (D-03).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForViewRetirementsAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanViewRetirementsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
     /// Manage gate for certificate requests (D-04): the dedicated <c>PersonnelFiles.ManageCertificateRequests</c>
     /// permission (or Admin). Used by process/issue/deliver/reject/update/delete — RR. HH. only, no self-service.
     /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass

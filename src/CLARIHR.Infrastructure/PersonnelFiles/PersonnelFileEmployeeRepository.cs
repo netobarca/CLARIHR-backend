@@ -2643,6 +2643,127 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Select(item => (long?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    // ── Retirement requests ("retiro definitivo") — D-01…D-19 ───────────────────────────────────────────
+    public async Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> AddRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRetirementRequest entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileRetirementRequest>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.RequestDate)
+            .Select(RetirementRequestMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<PersonnelFileRetirementRequestResponse?> UpdateRetirementRequestAsync(
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        RetirementRequestInput input,
+        string requesterNameSnapshot,
+        string? categoryNameSnapshot,
+        string? reasonNameSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .SingleOrDefaultAsync(x => x.PublicId == retirementRequestPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(
+            input.RequesterFilePublicId,
+            requesterNameSnapshot,
+            input.RequestDate,
+            input.RetirementDate,
+            input.RetirementCategoryCode,
+            categoryNameSnapshot,
+            input.RetirementReasonCode,
+            reasonNameSnapshot,
+            input.Notes);
+        return RetirementRequestMapping.ToResponse(item);
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileRetirementRequestResponse>> GetRetirementRequestsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.RequestDate)
+            .ThenByDescending(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(RetirementRequestMapping.ToResponse).ToArray();
+    }
+
+    public async Task<PersonnelFileRetirementRequestResponse?> GetRetirementRequestAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == retirementRequestPublicId, cancellationToken);
+        return item is null ? null : RetirementRequestMapping.ToResponse(item);
+    }
+
+    public async Task<PersonnelFileRetirementRequest?> GetRetirementRequestEntityAsync(
+        Guid personnelFileId,
+        Guid retirementRequestPublicId,
+        Guid tenantId,
+        bool includeClosedRecords,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileRetirementRequest>().AsQueryable();
+        if (includeClosedRecords)
+        {
+            query = query.Include(item => item.ClosedRecords);
+        }
+
+        return await query.SingleOrDefaultAsync(
+            item => item.TenantId == tenantId
+                && item.PublicId == retirementRequestPublicId
+                && item.PersonnelFile.PublicId == personnelFileId,
+            cancellationToken);
+    }
+
+    public Task<bool> HasOpenRetirementRequestAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRetirementRequest>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFileId == personnelFileInternalId
+                    && item.IsActive
+                    && RetirementRequestStatuses.Open.Contains(item.RequestStatusCode),
+                cancellationToken);
+
+    public async Task<RetirementRequesterLookup?> GetRetirementRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var requester = await dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(file => file.TenantId == tenantId && file.PublicId == requesterFilePublicId)
+            .Select(file => new { file.PublicId, file.FirstName, file.LastName, file.IsActive, file.LinkedUserPublicId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return requester is null
+            ? null
+            : new RetirementRequesterLookup(
+                requester.PublicId,
+                $"{requester.FirstName} {requester.LastName}".Trim(),
+                requester.IsActive,
+                requester.LinkedUserPublicId);
+    }
+
     // ── Certificate requests ("constancias") — D-02/D-04 ─────────────────────────────────────────────────
     public async Task<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>> AddCertificateRequestAsync(
         long personnelFileInternalId,

@@ -1735,6 +1735,36 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         return query.AnyAsync(cancellationToken);
     }
 
+    public async Task<(string? CategoryName, string? ReasonName)> GetRetirementCatalogNamesAsync(
+        Guid companyId,
+        string retirementCategoryCode,
+        string retirementReasonCode,
+        CancellationToken cancellationToken)
+    {
+        var countryCode = await GetCompanyCountryCodeAsync(companyId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            return (null, null);
+        }
+
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedCategoryCode = retirementCategoryCode.Trim().ToUpperInvariant();
+        var normalizedReasonCode = retirementReasonCode.Trim().ToUpperInvariant();
+
+        var names = await (
+            from reason in dbContext.RetirementReasonCatalogItems.AsNoTracking()
+            join category in dbContext.RetirementCategoryCatalogItems.AsNoTracking()
+                on reason.RetirementCategoryCatalogItemId equals category.Id
+            where reason.CountryCode == normalizedCountryCode &&
+                  category.CountryCode == normalizedCountryCode &&
+                  reason.NormalizedCode == normalizedReasonCode &&
+                  category.NormalizedCode == normalizedCategoryCode
+            select new { CategoryName = category.Name, ReasonName = reason.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return names is null ? (null, null) : (names.CategoryName, names.ReasonName);
+    }
+
     public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFileDocument>()
             .Include(item => item.PersonnelFile)
