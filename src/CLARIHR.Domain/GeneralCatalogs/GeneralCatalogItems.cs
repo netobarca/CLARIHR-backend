@@ -446,6 +446,39 @@ public sealed class CertificateRequestStatusCatalogItem : GeneralCatalogItem
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
 
+/// <summary>
+/// Catalog of retirement-request statuses ("estados de la solicitud de retiro": SOLICITADA, AUTORIZADA,
+/// RECHAZADA, ANULADA, EJECUTADA, REVERTIDA). Country-scoped; codes are structural (seeded) — the state
+/// machine (D-04) references the canonical codes in <c>RetirementRequestStatuses</c>.
+/// </summary>
+public sealed class RetirementRequestStatusCatalogItem : GeneralCatalogItem
+{
+    private RetirementRequestStatusCatalogItem()
+    {
+    }
+
+    private RetirementRequestStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RetirementRequestStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
 /// <summary>Catalog of certificate delivery methods ("medio de entrega": presencial, correo, portal). Country-scoped (D-18).</summary>
 public sealed class CertificateDeliveryMethodCatalogItem : GeneralCatalogItem
 {

@@ -1593,6 +1593,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CERTIFICATEREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<CertificateRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CERTIFICATEDELIVERYMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<CertificateDeliveryMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CERTIFICATEPURPOSE" => await IsCountryScopedCatalogCodeActiveAsync<CertificatePurposeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RETIREMENTREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RetirementRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

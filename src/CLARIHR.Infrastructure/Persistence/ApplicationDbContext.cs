@@ -247,6 +247,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CertificateRequestStatusCatalogItem> CertificateRequestStatusCatalogItems => Set<CertificateRequestStatusCatalogItem>();
 
+    public DbSet<RetirementRequestStatusCatalogItem> RetirementRequestStatusCatalogItems => Set<RetirementRequestStatusCatalogItem>();
+
     public DbSet<CertificateDeliveryMethodCatalogItem> CertificateDeliveryMethodCatalogItems => Set<CertificateDeliveryMethodCatalogItem>();
 
     public DbSet<CertificatePurposeCatalogItem> CertificatePurposeCatalogItems => Set<CertificatePurposeCatalogItem>();

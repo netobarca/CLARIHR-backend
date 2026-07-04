@@ -64,6 +64,7 @@ public static class GeneralCatalogKeyMap
             ["additional-benefit-types"] = PersonnelCurriculumCatalogCategories.AdditionalBenefitType,
             ["education-levels"] = PersonnelCurriculumCatalogCategories.EducationLevel,
             ["afps"] = PersonnelCurriculumCatalogCategories.Afp,
+            ["retirement-request-statuses"] = PersonnelCurriculumCatalogCategories.RetirementRequestStatus,
         };
 
     /// <summary>

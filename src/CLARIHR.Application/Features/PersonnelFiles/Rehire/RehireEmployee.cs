@@ -77,7 +77,9 @@ internal sealed class RehireEmployeeCommandHandler(
 {
     private const string EmploymentStatusActive = "ACTIVO";
     private const string RehireActionTypeCode = "RECONTRATACION";
-    private const string RehireActionStatusCode = "COMPLETADA";
+    // APLICADA is the seeded ActionStatus for system-applied actions; the previous "COMPLETADA" was
+    // never seeded in the catalog (D-15 of the retirement module fixes the orphan code + data).
+    private const string RehireActionStatusCode = "APLICADA";
 
     public async Task<Result<RehireEmployeeResponse>> Handle(
         RehireEmployeeCommand command,
