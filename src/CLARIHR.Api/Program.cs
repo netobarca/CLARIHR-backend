@@ -547,6 +547,33 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageExitInterviews, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Retirement requests ("retiro definitivo", D-12/D-13). No self-service in Fase 1 (D-03), so the write
+    // policies are RequireAssertion supersets of the precise handler gates. ViewRetirements stays authn-only
+    // (the bandeja/tray gate per-handler, like the reporting controllers). AuthorizeRetirement and
+    // RevertRetirement deliberately EXCLUDE PersonnelFiles.Admin (separation of duties — mirrors the
+    // AuthorizeRehire handler gate); the IAM super-admin remains the universal fallback.
+    options.AddPolicy(PersonnelFilePolicies.ViewRetirements, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageRetirements, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageRetirements,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeRetirement, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeRetirement,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.RevertRetirement, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.RevertRetirement,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

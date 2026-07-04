@@ -198,6 +198,34 @@ public static class PersonnelFilePermissionCodes
     public const string ManageExitInterviews = "PersonnelFiles.ManageExitInterviews";
 
     /// <summary>
+    /// Dedicated permission to read retirement requests ("retiro definitivo"): the per-file requests, the
+    /// company-wide bandeja and the interview tray (D-12, RRHH-only — no self-service in Fase 1). Admin is
+    /// a superset.
+    /// </summary>
+    public const string ViewRetirements = "PersonnelFiles.ViewRetirements";
+
+    /// <summary>
+    /// Dedicated permission to register, edit, cancel (SOLICITADA) and EXECUTE retirement requests (D-12).
+    /// Admin is a superset. Authorization and reversal are NOT included — they require the dedicated
+    /// <see cref="AuthorizeRetirement"/> / <see cref="RevertRetirement"/> grants.
+    /// </summary>
+    public const string ManageRetirements = "PersonnelFiles.ManageRetirements";
+
+    /// <summary>
+    /// Dedicated permission to authorize/reject a retirement request (and annul an authorized one).
+    /// Like <see cref="AuthorizeRehire"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (D-12 — separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeRetirement = "PersonnelFiles.AuthorizeRetirement";
+
+    /// <summary>
+    /// Dedicated permission to revert an executed retirement (D-12). Like <see cref="AuthorizeRehire"/>,
+    /// <c>PersonnelFiles.Admin</c> is deliberately NOT a superset; only the IAM super-admin remains a
+    /// universal fallback.
+    /// </summary>
+    public const string RevertRetirement = "PersonnelFiles.RevertRetirement";
+
+    /// <summary>
     /// Dedicated permission to read the HR analytics dashboard (aggregate indicators over the personnel
     /// padrón). Lets configurable roles see the dashboards without full personnel-file read; the regular
     /// <see cref="Read"/> permission and <see cref="Admin"/> are supersets. The dashboard is read-only and

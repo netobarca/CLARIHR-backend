@@ -168,5 +168,49 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanViewReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for retirement requests (D-12, RRHH-only — no self-service in Fase 1): the dedicated
+    /// <c>PersonnelFiles.ViewRetirements</c> permission, or Admin / IAM super-admin.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewRetirementsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for retirement requests (register/edit/cancel/execute — D-12): the dedicated
+    /// <c>PersonnelFiles.ManageRetirements</c> permission, or Admin / IAM super-admin. Authorization and
+    /// reversal are NOT covered — see the dedicated gates below.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageRetirementsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Gate for authorizing/rejecting a retirement request (and annulling an authorized one): the dedicated
+    /// <c>PersonnelFiles.AuthorizeRetirement</c> permission or IAM super-admin. Like the rehire override,
+    /// <c>PersonnelFiles.Admin</c> is deliberately EXCLUDED (D-12/D-13 — separation of duties).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeRetirementAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Gate for reverting an executed retirement: the dedicated <c>PersonnelFiles.RevertRetirement</c>
+    /// permission or IAM super-admin. <c>PersonnelFiles.Admin</c> is deliberately EXCLUDED (D-12).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanRevertRetirementAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Read gate for the retirement interview tray (RN-008.1): the exit-interview reader permission
+    /// (<c>ViewExitInterviews</c>) OR the retirement reader permission (<c>ViewRetirements</c>), or
+    /// Admin / IAM super-admin. Reading the interview ANSWERS remains governed by the exit-interview
+    /// module (D-14 of the interview analysis).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewRetirementInterviewTrayAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

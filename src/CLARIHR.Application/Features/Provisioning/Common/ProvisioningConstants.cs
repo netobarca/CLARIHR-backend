@@ -83,7 +83,11 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ManageCertificateRequests", "Gestionar constancias", "Procesar, emitir, entregar, rechazar, editar y dar de baja las solicitudes de constancia, y configurar el formato de constancias de la empresa.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCertificateRequests"),
         new("PersonnelFiles.ManageExitInterviewForms", "Gestionar formularios de entrevista de retiro", "Disenar, publicar y asociar los formularios de entrevista de retiro (salida) de la institucion.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageExitInterviewForms"),
         new("PersonnelFiles.ViewExitInterviews", "Ver entrevistas de retiro", "Consulta de las entrevistas de retiro (salida) respondidas por los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewExitInterviews"),
-        new("PersonnelFiles.ManageExitInterviews", "Gestionar entrevistas de retiro", "Capturar y administrar las entrevistas de retiro (salida) de los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageExitInterviews")
+        new("PersonnelFiles.ManageExitInterviews", "Gestionar entrevistas de retiro", "Capturar y administrar las entrevistas de retiro (salida) de los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageExitInterviews"),
+        new("PersonnelFiles.ViewRetirements", "Ver retiros definitivos", "Consulta de las solicitudes de retiro definitivo, la bandeja de la empresa y la bandeja de entrevistas de autorizados.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewRetirements"),
+        new("PersonnelFiles.ManageRetirements", "Gestionar retiros definitivos", "Registrar, editar, anular y ejecutar las solicitudes de retiro definitivo de los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageRetirements"),
+        new("PersonnelFiles.AuthorizeRetirement", "Autorizar retiros definitivos", "Autorizar o rechazar las solicitudes de retiro definitivo (y anular una autorizada). No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRetirement"),
+        new("PersonnelFiles.RevertRetirement", "Revertir retiros definitivos", "Revertir un retiro definitivo ejecutado restaurando los estados del empleado. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "RevertRetirement")
     ];
 }
 
