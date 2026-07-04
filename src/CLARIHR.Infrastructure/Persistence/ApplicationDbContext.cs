@@ -362,6 +362,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<EconomicAidRequestDocument> EconomicAidRequestDocuments => Set<EconomicAidRequestDocument>();
 
+    public DbSet<PersonnelFileRetirementRequest> PersonnelFileRetirementRequests => Set<PersonnelFileRetirementRequest>();
+
+    public DbSet<RetirementRequestClosedRecord> RetirementRequestClosedRecords => Set<RetirementRequestClosedRecord>();
+
     public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
 
     public DbSet<CertificateRequestDocument> CertificateRequestDocuments => Set<CertificateRequestDocument>();

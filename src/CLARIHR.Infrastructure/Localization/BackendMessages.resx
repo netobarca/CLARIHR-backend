@@ -1903,4 +1903,58 @@
   <data name="PERSONNEL_FILE_IDENTIFICATION_NUMBER_FORMAT_INVALID" xml:space="preserve">
     <value>The identification number does not match the format configured for the identification type.</value>
   </data>
+  <data name="RETIREMENT_REQUEST_NOT_FOUND" xml:space="preserve">
+    <value>The retirement request was not found.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_EMPLOYEE_NOT_ELIGIBLE" xml:space="preserve">
+    <value>The employee is not eligible for a retirement request (it must be an active, completed employee file without a retirement in force).</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_ALREADY_OPEN" xml:space="preserve">
+    <value>The employee already has an open retirement request (SOLICITADA or AUTORIZADA).</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_REQUESTER_INVALID" xml:space="preserve">
+    <value>The requester must reference a valid, active personnel file of the company.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_DATE_INCOHERENT" xml:space="preserve">
+    <value>The request date cannot be in the future, the retirement date cannot precede the hire date, and no active assignment or contract may start after the retirement date.</value>
+  </data>
+  <data name="RETIREMENT_REQUEST_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The retirement request is not in a state that allows this operation.</value>
+  </data>
+  <data name="RETIREMENT_RESOLUTION_TARGET_INVALID" xml:space="preserve">
+    <value>The resolution target must be AUTORIZADA or RECHAZADA.</value>
+  </data>
+  <data name="RETIREMENT_RESOLUTION_NOTES_REQUIRED" xml:space="preserve">
+    <value>Rejecting a retirement request requires a note.</value>
+  </data>
+  <data name="RETIREMENT_SELF_ACTION_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee cannot authorize, execute or revert their own retirement.</value>
+  </data>
+  <data name="RETIREMENT_REQUESTER_CANNOT_AUTHORIZE" xml:space="preserve">
+    <value>The requester of a retirement cannot authorize it (separation of duties).</value>
+  </data>
+  <data name="RETIREMENT_EXECUTION_DATE_NOT_REACHED" xml:space="preserve">
+    <value>The retirement cannot be executed before its retirement date.</value>
+  </data>
+  <data name="RETIREMENT_EXECUTION_STATE_CONFLICT" xml:space="preserve">
+    <value>The employee's profile no longer matches an executable state (it may have been retired or modified by another operation).</value>
+  </data>
+  <data name="RETIREMENT_LAST_ADMIN_CONFLICT" xml:space="preserve">
+    <value>The employee is the company's last active administrator; transfer the administration before executing the retirement.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_REASON_REQUIRED" xml:space="preserve">
+    <value>Reverting a retirement requires a reason.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_WINDOW_EXPIRED" xml:space="preserve">
+    <value>The 30-day reversal window since the execution has expired; use a rehire to reincorporate the employee.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_BLOCKED_BY_REHIRE" xml:space="preserve">
+    <value>The retirement cannot be reverted because the employee was rehired after the execution.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_STATE_DIVERGED" xml:space="preserve">
+    <value>The employee's current state no longer matches what the execution left; the reversal was blocked to avoid restoring over modified data.</value>
+  </data>
+  <data name="RETIREMENT_REVERSAL_NOT_MOST_RECENT" xml:space="preserve">
+    <value>Only the employee's most recent executed retirement can be reverted.</value>
+  </data>
 </root>

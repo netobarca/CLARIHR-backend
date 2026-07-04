@@ -4,6 +4,12 @@ namespace CLARIHR.Domain.PersonnelFiles;
 
 public sealed class PersonnelFileEmployeeProfile : TenantEntity
 {
+    /// <summary>
+    /// Canonical "retired" employment status. Reserved to the retirement module: after D-01 only
+    /// <see cref="ApplyRetirement"/> writes it (the legacy PUT rejects it).
+    /// </summary>
+    public const string RetiredEmploymentStatusCode = "RETIRADO";
+
     private PersonnelFileEmployeeProfile()
     {
     }
@@ -92,6 +98,44 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
         RetirementReasonCode = PersonnelFileNormalization.CleanOptional(retirementReasonCode);
         RetirementNotes = PersonnelFileNormalization.CleanOptional(retirementNotes);
         RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Consumes the baja on the profile (retirement-module execution, RF-006 — after D-01 the ONLY
+    /// writer of retirement metadata): stamps the retirement fields and sets the RETIRADO status.
+    /// </summary>
+    public void ApplyRetirement(
+        string retirementCategoryCode,
+        string retirementReasonCode,
+        string? retirementNotes,
+        DateTime retirementDate)
+    {
+        var normalizedDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
+        if (normalizedDate < HireDate)
+        {
+            throw new InvalidOperationException("The retirement date cannot precede the hire date.");
+        }
+
+        RetirementCategoryCode = PersonnelFileNormalization.Clean(retirementCategoryCode, nameof(retirementCategoryCode)).ToUpperInvariant();
+        RetirementReasonCode = PersonnelFileNormalization.Clean(retirementReasonCode, nameof(retirementReasonCode)).ToUpperInvariant();
+        RetirementNotes = PersonnelFileNormalization.CleanOptional(retirementNotes);
+        RetirementDate = normalizedDate;
+        EmploymentStatusCode = RetiredEmploymentStatusCode;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Reversal of an executed baja (RF-010/D-11): clears the retirement metadata and restores the PRIOR
+    /// employment status captured in the execution snapshot (never assumes ACTIVO).
+    /// </summary>
+    public void ClearRetirement(string restoreEmploymentStatusCode)
+    {
+        RetirementCategoryCode = null;
+        RetirementReasonCode = null;
+        RetirementNotes = null;
+        RetirementDate = null;
+        EmploymentStatusCode = PersonnelFileNormalization.Clean(restoreEmploymentStatusCode, nameof(restoreEmploymentStatusCode));
         ConcurrencyToken = Guid.NewGuid();
     }
 }
@@ -265,6 +309,18 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
     }
+
+    /// <summary>
+    /// Reversal counterpart of <see cref="Close(DateTime)"/> (retirement module, RF-010/D-11): restores the
+    /// EXACT pre-execution state — the end date the row had BEFORE the baja (null when the execution set it)
+    /// — and reactivates the row. Never invents an end date.
+    /// </summary>
+    public void Reopen(DateTime? previousEndDate)
+    {
+        EndDate = PersonnelFileNormalization.NormalizeDate(previousEndDate);
+        IsActive = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFileContractHistory : TenantEntity
@@ -346,6 +402,18 @@ public sealed class PersonnelFileContractHistory : TenantEntity
     {
         ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
         IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Reversal counterpart of <see cref="Close(DateTime)"/> (retirement module, RF-010/D-11): restores the
+    /// EXACT pre-execution state — the contract end date the row had BEFORE the baja (null when the execution
+    /// set it) — and reactivates the row.
+    /// </summary>
+    public void Reopen(DateTime? previousContractEndDate)
+    {
+        ContractEndDate = PersonnelFileNormalization.NormalizeDate(previousContractEndDate);
+        IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
 }
@@ -2324,4 +2392,366 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
             sourceSystem,
             sourceReference,
             sourceSyncedUtc);
+}
+
+/// <summary>
+/// Canonical status codes for a definitive-retirement request ("retiro definitivo"). The codes are validated
+/// against the country-scoped <c>retirement-request-statuses</c> catalog (visualization / i18n), but the domain
+/// state machine references these constants (D-04/D-16).
+/// </summary>
+public static class RetirementRequestStatuses
+{
+    public const string Solicitada = "SOLICITADA";
+    public const string Autorizada = "AUTORIZADA";
+    public const string Rechazada = "RECHAZADA";
+    public const string Anulada = "ANULADA";
+    public const string Ejecutada = "EJECUTADA";
+    public const string Revertida = "REVERTIDA";
+
+    /// <summary>Open states — at most one open request per employee (RN-001.2).</summary>
+    public static readonly IReadOnlyCollection<string> Open = new[] { Solicitada, Autorizada };
+
+    /// <summary>States the authorizer may set through the resolution action (RF-004).</summary>
+    public static readonly IReadOnlyCollection<string> ResolutionTargets = new[] { Autorizada, Rechazada };
+}
+
+/// <summary>
+/// Definitive-retirement request ("retiro definitivo") — the single door for the baja (D-01). Captured by HR
+/// (no self-service in Fase 1, D-03) with a requester reference + name snapshot (D-02), authorized by a
+/// dedicated grant (D-12/D-13), EXECUTED as a transactional orchestration that stamps the profile, closes
+/// plazas/contracts, deactivates the login and captures the reversal snapshot (D-05/D-06/D-11), and optionally
+/// REVERTED within 30 calendar days restoring exactly that snapshot (RN-012.4). The snapshot uses flat columns
+/// here plus the <see cref="RetirementRequestClosedRecord"/> child rows (no jsonb on domain entities).
+/// </summary>
+public sealed class PersonnelFileRetirementRequest : TenantEntity
+{
+    private readonly List<RetirementRequestClosedRecord> _closedRecords = [];
+
+    private PersonnelFileRetirementRequest()
+    {
+    }
+
+    private PersonnelFileRetirementRequest(
+        Guid requesterFilePublicId,
+        string requesterNameSnapshot,
+        DateTime requestDate,
+        DateTime retirementDate,
+        string retirementCategoryCode,
+        string? retirementCategoryNameSnapshot,
+        string retirementReasonCode,
+        string? retirementReasonNameSnapshot,
+        string? notes,
+        Guid requestedByUserId)
+    {
+        PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
+        RequestStatusCode = RetirementRequestStatuses.Solicitada;
+        RequestedByUserId = requestedByUserId;
+        ApplyRequestFields(
+            requesterFilePublicId,
+            requesterNameSnapshot,
+            requestDate,
+            retirementDate,
+            retirementCategoryCode,
+            retirementCategoryNameSnapshot,
+            retirementReasonCode,
+            retirementReasonNameSnapshot,
+            notes);
+    }
+
+    public long PersonnelFileId { get; private set; }
+
+    public PersonnelFile PersonnelFile { get; private set; } = null!;
+
+    // Requester ("solicitante", D-02): a personnel-file reference by PublicId (it may be the employee
+    // themself — a resignation) plus a name snapshot; RequestedByUserId audits who typed it into the system.
+    public Guid RequesterFilePublicId { get; private set; }
+
+    public string RequesterNameSnapshot { get; private set; } = string.Empty;
+
+    public DateTime RequestDate { get; private set; }
+
+    public DateTime RetirementDate { get; private set; }
+
+    public string RetirementCategoryCode { get; private set; } = string.Empty;
+
+    public string? RetirementCategoryNameSnapshot { get; private set; }
+
+    public string RetirementReasonCode { get; private set; } = string.Empty;
+
+    public string? RetirementReasonNameSnapshot { get; private set; }
+
+    public string? Notes { get; private set; }
+
+    public string RequestStatusCode { get; private set; } = RetirementRequestStatuses.Solicitada;
+
+    public Guid RequestedByUserId { get; private set; }
+
+    public Guid? ResolvedByUserId { get; private set; }
+
+    public DateTime? ResolutionDateUtc { get; private set; }
+
+    public string? ResolutionNotes { get; private set; }
+
+    public Guid? CanceledByUserId { get; private set; }
+
+    public DateTime? CancellationDateUtc { get; private set; }
+
+    public string? CancellationNotes { get; private set; }
+
+    public Guid? ExecutedByUserId { get; private set; }
+
+    // Exact execution timestamp — the 30-day reversal window (RN-012.4) anchors here, so it is NOT
+    // normalized to date-only.
+    public DateTime? ExecutionDateUtc { get; private set; }
+
+    // Reversal snapshot (D-11), captured at execution: prior employment status, whether the linked login
+    // was active (null = no linked login), and the prior rehire-block state.
+    public string? PriorEmploymentStatusCode { get; private set; }
+
+    public bool? PriorLoginWasActive { get; private set; }
+
+    public bool? PriorRehireBlocked { get; private set; }
+
+    public string? PriorRehireBlockReason { get; private set; }
+
+    public Guid? RevertedByUserId { get; private set; }
+
+    public DateTime? ReversalDateUtc { get; private set; }
+
+    public string? ReversalReason { get; private set; }
+
+    public bool IsActive { get; private set; } = true;
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public IReadOnlyCollection<RetirementRequestClosedRecord> ClosedRecords => _closedRecords;
+
+    public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public static PersonnelFileRetirementRequest Create(
+        Guid requesterFilePublicId,
+        string requesterNameSnapshot,
+        DateTime requestDate,
+        DateTime retirementDate,
+        string retirementCategoryCode,
+        string? retirementCategoryNameSnapshot,
+        string retirementReasonCode,
+        string? retirementReasonNameSnapshot,
+        string? notes,
+        Guid requestedByUserId) =>
+        new(
+            requesterFilePublicId,
+            requesterNameSnapshot,
+            requestDate,
+            retirementDate,
+            retirementCategoryCode,
+            retirementCategoryNameSnapshot,
+            retirementReasonCode,
+            retirementReasonNameSnapshot,
+            notes,
+            requestedByUserId);
+
+    /// <summary>Edits the request's business fields — only while SOLICITADA (RN-003.1).</summary>
+    public void Update(
+        Guid requesterFilePublicId,
+        string requesterNameSnapshot,
+        DateTime requestDate,
+        DateTime retirementDate,
+        string retirementCategoryCode,
+        string? retirementCategoryNameSnapshot,
+        string retirementReasonCode,
+        string? retirementReasonNameSnapshot,
+        string? notes)
+    {
+        if (RequestStatusCode != RetirementRequestStatuses.Solicitada)
+        {
+            throw new InvalidOperationException("Only a SOLICITADA retirement request can be edited.");
+        }
+
+        ConcurrencyToken = Guid.NewGuid();
+        ApplyRequestFields(
+            requesterFilePublicId,
+            requesterNameSnapshot,
+            requestDate,
+            retirementDate,
+            retirementCategoryCode,
+            retirementCategoryNameSnapshot,
+            retirementReasonCode,
+            retirementReasonNameSnapshot,
+            notes);
+    }
+
+    /// <summary>
+    /// Authorizer resolution (RF-004): AUTORIZADA (note optional) or RECHAZADA (note mandatory — RN-004.3).
+    /// Only from SOLICITADA; RECHAZADA is terminal, AUTORIZADA enables the interview (D-07) and execution.
+    /// </summary>
+    public void Resolve(string targetStatusCode, Guid decidedByUserId, DateTime decidedAtUtc, string? notes)
+    {
+        if (RequestStatusCode != RetirementRequestStatuses.Solicitada)
+        {
+            throw new InvalidOperationException("Only a SOLICITADA retirement request can be resolved.");
+        }
+
+        var normalizedTarget = PersonnelFileNormalization.Clean(targetStatusCode, nameof(targetStatusCode)).ToUpperInvariant();
+        if (!RetirementRequestStatuses.ResolutionTargets.Contains(normalizedTarget))
+        {
+            throw new InvalidOperationException("The target status is not a valid resolution target.");
+        }
+
+        var normalizedNotes = PersonnelFileNormalization.CleanOptional(notes);
+        if (normalizedTarget == RetirementRequestStatuses.Rechazada && string.IsNullOrWhiteSpace(normalizedNotes))
+        {
+            throw new InvalidOperationException("Rejecting a retirement request requires a note.");
+        }
+
+        RequestStatusCode = normalizedTarget;
+        ResolvedByUserId = decidedByUserId;
+        ResolutionDateUtc = PersonnelFileNormalization.NormalizeDate(decidedAtUtc);
+        ResolutionNotes = normalizedNotes;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Annuls an open request (RN-005): SOLICITADA by the manager, AUTORIZADA by the authorizer (the
+    /// permission split by state lives in the handlers). An EJECUTADA is never annulled — it is reverted.
+    /// </summary>
+    public void Cancel(Guid canceledByUserId, DateTime canceledAtUtc, string? notes)
+    {
+        if (!RetirementRequestStatuses.Open.Contains(RequestStatusCode))
+        {
+            throw new InvalidOperationException("Only an open (SOLICITADA/AUTORIZADA) retirement request can be canceled.");
+        }
+
+        RequestStatusCode = RetirementRequestStatuses.Anulada;
+        CanceledByUserId = canceledByUserId;
+        CancellationDateUtc = PersonnelFileNormalization.NormalizeDate(canceledAtUtc);
+        CancellationNotes = PersonnelFileNormalization.CleanOptional(notes);
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Marks the orchestrated execution (RF-006) and captures the reversal snapshot (D-11).</summary>
+    public void MarkExecuted(
+        Guid executedByUserId,
+        DateTime executedAtUtc,
+        string priorEmploymentStatusCode,
+        bool? priorLoginWasActive,
+        bool priorRehireBlocked,
+        string? priorRehireBlockReason)
+    {
+        if (RequestStatusCode != RetirementRequestStatuses.Autorizada)
+        {
+            throw new InvalidOperationException("Only an AUTORIZADA retirement request can be executed.");
+        }
+
+        RequestStatusCode = RetirementRequestStatuses.Ejecutada;
+        ExecutedByUserId = executedByUserId;
+        ExecutionDateUtc = executedAtUtc;
+        PriorEmploymentStatusCode = PersonnelFileNormalization.Clean(priorEmploymentStatusCode, nameof(priorEmploymentStatusCode));
+        PriorLoginWasActive = priorLoginWasActive;
+        PriorRehireBlocked = priorRehireBlocked;
+        PriorRehireBlockReason = PersonnelFileNormalization.CleanOptional(priorRehireBlockReason);
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Records one plaza/contract row closed by the execution, for exact reversal (D-11).</summary>
+    public void AddClosedRecord(RetirementRequestClosedRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        _closedRecords.Add(record);
+    }
+
+    /// <summary>
+    /// Marks the reversal (RF-010): reason is mandatory (RN-010.3); every historical field is preserved —
+    /// the reversal changes the status, it never erases the record (RN-010.4).
+    /// </summary>
+    public void MarkReverted(Guid revertedByUserId, DateTime revertedAtUtc, string reason)
+    {
+        if (RequestStatusCode != RetirementRequestStatuses.Ejecutada)
+        {
+            throw new InvalidOperationException("Only an EJECUTADA retirement request can be reverted.");
+        }
+
+        RequestStatusCode = RetirementRequestStatuses.Revertida;
+        RevertedByUserId = revertedByUserId;
+        ReversalDateUtc = revertedAtUtc;
+        ReversalReason = PersonnelFileNormalization.Clean(reason, nameof(reason));
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    private void ApplyRequestFields(
+        Guid requesterFilePublicId,
+        string requesterNameSnapshot,
+        DateTime requestDate,
+        DateTime retirementDate,
+        string retirementCategoryCode,
+        string? retirementCategoryNameSnapshot,
+        string retirementReasonCode,
+        string? retirementReasonNameSnapshot,
+        string? notes)
+    {
+        if (requesterFilePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("The requester file reference is required.", nameof(requesterFilePublicId));
+        }
+
+        RequesterFilePublicId = requesterFilePublicId;
+        RequesterNameSnapshot = PersonnelFileNormalization.Clean(requesterNameSnapshot, nameof(requesterNameSnapshot));
+        RequestDate = PersonnelFileNormalization.NormalizeDate(requestDate);
+        RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
+        RetirementCategoryCode = PersonnelFileNormalization.Clean(retirementCategoryCode, nameof(retirementCategoryCode)).ToUpperInvariant();
+        RetirementCategoryNameSnapshot = PersonnelFileNormalization.CleanOptional(retirementCategoryNameSnapshot);
+        RetirementReasonCode = PersonnelFileNormalization.Clean(retirementReasonCode, nameof(retirementReasonCode)).ToUpperInvariant();
+        RetirementReasonNameSnapshot = PersonnelFileNormalization.CleanOptional(retirementReasonNameSnapshot);
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+}
+
+/// <summary>Kinds of rows a retirement execution closes (and the reversal reopens) — D-11.</summary>
+public static class RetirementClosedRecordKinds
+{
+    public const string Assignment = "ASSIGNMENT";
+    public const string Contract = "CONTRACT";
+}
+
+/// <summary>
+/// One plaza-assignment or contract row closed by a retirement execution, with the end date the row had
+/// BEFORE closing (null when the execution set it — <c>Close</c> preserves an already-fixed end date by
+/// only deactivating). The reversal reopens EXACTLY these rows via <c>Reopen(PreviousEndDate)</c> (D-11).
+/// </summary>
+public sealed class RetirementRequestClosedRecord : TenantEntity
+{
+    private RetirementRequestClosedRecord()
+    {
+    }
+
+    private RetirementRequestClosedRecord(string entityKind, Guid entityPublicId, DateTime? previousEndDate)
+    {
+        PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
+        EntityKind = PersonnelFileNormalization.Clean(entityKind, nameof(entityKind)).ToUpperInvariant();
+        EntityPublicId = entityPublicId;
+        PreviousEndDate = PersonnelFileNormalization.NormalizeDate(previousEndDate);
+    }
+
+    public long RetirementRequestId { get; private set; }
+
+    public PersonnelFileRetirementRequest RetirementRequest { get; private set; } = null!;
+
+    public string EntityKind { get; private set; } = string.Empty;
+
+    public Guid EntityPublicId { get; private set; }
+
+    public DateTime? PreviousEndDate { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
+
+    public static RetirementRequestClosedRecord Create(string entityKind, Guid entityPublicId, DateTime? previousEndDate) =>
+        new(entityKind, entityPublicId, previousEndDate);
 }
