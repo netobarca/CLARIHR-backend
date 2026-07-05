@@ -1996,4 +1996,25 @@
   <data name="SETTLEMENT_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
     <value>Un ajuste manual requiere una nota con el motivo.</value>
   </data>
+  <data name="SETTLEMENT_RETIREMENT_NOT_EXECUTED" xml:space="preserve">
+    <value>La liquidación real requiere un retiro EJECUTADO del empleado; para hipótesis use un escenario.</value>
+  </data>
+  <data name="SETTLEMENT_RETIREMENT_REVERTED" xml:space="preserve">
+    <value>El retiro del empleado fue revertido — nunca surtió efecto, por lo que no puede liquidarse.</value>
+  </data>
+  <data name="SETTLEMENT_POSITION_NOT_IN_RETIREMENT" xml:space="preserve">
+    <value>La plaza no es una de las asignaciones cerradas por el retiro ejecutado del empleado.</value>
+  </data>
+  <data name="SETTLEMENT_ALREADY_EXISTS_FOR_POSITION" xml:space="preserve">
+    <value>Ya existe una liquidación vigente para este retiro y plaza; anúlela antes de crear una nueva.</value>
+  </data>
+  <data name="SETTLEMENT_ISSUE_REQUIRES_INCOME" xml:space="preserve">
+    <value>Emitir la liquidación requiere al menos una línea de ingreso incluida.</value>
+  </data>
+  <data name="SETTLEMENT_NET_NEGATIVE_CONFIRMATION_REQUIRED" xml:space="preserve">
+    <value>El neto a pagar es negativo; emitir requiere una confirmación explícita.</value>
+  </data>
+  <data name="SETTLEMENT_ANNUL_REASON_REQUIRED" xml:space="preserve">
+    <value>Anular una liquidación emitida requiere un motivo.</value>
+  </data>
 </root>

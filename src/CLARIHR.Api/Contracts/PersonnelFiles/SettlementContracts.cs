@@ -84,3 +84,22 @@ public sealed record AddSettlementManualLineRequest(
     [Required] string ConceptCode,
     [Required] string Description,
     decimal Amount);
+
+/// <summary>
+/// Creates a REAL settlement (D-03/D-10): the retirement facts are inherited read-only from the employee's
+/// EXECUTED retirement; the plaza must be one of the assignments that retirement closed.
+/// </summary>
+public sealed record AddSettlementRequest(
+    [Required] Guid AssignedPositionPublicId,
+    DateTime RequestDate,
+    // Requester (D-06: HR only). Omit to default to the registering manager's own personnel file.
+    Guid? RequesterFilePublicId = null,
+    string? Notes = null,
+    // Override when the (locked, retired) employee "ficha" has no minimum wage registered (RN-001.7).
+    decimal? MinimumMonthlyWage = null);
+
+/// <summary>Issues the settlement (BORRADOR → EMITIDA). `confirmNegativeNet` acknowledges a negative net pay.</summary>
+public sealed record IssueSettlementRequest(bool ConfirmNegativeNet = false);
+
+/// <summary>Annuls the settlement (terminal). The reason is mandatory when annulling an EMITIDA one.</summary>
+public sealed record AnnulSettlementRequest(string? Reason = null);

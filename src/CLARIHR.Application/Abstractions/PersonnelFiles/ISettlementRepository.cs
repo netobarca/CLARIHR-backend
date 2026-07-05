@@ -61,6 +61,21 @@ public sealed record SettlementRequesterLookup(
     string? OrgUnitFunctionalAreaCode);
 
 /// <summary>
+/// The employee's most recent retirement request with the plazas it closed — the anchor of a real
+/// settlement (D-03/D-10). <c>StatusCode</c> lets the caller distinguish "not executed" from "reverted".
+/// </summary>
+public sealed record SettlementRetirementLookup(
+    long Id,
+    Guid PublicId,
+    string StatusCode,
+    DateTime RetirementDate,
+    string RetirementCategoryCode,
+    string? RetirementCategoryNameSnapshot,
+    string RetirementReasonCode,
+    string? RetirementReasonNameSnapshot,
+    IReadOnlyList<Guid> ClosedAssignmentPublicIds);
+
+/// <summary>
 /// Dedicated persistence surface of the settlement module (pattern: <c>IExitInterviewRepository</c>):
 /// CRUD over <see cref="PersonnelFileSettlement"/> plus the one-stop calculation-context resolver the
 /// data-provider step uses. Tenant isolation rides on the EF global query filter.
@@ -88,6 +103,12 @@ public interface ISettlementRepository
 
     /// <summary>Requester lookup (D-06): display name, activity and functional-area code of its org unit.</summary>
     Task<SettlementRequesterLookup?> GetRequesterLookupAsync(Guid tenantId, Guid personnelFilePublicId, CancellationToken cancellationToken);
+
+    /// <summary>The employee's most recent retirement request (any status) with its closed plazas; null when none exists.</summary>
+    Task<SettlementRetirementLookup?> GetLatestRetirementAsync(long personnelFileId, CancellationToken cancellationToken);
+
+    /// <summary>D-16 uniqueness guard: a live real settlement (non-ANULADA, active) already exists for (retirement × plaza).</summary>
+    Task<bool> HasLiveSettlementAsync(long retirementRequestId, Guid assignedPositionPublicId, CancellationToken cancellationToken);
 
     /// <summary>Adds a new settlement (lines included) to the unit of work — no save here.</summary>
     Task AddAsync(PersonnelFileSettlement settlement, CancellationToken cancellationToken);

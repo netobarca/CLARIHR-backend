@@ -60,6 +60,93 @@ public sealed class SettlementsController(
         return this.ToActionResultWithETag(result, value => value?.ConcurrencyToken ?? Guid.Empty);
     }
 
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/settlements")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSettlementResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create a real settlement from the executed retirement",
+        Description = """
+            Creates the real settlement (BORRADOR) of ONE plaza of a RETIRED employee (per-plaza
+            granularity, D-10). The retirement facts — effective date, category and reason — are inherited
+            read-only from the employee's EXECUTED retirement request (D-03), and the plaza must be one of
+            the assignments that retirement closed. At most one live settlement per retirement × plaza
+            (annul it to redo, D-16). The engine suggests and computes the five sections immediately; the
+            minimum wage is read from the employee's record (supply `minimumMonthlyWage` only when the —
+            locked — record has none). The requester can only be HR (D-06). Nothing is paid or written to
+            the external payroll: the settlement calculates and documents.
+            """)]
+    public async Task<ActionResult<PersonnelFileSettlementResponse>> AddSettlement(
+        Guid publicId,
+        [FromBody] AddSettlementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AddSettlementCommand(
+                publicId,
+                new SettlementCreateInput(
+                    request.AssignedPositionPublicId,
+                    request.RequestDate,
+                    request.RequesterFilePublicId,
+                    request.Notes,
+                    request.MinimumMonthlyWage)),
+            cancellationToken);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/settlements/{settlementPublicId:guid}/issuance")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSettlementResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Issue the settlement",
+        Description = """
+            Transitions the settlement BORRADOR → EMITIDA (D-15): the document freezes (immutable — correct
+            by annulling and recreating), the issuer and timestamp are recorded and the append-only
+            `LIQUIDACION` action lands in the employee's personnel-actions journal. Requires at least one
+            included income line; a negative net pay requires `confirmNegativeNet: true`. Issuing is a
+            documental act: no payment is executed and the external payroll is never written (FA-1).
+            """)]
+    public async Task<ActionResult<PersonnelFileSettlementResponse>> IssueSettlement(
+        Guid publicId,
+        Guid settlementPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] IssueSettlementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new IssueSettlementCommand(publicId, settlementPublicId, concurrencyToken, request.ConfirmNegativeNet),
+            cancellationToken);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/settlements/{settlementPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSettlementResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Annul the settlement",
+        Description = """
+            Annuls a real settlement (terminal, history preserved): from BORRADOR the reason is optional;
+            from EMITIDA it is mandatory. Annulling frees the (retirement × plaza) slot so a corrected
+            settlement can be created (D-16).
+            """)]
+    public async Task<ActionResult<PersonnelFileSettlementResponse>> AnnulSettlement(
+        Guid publicId,
+        Guid settlementPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulSettlementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulSettlementCommand(publicId, settlementPublicId, concurrencyToken, request.Reason),
+            cancellationToken);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/settlements/scenarios")]
     [Consumes("application/json")]
     [Produces("application/json")]

@@ -248,6 +248,64 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
               select area.Code).FirstOrDefault()))
         .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<SettlementRetirementLookup?> GetLatestRetirementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var request = await dbContext.PersonnelFileRetirementRequests
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId && item.IsActive)
+            .OrderByDescending(item => item.ExecutionDateUtc ?? DateTime.MinValue)
+            .ThenByDescending(item => item.CreatedUtc)
+            .Select(item => new
+            {
+                item.Id,
+                item.PublicId,
+                item.RequestStatusCode,
+                item.RetirementDate,
+                item.RetirementCategoryCode,
+                item.RetirementCategoryNameSnapshot,
+                item.RetirementReasonCode,
+                item.RetirementReasonNameSnapshot,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var closedAssignments = await dbContext.RetirementRequestClosedRecords
+            .AsNoTracking()
+            .Where(item => item.RetirementRequestId == request.Id && item.EntityKind == RetirementClosedRecordKinds.Assignment)
+            .Select(item => item.EntityPublicId)
+            .ToListAsync(cancellationToken);
+
+        return new SettlementRetirementLookup(
+            request.Id,
+            request.PublicId,
+            request.RequestStatusCode,
+            request.RetirementDate,
+            request.RetirementCategoryCode,
+            request.RetirementCategoryNameSnapshot,
+            request.RetirementReasonCode,
+            request.RetirementReasonNameSnapshot,
+            closedAssignments);
+    }
+
+    public Task<bool> HasLiveSettlementAsync(
+        long retirementRequestId,
+        Guid assignedPositionPublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileSettlements
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.RetirementRequestId == retirementRequestId
+                    && item.AssignedPositionPublicId == assignedPositionPublicId
+                    && item.Kind == SettlementKind.Liquidacion
+                    && item.StatusCode != SettlementStatuses.Anulada
+                    && item.IsActive,
+                cancellationToken);
+
     public Task AddAsync(PersonnelFileSettlement settlement, CancellationToken cancellationToken)
     {
         dbContext.PersonnelFileSettlements.Add(settlement);

@@ -1996,4 +1996,25 @@
   <data name="SETTLEMENT_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
     <value>A manual override requires a reason note.</value>
   </data>
+  <data name="SETTLEMENT_RETIREMENT_NOT_EXECUTED" xml:space="preserve">
+    <value>A real settlement requires an EXECUTED retirement of the employee; simulate with a scenario instead.</value>
+  </data>
+  <data name="SETTLEMENT_RETIREMENT_REVERTED" xml:space="preserve">
+    <value>The employee's retirement was reverted — it never took effect, so it cannot be settled.</value>
+  </data>
+  <data name="SETTLEMENT_POSITION_NOT_IN_RETIREMENT" xml:space="preserve">
+    <value>The plaza is not one of the assignments closed by the employee's executed retirement.</value>
+  </data>
+  <data name="SETTLEMENT_ALREADY_EXISTS_FOR_POSITION" xml:space="preserve">
+    <value>A live settlement already exists for this retirement and plaza; annul it before creating a new one.</value>
+  </data>
+  <data name="SETTLEMENT_ISSUE_REQUIRES_INCOME" xml:space="preserve">
+    <value>Issuing a settlement requires at least one included income line.</value>
+  </data>
+  <data name="SETTLEMENT_NET_NEGATIVE_CONFIRMATION_REQUIRED" xml:space="preserve">
+    <value>The net pay is negative; issuing requires an explicit confirmation.</value>
+  </data>
+  <data name="SETTLEMENT_ANNUL_REASON_REQUIRED" xml:space="preserve">
+    <value>Annulling an issued settlement requires a reason.</value>
+  </data>
 </root>

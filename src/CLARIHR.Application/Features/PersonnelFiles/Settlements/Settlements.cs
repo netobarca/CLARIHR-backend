@@ -104,6 +104,18 @@ public sealed record SettlementParametersInputModel(
     int MonthDivisorDays,
     int YearDivisorDays);
 
+/// <summary>
+/// Real-settlement creation input (D-03/D-10): the plaza to settle (one of the assignments the executed
+/// retirement closed — the retirement facts are inherited read-only) plus the header fields.
+/// </summary>
+public sealed record SettlementCreateInput(
+    Guid AssignedPositionPublicId,
+    DateTime RequestDate,
+    Guid? RequesterFilePublicId,
+    string? Notes,
+    // Override when the (locked, retired) employee "ficha" has no minimum wage registered (RN-001.7).
+    decimal? MinimumMonthlyWage);
+
 /// <summary>Scenario creation input (D-05): an active plaza, an estimated date and a hypothetical motive.</summary>
 public sealed record SettlementScenarioInput(
     Guid AssignedPositionPublicId,
@@ -119,6 +131,25 @@ public sealed record SettlementScenarioInput(
 // ── Commands / queries ───────────────────────────────────────────────────────────────────────
 
 public sealed record AddSettlementScenarioCommand(Guid PersonnelFileId, SettlementScenarioInput Item)
+    : ICommand<PersonnelFileSettlementResponse>;
+
+public sealed record AddSettlementCommand(Guid PersonnelFileId, SettlementCreateInput Item)
+    : ICommand<PersonnelFileSettlementResponse>;
+
+/// <summary>Issues the settlement (BORRADOR → EMITIDA, D-15): immutable afterwards; journals LIQUIDACION.</summary>
+public sealed record IssueSettlementCommand(
+    Guid PersonnelFileId,
+    Guid SettlementId,
+    Guid ConcurrencyToken,
+    bool ConfirmNegativeNet)
+    : ICommand<PersonnelFileSettlementResponse>;
+
+/// <summary>Annuls the settlement (terminal; reason mandatory from EMITIDA) freeing the (retirement × plaza) slot (D-16).</summary>
+public sealed record AnnulSettlementCommand(
+    Guid PersonnelFileId,
+    Guid SettlementId,
+    Guid ConcurrencyToken,
+    string? Reason)
     : ICommand<PersonnelFileSettlementResponse>;
 
 /// <summary>
@@ -252,6 +283,41 @@ internal static class SettlementErrors
         "SETTLEMENT_OVERRIDE_NOTE_REQUIRED",
         "A manual override requires a reason note.",
         ErrorType.UnprocessableEntity);
+
+    public static readonly Error RetirementNotExecuted = new(
+        "SETTLEMENT_RETIREMENT_NOT_EXECUTED",
+        "A real settlement requires an EXECUTED retirement of the employee; simulate with a scenario instead.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error RetirementReverted = new(
+        "SETTLEMENT_RETIREMENT_REVERTED",
+        "The employee's retirement was reverted — it never took effect, so it cannot be settled.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error PositionNotInRetirement = new(
+        "SETTLEMENT_POSITION_NOT_IN_RETIREMENT",
+        "The plaza is not one of the assignments closed by the employee's executed retirement.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error AlreadyExistsForPosition = new(
+        "SETTLEMENT_ALREADY_EXISTS_FOR_POSITION",
+        "A live settlement already exists for this retirement and plaza; annul it before creating a new one.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error IssueRequiresIncome = new(
+        "SETTLEMENT_ISSUE_REQUIRES_INCOME",
+        "Issuing a settlement requires at least one included income line.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error NetNegativeConfirmationRequired = new(
+        "SETTLEMENT_NET_NEGATIVE_CONFIRMATION_REQUIRED",
+        "The net pay is negative; issuing requires an explicit confirmation.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error AnnulReasonRequired = new(
+        "SETTLEMENT_ANNUL_REASON_REQUIRED",
+        "Annulling an issued settlement requires a reason.",
+        ErrorType.UnprocessableEntity);
 }
 
 // ── Validators ───────────────────────────────────────────────────────────────────────────────
@@ -287,6 +353,41 @@ internal sealed class AddSettlementScenarioCommandValidator : AbstractValidator<
         RuleFor(command => command.Item.MinimumMonthlyWage)
             .GreaterThan(0)
             .When(command => command.Item.MinimumMonthlyWage.HasValue);
+    }
+}
+
+internal sealed class AddSettlementCommandValidator : AbstractValidator<AddSettlementCommand>
+{
+    public AddSettlementCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.Item).NotNull();
+        RuleFor(command => command.Item.AssignedPositionPublicId).NotEmpty();
+        RuleFor(command => command.Item.Notes).MaximumLength(2000);
+        RuleFor(command => command.Item.MinimumMonthlyWage)
+            .GreaterThan(0)
+            .When(command => command.Item.MinimumMonthlyWage.HasValue);
+    }
+}
+
+internal sealed class IssueSettlementCommandValidator : AbstractValidator<IssueSettlementCommand>
+{
+    public IssueSettlementCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.SettlementId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class AnnulSettlementCommandValidator : AbstractValidator<AnnulSettlementCommand>
+{
+    public AnnulSettlementCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.SettlementId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Reason).MaximumLength(2000);
     }
 }
 

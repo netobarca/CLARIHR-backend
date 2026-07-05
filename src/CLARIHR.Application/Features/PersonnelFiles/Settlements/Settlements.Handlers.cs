@@ -797,6 +797,310 @@ internal sealed class DeleteSettlementScenarioCommandHandler(
     }
 }
 
+internal sealed class AddSettlementCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    ISettlementRepository settlementRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<AddSettlementCommand, PersonnelFileSettlementResponse>
+{
+    public async Task<Result<PersonnelFileSettlementResponse>> Handle(
+        AddSettlementCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageSettlementsAsync<PersonnelFileSettlementResponse>(
+            command.PersonnelFileId, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
+        if (personnelFile.LinkedUserPublicId is { } linkedUser && linkedUser == currentUserId)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.SelfActionForbidden);
+        }
+
+        // D-03: the anchor is the employee's most recent retirement, and it must be EXECUTED.
+        var retirement = await settlementRepository.GetLatestRetirementAsync(personnelFile.Id, cancellationToken);
+        if (retirement is null || retirement.StatusCode != RetirementRequestStatuses.Ejecutada)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(
+                retirement?.StatusCode == RetirementRequestStatuses.Revertida
+                    ? SettlementErrors.RetirementReverted
+                    : SettlementErrors.RetirementNotExecuted);
+        }
+
+        // D-10: the plaza must be one of the assignments that retirement closed.
+        if (!retirement.ClosedAssignmentPublicIds.Contains(command.Item.AssignedPositionPublicId))
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.PositionNotInRetirement);
+        }
+
+        // D-16: one live settlement per (retirement × plaza) — the filtered unique index is the DB backstop.
+        if (await settlementRepository.HasLiveSettlementAsync(retirement.Id, command.Item.AssignedPositionPublicId, cancellationToken))
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.AlreadyExistsForPosition);
+        }
+
+        if (command.Item.RequestDate.Date > dateTimeProvider.UtcNow.Date)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.DateIncoherent);
+        }
+
+        var context = await settlementRepository.GetCalculationContextAsync(
+            personnelFile.TenantId, personnelFile.Id, command.Item.AssignedPositionPublicId, dateTimeProvider.UtcNow, cancellationToken);
+        if (context is null)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.PositionInvalid);
+        }
+
+        if (context.MonthlyBaseSalary is not > 0)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.BaseSalaryMissing);
+        }
+
+        // RN-001.7: a retired profile is locked, so the explicit override is the escape hatch here.
+        var minimumWage = context.ProfileMinimumMonthlyWage ?? command.Item.MinimumMonthlyWage;
+        if (minimumWage is not > 0)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.MinimumWageMissing);
+        }
+
+        var requesterResult = await SettlementRequesterSupport.ResolveAsync(
+            personnelFile.TenantId, command.Item.RequesterFilePublicId, currentUserId, personnelFileRepository, settlementRepository, cancellationToken);
+        if (requesterResult.IsFailure)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(requesterResult.Error);
+        }
+
+        var separationType = await settlementRepository.GetSeparationTypeAsync(
+            personnelFile.TenantId, retirement.RetirementCategoryCode, cancellationToken) ?? RetirementSeparationType.Otra;
+
+        var settlement = PersonnelFileSettlement.CreateSettlement(
+            retirement.PublicId,
+            context.Plaza.AssignedPositionPublicId,
+            context.Plaza.PositionTitle,
+            context.Plaza.StartDate,
+            context.Plaza.CostCenterPublicId,
+            context.Plaza.CostCenterName,
+            retirement.RetirementDate,
+            retirement.RetirementCategoryCode,
+            retirement.RetirementCategoryNameSnapshot,
+            retirement.RetirementReasonCode,
+            retirement.RetirementReasonNameSnapshot,
+            requesterResult.Value.PersonnelFilePublicId,
+            requesterResult.Value.FullName,
+            command.Item.RequestDate,
+            command.Item.Notes,
+            currentUserId,
+            context.CurrencyCode);
+        settlement.BindToPersonnelFile(personnelFile.Id);
+        settlement.BindToRetirementRequest(retirement.Id);
+        settlement.SetTenantId(personnelFile.TenantId);
+        settlement.UpdateParameters(
+            minimumWage.Value,
+            indemnityCapMultiplier: 4m,
+            resignationCapMultiplier: 2m,
+            vacationDays: 15m,
+            vacationPremiumPercent: 30m,
+            aguinaldoDays: 0m,
+            resignationBenefitDays: 15m,
+            resignationMinimumServiceYears: 2,
+            aguinaldoExemptionMultiplier: 2m,
+            monthDivisorDays: 30,
+            yearDivisorDays: 365);
+
+        var warnings = SettlementCalculationSupport.Recalculate(settlement, context, separationType, personnelFile.TenantId);
+        await settlementRepository.AddAsync(settlement, cancellationToken);
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            var response = SettlementResponseMapper.Map(settlement, warnings);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(
+                auditService, personnelFile, $"Added settlement for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileSettlementResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class IssueSettlementCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ISettlementRepository settlementRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : SettlementMutationHandlerBase,
+      ICommandHandler<IssueSettlementCommand, PersonnelFileSettlementResponse>
+{
+    private const string SettlementActionTypeCode = "LIQUIDACION";
+    private const string AppliedActionStatusCode = "APLICADA";
+
+    public async Task<Result<PersonnelFileSettlementResponse>> Handle(
+        IssueSettlementCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile, settlement) = await LoadEditableAsync(
+            command.PersonnelFileId, command.SettlementId, command.ConcurrencyToken,
+            tenantContext, authorizationService, personnelFileRepository, settlementRepository, currentUserService, cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (settlement!.Kind != SettlementKind.Liquidacion)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.StateRuleViolation);
+        }
+
+        // Typed pre-checks of the domain guards (RN-14) so the API returns coded 422s, not 500s.
+        if (!settlement.Lines.Any(line => line is { ConceptClass: SettlementConceptClass.Ingreso, IsIncluded: true }))
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.IssueRequiresIncome);
+        }
+
+        if (settlement.NetPay < 0 && !command.ConfirmNegativeNet)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.NetNegativeConfirmationRequired);
+        }
+
+        _ = Guid.TryParse(currentUserService.UserId, out var issuedByUserId);
+        settlement.MarkIssued(issuedByUserId, dateTimeProvider.UtcNow, command.ConfirmNegativeNet);
+
+        // D-15: append-only LIQUIDACION action in the employee's journal (documental act — FA-1: no payroll write).
+        var action = PersonnelFilePersonnelAction.Create(
+            SettlementActionTypeCode,
+            AppliedActionStatusCode,
+            actionDateUtc: dateTimeProvider.UtcNow,
+            effectiveFromUtc: settlement.RetirementDate,
+            effectiveToUtc: null,
+            description: $"Liquidación emitida — plaza {settlement.PositionNameSnapshot ?? settlement.AssignedPositionPublicId.ToString()}, neto {settlement.NetPay:0.00} {settlement.CurrencyCode}.",
+            reference: settlement.PublicId.ToString(),
+            amount: settlement.NetPay,
+            currencyCode: settlement.CurrencyCode,
+            isSystemGenerated: true);
+        action.BindToPersonnelFile(personnelFile!.Id);
+        action.SetTenantId(personnelFile.TenantId);
+        _ = await employeeRepository.AddPersonnelActionAsync(action, cancellationToken);
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            var response = SettlementResponseMapper.Map(settlement);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(
+                auditService, personnelFile, $"Issued settlement for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileSettlementResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class AnnulSettlementCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    ISettlementRepository settlementRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<AnnulSettlementCommand, PersonnelFileSettlementResponse>
+{
+    public async Task<Result<PersonnelFileSettlementResponse>> Handle(
+        AnnulSettlementCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageSettlementsAsync<PersonnelFileSettlementResponse>(
+            command.PersonnelFileId, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
+        if (personnelFile!.LinkedUserPublicId is { } linkedUser && linkedUser == currentUserId)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.SelfActionForbidden);
+        }
+
+        // Annulment loads WITHOUT the editability guard: an EMITIDA settlement is precisely what it targets.
+        var settlement = await settlementRepository.GetTrackedAsync(personnelFile.Id, command.SettlementId, cancellationToken);
+        if (settlement is null || !settlement.IsActive)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.NotFound);
+        }
+
+        if (settlement.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        if (settlement.Kind != SettlementKind.Liquidacion
+            || settlement.StatusCode is not (SettlementStatuses.Borrador or SettlementStatuses.Emitida))
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.StateRuleViolation);
+        }
+
+        if (settlement.StatusCode == SettlementStatuses.Emitida && string.IsNullOrWhiteSpace(command.Reason))
+        {
+            return Result<PersonnelFileSettlementResponse>.Failure(SettlementErrors.AnnulReasonRequired);
+        }
+
+        settlement.Annul(currentUserId, dateTimeProvider.UtcNow, command.Reason);
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            var response = SettlementResponseMapper.Map(settlement);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(
+                auditService, personnelFile, $"Annulled settlement for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileSettlementResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
 internal sealed class GetSettlementQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
