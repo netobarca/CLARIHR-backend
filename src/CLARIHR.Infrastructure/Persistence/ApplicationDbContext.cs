@@ -370,6 +370,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RetirementRequestClosedRecord> RetirementRequestClosedRecords => Set<RetirementRequestClosedRecord>();
 
+    public DbSet<PersonnelFileSettlement> PersonnelFileSettlements => Set<PersonnelFileSettlement>();
+
+    public DbSet<PersonnelFileSettlementLine> PersonnelFileSettlementLines => Set<PersonnelFileSettlementLine>();
+
     public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
 
     public DbSet<CertificateRequestDocument> CertificateRequestDocuments => Set<CertificateRequestDocument>();
