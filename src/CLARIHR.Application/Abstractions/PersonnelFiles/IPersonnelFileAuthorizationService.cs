@@ -203,6 +203,23 @@ public interface IPersonnelFileAuthorizationService
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     /// <summary>
+    /// Read gate for settlements (settlement module D-20, HR-only — settlement data exposes salaries;
+    /// no self-service in Fase 1): the dedicated <c>PersonnelFiles.ViewSettlements</c> permission, or
+    /// Admin / IAM super-admin.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewSettlementsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for settlements (create/edit/issue/annul + scenarios — settlement module D-20): the
+    /// dedicated <c>PersonnelFiles.ManageSettlements</c> permission, or Admin / IAM super-admin.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageSettlementsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
     /// Read gate for the retirement interview tray (RN-008.1): the exit-interview reader permission
     /// (<c>ViewExitInterviews</c>) OR the retirement reader permission (<c>ViewRetirements</c>), or
     /// Admin / IAM super-admin. Reading the interview ANSWERS remains governed by the exit-interview

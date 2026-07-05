@@ -87,7 +87,9 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewRetirements", "Ver retiros definitivos", "Consulta de las solicitudes de retiro definitivo, la bandeja de la empresa y la bandeja de entrevistas de autorizados.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewRetirements"),
         new("PersonnelFiles.ManageRetirements", "Gestionar retiros definitivos", "Registrar, editar, anular y ejecutar las solicitudes de retiro definitivo de los empleados.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageRetirements"),
         new("PersonnelFiles.AuthorizeRetirement", "Autorizar retiros definitivos", "Autorizar o rechazar las solicitudes de retiro definitivo (y anular una autorizada). No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRetirement"),
-        new("PersonnelFiles.RevertRetirement", "Revertir retiros definitivos", "Revertir un retiro definitivo ejecutado restaurando los estados del empleado. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "RevertRetirement")
+        new("PersonnelFiles.RevertRetirement", "Revertir retiros definitivos", "Revertir un retiro definitivo ejecutado restaurando los estados del empleado. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "RevertRetirement"),
+        new("PersonnelFiles.ViewSettlements", "Ver liquidaciones", "Consulta de las liquidaciones de personal (detalle por expediente, bandeja de la empresa y exportaciones).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewSettlements"),
+        new("PersonnelFiles.ManageSettlements", "Gestionar liquidaciones", "Crear, editar, emitir y anular las liquidaciones de personal, y administrar los escenarios de simulacion.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSettlements")
     ];
 }
 

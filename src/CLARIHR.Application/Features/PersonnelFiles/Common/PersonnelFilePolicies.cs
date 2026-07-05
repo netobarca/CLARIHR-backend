@@ -163,4 +163,17 @@ public static class PersonnelFilePolicies
     /// excluded (D-12).
     /// </summary>
     public const string RevertRetirement = "PersonnelFiles.RevertRetirement";
+
+    /// <summary>
+    /// Read policy for settlements (settlement module D-20). Authn-only superset; the precise HR-only
+    /// gate (ViewSettlements / Admin) lives in the settlement read handlers. No self-service in Fase 1.
+    /// </summary>
+    public const string ViewSettlements = "PersonnelFiles.ViewSettlements";
+
+    /// <summary>
+    /// Write policy for settlements (create/edit/issue/annul + scenarios — settlement module D-20).
+    /// HR-only (no self-service), so it uses a RequireAssertion like ManageRetirements, kept a superset
+    /// of the precise EnsureCanManageSettlementsAsync handler gate.
+    /// </summary>
+    public const string ManageSettlements = "PersonnelFiles.ManageSettlements";
 }
