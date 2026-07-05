@@ -130,6 +130,7 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             EmploymentStatusCode: "ACTIVO",
             InstitutionalEmail: null,
             HireDate: new DateTime(2026, 1, 1),
+            MinimumMonthlyWage: null,
             Seniority: EmployeeSeniority.None,
             RetirementCategoryCode: null,
             RetirementReasonCode: null,

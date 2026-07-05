@@ -1354,6 +1354,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(countryCatalogItemId.Value, "Currency", cancellationToken),
             "BANK" => await GetCountryScopedCatalogItemsAsync<BankCatalogItem>(countryCatalogItemId.Value, "Bank", cancellationToken),
             "COMPENSATIONCONCEPTTYPE" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>(countryCatalogItemId.Value, "CompensationConceptType", cancellationToken),
+            "SETTLEMENTSTATUS" => await GetCountryScopedCatalogItemsAsync<SettlementStatusCatalogItem>(countryCatalogItemId.Value, "SettlementStatus", cancellationToken),
+            "SETTLEMENTCONCEPT" => await GetCountryScopedCatalogItemsAsync<SettlementConceptCatalogItem>(countryCatalogItemId.Value, "SettlementConcept", cancellationToken),
             "PAYPERIOD" => await GetCountryScopedCatalogItemsAsync<PayPeriodCatalogItem>(countryCatalogItemId.Value, "PayPeriod", cancellationToken),
             "CALCULATIONBASE" => await GetCountryScopedCatalogItemsAsync<CalculationBaseCatalogItem>(countryCatalogItemId.Value, "CalculationBase", cancellationToken),
             "PAYMENTMETHOD" => await GetCountryScopedCatalogItemsAsync<PaymentMethodCatalogItem>(countryCatalogItemId.Value, "PaymentMethod", cancellationToken),
@@ -1414,6 +1416,46 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
                 item.IsBaseSalary,
                 item.DefaultPensionedEmployerRate,
                 item.MinContributionBase,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<SettlementConceptResponse>> GetSettlementConceptsAsync(
+        string? countryCode,
+        SettlementConceptClass? conceptClass,
+        CancellationToken cancellationToken)
+    {
+        var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
+        if (countryCatalogItemId is null)
+        {
+            return [];
+        }
+
+        var query = dbContext.SettlementConceptCatalogItems
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId.Value);
+
+        if (conceptClass is not null)
+        {
+            query = query.Where(item => item.ConceptClass == conceptClass.Value);
+        }
+
+        return await query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.NormalizedCode)
+            .Select(item => new SettlementConceptResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.ConceptClass,
+                item.AffectsIsss,
+                item.AffectsAfp,
+                item.AffectsRenta,
+                item.ExemptionRule,
+                item.ExemptionMultiplier,
+                item.IsSystemCalculated,
+                item.DefaultRatePercent,
                 item.IsActive,
                 item.SortOrder))
             .ToArrayAsync(cancellationToken);
@@ -1594,6 +1636,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CERTIFICATEDELIVERYMETHOD" => await IsCountryScopedCatalogCodeActiveAsync<CertificateDeliveryMethodCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CERTIFICATEPURPOSE" => await IsCountryScopedCatalogCodeActiveAsync<CertificatePurposeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "RETIREMENTREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RetirementRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "SETTLEMENTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<SettlementStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "SETTLEMENTCONCEPT" => await IsCountryScopedCatalogCodeActiveAsync<SettlementConceptCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

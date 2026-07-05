@@ -201,7 +201,8 @@ public sealed class PersonnelFileEmploymentController(
                 request.EmploymentStatusCode,
                 request.HireDate,
                 concurrencyToken,
-                request.InstitutionalEmail),
+                request.InstitutionalEmail,
+                request.MinimumMonthlyWage),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);

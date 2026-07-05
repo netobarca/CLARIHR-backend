@@ -17,11 +17,12 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     private PersonnelFileEmployeeProfile(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate)
+        DateTime hireDate,
+        decimal? minimumMonthlyWage)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
-        Update(employeeCode, employmentStatusCode, hireDate);
+        Update(employeeCode, employmentStatusCode, hireDate, minimumMonthlyWage);
     }
 
     public long PersonnelFileId { get; private set; }
@@ -49,6 +50,12 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
 
     public DateTime? RetirementDate { get; private set; }
 
+    // Applicable minimum monthly wage (RF-011 of the settlement module, ratified §17.16: "el salario
+    // mínimo debe estar en la ficha del empleado"). Reflects the employee's sector; the settlement
+    // copies it as an auditable snapshot with override (a retired profile rejects the PUT, so the
+    // override is the escape hatch there). Null = not configured yet.
+    public decimal? MinimumMonthlyWage { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
@@ -56,8 +63,9 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     public static PersonnelFileEmployeeProfile Create(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate) =>
-        new(employeeCode, employmentStatusCode, hireDate);
+        DateTime hireDate,
+        decimal? minimumMonthlyWage = null) =>
+        new(employeeCode, employmentStatusCode, hireDate, minimumMonthlyWage);
 
     /// <summary>
     /// Updates the editable employment data. The retirement metadata is DELIBERATELY untouched (D-01 of the
@@ -67,12 +75,19 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
     public void Update(
         string employeeCode,
         string employmentStatusCode,
-        DateTime hireDate)
+        DateTime hireDate,
+        decimal? minimumMonthlyWage = null)
     {
+        if (minimumMonthlyWage is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumMonthlyWage), "The minimum monthly wage must be greater than zero.");
+        }
+
         EmployeeCode = PersonnelFileNormalization.Clean(employeeCode, nameof(employeeCode));
         NormalizedEmployeeCode = PersonnelFileNormalization.NormalizeCode(employeeCode);
         EmploymentStatusCode = PersonnelFileNormalization.Clean(employmentStatusCode, nameof(employmentStatusCode));
         HireDate = PersonnelFileNormalization.NormalizeDate(hireDate);
+        MinimumMonthlyWage = minimumMonthlyWage;
         ConcurrencyToken = Guid.NewGuid();
     }
 

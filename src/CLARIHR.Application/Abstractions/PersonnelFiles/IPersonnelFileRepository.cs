@@ -203,6 +203,14 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyCollection<CompensationConceptTypeResponse>>([]);
 
+    // Default no-op for the same reason: the enriched settlement-concept catalog (settlement module D-07)
+    // is only queried by its dedicated read endpoint.
+    Task<IReadOnlyCollection<SettlementConceptResponse>> GetSettlementConceptsAsync(
+        string? countryCode,
+        CLARIHR.Domain.PersonnelFiles.SettlementConceptClass? conceptClass,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<SettlementConceptResponse>>([]);
+
     /// <summary>
     /// Normalized codes of the concept types flagged as base salary (IsBaseSalary, D-12/DP-08) for the
     /// company's country. The single-active-base-salary rule matches concepts against these codes,

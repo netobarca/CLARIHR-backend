@@ -122,7 +122,11 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     DateTime HireDate,
     // The institutional email is the employee's login. Supply it to change it (record + linked account);
     // omit/leave null to keep the current one — it cannot be cleared while a login account is linked.
-    string? InstitutionalEmail = null);
+    string? InstitutionalEmail = null,
+    // Applicable minimum monthly wage (settlement module RF-011, ratified §17.16: it lives on the
+    // employee "ficha" and the liquidación reads it from here to derive the legal caps). Optional,
+    // must be > 0 when supplied; part of the upsert like the other fields.
+    decimal? MinimumMonthlyWage = null);
 
 public sealed record AddEmploymentAssignmentRequest(
     // Required server-side: catalog-backed code (general-catalogs `assignment-types`). Sending null/omitting it

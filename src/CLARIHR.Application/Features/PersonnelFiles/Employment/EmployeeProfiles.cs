@@ -28,6 +28,9 @@ public sealed record PersonnelFileEmployeeProfileResponse(
     string EmploymentStatusCode,
     string? InstitutionalEmail,
     DateTime HireDate,
+    // Applicable minimum monthly wage (settlement module RF-011, ratified: it lives on the employee
+    // "ficha" and feeds the legal caps of the liquidación). Null = not configured yet.
+    decimal? MinimumMonthlyWage,
     EmployeeSeniority Seniority,
     string? RetirementCategoryCode,
     string? RetirementReasonCode,
@@ -85,7 +88,10 @@ public sealed record UpdatePersonnelFileEmployeeProfileCommand(
     Guid ConcurrencyToken,
     // The institutional email is the employee's login account identifier. When supplied and changed, the
     // handler re-syncs the linked account so sign-in stays consistent (full edit). Null leaves it unchanged.
-    string? InstitutionalEmail = null)
+    string? InstitutionalEmail = null,
+    // Applicable minimum monthly wage (settlement module RF-011): part of the upsert like every other
+    // employment field; null clears/leaves it unset.
+    decimal? MinimumMonthlyWage = null)
     : ICommand<PersonnelFileEmployeeProfileResponse>;
 
 public sealed record GetPersonnelFileEmployeeProfileQuery(Guid PersonnelFileId)
@@ -133,6 +139,9 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandValidator : Abstr
             .MaximumLength(256)
             .EmailAddress()
             .When(command => !string.IsNullOrWhiteSpace(command.InstitutionalEmail));
+        RuleFor(command => command.MinimumMonthlyWage)
+            .GreaterThan(0)
+            .When(command => command.MinimumMonthlyWage.HasValue);
     }
 }
 
@@ -236,7 +245,8 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
         var entity = PersonnelFileEmployeeProfile.Create(
             command.EmployeeCode,
             command.EmploymentStatusCode,
-            command.HireDate);
+            command.HireDate,
+            command.MinimumMonthlyWage);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 

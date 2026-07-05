@@ -249,6 +249,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RetirementRequestStatusCatalogItem> RetirementRequestStatusCatalogItems => Set<RetirementRequestStatusCatalogItem>();
 
+    public DbSet<SettlementStatusCatalogItem> SettlementStatusCatalogItems => Set<SettlementStatusCatalogItem>();
+
+    public DbSet<SettlementConceptCatalogItem> SettlementConceptCatalogItems => Set<SettlementConceptCatalogItem>();
+
     public DbSet<CertificateDeliveryMethodCatalogItem> CertificateDeliveryMethodCatalogItems => Set<CertificateDeliveryMethodCatalogItem>();
 
     public DbSet<CertificatePurposeCatalogItem> CertificatePurposeCatalogItems => Set<CertificatePurposeCatalogItem>();
