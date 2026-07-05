@@ -118,4 +118,12 @@ public interface ISettlementRepository
 
     /// <summary>Read-only list of the file's settlements and scenarios (active ones), lines included.</summary>
     Task<IReadOnlyCollection<PersonnelFileSettlement>> GetByFileAsync(long personnelFileId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Tracked live real settlements (non-ANULADA, active) of one retirement request — the reversal hook
+    /// (settlement D-17) annuls the drafts and blocks on an issued one.
+    /// </summary>
+    Task<IReadOnlyCollection<PersonnelFileSettlement>> GetLiveSettlementsForRetirementAsync(
+        long retirementRequestId,
+        CancellationToken cancellationToken);
 }

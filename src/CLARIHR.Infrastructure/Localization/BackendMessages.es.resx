@@ -2017,4 +2017,7 @@
   <data name="SETTLEMENT_ANNUL_REASON_REQUIRED" xml:space="preserve">
     <value>Anular una liquidación emitida requiere un motivo.</value>
   </data>
+  <data name="RETIREMENT_REVERSAL_BLOCKED_BY_SETTLEMENT" xml:space="preserve">
+    <value>El retiro tiene una liquidación EMITIDA; anule la liquidación primero y luego revierta.</value>
+  </data>
 </root>

@@ -333,6 +333,17 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
             .ThenByDescending(item => item.CreatedUtc)
             .ToArrayAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileSettlement>> GetLiveSettlementsForRetirementAsync(
+        long retirementRequestId,
+        CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileSettlements
+            .Include(item => item.Lines)
+            .Where(item => item.RetirementRequestId == retirementRequestId
+                && item.Kind == SettlementKind.Liquidacion
+                && item.StatusCode != SettlementStatuses.Anulada
+                && item.IsActive)
+            .ToArrayAsync(cancellationToken);
+
     /// <summary>Instance rates win; the country type-catalog defaults are the fallback (D-12).</summary>
     private async Task<SettlementSchemeDto> ResolveSchemeAsync(
         long countryCatalogItemId,

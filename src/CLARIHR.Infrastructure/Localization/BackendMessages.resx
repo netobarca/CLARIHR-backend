@@ -2017,4 +2017,7 @@
   <data name="SETTLEMENT_ANNUL_REASON_REQUIRED" xml:space="preserve">
     <value>Annulling an issued settlement requires a reason.</value>
   </data>
+  <data name="RETIREMENT_REVERSAL_BLOCKED_BY_SETTLEMENT" xml:space="preserve">
+    <value>The retirement has an ISSUED settlement; annul the settlement first, then revert.</value>
+  </data>
 </root>
