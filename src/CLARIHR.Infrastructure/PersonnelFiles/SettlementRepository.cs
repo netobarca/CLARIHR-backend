@@ -440,11 +440,13 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
         DateTime? retirementToUtc,
         string? search)
     {
+        // Member-init (not a positional record ctor): EF composes further Where/GroupBy over this
+        // intermediate projection reliably only with the member-init/transparent-identifier shape.
         var query =
             from settlement in dbContext.PersonnelFileSettlements.AsNoTracking()
             join file in dbContext.PersonnelFiles.AsNoTracking() on settlement.PersonnelFileId equals file.Id
             where settlement.IsActive
-            select new SettlementFileRow(settlement, file);
+            select new SettlementFileRow { Settlement = settlement, File = file };
 
         if (!string.IsNullOrWhiteSpace(kind) && Enum.TryParse<SettlementKind>(kind.Trim(), ignoreCase: true, out var parsedKind))
         {
@@ -506,7 +508,12 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
         return query;
     }
 
-    private sealed record SettlementFileRow(PersonnelFileSettlement Settlement, Domain.PersonnelFiles.PersonnelFile File);
+    private sealed class SettlementFileRow
+    {
+        public required PersonnelFileSettlement Settlement { get; init; }
+
+        public required Domain.PersonnelFiles.PersonnelFile File { get; init; }
+    }
 
     /// <summary>Instance rates win; the country type-catalog defaults are the fallback (D-12).</summary>
     private async Task<SettlementSchemeDto> ResolveSchemeAsync(

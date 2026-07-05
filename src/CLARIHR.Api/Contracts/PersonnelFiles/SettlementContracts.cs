@@ -10,29 +10,31 @@ namespace CLARIHR.Api.Contracts.PersonnelFiles;
 /// </summary>
 public sealed record SettlementParametersRequest(
     decimal MinimumMonthlyWage,
-    decimal IndemnityCapMultiplier = 4m,
-    decimal ResignationCapMultiplier = 2m,
-    decimal VacationDays = 15m,
-    decimal VacationPremiumPercent = 30m,
-    decimal AguinaldoDays = 0m,
-    decimal ResignationBenefitDays = 15m,
-    int ResignationMinimumServiceYears = 2,
-    decimal AguinaldoExemptionMultiplier = 2m,
-    int MonthDivisorDays = 30,
-    int YearDivisorDays = 365)
+    // Nullable-with-server-default: omitted values fall back to the ratified SV defaults in ToModel()
+    // (constructor defaults are not applied by the JSON deserializer, so the contract owns them here).
+    decimal? IndemnityCapMultiplier = null,
+    decimal? ResignationCapMultiplier = null,
+    decimal? VacationDays = null,
+    decimal? VacationPremiumPercent = null,
+    decimal? AguinaldoDays = null,
+    decimal? ResignationBenefitDays = null,
+    int? ResignationMinimumServiceYears = null,
+    decimal? AguinaldoExemptionMultiplier = null,
+    int? MonthDivisorDays = null,
+    int? YearDivisorDays = null)
 {
     public SettlementParametersInputModel ToModel() => new(
         MinimumMonthlyWage,
-        IndemnityCapMultiplier,
-        ResignationCapMultiplier,
-        VacationDays,
-        VacationPremiumPercent,
-        AguinaldoDays,
-        ResignationBenefitDays,
-        ResignationMinimumServiceYears,
-        AguinaldoExemptionMultiplier,
-        MonthDivisorDays,
-        YearDivisorDays);
+        IndemnityCapMultiplier ?? 4m,
+        ResignationCapMultiplier ?? 2m,
+        VacationDays ?? 15m,
+        VacationPremiumPercent ?? 30m,
+        AguinaldoDays ?? 0m,
+        ResignationBenefitDays ?? 15m,
+        ResignationMinimumServiceYears ?? 2,
+        AguinaldoExemptionMultiplier ?? 2m,
+        MonthDivisorDays ?? 30,
+        YearDivisorDays ?? 365);
 }
 
 /// <summary>
