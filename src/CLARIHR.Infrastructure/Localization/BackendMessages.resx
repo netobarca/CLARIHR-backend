@@ -1960,4 +1960,40 @@
   <data name="EMPLOYMENT_STATUS_RETIRADO_RESERVED" xml:space="preserve">
     <value>The employment information of a retired employee is managed by the retirement module (reversal or rehire); the RETIRADO status is reserved to its execution.</value>
   </data>
+  <data name="SETTLEMENT_NOT_FOUND" xml:space="preserve">
+    <value>The settlement does not exist for this personnel file.</value>
+  </data>
+  <data name="SETTLEMENT_LINE_NOT_FOUND" xml:space="preserve">
+    <value>The settlement line does not exist.</value>
+  </data>
+  <data name="SETTLEMENT_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The operation is not valid for the settlement's current state (only a BORRADOR settlement or a scenario is editable; a real settlement is annulled, never deleted).</value>
+  </data>
+  <data name="SETTLEMENT_SCENARIO_EMPLOYEE_RETIRED" xml:space="preserve">
+    <value>A scenario simulates over an active employee; a retired employee gets a real settlement anchored to the executed retirement.</value>
+  </data>
+  <data name="SETTLEMENT_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position (plaza) does not belong to the personnel file or is not valid for this settlement kind.</value>
+  </data>
+  <data name="SETTLEMENT_BASE_SALARY_MISSING" xml:space="preserve">
+    <value>The plaza has no active negotiated base salary (SALARIO_BASE); configure the compensation before settling.</value>
+  </data>
+  <data name="SETTLEMENT_MINIMUM_WAGE_MISSING" xml:space="preserve">
+    <value>The employee's record has no applicable minimum monthly wage; register it on the employment information or supply it in the settlement.</value>
+  </data>
+  <data name="SETTLEMENT_REQUESTER_NOT_HR" xml:space="preserve">
+    <value>The settlement requester can only be a member of HR (the registering manager by default).</value>
+  </data>
+  <data name="SETTLEMENT_SELF_ACTION_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee cannot manage their own settlement.</value>
+  </data>
+  <data name="SETTLEMENT_DATE_INCOHERENT" xml:space="preserve">
+    <value>The request date cannot be in the future and the retirement date cannot precede the plaza start date.</value>
+  </data>
+  <data name="SETTLEMENT_CONCEPT_INVALID" xml:space="preserve">
+    <value>The settlement concept is not an active manual concept of the catalog for this section.</value>
+  </data>
+  <data name="SETTLEMENT_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
+    <value>A manual override requires a reason note.</value>
+  </data>
 </root>

@@ -158,7 +158,7 @@ public sealed class SettlementDomainTests
     {
         var settlement = NewSettlement();
         settlement.AddLine(IncomeLine());
-        settlement.ApplyCalculation(600m, 4, 121, 600m, 600m, 19m, 100m, 10m, 90m, 60m, 160m);
+        settlement.ApplyCalculation(600m, 4, 121, 600m, 600m, 100m, 10m, 90m, 60m, 160m);
 
         settlement.MarkIssued(Guid.NewGuid(), AsOf, confirmNegativeNet: false);
 
@@ -183,7 +183,7 @@ public sealed class SettlementDomainTests
     {
         var settlement = NewSettlement();
         settlement.AddLine(IncomeLine());
-        settlement.ApplyCalculation(600m, 4, 121, 600m, 600m, 19m, 100m, 150m, -50m, 60m, 160m);
+        settlement.ApplyCalculation(600m, 4, 121, 600m, 600m, 100m, 150m, -50m, 60m, 160m);
 
         Assert.Throws<InvalidOperationException>(() => settlement.MarkIssued(Guid.NewGuid(), AsOf, confirmNegativeNet: false));
         settlement.MarkIssued(Guid.NewGuid(), AsOf, confirmNegativeNet: true);

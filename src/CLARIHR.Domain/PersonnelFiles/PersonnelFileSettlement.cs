@@ -136,7 +136,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
 
     public decimal VacationPremiumPercent { get; private set; }
 
-    /// <summary>Aguinaldo days per the seniority tier (15/19/21); the engine computes it and an override may fix it.</summary>
+    /// <summary>Aguinaldo days override (0 = automatic: the engine applies the 15/19/21 seniority tier).</summary>
     public decimal AguinaldoDays { get; private set; }
 
     public decimal ResignationBenefitDays { get; private set; }
@@ -386,7 +386,6 @@ public sealed class PersonnelFileSettlement : TenantEntity
         int seniorityDays,
         decimal cappedMonthlySalaryIndemnity,
         decimal cappedMonthlySalaryResignation,
-        decimal aguinaldoDays,
         decimal totalIncomes,
         decimal totalDeductions,
         decimal netPay,
@@ -399,7 +398,6 @@ public sealed class PersonnelFileSettlement : TenantEntity
         SeniorityDays = seniorityDays;
         CappedMonthlySalaryIndemnity = cappedMonthlySalaryIndemnity;
         CappedMonthlySalaryResignation = cappedMonthlySalaryResignation;
-        AguinaldoDays = aguinaldoDays;
         TotalIncomes = totalIncomes;
         TotalDeductions = totalDeductions;
         NetPay = netPay;
@@ -623,6 +621,12 @@ public sealed class PersonnelFileSettlementLine : TenantEntity
     /// <summary>Days/factor the formula used (e.g. pending days, days since the vacation anniversary) — editable input.</summary>
     public decimal? UnitsOrDays { get; private set; }
 
+    /// <summary>
+    /// True when the user fixed the days/factor (G-04: e.g. vacation days already taken). An overridden
+    /// input survives recalculations; a non-overridden one is recomputed from the dates by the engine.
+    /// </summary>
+    public bool UnitsOverridden { get; private set; }
+
     public decimal CalculatedAmount { get; private set; }
 
     /// <summary>Exempt portion of the amount for Renta purposes (RN-009.4).</summary>
@@ -744,7 +748,7 @@ public sealed class PersonnelFileSettlementLine : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    /// <summary>Edits the formula input (days/base) of an engine line — the engine recomputes right after.</summary>
+    /// <summary>Fixes the formula input (days/factor) of an engine line — it survives recalculations (G-04).</summary>
     public void SetUnitsOrDays(decimal unitsOrDays)
     {
         if (unitsOrDays < 0)
@@ -753,6 +757,14 @@ public sealed class PersonnelFileSettlementLine : TenantEntity
         }
 
         UnitsOrDays = unitsOrDays;
+        UnitsOverridden = true;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Releases a fixed days/factor input so the engine recomputes it from the dates again.</summary>
+    public void ClearUnitsOverride()
+    {
+        UnitsOverridden = false;
         ConcurrencyToken = Guid.NewGuid();
     }
 

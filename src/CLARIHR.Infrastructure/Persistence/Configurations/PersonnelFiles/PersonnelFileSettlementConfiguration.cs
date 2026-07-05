@@ -117,6 +117,7 @@ internal sealed class PersonnelFileSettlementLineConfiguration : IEntityTypeConf
         builder.Property(item => item.IsSystemCalculated).HasColumnName("is_system_calculated");
         builder.Property(item => item.CalculationBase).HasColumnName("calculation_base").HasColumnType("numeric(18,2)");
         builder.Property(item => item.UnitsOrDays).HasColumnName("units_or_days").HasColumnType("numeric(12,4)");
+        builder.Property(item => item.UnitsOverridden).HasColumnName("units_overridden");
         builder.Property(item => item.CalculatedAmount).HasColumnName("calculated_amount").HasColumnType("numeric(18,2)");
         builder.Property(item => item.ExemptAmount).HasColumnName("exempt_amount").HasColumnType("numeric(18,2)");
         builder.Property(item => item.TaxableExcessAmount).HasColumnName("taxable_excess_amount").HasColumnType("numeric(18,2)");

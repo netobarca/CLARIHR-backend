@@ -173,6 +173,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonnelFileRepository, PersonnelFileRepository>();
         services.AddScoped<IPersonnelFileDashboardRepository, PersonnelFileDashboardRepository>();
         services.AddScoped<IExitInterviewRepository, ExitInterviewRepository>();
+        services.AddScoped<ISettlementRepository, SettlementRepository>();
         services.AddScoped<IEducationCatalogRepository, EducationCatalogRepository>();
         services.AddScoped<IDocumentTypeCatalogRepository, DocumentTypeCatalogs.DocumentTypeCatalogRepository>();
         services.AddScoped<ICatalogTypeDescriptorRepository, CatalogTypes.CatalogTypeDescriptorRepository>();

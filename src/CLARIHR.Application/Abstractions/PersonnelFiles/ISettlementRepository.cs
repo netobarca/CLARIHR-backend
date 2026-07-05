@@ -1,0 +1,100 @@
+using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.PersonnelFiles;
+
+namespace CLARIHR.Application.Abstractions.PersonnelFiles;
+
+/// <summary>The plaza (assignment) a settlement values: seniority anchor, occupancy state and cost center (D-10/P-01).</summary>
+public sealed record SettlementPlazaContext(
+    Guid AssignedPositionPublicId,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    bool IsPrimary,
+    string? PositionTitle,
+    Guid? CostCenterPublicId,
+    string? CostCenterName);
+
+/// <summary>A line suggested from the plaza's compensation config (pending bonus/commission, external installment — D-08).</summary>
+public sealed record SettlementSuggestedItemDto(
+    string ConceptCode,
+    string Description,
+    decimal Amount,
+    string? CounterpartyName);
+
+/// <summary>ISSS/AFP scheme effective for the employee: instance rates with catalog-default fallback (D-12).</summary>
+public sealed record SettlementSchemeDto(
+    decimal EmployeeRatePercent,
+    decimal EmployerRatePercent,
+    decimal? ContributionCap);
+
+/// <summary>One income-tax withholding bracket in force (tabla oficial vigente, MENSUAL).</summary>
+public sealed record SettlementTaxBracketDto(
+    decimal LowerBound,
+    decimal? UpperBound,
+    decimal FixedFee,
+    decimal RatePercent,
+    decimal ExcessOver);
+
+/// <summary>
+/// Everything the settlement engine consumes, resolved in ONE trip (pre-development clarification №2:
+/// insumos read at create/regenerate and snapshotted — later config changes never silently recalculate).
+/// </summary>
+public sealed record SettlementCalculationContext(
+    SettlementPlazaContext Plaza,
+    decimal? MonthlyBaseSalary,
+    DateTime? HireDate,
+    decimal? ProfileMinimumMonthlyWage,
+    DateTime? ProfileRetirementDate,
+    IReadOnlyList<SettlementSuggestedItemDto> SuggestedItems,
+    SettlementSchemeDto Isss,
+    SettlementSchemeDto Afp,
+    IReadOnlyList<SettlementTaxBracketDto> RentaBrackets,
+    IReadOnlyList<SettlementConceptResponse> Concepts,
+    string CurrencyCode);
+
+/// <summary>Lookup of a requester candidate (D-06: HR only) — display name + activity + HR-area membership.</summary>
+public sealed record SettlementRequesterLookup(
+    Guid PersonnelFilePublicId,
+    string FullName,
+    bool IsActive,
+    string? HrFunctionalAreaCode,
+    string? OrgUnitFunctionalAreaCode);
+
+/// <summary>
+/// Dedicated persistence surface of the settlement module (pattern: <c>IExitInterviewRepository</c>):
+/// CRUD over <see cref="PersonnelFileSettlement"/> plus the one-stop calculation-context resolver the
+/// data-provider step uses. Tenant isolation rides on the EF global query filter.
+/// </summary>
+public interface ISettlementRepository
+{
+    /// <summary>
+    /// Resolves every engine input for one plaza of one employee: assignment facts (start date — the
+    /// per-plaza seniority anchor P-01 — cost center, primary flag), the negotiated base salary
+    /// (SALARIO_BASE of the plaza), the suggested items (pending BONO/COMISION incomes and Externo
+    /// deductions of the plaza — plus the employee-level ones when the plaza is the principal, P-03),
+    /// the effective ISSS/AFP schemes (instance → catalog defaults), the Renta brackets in force, the
+    /// settlement-concept catalog of the company's country, the profile facts (hire date, minimum wage,
+    /// retirement state) and the company currency. Null when the assignment does not belong to the file.
+    /// </summary>
+    Task<SettlementCalculationContext?> GetCalculationContextAsync(
+        Guid tenantId,
+        long personnelFileId,
+        Guid assignedPositionPublicId,
+        DateTime asOfUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>HRIS separation type of a retirement category (drives the suggested compensation line — D-08).</summary>
+    Task<RetirementSeparationType?> GetSeparationTypeAsync(Guid tenantId, string retirementCategoryCode, CancellationToken cancellationToken);
+
+    /// <summary>Requester lookup (D-06): display name, activity and functional-area code of its org unit.</summary>
+    Task<SettlementRequesterLookup?> GetRequesterLookupAsync(Guid tenantId, Guid personnelFilePublicId, CancellationToken cancellationToken);
+
+    /// <summary>Adds a new settlement (lines included) to the unit of work — no save here.</summary>
+    Task AddAsync(PersonnelFileSettlement settlement, CancellationToken cancellationToken);
+
+    /// <summary>Tracked load (lines included) for mutations; null when it does not exist or belongs to another file.</summary>
+    Task<PersonnelFileSettlement?> GetTrackedAsync(long personnelFileId, Guid settlementPublicId, CancellationToken cancellationToken);
+
+    /// <summary>Read-only list of the file's settlements and scenarios (active ones), lines included.</summary>
+    Task<IReadOnlyCollection<PersonnelFileSettlement>> GetByFileAsync(long personnelFileId, CancellationToken cancellationToken);
+}

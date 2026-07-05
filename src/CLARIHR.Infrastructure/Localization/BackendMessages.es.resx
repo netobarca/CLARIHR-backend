@@ -1960,4 +1960,40 @@
   <data name="EMPLOYMENT_STATUS_RETIRADO_RESERVED" xml:space="preserve">
     <value>La información de empleo de un empleado retirado se gestiona desde el módulo de retiro (reversión o recontratación); el estado RETIRADO está reservado a su ejecución.</value>
   </data>
+  <data name="SETTLEMENT_NOT_FOUND" xml:space="preserve">
+    <value>La liquidación no existe para este expediente.</value>
+  </data>
+  <data name="SETTLEMENT_LINE_NOT_FOUND" xml:space="preserve">
+    <value>La línea de la liquidación no existe.</value>
+  </data>
+  <data name="SETTLEMENT_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La operación no es válida para el estado actual de la liquidación (solo un BORRADOR o un escenario son editables; una liquidación real se anula, nunca se elimina).</value>
+  </data>
+  <data name="SETTLEMENT_SCENARIO_EMPLOYEE_RETIRED" xml:space="preserve">
+    <value>El escenario simula sobre un empleado activo; a un empleado retirado le corresponde la liquidación real anclada al retiro ejecutado.</value>
+  </data>
+  <data name="SETTLEMENT_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza no pertenece al expediente o no es válida para este tipo de liquidación.</value>
+  </data>
+  <data name="SETTLEMENT_BASE_SALARY_MISSING" xml:space="preserve">
+    <value>La plaza no tiene un salario base negociado (SALARIO_BASE) activo; configure la compensación antes de liquidar.</value>
+  </data>
+  <data name="SETTLEMENT_MINIMUM_WAGE_MISSING" xml:space="preserve">
+    <value>La ficha del empleado no tiene salario mínimo aplicable; regístrelo en la información de empleo o indíquelo en la liquidación.</value>
+  </data>
+  <data name="SETTLEMENT_REQUESTER_NOT_HR" xml:space="preserve">
+    <value>El solicitante de la liquidación solo puede ser un miembro de RRHH (por defecto, el gestor que la registra).</value>
+  </data>
+  <data name="SETTLEMENT_SELF_ACTION_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto no puede gestionar su propia liquidación.</value>
+  </data>
+  <data name="SETTLEMENT_DATE_INCOHERENT" xml:space="preserve">
+    <value>La fecha de solicitud no puede ser futura y la fecha de retiro no puede ser anterior al inicio de la plaza.</value>
+  </data>
+  <data name="SETTLEMENT_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto no es un concepto manual activo del catálogo para esta sección.</value>
+  </data>
+  <data name="SETTLEMENT_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
+    <value>Un ajuste manual requiere una nota con el motivo.</value>
+  </data>
 </root>

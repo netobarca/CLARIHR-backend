@@ -645,7 +645,7 @@ internal static class SettlementCalculationRules
 }
 
 /// <summary>Canonical settlement concept codes (seed SV of `settlement-concepts`, D-07).</summary>
-internal static class SettlementConceptCodes
+public static class SettlementConceptCodes
 {
     public const string Salario = "SALARIO";
     public const string VacacionProporcional = "VACACION_PROPORCIONAL";
