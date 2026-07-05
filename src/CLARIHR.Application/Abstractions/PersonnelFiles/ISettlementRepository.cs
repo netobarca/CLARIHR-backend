@@ -126,4 +126,10 @@ public interface ISettlementRepository
     Task<IReadOnlyCollection<PersonnelFileSettlement>> GetLiveSettlementsForRetirementAsync(
         long retirementRequestId,
         CancellationToken cancellationToken);
+
+    /// <summary>Company-wide bandeja page (RF-006): filters + paging + per-status counts.</summary>
+    Task<SettlementBandejaResponse> QuerySettlementsAsync(QuerySettlementsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>Flat export rows of the filtered bandeja (RF-007c), capped at <c>MaxRows</c> when set.</summary>
+    Task<IReadOnlyCollection<SettlementExportRow>> GetSettlementExportRowsAsync(ExportSettlementsQuery query, CancellationToken cancellationToken);
 }

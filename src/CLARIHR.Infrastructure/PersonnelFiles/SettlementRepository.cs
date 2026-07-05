@@ -344,6 +344,170 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
                 && item.IsActive)
             .ToArrayAsync(cancellationToken);
 
+    public async Task<SettlementBandejaResponse> QuerySettlementsAsync(
+        QuerySettlementsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredSettlements(
+            query.Kind, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+            query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        // Per-status counts over the full filter (scenarios roll up under the ESCENARIO key).
+        var statusCounts = await filtered
+            .GroupBy(row => row.Settlement.Kind == SettlementKind.Escenario
+                ? "ESCENARIO"
+                : (row.Settlement.StatusCode ?? string.Empty))
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Settlement.RequestDate)
+            .ThenByDescending(row => row.Settlement.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new SettlementListItemResponse(
+                row.Settlement.PublicId,
+                row.File.PublicId,
+                row.File.FullName,
+                row.Settlement.Kind,
+                row.Settlement.StatusCode,
+                row.Settlement.AssignedPositionPublicId,
+                row.Settlement.PositionNameSnapshot,
+                row.Settlement.RequestDate,
+                row.Settlement.RetirementDate,
+                row.Settlement.RetirementCategoryCode,
+                row.Settlement.RetirementCategoryNameSnapshot,
+                row.Settlement.RetirementReasonCode,
+                row.Settlement.RetirementReasonNameSnapshot,
+                row.Settlement.RequesterNameSnapshot,
+                row.Settlement.TotalIncomes,
+                row.Settlement.TotalDeductions,
+                row.Settlement.NetPay,
+                row.Settlement.TotalEmployerCharges,
+                row.Settlement.ProvisionTotal,
+                row.Settlement.CurrencyCode,
+                row.Settlement.IssuedAtUtc,
+                row.Settlement.AnnulledAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return new SettlementBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<SettlementExportRow>> GetSettlementExportRowsAsync(
+        ExportSettlementsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredSettlements(
+            query.Kind, query.StatusCode, query.CategoryCode, query.ReasonCode, query.EmployeeId,
+            query.RequestFromUtc, query.RequestToUtc, query.RetirementFromUtc, query.RetirementToUtc, query.Search)
+            .OrderByDescending(row => row.Settlement.RequestDate)
+            .ThenByDescending(row => row.Settlement.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
+
+        return await limited
+            .Select(row => new SettlementExportRow(
+                row.File.FullName,
+                row.Settlement.PositionNameSnapshot ?? row.Settlement.AssignedPositionPublicId.ToString(),
+                row.Settlement.Kind == SettlementKind.Escenario ? "ESCENARIO (SIMULACIÓN)" : "LIQUIDACION",
+                row.Settlement.Kind == SettlementKind.Escenario ? "SIMULACIÓN — SIN EFECTOS" : (row.Settlement.StatusCode ?? string.Empty),
+                row.Settlement.RequesterNameSnapshot,
+                row.Settlement.RequestDate,
+                row.Settlement.RetirementDate,
+                row.Settlement.RetirementCategoryNameSnapshot ?? row.Settlement.RetirementCategoryCode,
+                row.Settlement.RetirementReasonNameSnapshot ?? row.Settlement.RetirementReasonCode,
+                row.Settlement.TotalIncomes,
+                row.Settlement.TotalDeductions,
+                row.Settlement.NetPay,
+                row.Settlement.TotalEmployerCharges,
+                row.Settlement.ProvisionTotal,
+                row.Settlement.CurrencyCode,
+                row.Settlement.Notes))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    private IQueryable<SettlementFileRow> FilteredSettlements(
+        string? kind,
+        string? statusCode,
+        string? categoryCode,
+        string? reasonCode,
+        Guid? employeeId,
+        DateTime? requestFromUtc,
+        DateTime? requestToUtc,
+        DateTime? retirementFromUtc,
+        DateTime? retirementToUtc,
+        string? search)
+    {
+        var query =
+            from settlement in dbContext.PersonnelFileSettlements.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on settlement.PersonnelFileId equals file.Id
+            where settlement.IsActive
+            select new SettlementFileRow(settlement, file);
+
+        if (!string.IsNullOrWhiteSpace(kind) && Enum.TryParse<SettlementKind>(kind.Trim(), ignoreCase: true, out var parsedKind))
+        {
+            query = query.Where(row => row.Settlement.Kind == parsedKind);
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalizedStatus = statusCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Settlement.StatusCode == normalizedStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(categoryCode))
+        {
+            var normalizedCategory = categoryCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Settlement.RetirementCategoryCode == normalizedCategory);
+        }
+
+        if (!string.IsNullOrWhiteSpace(reasonCode))
+        {
+            var normalizedReason = reasonCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Settlement.RetirementReasonCode == normalizedReason);
+        }
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.File.PublicId == employeePublicId);
+        }
+
+        if (requestFromUtc is { } requestFrom)
+        {
+            query = query.Where(row => row.Settlement.RequestDate >= requestFrom.Date);
+        }
+
+        if (requestToUtc is { } requestTo)
+        {
+            query = query.Where(row => row.Settlement.RequestDate <= requestTo.Date);
+        }
+
+        if (retirementFromUtc is { } retirementFrom)
+        {
+            query = query.Where(row => row.Settlement.RetirementDate >= retirementFrom.Date);
+        }
+
+        if (retirementToUtc is { } retirementTo)
+        {
+            query = query.Where(row => row.Settlement.RetirementDate <= retirementTo.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToUpperInvariant();
+            query = query.Where(row =>
+                row.File.FullName.ToUpper().Contains(term)
+                || row.Settlement.RequesterNameSnapshot.ToUpper().Contains(term)
+                || (row.Settlement.PositionNameSnapshot != null && row.Settlement.PositionNameSnapshot.ToUpper().Contains(term)));
+        }
+
+        return query;
+    }
+
+    private sealed record SettlementFileRow(PersonnelFileSettlement Settlement, Domain.PersonnelFiles.PersonnelFile File);
+
     /// <summary>Instance rates win; the country type-catalog defaults are the fallback (D-12).</summary>
     private async Task<SettlementSchemeDto> ResolveSchemeAsync(
         long countryCatalogItemId,

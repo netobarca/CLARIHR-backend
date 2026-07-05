@@ -103,3 +103,19 @@ public sealed record IssueSettlementRequest(bool ConfirmNegativeNet = false);
 
 /// <summary>Annuls the settlement (terminal). The reason is mandatory when annulling an EMITIDA one.</summary>
 public sealed record AnnulSettlementRequest(string? Reason = null);
+
+/// <summary>Filters of the company-wide settlements bandeja (RF-006).</summary>
+public sealed record QuerySettlementsRequest(
+    // "Liquidacion" | "Escenario"; omit for both.
+    string? Kind = null,
+    string? StatusCode = null,
+    string? CategoryCode = null,
+    string? ReasonCode = null,
+    Guid? EmployeeId = null,
+    DateTime? RequestFromUtc = null,
+    DateTime? RequestToUtc = null,
+    DateTime? RetirementFromUtc = null,
+    DateTime? RetirementToUtc = null,
+    string? Search = null,
+    int? PageNumber = null,
+    int? PageSize = null);
