@@ -1130,6 +1130,36 @@ internal sealed class GetSettlementQueryHandler(
     }
 }
 
+internal sealed class GetSettlementDocumentDataQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    ISettlementRepository settlementRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetSettlementDocumentDataQuery, SettlementDocumentDataResponse>
+{
+    public async Task<Result<SettlementDocumentDataResponse>> Handle(
+        GetSettlementDocumentDataQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForViewSettlementsAsync<SettlementDocumentDataResponse>(
+            query.PersonnelFileId, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var settlement = await settlementRepository.GetTrackedAsync(personnelFile!.Id, query.SettlementId, cancellationToken);
+        if (settlement is null || !settlement.IsActive)
+        {
+            return Result<SettlementDocumentDataResponse>.Failure(SettlementErrors.NotFound);
+        }
+
+        return Result<SettlementDocumentDataResponse>.Success(
+            new SettlementDocumentDataResponse(SettlementResponseMapper.Map(settlement), personnelFile.FullName));
+    }
+}
+
 internal sealed class GetSettlementsQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,

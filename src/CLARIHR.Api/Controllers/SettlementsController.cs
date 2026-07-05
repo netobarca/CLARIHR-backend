@@ -2,7 +2,10 @@ using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Contracts.PersonnelFiles;
+using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -18,8 +21,62 @@ namespace CLARIHR.Api.Controllers;
 [AuthorizationPolicySet(PersonnelFilePolicies.ViewSettlements, PersonnelFilePolicies.ManageSettlements)]
 public sealed class SettlementsController(
     IQueryDispatcher queryDispatcher,
-    ICommandDispatcher commandDispatcher) : ControllerBase
+    ICommandDispatcher commandDispatcher,
+    IDocumentModelRenderer documentModelRenderer,
+    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/settlements/{settlementPublicId:guid}/document")]
+    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [SwaggerOperation(
+        Summary = "Download the settlement document (boleta PDF or sectioned Excel/CSV/JSON)",
+        Description = """
+            Returns the individual settlement document (RF-007, D-19 — PDF ratified for Fase 1):
+            `format=pdf` renders the boleta de liquidación through the shared document pipeline (standard
+            layout: header, applied parameters, the three line sections, the reserve/provision and the
+            summary); `format=xlsx|csv|json` downloads the same content as sectioned rows
+            (ENCABEZADO / INGRESOS / DESCUENTOS / PAGOS PATRONALES / RESUMEN). A scenario document is
+            always marked `SIMULACIÓN — SIN EFECTOS` (R-10).
+            """)]
+    public async Task<IActionResult> GetDocument(
+        Guid publicId,
+        Guid settlementPublicId,
+        [FromQuery] string format = "pdf",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetSettlementDocumentDataQuery(publicId, settlementPublicId), cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        var data = result.Value;
+        var shortId = settlementPublicId.ToString("N")[..8];
+        if (string.Equals(format?.Trim(), "pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var document = SettlementDocumentMapper.Map(data.Settlement, data.EmployeeFullName);
+            using var buffer = new MemoryStream();
+            await documentModelRenderer.RenderAsync(document, buffer, cancellationToken);
+            return File(buffer.ToArray(), "application/pdf", $"liquidacion-{shortId}.pdf");
+        }
+
+        var rows = SettlementDocumentRowComposer.Compose(data.Settlement, data.EmployeeFullName);
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            rows,
+            format ?? "xlsx",
+            $"liquidacion-{shortId}",
+            "Liquidacion",
+            AuditEntityTypes.PersonnelFile,
+            "SETTLEMENT_DOCUMENT",
+            "Exported settlement document.",
+            new { publicId, settlementPublicId },
+            PersonnelFileErrors.ExportFormatInvalid,
+            cancellationToken);
+    }
+
     [HttpGet("api/v1/personnel-files/{publicId:guid}/settlements")]
     [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileSettlementResponse>>(StatusCodes.Status200OK)]

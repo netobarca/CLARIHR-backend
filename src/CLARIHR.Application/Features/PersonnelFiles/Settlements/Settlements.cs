@@ -217,6 +217,12 @@ public sealed record DeleteSettlementScenarioCommand(Guid PersonnelFileId, Guid 
 public sealed record GetSettlementQuery(Guid PersonnelFileId, Guid SettlementId)
     : IQuery<PersonnelFileSettlementResponse?>;
 
+/// <summary>Settlement + employee display name — the payload of the individual document/boleta (RF-007).</summary>
+public sealed record SettlementDocumentDataResponse(PersonnelFileSettlementResponse Settlement, string EmployeeFullName);
+
+public sealed record GetSettlementDocumentDataQuery(Guid PersonnelFileId, Guid SettlementId)
+    : IQuery<SettlementDocumentDataResponse>;
+
 public sealed record GetSettlementsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileSettlementResponse>>;
 
@@ -467,6 +473,15 @@ internal sealed class DeleteSettlementScenarioCommandValidator : AbstractValidat
 internal sealed class GetSettlementQueryValidator : AbstractValidator<GetSettlementQuery>
 {
     public GetSettlementQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.SettlementId).NotEmpty();
+    }
+}
+
+internal sealed class GetSettlementDocumentDataQueryValidator : AbstractValidator<GetSettlementDocumentDataQuery>
+{
+    public GetSettlementDocumentDataQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
         RuleFor(query => query.SettlementId).NotEmpty();
