@@ -522,6 +522,21 @@ internal sealed class RetirementRequestStatusCatalogItemConfiguration
     }
 }
 
+internal sealed class SettlementStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<SettlementStatusCatalogItem>
+{
+    public SettlementStatusCatalogItemConfiguration()
+        : base(
+            "settlement_status_catalog_items",
+            "pk_settlement_status_catalog_items",
+            "uq_settlement_status_catalog_items__public_id",
+            "uq_settlement_status_catalog_items__country_code",
+            "ix_settlement_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetSettlementStatusCatalogItems())
+    {
+    }
+}
+
 internal sealed class CertificateDeliveryMethodCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<CertificateDeliveryMethodCatalogItem>
 {

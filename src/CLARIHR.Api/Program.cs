@@ -574,6 +574,19 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.RevertRetirement,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Settlements ("liquidación de personal", settlement module D-20). HR-only, no self-service in
+    // Fase 1, so the write policy is a RequireAssertion superset of the precise handler gate;
+    // ViewSettlements stays authn-only (bandeja/detail gate per-handler, like the retirement module).
+    options.AddPolicy(PersonnelFilePolicies.ViewSettlements, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageSettlements, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageSettlements,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

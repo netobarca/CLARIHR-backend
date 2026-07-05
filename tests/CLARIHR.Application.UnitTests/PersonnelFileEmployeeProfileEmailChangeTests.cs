@@ -171,6 +171,7 @@ public sealed class PersonnelFileEmployeeProfileEmailChangeTests
             // Overwritten by the handler's enricher with the parent file's institutional email.
             InstitutionalEmail: null,
             HireDate: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            MinimumMonthlyWage: null,
             Seniority: EmployeeSeniority.None,
             RetirementCategoryCode: null,
             RetirementReasonCode: null,

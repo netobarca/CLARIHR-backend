@@ -606,6 +606,15 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("RETIREMENT_REQUEST_STATUS_CATALOG", -9815L, "SV", "REVERTIDA", "Revertida", 60),
     ];
 
+    // Settlement ("liquidación") lifecycle statuses (D-15 of the settlement module). Codes are structural:
+    // the lifecycle references SettlementStatuses canonical constants; scenarios carry no status.
+    public static IEnumerable<object> GetSettlementStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("SETTLEMENT_STATUS_CATALOG", -9820L, "SV", "BORRADOR", "Borrador", 10),
+        CreateGeneralCatalogSeed("SETTLEMENT_STATUS_CATALOG", -9821L, "SV", "EMITIDA", "Emitida", 20),
+        CreateGeneralCatalogSeed("SETTLEMENT_STATUS_CATALOG", -9822L, "SV", "ANULADA", "Anulada", 30),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -738,6 +747,7 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9481L, "SV", "OTRO", "Otro", 120),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9482L, "SV", "BAJA", "Baja / retiro definitivo", 130),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9483L, "SV", "REVERSION_BAJA", "Reversión de baja", 140),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9484L, "SV", "LIQUIDACION", "Liquidación de personal", 150),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>
@@ -942,6 +952,34 @@ internal static class GlobalCatalogSeedData
         CreateCompensationConceptTypeSeed(-9736L, "SV", "OTRO_EXTERNO", "Otro externo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 330),
     ];
 
+    // Settlement ("liquidación") concepts (dedicated endpoint `settlement-concepts`): enriched country-scoped
+    // catalog the calculation engine consumes (D-07/D-08 ratified, 17 SV codes): section class, ISSS/AFP/Renta
+    // affectation matrix, income-tax exemption rule (+ multiplier over the minimum wage), engine-vs-manual flag
+    // and the employer rate for the pagos-patronales section (INCAF = ex-INSAFORP, P-02).
+    public static IEnumerable<object> GetSettlementConceptCatalogItems() =>
+    [
+        // Ingresos
+        CreateSettlementConceptSeed(-9830L, "SV", "SALARIO", "Salario pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 10),
+        CreateSettlementConceptSeed(-9831L, "SV", "VACACION_PROPORCIONAL", "Vacación proporcional", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 20),
+        CreateSettlementConceptSeed(-9832L, "SV", "AGUINALDO_PROPORCIONAL", "Aguinaldo proporcional", SettlementConceptClass.Ingreso, false, false, true, SettlementExemptionRule.HastaLimitePorMinimo, 2.00m, true, null, 30),
+        CreateSettlementConceptSeed(-9833L, "SV", "INDEMNIZACION", "Indemnización", SettlementConceptClass.Ingreso, false, false, true, SettlementExemptionRule.HastaMontoLegal, null, true, null, 40),
+        CreateSettlementConceptSeed(-9834L, "SV", "RENUNCIA_VOLUNTARIA", "Compensación económica por renuncia voluntaria", SettlementConceptClass.Ingreso, false, false, true, SettlementExemptionRule.HastaMontoLegal, null, true, null, 50),
+        CreateSettlementConceptSeed(-9835L, "SV", "BONO_PENDIENTE", "Bono pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 60),
+        CreateSettlementConceptSeed(-9836L, "SV", "COMISION_PENDIENTE", "Comisión pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 70),
+        CreateSettlementConceptSeed(-9837L, "SV", "HORAS_EXTRAS_PENDIENTES", "Horas extras pendientes", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 80),
+        CreateSettlementConceptSeed(-9838L, "SV", "OTRO_INGRESO", "Otro ingreso", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 90),
+        // Descuentos
+        CreateSettlementConceptSeed(-9839L, "SV", "ISSS", "ISSS (cotización del empleado)", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 100),
+        CreateSettlementConceptSeed(-9840L, "SV", "AFP", "AFP (cotización del empleado)", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 110),
+        CreateSettlementConceptSeed(-9841L, "SV", "RENTA", "Renta (retención ISR)", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 120),
+        CreateSettlementConceptSeed(-9842L, "SV", "DESCUENTO_EXTERNO", "Descuento externo (última cuota)", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 130),
+        CreateSettlementConceptSeed(-9843L, "SV", "OTRO_DESCUENTO", "Otro descuento", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, false, null, 140),
+        // Pagos patronales
+        CreateSettlementConceptSeed(-9844L, "SV", "ISSS_PATRONAL", "ISSS patronal", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 7.50m, 200),
+        CreateSettlementConceptSeed(-9845L, "SV", "AFP_PATRONAL", "AFP patronal", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 8.75m, 210),
+        CreateSettlementConceptSeed(-9846L, "SV", "INCAF", "INCAF (ex-INSAFORP)", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 1.00m, 220),
+    ];
+
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>
     [
         CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9740L, "SV", "MENSUAL", "Mensual", 10),
@@ -1139,6 +1177,45 @@ internal static class GlobalCatalogSeedData
             IsActive = true,
             SortOrder = sortOrder,
             ConcurrencyToken = CreateSeedPublicId("COMPENSATION_CONCEPT_TYPE_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static object CreateSettlementConceptSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        SettlementConceptClass conceptClass,
+        bool affectsIsss,
+        bool affectsAfp,
+        bool affectsRenta,
+        SettlementExemptionRule exemptionRule,
+        decimal? exemptionMultiplier,
+        bool isSystemCalculated,
+        decimal? defaultRatePercent,
+        int sortOrder) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("SETTLEMENT_CONCEPT_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = name.ToUpperInvariant(),
+            ConceptClass = conceptClass,
+            AffectsIsss = affectsIsss,
+            AffectsAfp = affectsAfp,
+            AffectsRenta = affectsRenta,
+            ExemptionRule = exemptionRule,
+            ExemptionMultiplier = exemptionMultiplier,
+            IsSystemCalculated = isSystemCalculated,
+            DefaultRatePercent = defaultRatePercent,
+            IsActive = true,
+            SortOrder = sortOrder,
+            ConcurrencyToken = CreateSeedPublicId("SETTLEMENT_CONCEPT_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
             CreatedUtc = SeededAtUtc,
             ModifiedUtc = SeededAtUtc
         };

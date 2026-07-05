@@ -2218,6 +2218,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.EmploymentStatusCode,
             InstitutionalEmail: null,
             item.HireDate,
+            item.MinimumMonthlyWage,
             EmployeeSeniority.None,
             item.RetirementCategoryCode,
             item.RetirementReasonCode,

@@ -45,6 +45,7 @@ internal sealed class RevertRetirementRequestCommandHandler(
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     IExitInterviewRepository exitInterviewRepository,
+    ISettlementRepository settlementRepository,
     ICompanyUserLifecycleService companyUserLifecycleService,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
@@ -133,9 +134,25 @@ internal sealed class RevertRetirementRequestCommandHandler(
             return Result<PersonnelFileRetirementRequestResponse>.Failure(RetirementErrors.ReversalStateDiverged);
         }
 
+        // Settlement hook (settlement module D-17 — closes this module's D-14 integration point): an
+        // ISSUED settlement blocks the reversal (the money conversation is administrative — annul it
+        // consciously first); drafts are annulled automatically inside the same transaction below.
+        var liveSettlements = await settlementRepository.GetLiveSettlementsForRetirementAsync(entity.Id, cancellationToken);
+        if (liveSettlements.Any(settlement => settlement.StatusCode == SettlementStatuses.Emitida))
+        {
+            return Result<PersonnelFileRetirementRequestResponse>.Failure(RetirementErrors.ReversalBlockedBySettlement);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // [0] Settlement hook (D-17): the reversal annuls every draft settlement of this retirement —
+            // the baja "never happened", so no live settlement may survive it.
+            foreach (var draftSettlement in liveSettlements)
+            {
+                draftSettlement.Annul(revertedByUserId, nowUtc, "Reversión de retiro");
+            }
+
             // [1] Profile: clear the baja and restore the PRIOR employment status from the snapshot (D-11).
             profile!.ClearRetirement(entity.PriorEmploymentStatusCode ?? PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode);
 

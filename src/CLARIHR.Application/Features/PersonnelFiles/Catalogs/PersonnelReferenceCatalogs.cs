@@ -123,6 +123,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string EducationLevel = "CurriculumEducationLevel";
     public const string Afp = "Afp";
     public const string RetirementRequestStatus = "RetirementRequestStatus";
+    public const string SettlementStatus = "SettlementStatus";
+    public const string SettlementConcept = "SettlementConcept";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

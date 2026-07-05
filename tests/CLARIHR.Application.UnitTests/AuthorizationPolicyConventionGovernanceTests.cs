@@ -128,6 +128,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ManageRetirements,
         PersonnelFilePolicies.AuthorizeRetirement,
         PersonnelFilePolicies.RevertRetirement,
+        // Settlements ("liquidación de personal", settlement module D-20): authn-only read superset +
+        // RequireAssertion write policy (HR-only, no self-service in Fase 1). Used by SettlementsController;
+        // the company bandeja (SettlementsReportingController) gates per-handler like the other reporting
+        // controllers.
+        PersonnelFilePolicies.ViewSettlements,
+        PersonnelFilePolicies.ManageSettlements,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

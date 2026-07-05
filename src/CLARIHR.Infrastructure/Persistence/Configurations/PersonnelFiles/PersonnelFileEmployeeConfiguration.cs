@@ -22,6 +22,7 @@ internal sealed class PersonnelFileEmployeeProfileConfiguration : IEntityTypeCon
         builder.Property(item => item.NormalizedEmployeeCode).HasColumnName("normalized_employee_code").HasMaxLength(80);
         builder.Property(item => item.EmploymentStatusCode).HasColumnName("employment_status_code").HasMaxLength(80);
         builder.Property(item => item.HireDate).HasColumnName("hire_date");
+        builder.Property(item => item.MinimumMonthlyWage).HasColumnName("minimum_monthly_wage").HasColumnType("numeric(18,2)");
         builder.Property(item => item.RetirementCategoryCode).HasColumnName("retirement_category_code").HasMaxLength(80);
         builder.Property(item => item.RetirementReasonCode).HasColumnName("retirement_reason_code").HasMaxLength(80);
         builder.Property(item => item.RetirementNotes).HasColumnName("retirement_notes").HasMaxLength(2000);

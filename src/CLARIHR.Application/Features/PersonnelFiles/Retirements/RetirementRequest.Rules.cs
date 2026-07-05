@@ -81,6 +81,12 @@ internal static class RetirementErrors
     public static readonly Error ReversalNotMostRecent = new(
         "RETIREMENT_REVERSAL_NOT_MOST_RECENT",
         "Only the employee's most recent executed retirement can be reverted.", ErrorType.UnprocessableEntity);
+
+    // Settlement module D-17 (closes this module's D-14 integration point): draft settlements are annulled
+    // automatically by the reversal; an ISSUED one blocks it until manually annulled.
+    public static readonly Error ReversalBlockedBySettlement = new(
+        "RETIREMENT_REVERSAL_BLOCKED_BY_SETTLEMENT",
+        "The retirement has an ISSUED settlement; annul the settlement first, then revert.", ErrorType.UnprocessableEntity);
 }
 
 /// <summary>

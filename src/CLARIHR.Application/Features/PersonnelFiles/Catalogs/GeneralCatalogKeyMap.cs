@@ -65,6 +65,8 @@ public static class GeneralCatalogKeyMap
             ["education-levels"] = PersonnelCurriculumCatalogCategories.EducationLevel,
             ["afps"] = PersonnelCurriculumCatalogCategories.Afp,
             ["retirement-request-statuses"] = PersonnelCurriculumCatalogCategories.RetirementRequestStatus,
+            ["settlement-statuses"] = PersonnelCurriculumCatalogCategories.SettlementStatus,
+            ["settlement-concepts"] = PersonnelCurriculumCatalogCategories.SettlementConcept,
         };
 
     /// <summary>

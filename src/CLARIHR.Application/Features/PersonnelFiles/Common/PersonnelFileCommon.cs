@@ -226,6 +226,20 @@ public static class PersonnelFilePermissionCodes
     public const string RevertRetirement = "PersonnelFiles.RevertRetirement";
 
     /// <summary>
+    /// Dedicated permission to read settlements ("liquidaciones" — per-file detail, the company bandeja
+    /// and the individual exports). Settlement data exposes salaries, so reads are HR-only with no
+    /// self-service in Fase 1 (settlement module D-20); Admin is a superset.
+    /// </summary>
+    public const string ViewSettlements = "PersonnelFiles.ViewSettlements";
+
+    /// <summary>
+    /// Dedicated permission to create/edit/issue/annul settlements and to manage settlement scenarios
+    /// (settlement module D-20). Admin is a superset. The subject employee can never manage their own
+    /// settlement (anti-self gate in the handlers).
+    /// </summary>
+    public const string ManageSettlements = "PersonnelFiles.ManageSettlements";
+
+    /// <summary>
     /// Dedicated permission to read the HR analytics dashboard (aggregate indicators over the personnel
     /// padrón). Lets configurable roles see the dashboards without full personnel-file read; the regular
     /// <see cref="Read"/> permission and <see cref="Admin"/> are supersets. The dashboard is read-only and
