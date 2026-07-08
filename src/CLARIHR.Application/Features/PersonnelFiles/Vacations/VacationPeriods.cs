@@ -151,4 +151,55 @@ internal static class VacationErrors
     public static readonly Error EligibilityNotMet = new(
         "VACATION_ELIGIBILITY_NOT_MET",
         "The employee has not yet completed one year of service (Art. 177) at the start of the period.", ErrorType.UnprocessableEntity);
+
+    // ── Requests (PR-8) ───────────────────────────────────────────────────────────────────────────
+
+    public static readonly Error FundInsufficient = new(
+        "VACATION_FUND_INSUFFICIENT",
+        "The requested vacation days exceed the days available in the employee's fund.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error RequestOverlap = new(
+        "VACATION_REQUEST_OVERLAP",
+        "The vacation date range overlaps another live vacation request of the same employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error IncapacityOverlap = new(
+        "VACATION_INCAPACITY_OVERLAP",
+        "The vacation date range overlaps an active incapacity of the same employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StartOnHolidayForbidden = new(
+        "VACATION_START_ON_HOLIDAY_FORBIDDEN",
+        "A vacation cannot start on a company holiday (Art. 178).", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StartOnRestDayForbidden = new(
+        "VACATION_START_ON_REST_DAY_FORBIDDEN",
+        "A vacation cannot start on the employee's weekly rest day (Art. 178).", ErrorType.UnprocessableEntity);
+
+    public static readonly Error EndOnHolidayForbidden = new(
+        "VACATION_END_ON_HOLIDAY_FORBIDDEN",
+        "A vacation cannot end on a company holiday (Art. 178).", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AllocationMismatch = new(
+        "VACATION_ALLOCATION_MISMATCH",
+        "The fund allocations must sum to the requested days and reference active enjoyment periods of the employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error DecisionSelfForbidden = new(
+        "VACATION_DECISION_SELF_FORBIDDEN",
+        "An employee cannot decide or return a vacation request on their own personnel file.", ErrorType.Forbidden);
+
+    public static readonly Error StateRuleViolation = new(
+        "VACATION_STATE_RULE_VIOLATION",
+        "The vacation request is not in a state that allows this operation.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error ReturnExceedsConsumed = new(
+        "VACATION_RETURN_EXCEEDS_CONSUMED",
+        "The returned days exceed the days still consumed by the vacation request.", ErrorType.UnprocessableEntity);
+
+    /// <summary>Maps an Art. 178 violation code (from <see cref="VacationRules.ValidateRequestDates"/>) to its error.</summary>
+    public static Error ForDateViolation(string code) => code switch
+    {
+        VacationRules.StartOnHolidayForbiddenCode => StartOnHolidayForbidden,
+        VacationRules.StartOnRestDayForbiddenCode => StartOnRestDayForbidden,
+        VacationRules.EndOnHolidayForbiddenCode => EndOnHolidayForbidden,
+        _ => StateRuleViolation,
+    };
 }

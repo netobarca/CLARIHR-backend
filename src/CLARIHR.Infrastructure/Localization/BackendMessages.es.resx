@@ -2167,4 +2167,34 @@
   <data name="VACATION_ELIGIBILITY_NOT_MET" xml:space="preserve">
     <value>El empleado aún no ha cumplido un año de servicio (Art. 177) al inicio del periodo.</value>
   </data>
+  <data name="VACATION_FUND_INSUFFICIENT" xml:space="preserve">
+    <value>Los días de vacaciones solicitados superan los días disponibles en el fondo del empleado.</value>
+  </data>
+  <data name="VACATION_REQUEST_OVERLAP" xml:space="preserve">
+    <value>El rango de fechas de las vacaciones se solapa con otra solicitud de vacaciones vigente del mismo empleado.</value>
+  </data>
+  <data name="VACATION_INCAPACITY_OVERLAP" xml:space="preserve">
+    <value>El rango de fechas de las vacaciones se solapa con una incapacidad activa del mismo empleado.</value>
+  </data>
+  <data name="VACATION_START_ON_HOLIDAY_FORBIDDEN" xml:space="preserve">
+    <value>Las vacaciones no pueden iniciar en un día de asueto de la empresa (Art. 178).</value>
+  </data>
+  <data name="VACATION_START_ON_REST_DAY_FORBIDDEN" xml:space="preserve">
+    <value>Las vacaciones no pueden iniciar en el día de descanso semanal del empleado (Art. 178).</value>
+  </data>
+  <data name="VACATION_END_ON_HOLIDAY_FORBIDDEN" xml:space="preserve">
+    <value>Las vacaciones no pueden finalizar en un día de asueto de la empresa (Art. 178).</value>
+  </data>
+  <data name="VACATION_ALLOCATION_MISMATCH" xml:space="preserve">
+    <value>Las asignaciones del fondo deben sumar los días solicitados y referenciar periodos de goce activos del empleado.</value>
+  </data>
+  <data name="VACATION_DECISION_SELF_FORBIDDEN" xml:space="preserve">
+    <value>Un empleado no puede decidir ni devolver una solicitud de vacaciones de su propio expediente.</value>
+  </data>
+  <data name="VACATION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La solicitud de vacaciones no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="VACATION_RETURN_EXCEEDS_CONSUMED" xml:space="preserve">
+    <value>Los días devueltos superan los días aún consumidos por la solicitud de vacaciones.</value>
+  </data>
 </root>

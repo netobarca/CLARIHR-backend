@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using CLARIHR.Infrastructure.Tenancy;
@@ -180,5 +181,176 @@ public sealed partial class ApiIntegrationTests
             hr, HttpMethod.Delete, $"/api/v1/personnel-files/{e1}/vacation-periods/{period.Id}",
             updated.ConcurrencyToken, body: null);
         await AssertProblemDetailsAsync(blockedDelete, HttpStatusCode.UnprocessableEntity, "VACATION_PERIOD_HAS_CONSUMPTION");
+    }
+
+    // ── Requests (PR-8) ───────────────────────────────────────────────────────────────────────────
+
+    private async Task<Guid> CreateManualVacationPeriodAsync(HttpClient client, Guid fileId, int year, int legal, int benefit = 0)
+    {
+        var create = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/vacation-periods",
+            new { periodYear = year, useAnniversary = false, legalDaysGranted = legal, benefitDaysGranted = benefit, generatesEnjoymentDays = true });
+        var payload = await create.Content.ReadAsStringAsync();
+        Assert.True(create.StatusCode == HttpStatusCode.Created, $"Create period failed: {(int)create.StatusCode} {payload}");
+        var period = await create.Content.ReadFromJsonAsync<PersonnelFileVacationPeriodResponse>(JsonOptions);
+        return period!.Id;
+    }
+
+    private async Task SeedCompanyHolidayAsync(IntegrationTestScenario scenario, DateOnly date)
+    {
+        using var scope = factory.Services.CreateScope();
+        var ambient = scope.ServiceProvider.GetRequiredService<AmbientTenantContext>();
+        using var _ = ambient.Push(scenario.TenantId);
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var holiday = CompanyHoliday.Create(date, "Asueto de prueba", "NACIONAL");
+        holiday.SetTenantId(scenario.TenantId);
+        dbContext.CompanyHolidays.Add(holiday);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<PersonnelFileVacationRequestResponse> CreateVacationRequestAsync(
+        HttpClient client, Guid fileId, string start, string end, int requestedDays)
+    {
+        var response = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/vacation-requests",
+            new { startDate = start, endDate = end, requestedDays, planLinePublicId = (Guid?)null, notes = (string?)null });
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.Created, $"Create request failed: {(int)response.StatusCode} {payload}");
+        var created = await response.Content.ReadFromJsonAsync<PersonnelFileVacationRequestResponse>(JsonOptions);
+        return created!;
+    }
+
+    private async Task<PersonnelFileVacationRequestResponse> ReadVacationRequestAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Unexpected status: {(int)response.StatusCode} {payload}");
+        return (await response.Content.ReadFromJsonAsync<PersonnelFileVacationRequestResponse>(JsonOptions))!;
+    }
+
+    [Fact]
+    public async Task Vacation_Request_FifoApprovalPartialAndFullReturnRestoreTheBalance()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var hr = factory.CreateClientFor(CreateVacationManagerContext(scenario));
+
+        var (e1, _) = await SeedSettlementCandidateAsync(scenario.TenantId, "Vito", "Vacaciones", "EMP-VR-1", "vito.vr1@empresa.test");
+
+        // Two enjoyment periods (2025 + 2026, 15 each) → initial available 30.
+        var p2025 = await CreateManualVacationPeriodAsync(hr, e1, 2025, 15);
+        var p2026 = await CreateManualVacationPeriodAsync(hr, e1, 2026, 15);
+        Assert.Equal(30m, await GetVacationDaysAvailableAsync(hr, e1));
+
+        // [1] A valid request (Tue → Wed, not a holiday, not the Sunday rest day) for 20 days → SOLICITADA.
+        var request = await CreateVacationRequestAsync(hr, e1, "2026-03-17", "2026-04-15", 20);
+        Assert.Equal(VacationRequestStatuses.Solicitada, request.StatusCode);
+
+        // [2] HR approves with the FIFO suggestion (no allocations) → 15 from 2025 + 5 from 2026, GOCE_VACACIONES journaled.
+        var approved = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/personnel-files/{e1}/vacation-requests/{request.Id}/decision",
+            request.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null }));
+        Assert.Equal(VacationRequestStatuses.Aprobada, approved.StatusCode);
+        Assert.Equal(20, approved.ConsumedDays);
+        Assert.Equal(2, approved.Allocations.Count);
+        Assert.Equal(15, approved.Allocations.Single(a => a.PeriodYear == 2025).Days);
+        Assert.Equal(5, approved.Allocations.Single(a => a.PeriodYear == 2026).Days);
+        Assert.Equal(1, await CountPersonnelActionsAsync(scenario.TenantId, e1, "GOCE_VACACIONES"));
+        Assert.Equal(10m, await GetVacationDaysAvailableAsync(hr, e1));
+
+        // [3] Partial return of 4 (LIFO → from 2026, the most recent allocation) → DEVUELTA_PARCIAL.
+        var partial = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Post, $"/api/v1/personnel-files/{e1}/vacation-requests/{approved.Id}/returns",
+            approved.ConcurrencyToken, new { days = 4, reason = "Reprogramación", distribution = (object?)null }));
+        Assert.Equal(VacationRequestStatuses.DevueltaParcial, partial.StatusCode);
+        Assert.Equal(4, partial.ReturnedDays);
+        Assert.Equal(16, partial.NetConsumedDays);
+        var partialReturn = Assert.Single(partial.Returns);
+        var partialDistribution = Assert.Single(partialReturn.Distribution);
+        Assert.Equal(2026, partialDistribution.PeriodYear);
+        Assert.Equal(4, partialDistribution.Days);
+        Assert.Equal(1, await CountPersonnelActionsAsync(scenario.TenantId, e1, "DEVOLUCION_VACACIONES"));
+        Assert.Equal(14m, await GetVacationDaysAvailableAsync(hr, e1));
+
+        // [4] Return the remaining 16 (LIFO spills 1 from 2026 + 15 from 2025) → DEVUELTA.
+        var full = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Post, $"/api/v1/personnel-files/{e1}/vacation-requests/{partial.Id}/returns",
+            partial.ConcurrencyToken, new { days = 16, reason = "Cancelación total", distribution = (object?)null }));
+        Assert.Equal(VacationRequestStatuses.Devuelta, full.StatusCode);
+        Assert.Equal(20, full.ReturnedDays);
+        Assert.Equal(0, full.NetConsumedDays);
+        Assert.Equal(2, await CountPersonnelActionsAsync(scenario.TenantId, e1, "DEVOLUCION_VACACIONES"));
+
+        // [5] The fund balance is back to the initial 30.
+        Assert.Equal(30m, await GetVacationDaysAvailableAsync(hr, e1));
+        _ = p2025;
+        _ = p2026;
+    }
+
+    [Fact]
+    public async Task Vacation_Request_Art178SelfServiceAntiSelfAndFundInsufficientAtApproval()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        // The subject employee is linked to the acting user (self-service).
+        var (self, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Sol", "Solicitante", "EMP-VR-S", "sol.vrs@empresa.test",
+            linkedUserPublicId: scenario.ActorUserId);
+
+        using var hr = factory.CreateClientFor(
+            TestUserContext.Authenticated(Guid.NewGuid(), scenario.TenantId, PersonnelFilePermissionCodes.Admin));
+        using var selfClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        // One 2026 enjoyment period with 30 days (15 legal + 15 benefit).
+        _ = await CreateManualVacationPeriodAsync(hr, self, 2026, 15, benefit: 15);
+        await SeedCompanyHolidayAsync(scenario, new DateOnly(2026, 3, 16));
+
+        // [Art. 178] self start on the holiday → 422.
+        var onHoliday = await selfClient.PostJsonAsync(
+            $"/api/v1/personnel-files/{self}/vacation-requests",
+            new { startDate = "2026-03-16", endDate = "2026-03-18", requestedDays = 3, planLinePublicId = (Guid?)null, notes = (string?)null });
+        await AssertProblemDetailsAsync(onHoliday, HttpStatusCode.UnprocessableEntity, "VACATION_START_ON_HOLIDAY_FORBIDDEN");
+
+        // [Art. 178] self start on the Sunday rest day (2026-03-01) → 422.
+        var onSunday = await selfClient.PostJsonAsync(
+            $"/api/v1/personnel-files/{self}/vacation-requests",
+            new { startDate = "2026-03-01", endDate = "2026-03-03", requestedDays = 3, planLinePublicId = (Guid?)null, notes = (string?)null });
+        await AssertProblemDetailsAsync(onSunday, HttpStatusCode.UnprocessableEntity, "VACATION_START_ON_REST_DAY_FORBIDDEN");
+
+        // Self creates a valid request → SOLICITADA, requester is the own file.
+        var created = await CreateVacationRequestAsync(selfClient, self, "2026-03-17", "2026-03-20", 4);
+        Assert.Equal(VacationRequestStatuses.Solicitada, created.StatusCode);
+        Assert.Equal(self, created.RequesterFilePublicId);
+
+        // Anti-self: the subject (now granted ManageVacations) cannot decide their own request → 403.
+        using var selfManager = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, PersonnelFilePermissionCodes.ManageVacations));
+        var selfDecide = await SendSettlementAsync(
+            selfManager, HttpMethod.Patch, $"/api/v1/personnel-files/{self}/vacation-requests/{created.Id}/decision",
+            created.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null });
+        await AssertProblemDetailsAsync(selfDecide, HttpStatusCode.Forbidden, "VACATION_DECISION_SELF_FORBIDDEN");
+
+        // HR approves it (consumes 4 → available 26).
+        var approved = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/personnel-files/{self}/vacation-requests/{created.Id}/decision",
+            created.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null }));
+        Assert.Equal(VacationRequestStatuses.Aprobada, approved.StatusCode);
+        Assert.Equal(26m, await GetVacationDaysAvailableAsync(hr, self));
+
+        // [Fund insufficient at approval / race] request A (20 days) and B (10 days) both created while 26 available.
+        var requestA = await CreateVacationRequestAsync(hr, self, "2026-05-04", "2026-05-29", 20);
+        var requestB = await CreateVacationRequestAsync(hr, self, "2026-06-02", "2026-06-13", 10);
+
+        // Approving B first drops the availability to 16.
+        var approvedB = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/personnel-files/{self}/vacation-requests/{requestB.Id}/decision",
+            requestB.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null }));
+        Assert.Equal(VacationRequestStatuses.Aprobada, approvedB.StatusCode);
+        Assert.Equal(16m, await GetVacationDaysAvailableAsync(hr, self));
+
+        // Approving A now needs 20 but only 16 remain → 422 (re-verified inside the transaction).
+        var approveA = await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/personnel-files/{self}/vacation-requests/{requestA.Id}/decision",
+            requestA.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null });
+        await AssertProblemDetailsAsync(approveA, HttpStatusCode.UnprocessableEntity, "VACATION_FUND_INSUFFICIENT");
     }
 }

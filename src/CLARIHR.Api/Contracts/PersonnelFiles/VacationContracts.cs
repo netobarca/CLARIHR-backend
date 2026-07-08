@@ -29,3 +29,40 @@ public sealed record GenerateVacationPeriodsRequest(
     int? BenefitDaysGranted,
     bool? GeneratesEnjoymentDays,
     IReadOnlyCollection<Guid>? EmployeeIds);
+
+/// <summary>
+/// Body for creating a vacation request (D-13). The date range is validated against Art. 178 (a vacation cannot
+/// start on a holiday/rest day nor end on a holiday, unless the company preference allows it) and against the
+/// employee's fund availability. <c>requestedDays</c> is the number of enjoyed days.
+/// </summary>
+public sealed record AddVacationRequestRequest(
+    DateOnly StartDate,
+    DateOnly EndDate,
+    int RequestedDays,
+    Guid? PlanLinePublicId,
+    string? Notes);
+
+/// <summary>One editable fund-period allocation supplied when approving a request (period publicId + days).</summary>
+public sealed record VacationAllocationRequestItem(Guid VacationPeriodPublicId, int Days);
+
+/// <summary>
+/// Body for deciding a SOLICITADA vacation request. When <c>approve</c> is true the request is approved against
+/// <c>allocations</c> (Σ = requested days; an empty/omitted set uses the FIFO suggestion); when false it is
+/// rejected (the notes are optional).
+/// </summary>
+public sealed record DecideVacationRequestRequest(
+    bool Approve,
+    IReadOnlyCollection<VacationAllocationRequestItem>? Allocations,
+    string? Notes);
+
+/// <summary>One editable period → days entry of a return distribution (period publicId + days).</summary>
+public sealed record VacationReturnDistributionRequestItem(Guid VacationPeriodPublicId, int Days);
+
+/// <summary>
+/// Body for a total/partial return of enjoyed days (D-14). <c>distribution</c> reverses the days to their
+/// periods of origin; an empty/omitted set uses the LIFO suggestion.
+/// </summary>
+public sealed record AddVacationReturnRequest(
+    int Days,
+    string? Reason,
+    IReadOnlyCollection<VacationReturnDistributionRequestItem>? Distribution);

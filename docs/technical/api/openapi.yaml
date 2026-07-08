@@ -24384,6 +24384,276 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-requests':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's vacation requests
+      description: "Returns the vacation requests of the employee with their fund allocations and returns. Access requires the `ViewVacations` permission or the employee reading their own requests (D-18)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Create a vacation request
+      description: "Creates a vacation request (SOLICITADA). HR (`ManageVacations`) may raise it on any file; the employee may self-register on their own file (D-18). Validated against Art. 178 (`VACATION_START_ON_HOLIDAY_FORBIDDEN` / `VACATION_START_ON_REST_DAY_FORBIDDEN` / `VACATION_END_ON_HOLIDAY_FORBIDDEN`), overlaps with a live request (`VACATION_REQUEST_OVERLAP`) or an active incapacity (`VACATION_INCAPACITY_OVERLAP`), and fund availability (`VACATION_FUND_INSUFFICIENT`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddVacationRequestRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-requests/{vacationRequestPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a vacation request by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationRequestPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-requests/{vacationRequestPublicId}/decision':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Decide a vacation request (approve / reject)
+      description: "HR decision on a SOLICITADA request. When `approve` is true the request is approved and consumes the fund via `allocations` (Σ = requested days; an empty set uses the FIFO suggestion), re-verifying the fund inside the transaction (race → `VACATION_FUND_INSUFFICIENT`; Σ mismatch → `VACATION_ALLOCATION_MISMATCH`) and journaling the GOCE_VACACIONES personnel action. When false the request is rejected. The deciding user must not be the subject employee (anti-self, 403). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationRequestPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideVacationRequestRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-requests/{vacationRequestPublicId}/cancellation':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Cancel a SOLICITADA vacation request
+      description: "Cancels a SOLICITADA request. HR (`ManageVacations`) or the owner employee may cancel it while it is still pending (`VACATION_STATE_RULE_VIOLATION` otherwise). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationRequestPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-requests/{vacationRequestPublicId}/returns':
+    post:
+      tags:
+        - Personnel Files
+      summary: Return vacation days (total / partial)
+      description: "Registers a total or partial return of enjoyed days of an APROBADA or DEVUELTA_PARCIAL request (D-14). The `distribution` reverses the days to their periods of origin (an empty set uses the LIFO suggestion); the return cannot exceed the days still consumed (`VACATION_RETURN_EXCEEDS_CONSUMED`). When the return exhausts the consumption the request moves to DEVUELTA, otherwise DEVUELTA_PARCIAL. Journals the DEVOLUCION_VACACIONES personnel action. The deciding user must not be the subject employee (anti-self, 403). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationRequestPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddVacationReturnRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationRequestResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyId}/vacation-periods/generate':
     post:
       tags:
@@ -52043,6 +52313,168 @@ components:
           items:
             type: string
             format: uuid
+    VacationAllocationResponse:
+      type: object
+      properties:
+        vacationPeriodPublicId:
+          type: string
+          format: uuid
+        periodYear:
+          type: integer
+          format: int32
+        days:
+          type: integer
+          format: int32
+    VacationReturnResponse:
+      type: object
+      properties:
+        returnPublicId:
+          type: string
+          format: uuid
+        days:
+          type: integer
+          format: int32
+        returnDateUtc:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          nullable: true
+        distribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationAllocationResponse'
+    PersonnelFileVacationRequestResponse:
+      type: object
+      properties:
+        vacationRequestPublicId:
+          type: string
+          format: uuid
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterNameSnapshot:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        requestedDays:
+          type: integer
+          format: int32
+        statusCode:
+          type: string
+        planLinePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decisionNotes:
+          type: string
+          nullable: true
+        decisionDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        consumedDays:
+          type: integer
+          format: int32
+        returnedDays:
+          type: integer
+          format: int32
+        netConsumedDays:
+          type: integer
+          format: int32
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationAllocationResponse'
+        returns:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationReturnResponse'
+    AddVacationRequestRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        requestedDays:
+          type: integer
+          format: int32
+        planLinePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    VacationAllocationRequestItem:
+      type: object
+      properties:
+        vacationPeriodPublicId:
+          type: string
+          format: uuid
+        days:
+          type: integer
+          format: int32
+    DecideVacationRequestRequest:
+      type: object
+      properties:
+        approve:
+          type: boolean
+        allocations:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/VacationAllocationRequestItem'
+        notes:
+          type: string
+          nullable: true
+    VacationReturnDistributionRequestItem:
+      type: object
+      properties:
+        vacationPeriodPublicId:
+          type: string
+          format: uuid
+        days:
+          type: integer
+          format: int32
+    AddVacationReturnRequest:
+      type: object
+      properties:
+        days:
+          type: integer
+          format: int32
+        reason:
+          type: string
+          nullable: true
+        distribution:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/VacationReturnDistributionRequestItem'
     IncapacityDocumentResponse:
       type: object
       properties:

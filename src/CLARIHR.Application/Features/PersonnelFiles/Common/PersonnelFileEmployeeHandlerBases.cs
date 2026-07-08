@@ -449,6 +449,54 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Create/cancel gate for vacation requests (leave module D-18 self-service): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageVacations</c> permission (or Admin) — HR raises a request on any file — OR the
+    /// caller is the employee acting on their own file (self-service create / self-cancel of a SOLICITADA
+    /// request). Deciding/returning stays manager-only with the anti-self guard
+    /// (see <see cref="LoadForManageVacationsAsync{TResponse}"/>). Returns <c>IsManager</c> so the handler derives
+    /// the requester snapshot (RRHH vs the subject employee).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File, bool IsManager)> LoadForCreateOwnOrManageVacationRequestAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null, false);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null,
+                false);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageVacationsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canManageByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null, false);
+            }
+        }
+
+        return (null, personnelFile, canManageByRole);
+    }
+
+    /// <summary>
     /// Manage gate for economic-aid requests (D-03): the dedicated <c>PersonnelFiles.ManageEconomicAidRequests</c>
     /// permission (or Admin). Used by validate (resolution)/disburse/update/delete — RR. HH. only, no self-service.
     /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass

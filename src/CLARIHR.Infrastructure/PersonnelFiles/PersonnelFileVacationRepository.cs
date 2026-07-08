@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Domain.Common;
@@ -269,6 +270,187 @@ internal sealed class PersonnelFileVacationRepository(ApplicationDbContext dbCon
             .Select(period => period.PersonnelFileId)
             .ToListAsync(cancellationToken))
         .ToHashSet();
+
+    // ── Requests (PR-8) ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly string[] LiveRequestStatuses =
+        [VacationRequestStatuses.Solicitada, VacationRequestStatuses.Aprobada, VacationRequestStatuses.DevueltaParcial];
+
+    private static readonly JsonSerializerOptions DistributionOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<PersonnelFileVacationRequest?> GetRequestEntityAsync(
+        Guid personnelFilePublicId, Guid vacationRequestPublicId, CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileVacationRequests
+            .Include(request => request.Allocations)
+            .Include(request => request.Returns)
+            .Where(request => request.PersonnelFile.PublicId == personnelFilePublicId && request.PublicId == vacationRequestPublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public void AddRequest(PersonnelFileVacationRequest entity) => dbContext.PersonnelFileVacationRequests.Add(entity);
+
+    public async Task<IReadOnlyCollection<PersonnelFileVacationRequestResponse>> GetRequestResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken)
+    {
+        var personnelFileId = await dbContext.PersonnelFiles
+            .AsNoTracking()
+            .Where(file => file.PublicId == personnelFilePublicId)
+            .Select(file => (long?)file.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (personnelFileId is null)
+        {
+            return [];
+        }
+
+        var requests = await dbContext.PersonnelFileVacationRequests
+            .AsNoTracking()
+            .Include(request => request.Allocations)
+            .Include(request => request.Returns)
+            .Where(request => request.PersonnelFileId == personnelFileId.Value)
+            .OrderByDescending(request => request.StartDate)
+            .ToListAsync(cancellationToken);
+
+        var periodRefs = await GetPeriodRefLookupAsync(personnelFileId.Value, cancellationToken);
+        return requests.Select(request => MapRequest(request, periodRefs)).ToArray();
+    }
+
+    public async Task<PersonnelFileVacationRequestResponse?> GetRequestResponseAsync(
+        Guid personnelFilePublicId, Guid vacationRequestPublicId, CancellationToken cancellationToken)
+    {
+        var request = await dbContext.PersonnelFileVacationRequests
+            .AsNoTracking()
+            .Include(item => item.Allocations)
+            .Include(item => item.Returns)
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == vacationRequestPublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var periodRefs = await GetPeriodRefLookupAsync(request.PersonnelFileId, cancellationToken);
+        return MapRequest(request, periodRefs);
+    }
+
+    public async Task<bool> HasOverlappingRequestAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, long? excludeRequestId, CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileVacationRequests
+            .AsNoTracking()
+            .Where(request => request.PersonnelFileId == personnelFileId
+                && LiveRequestStatuses.Contains(request.StatusCode)
+                && (!excludeRequestId.HasValue || request.Id != excludeRequestId.Value))
+            .AnyAsync(request => request.StartDate <= endDate && startDate <= request.EndDate, cancellationToken);
+
+    public async Task<IReadOnlySet<DateOnly>> GetHolidaysInRangeAsync(
+        Guid tenantId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken) =>
+        (await dbContext.CompanyHolidays
+            .AsNoTracking()
+            .Where(holiday => holiday.TenantId == tenantId && holiday.IsActive
+                && holiday.Date >= startDate && holiday.Date <= endDate)
+            .Select(holiday => holiday.Date)
+            .ToListAsync(cancellationToken))
+        .ToHashSet();
+
+    public async Task<DayOfWeek?> GetPrimaryPlazaRestDayAsync(long personnelFileId, CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileEmploymentAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.PersonnelFileId == personnelFileId && assignment.IsActive)
+            .OrderByDescending(assignment => assignment.IsPrimary)
+            .ThenBy(assignment => assignment.StartDate)
+            .Select(assignment => assignment.RestDayOfWeek)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, long>> ResolveEnjoymentPeriodInternalIdsAsync(
+        long personnelFileId, IReadOnlyCollection<Guid> periodPublicIds, CancellationToken cancellationToken)
+    {
+        if (periodPublicIds.Count == 0)
+        {
+            return new Dictionary<Guid, long>();
+        }
+
+        var ids = periodPublicIds.Distinct().ToArray();
+        return await dbContext.PersonnelFileVacationPeriods
+            .AsNoTracking()
+            .Where(period => period.PersonnelFileId == personnelFileId
+                && period.IsActive
+                && period.GeneratesEnjoymentDays
+                && ids.Contains(period.PublicId))
+            .ToDictionaryAsync(period => period.PublicId, period => period.Id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<long, VacationPeriodRef>> GetPeriodRefLookupAsync(
+        long personnelFileId, CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileVacationPeriods
+            .AsNoTracking()
+            .Where(period => period.PersonnelFileId == personnelFileId)
+            .ToDictionaryAsync(
+                period => period.Id,
+                period => new VacationPeriodRef(period.PublicId, period.PeriodYear),
+                cancellationToken);
+
+    private static PersonnelFileVacationRequestResponse MapRequest(
+        PersonnelFileVacationRequest request, IReadOnlyDictionary<long, VacationPeriodRef> periodRefs)
+    {
+        var allocations = request.Allocations
+            .Select(allocation => ToAllocationResponse(allocation.VacationPeriodId, allocation.Days, periodRefs))
+            .ToArray();
+
+        var returns = request.Returns
+            .OrderBy(entry => entry.ReturnDateUtc)
+            .Select(entry => new VacationReturnResponse(
+                entry.PublicId,
+                entry.Days,
+                entry.ReturnDateUtc,
+                entry.Reason,
+                DeserializeDistribution(entry.DistributionJson)
+                    .Select(item => ToAllocationResponse(item.VacationPeriodId, item.Days, periodRefs))
+                    .ToArray()))
+            .ToArray();
+
+        return new PersonnelFileVacationRequestResponse(
+            request.PublicId,
+            request.RequesterFilePublicId,
+            request.RequesterNameSnapshot,
+            request.StartDate,
+            request.EndDate,
+            request.RequestedDays,
+            request.StatusCode,
+            request.PlanLinePublicId,
+            request.DecisionNotes,
+            request.DecisionDateUtc,
+            request.ConsumedDays,
+            request.ReturnedDays,
+            request.NetConsumedDays,
+            request.Notes,
+            request.IsActive,
+            request.ConcurrencyToken,
+            request.CreatedUtc,
+            request.ModifiedUtc,
+            allocations,
+            returns);
+    }
+
+    private static VacationAllocationResponse ToAllocationResponse(
+        long periodId, int days, IReadOnlyDictionary<long, VacationPeriodRef> periodRefs) =>
+        periodRefs.TryGetValue(periodId, out var reference)
+            ? new VacationAllocationResponse(reference.PublicId, reference.PeriodYear, days)
+            : new VacationAllocationResponse(Guid.Empty, 0, days);
+
+    private static IReadOnlyList<VacationReturnDistributionInput> DeserializeDistribution(string? distributionJson)
+    {
+        if (string.IsNullOrWhiteSpace(distributionJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<VacationReturnDistributionInput>>(distributionJson, DistributionOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     private async Task<Dictionary<long, int>> LoadNetConsumptionAsync(
         IReadOnlyCollection<long> fileIds, CancellationToken cancellationToken)

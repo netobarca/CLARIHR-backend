@@ -2167,4 +2167,34 @@
   <data name="VACATION_ELIGIBILITY_NOT_MET" xml:space="preserve">
     <value>The employee has not yet completed one year of service (Art. 177) at the start of the period.</value>
   </data>
+  <data name="VACATION_FUND_INSUFFICIENT" xml:space="preserve">
+    <value>The requested vacation days exceed the days available in the employee's fund.</value>
+  </data>
+  <data name="VACATION_REQUEST_OVERLAP" xml:space="preserve">
+    <value>The vacation date range overlaps another live vacation request of the same employee.</value>
+  </data>
+  <data name="VACATION_INCAPACITY_OVERLAP" xml:space="preserve">
+    <value>The vacation date range overlaps an active incapacity of the same employee.</value>
+  </data>
+  <data name="VACATION_START_ON_HOLIDAY_FORBIDDEN" xml:space="preserve">
+    <value>A vacation cannot start on a company holiday (Art. 178).</value>
+  </data>
+  <data name="VACATION_START_ON_REST_DAY_FORBIDDEN" xml:space="preserve">
+    <value>A vacation cannot start on the employee's weekly rest day (Art. 178).</value>
+  </data>
+  <data name="VACATION_END_ON_HOLIDAY_FORBIDDEN" xml:space="preserve">
+    <value>A vacation cannot end on a company holiday (Art. 178).</value>
+  </data>
+  <data name="VACATION_ALLOCATION_MISMATCH" xml:space="preserve">
+    <value>The fund allocations must sum to the requested days and reference active enjoyment periods of the employee.</value>
+  </data>
+  <data name="VACATION_DECISION_SELF_FORBIDDEN" xml:space="preserve">
+    <value>An employee cannot decide or return a vacation request on their own personnel file.</value>
+  </data>
+  <data name="VACATION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The vacation request is not in a state that allows this operation.</value>
+  </data>
+  <data name="VACATION_RETURN_EXCEEDS_CONSUMED" xml:space="preserve">
+    <value>The returned days exceed the days still consumed by the vacation request.</value>
+  </data>
 </root>

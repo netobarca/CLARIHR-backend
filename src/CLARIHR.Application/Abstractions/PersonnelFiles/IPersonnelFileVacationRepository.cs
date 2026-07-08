@@ -28,6 +28,9 @@ public sealed record VacationGenerationCandidate(
     string? EmployeeCode,
     DateOnly AnchorDate);
 
+/// <summary>The public id + year of a fund period, keyed by its internal id (for mapping allocations/returns to the wire).</summary>
+public sealed record VacationPeriodRef(Guid PublicId, int PeriodYear);
+
 /// <summary>
 /// Persistence port of the vacation fund vertical (leave module PR-7): period CRUD reads/writes, the derived
 /// consumption used by the fund detail / profile balance / edit-delete guards, the per-employee base-salary
@@ -89,4 +92,37 @@ public interface IPersonnelFileVacationRepository
     /// <summary>The personnel file ids that already have an active period for the year (idempotency scan).</summary>
     Task<IReadOnlySet<long>> GetPersonnelFileIdsWithActivePeriodForYearAsync(
         Guid tenantId, int year, CancellationToken cancellationToken);
+
+    // ── Requests (PR-8) ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Tracked request (with its allocations and returns loaded) for the domain guards to mutate.</summary>
+    Task<PersonnelFileVacationRequest?> GetRequestEntityAsync(
+        Guid personnelFilePublicId, Guid vacationRequestPublicId, CancellationToken cancellationToken);
+
+    void AddRequest(PersonnelFileVacationRequest entity);
+
+    Task<IReadOnlyCollection<PersonnelFileVacationRequestResponse>> GetRequestResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken);
+
+    Task<PersonnelFileVacationRequestResponse?> GetRequestResponseAsync(
+        Guid personnelFilePublicId, Guid vacationRequestPublicId, CancellationToken cancellationToken);
+
+    /// <summary>True when a live request (SOLICITADA / APROBADA / DEVUELTA_PARCIAL) overlaps the range (RN-15).</summary>
+    Task<bool> HasOverlappingRequestAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, long? excludeRequestId, CancellationToken cancellationToken);
+
+    /// <summary>The active tenant holidays that fall in the [start, end] range (Art. 178 validation).</summary>
+    Task<IReadOnlySet<DateOnly>> GetHolidaysInRangeAsync(
+        Guid tenantId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken);
+
+    /// <summary>The weekly rest day of the employee's primary active plaza (null → falls back to the company preference / Sunday).</summary>
+    Task<DayOfWeek?> GetPrimaryPlazaRestDayAsync(long personnelFileId, CancellationToken cancellationToken);
+
+    /// <summary>Resolves the given period public ids to their internal ids among the ACTIVE enjoyment periods of the file.</summary>
+    Task<IReadOnlyDictionary<Guid, long>> ResolveEnjoymentPeriodInternalIdsAsync(
+        long personnelFileId, IReadOnlyCollection<Guid> periodPublicIds, CancellationToken cancellationToken);
+
+    /// <summary>Internal-id → (publicId, year) lookup of every period of the file (for mapping allocations/returns to the wire).</summary>
+    Task<IReadOnlyDictionary<long, VacationPeriodRef>> GetPeriodRefLookupAsync(
+        long personnelFileId, CancellationToken cancellationToken);
 }
