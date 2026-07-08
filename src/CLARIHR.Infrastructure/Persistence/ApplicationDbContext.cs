@@ -401,6 +401,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileCompensatoryTimeAbsence> PersonnelFileCompensatoryTimeAbsences => Set<PersonnelFileCompensatoryTimeAbsence>();
 
+    public DbSet<PersonnelFileRecognition> PersonnelFileRecognitions => Set<PersonnelFileRecognition>();
+
+    public DbSet<PersonnelFileRecognitionDocument> PersonnelFileRecognitionDocuments => Set<PersonnelFileRecognitionDocument>();
+
+    public DbSet<PersonnelFileDisciplinaryAction> PersonnelFileDisciplinaryActions => Set<PersonnelFileDisciplinaryAction>();
+
+    public DbSet<PersonnelFileDisciplinaryActionDocument> PersonnelFileDisciplinaryActionDocuments => Set<PersonnelFileDisciplinaryActionDocument>();
+
     public DbSet<PersonnelFileVacationPeriod> PersonnelFileVacationPeriods => Set<PersonnelFileVacationPeriod>();
 
     public DbSet<PersonnelFileVacationRequest> PersonnelFileVacationRequests => Set<PersonnelFileVacationRequest>();

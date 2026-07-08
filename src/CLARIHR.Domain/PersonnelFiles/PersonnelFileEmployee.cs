@@ -638,6 +638,24 @@ public sealed class PersonnelFilePersonnelAction : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    /// <summary>
+    /// Annuls a system-generated entry (its status becomes <c>ANULADA</c>, code -9496 of the
+    /// <c>ACTION_STATUS_CATALOG</c>) and rotates the concurrency token. Custodied mutator (REQ-003 aclaración
+    /// №4): invoked ONLY by the revocation handlers of the "otras transacciones de personal" module over their
+    /// own entries (<see cref="IsSystemGenerated"/>, referenced by the record's action public ids) — the manual
+    /// documentary entry is never touched. Re-annulling an already-ANULADA entry throws.
+    /// </summary>
+    public void Annul()
+    {
+        if (string.Equals(ActionStatusCode, "ANULADA", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The personnel action is already annulled.");
+        }
+
+        ActionStatusCode = "ANULADA";
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     public static PersonnelFilePersonnelAction Create(
         string actionTypeCode,
         string actionStatusCode,
