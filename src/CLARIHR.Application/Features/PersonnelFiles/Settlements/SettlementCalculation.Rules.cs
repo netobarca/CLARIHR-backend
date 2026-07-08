@@ -1,3 +1,4 @@
+using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
@@ -89,6 +90,16 @@ internal sealed record SettlementLineState(
     string? Description,
     string? CounterpartyName);
 
+/// <summary>
+/// The employee's compensatory-time fund at retirement (REQ-002 RF-013/D-19) mirrored into the pure engine:
+/// pending balance in hours, the standard daily hours used to value the hour, and the settlement rate factor
+/// (P-15). Null ⇒ no HORAS_EXTRAS_PENDIENTES line is emitted (retrocompatible).
+/// </summary>
+internal sealed record CompensatoryTimeInput(
+    decimal PendingHours,
+    decimal StandardDailyHours,
+    decimal RateFactor);
+
 /// <summary>Everything the engine needs, resolved (pure — pre-development clarification №2: snapshot at create/regenerate).</summary>
 internal sealed record SettlementCalculationInput(
     SettlementKind Kind,
@@ -103,7 +114,8 @@ internal sealed record SettlementCalculationInput(
     ContributionSchemeInput Afp,
     IReadOnlyList<TaxBracketInput> RentaBrackets,
     IReadOnlyList<SettlementLineState> ExistingLines,
-    decimal? PendingVacationDays = null);
+    decimal? PendingVacationDays = null,
+    CompensatoryTimeInput? CompensatoryTime = null);
 
 // ── Output model ─────────────────────────────────────────────────────────────────────────────
 
@@ -326,6 +338,15 @@ internal static class SettlementCalculationRules
                 break;
         }
 
+        // HORAS_EXTRAS_PENDIENTES (REQ-002 RF-013/D-19): the employee's positive compensatory-time balance on
+        // the principal plaza becomes an automatic pay-off line. No fund (context null / balance 0) ⇒ no spec ⇒
+        // the settlement suite stays identical (retrocompatible). The seed is IsSystemCalculated=true so the case
+        // below runs (and the manual path is closed — no double auto+manual pay-off).
+        if (input.CompensatoryTime is { PendingHours: > 0m })
+        {
+            specs.Add(EngineSpec(SettlementConceptCodes.HorasExtrasPendientes));
+        }
+
         // Plaza-config suggestions: pending bonus/commission incomes and external-deduction installments.
         specs.AddRange(input.PlazaItems.Select(item => new LineSpec(
             null, item.ConceptCode, ResolveClass(item.ConceptCode), IsIncluded: true, UnitsOrDays: null,
@@ -409,6 +430,19 @@ internal static class SettlementCalculationRules
                     calculationBase = derived.DailySalary;
                     calculated = Round2(derived.DailySalary * derived.AguinaldoDays * units.Value / parameters.YearDivisorDays);
                     detail = $"{derived.DailySalary:0.00} × {derived.AguinaldoDays:0.##} días × {units:0.##}/{parameters.YearDivisorDays}";
+                    break;
+
+                case SettlementConceptCodes.HorasExtrasPendientes:
+                    // Compensatory-time pay-off (REQ-002 RF-013/D-19): hours = the liquidator's edited units when
+                    // present, else the pending fund balance; valued at Round2(dailySalary / standardDailyHours) ×
+                    // rateFactor. ISSS/AFP/Renta affectations are automatic (the concept is configured Ingreso,
+                    // affects the 3 bases, exención Ninguna). Defaults 8 h/day and factor 1.00 (P-15).
+                    var standardDailyHours = input.CompensatoryTime?.StandardDailyHours ?? 8m;
+                    var rateFactor = input.CompensatoryTime?.RateFactor ?? 1m;
+                    units = spec.UnitsOrDays ?? input.CompensatoryTime?.PendingHours ?? 0m;
+                    calculationBase = CompensatoryTimeRules.HourlyRate(derived.DailySalary, standardDailyHours);
+                    calculated = CompensatoryTimeRules.SettlementAmount(units.Value, calculationBase.Value, rateFactor);
+                    detail = $"{units:0.##} h × {calculationBase:0.00}/h × factor {rateFactor:0.##}";
                     break;
 
                 case SettlementConceptCodes.Indemnizacion:

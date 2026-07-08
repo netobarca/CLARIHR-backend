@@ -36,6 +36,19 @@ public sealed record SettlementTaxBracketDto(
     decimal ExcessOver);
 
 /// <summary>
+/// The employee's compensatory-time fund at retirement (REQ-002 RF-013/D-19): the positive pending balance
+/// (<c>PendingHours</c>), the standard daily hours used to value the hour (<c>StandardDailyHours</c>, preference
+/// <c>CompensatoryTimeStandardDailyHours</c> ?? 8) and the settlement rate factor (<c>RateFactor</c>, preference
+/// <c>CompensatoryTimeSettlementRateFactor</c> ?? 1.00 — P-15). Resolved ONLY for the employee's principal plaza
+/// (the fund is per-employee while the settlement is per-plaza) and only when the balance is &gt; 0; otherwise the
+/// context carries <c>null</c> and the engine emits no HORAS_EXTRAS_PENDIENTES line (fully retrocompatible).
+/// </summary>
+public sealed record CompensatoryTimeContext(
+    decimal PendingHours,
+    decimal StandardDailyHours,
+    decimal RateFactor);
+
+/// <summary>
 /// Everything the settlement engine consumes, resolved in ONE trip (pre-development clarification №2:
 /// insumos read at create/regenerate and snapshotted — later config changes never silently recalculate).
 /// </summary>
@@ -51,7 +64,8 @@ public sealed record SettlementCalculationContext(
     IReadOnlyList<SettlementTaxBracketDto> RentaBrackets,
     IReadOnlyList<SettlementConceptResponse> Concepts,
     string CurrencyCode,
-    decimal? PendingVacationDays = null);
+    decimal? PendingVacationDays = null,
+    CompensatoryTimeContext? CompensatoryTime = null);
 
 /// <summary>Lookup of a requester candidate (D-06: HR only) — display name + activity + HR-area membership.</summary>
 public sealed record SettlementRequesterLookup(

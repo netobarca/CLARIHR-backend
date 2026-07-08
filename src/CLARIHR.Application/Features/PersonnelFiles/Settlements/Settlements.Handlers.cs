@@ -85,7 +85,13 @@ internal static class SettlementCalculationSupport
                 .Select(bracket => new TaxBracketInput(bracket.LowerBound, bracket.UpperBound, bracket.FixedFee, bracket.RatePercent, bracket.ExcessOver))
                 .ToArray(),
             settlement.Lines.Count == 0 ? [] : BuildStates(settlement),
-            context.PendingVacationDays);
+            context.PendingVacationDays,
+            context.CompensatoryTime is null
+                ? null
+                : new CompensatoryTimeInput(
+                    context.CompensatoryTime.PendingHours,
+                    context.CompensatoryTime.StandardDailyHours,
+                    context.CompensatoryTime.RateFactor));
 
         var result = SettlementCalculationRules.Calculate(input);
 

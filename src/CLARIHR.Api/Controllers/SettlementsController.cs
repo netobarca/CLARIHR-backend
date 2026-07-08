@@ -325,9 +325,11 @@ public sealed class SettlementsController(
     [SwaggerOperation(
         Summary = "Append a manual line",
         Description = """
-            Adds a manual-concept line (e.g. `OTRO_INGRESO`, `OTRO_DESCUENTO`, `HORAS_EXTRAS_PENDIENTES`)
-            with its description and amount, then recalculates. The concept must be an active manual concept
-            of the `settlement-concepts` catalog. `If-Match` carries the settlement's token.
+            Adds a manual-concept line (e.g. `OTRO_INGRESO`, `OTRO_DESCUENTO`) with its description and amount,
+            then recalculates. The concept must be an active MANUAL concept of the `settlement-concepts` catalog;
+            system-calculated concepts (e.g. `HORAS_EXTRAS_PENDIENTES`, which the engine suggests automatically
+            from the compensatory-time fund) are rejected with `SETTLEMENT_CONCEPT_INVALID`. `If-Match` carries
+            the settlement's token.
             """)]
     public async Task<ActionResult<PersonnelFileSettlementResponse>> AddManualLine(
         Guid publicId,

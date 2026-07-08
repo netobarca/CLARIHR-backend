@@ -13,7 +13,9 @@ namespace CLARIHR.Infrastructure.PersonnelFiles;
 /// The calculation context is resolved in one place so the engine stays pure and the snapshot-at-create
 /// semantics (pre-development clarification №2) have a single, auditable source.
 /// </summary>
-internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISettlementRepository
+internal sealed class SettlementRepository(
+    ApplicationDbContext dbContext,
+    ICompensatoryTimeRepository compensatoryTimeRepository) : ISettlementRepository
 {
     private const string MonthlyPayPeriodCode = "MENSUAL";
     private const string IsssConceptTypeCode = "ISSS";
@@ -182,14 +184,37 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
                 item.DefaultRatePercent, item.IsActive, item.SortOrder))
             .ToListAsync(cancellationToken);
 
-        var currency = await dbContext.Set<CLARIHR.Domain.Preferences.CompanyPreference>()
+        var preference = await dbContext.Set<CLARIHR.Domain.Preferences.CompanyPreference>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId)
-            .Select(item => item.CurrencyCode)
-            .SingleOrDefaultAsync(cancellationToken) ?? "USD";
+            .Select(item => new
+            {
+                item.CurrencyCode,
+                item.CompensatoryTimeStandardDailyHours,
+                item.CompensatoryTimeSettlementRateFactor,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        var currency = preference?.CurrencyCode ?? "USD";
 
         // Pending fund days feed the VACACION_PROPORCIONAL suggestion (RF-019); null → legacy anniversary default.
         var pendingVacationDays = await GetPendingVacationDaysAsync(personnelFileId, cancellationToken);
+
+        // Compensatory-time balance feeds the automatic HORAS_EXTRAS_PENDIENTES pay-off line (REQ-002 RF-013/D-19),
+        // but ONLY when this settlement's plaza is the employee's principal plaza: the fund is per-employee while
+        // the settlement is per-plaza, so restricting to the principal avoids a double suggestion on multi-plaza
+        // retirements. No positive balance → null → the engine emits no line (retrocompatible).
+        CompensatoryTimeContext? compensatoryTime = null;
+        if (await IsPrincipalPlazaAsync(personnelFileId, assignedPositionPublicId, cancellationToken))
+        {
+            var compensatoryBalance = await compensatoryTimeRepository.GetBalanceAsync(personnelFileId, cancellationToken);
+            if (compensatoryBalance > 0m)
+            {
+                compensatoryTime = new CompensatoryTimeContext(
+                    compensatoryBalance,
+                    preference?.CompensatoryTimeStandardDailyHours ?? 8m,
+                    preference?.CompensatoryTimeSettlementRateFactor ?? 1.00m);
+            }
+        }
 
         return new SettlementCalculationContext(
             new SettlementPlazaContext(
@@ -205,7 +230,36 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
             brackets,
             concepts,
             currency,
-            pendingVacationDays);
+            pendingVacationDays,
+            compensatoryTime);
+    }
+
+    /// <summary>
+    /// True when <paramref name="assignedPositionPublicId"/> is the employee's principal plaza — the same
+    /// criterion the vacation-fund resolver uses: the IsPrimary assignment among the active ones (oldest
+    /// StartDate as tie-breaker), falling back to the oldest active assignment, then the oldest of all.
+    /// </summary>
+    private async Task<bool> IsPrincipalPlazaAsync(
+        long personnelFileId,
+        Guid assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return false;
+        }
+
+        var active = assignments.Where(item => item.IsActive).ToList();
+        var chosen = active.Where(item => item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+            ?? active.OrderBy(item => item.StartDate).FirstOrDefault()
+            ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        return chosen is not null && chosen.PublicId == assignedPositionPublicId;
     }
 
     public Task<decimal?> GetPendingVacationDaysAsync(long personnelFileId, CancellationToken cancellationToken) =>

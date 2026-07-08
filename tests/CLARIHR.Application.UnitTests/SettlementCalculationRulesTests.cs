@@ -34,7 +34,7 @@ public sealed class SettlementCalculationRulesTests
         Concept(SettlementConceptCodes.RenunciaVoluntaria, "Renuncia voluntaria", SettlementConceptClass.Ingreso, false, false, true, SettlementExemptionRule.HastaMontoLegal, null, true, null, 50),
         Concept(SettlementConceptCodes.BonoPendiente, "Bono pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 60),
         Concept(SettlementConceptCodes.ComisionPendiente, "Comisión pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 70),
-        Concept(SettlementConceptCodes.HorasExtrasPendientes, "Horas extras", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 80),
+        Concept(SettlementConceptCodes.HorasExtrasPendientes, "Horas extras", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 80),
         Concept(SettlementConceptCodes.OtroIngreso, "Otro ingreso", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 90),
         Concept(SettlementConceptCodes.Isss, "ISSS", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 100),
         Concept(SettlementConceptCodes.Afp, "AFP", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 110),
@@ -60,7 +60,8 @@ public sealed class SettlementCalculationRulesTests
         IReadOnlyList<SuggestedPlazaItem>? plazaItems = null,
         IReadOnlyList<TaxBracketInput>? brackets = null,
         IReadOnlyList<SettlementLineState>? existing = null,
-        decimal? pendingVacationDays = null) =>
+        decimal? pendingVacationDays = null,
+        CompensatoryTimeInput? compensatoryTime = null) =>
         new(
             SettlementKind.Liquidacion,
             separation,
@@ -74,7 +75,8 @@ public sealed class SettlementCalculationRulesTests
             new ContributionSchemeInput(7.25m, 8.75m, 7045.06m),
             brackets ?? RentaBrackets2026,
             existing ?? [],
-            pendingVacationDays);
+            pendingVacationDays,
+            compensatoryTime);
 
     private static SettlementLineResult Line(SettlementCalculationResult result, string code) =>
         Assert.Single(result.Lines, line => line.ConceptCode == code);
@@ -156,6 +158,112 @@ public sealed class SettlementCalculationRulesTests
 
         Assert.Equal(106m, line.UnitsOrDays);
         Assert.Equal(113.26m, line.CalculatedAmount);
+    }
+
+    // ── HORAS_EXTRAS_PENDIENTES: compensatory-time pay-off line (REQ-002 RF-013/D-19) ─────────────
+
+    [Fact]
+    public void HorasExtras_WithFund_ProducesLine_GoldenA410()
+    {
+        // A.4-10: saldo 12 h, salario diario 20 (600/30), 8 h/día, factor 1.00 → base 2.50, monto 30.00.
+        var result = SettlementCalculationRules.Calculate(
+            Input(compensatoryTime: new CompensatoryTimeInput(PendingHours: 12m, StandardDailyHours: 8m, RateFactor: 1.00m)));
+        var line = Line(result, SettlementConceptCodes.HorasExtrasPendientes);
+
+        Assert.Equal(12m, line.UnitsOrDays);
+        Assert.Equal(2.50m, line.CalculationBase);
+        Assert.Equal(30.00m, line.CalculatedAmount);
+        Assert.True(line.IsSystemCalculated);
+        Assert.Contains("12 h", line.CalculationDetail);
+        Assert.Contains("2.50/h", line.CalculationDetail);
+        Assert.Contains("factor 1", line.CalculationDetail);
+    }
+
+    [Fact]
+    public void HorasExtras_WithRateFactorTwo_DoublesTheAmount()
+    {
+        // A.4-10 variant: tarifa 2.00 → 12 × 2.50 × 2.00 = 60.00.
+        var result = SettlementCalculationRules.Calculate(
+            Input(compensatoryTime: new CompensatoryTimeInput(12m, 8m, 2.00m)));
+        var line = Line(result, SettlementConceptCodes.HorasExtrasPendientes);
+
+        Assert.Equal(12m, line.UnitsOrDays);
+        Assert.Equal(2.50m, line.CalculationBase);
+        Assert.Equal(60.00m, line.CalculatedAmount);
+    }
+
+    [Fact]
+    public void HorasExtras_WithoutFund_ProducesNoLine_Retrocompatible()
+    {
+        // Retrocompatibility (both directions): a null fund emits NO line and leaves every other line and the
+        // totals exactly as they were before the feature.
+        var withoutFund = SettlementCalculationRules.Calculate(Input());
+        Assert.DoesNotContain(withoutFund.Lines, line => line.ConceptCode == SettlementConceptCodes.HorasExtrasPendientes);
+
+        // Adding a fund is purely additive: every pre-existing line keeps its amount; only the new line + the
+        // affectation bases move.
+        var withFund = SettlementCalculationRules.Calculate(Input(compensatoryTime: new CompensatoryTimeInput(12m, 8m, 1.00m)));
+        foreach (var before in withoutFund.Lines)
+        {
+            var after = withFund.Lines.Single(line => line.ConceptCode == before.ConceptCode);
+            if (before.ConceptClass == SettlementConceptClass.Ingreso)
+            {
+                Assert.Equal(before.CalculatedAmount, after.CalculatedAmount); // incomes are independent of the new line
+            }
+        }
+
+        Assert.Equal(
+            SettlementCalculationRules.Round2(withoutFund.Totals.TotalIncomes + 30.00m),
+            withFund.Totals.TotalIncomes);
+    }
+
+    [Fact]
+    public void HorasExtras_EditedHours_FeedTheFormula()
+    {
+        // The liquidator edits the hours to 10 → 10 × 2.50 × 1.00 = 25.00 (edited units survive recalculation).
+        var fund = new CompensatoryTimeInput(12m, 8m, 1.00m);
+        var baseline = SettlementCalculationRules.Calculate(Input(compensatoryTime: fund));
+        var existing = ExistingFrom(baseline, line =>
+            line.ConceptCode == SettlementConceptCodes.HorasExtrasPendientes
+                ? StateOf(line, Guid.NewGuid()) with { UnitsOrDays = 10m }
+                : StateOf(line, Guid.NewGuid()));
+
+        var result = SettlementCalculationRules.Calculate(Input(compensatoryTime: fund, existing: existing));
+        var line = Line(result, SettlementConceptCodes.HorasExtrasPendientes);
+
+        Assert.Equal(10m, line.UnitsOrDays);
+        Assert.Equal(25.00m, line.CalculatedAmount);
+    }
+
+    [Fact]
+    public void HorasExtras_OverrideAmount_Survives()
+    {
+        // An audited override on the pay-off line survives recalculation (FinalAmount = override, RN-002.2).
+        var fund = new CompensatoryTimeInput(12m, 8m, 1.00m);
+        var baseline = SettlementCalculationRules.Calculate(Input(compensatoryTime: fund));
+        var existing = ExistingFrom(baseline, line =>
+            line.ConceptCode == SettlementConceptCodes.HorasExtrasPendientes
+                ? StateOf(line, Guid.NewGuid()) with { OverrideAmount = 100m }
+                : StateOf(line, Guid.NewGuid()));
+
+        var result = SettlementCalculationRules.Calculate(Input(compensatoryTime: fund, existing: existing));
+        var line = Line(result, SettlementConceptCodes.HorasExtrasPendientes);
+
+        Assert.Equal(100m, line.OverrideAmount);
+        Assert.Equal(100m, line.FinalAmount);
+        Assert.Equal(30.00m, line.CalculatedAmount); // the underlying calculation is preserved
+    }
+
+    [Fact]
+    public void HorasExtras_Line_JoinsIsssAfpRentaBases()
+    {
+        // The pay-off concept affects ISSS/AFP/Renta (exención Ninguna) → its 30.00 joins the three bases:
+        // salario 300 + vacación 113.26 + horas extras 30 = 443.26.
+        var result = SettlementCalculationRules.Calculate(Input(compensatoryTime: new CompensatoryTimeInput(12m, 8m, 1.00m)));
+
+        Assert.Equal(443.26m, Line(result, SettlementConceptCodes.Isss).CalculationBase);
+        Assert.Equal(443.26m, Line(result, SettlementConceptCodes.Afp).CalculationBase);
+        Assert.Equal(443.26m, Line(result, SettlementConceptCodes.Renta).CalculationBase);
     }
 
     [Fact]

@@ -81,7 +81,7 @@ public sealed record UpdateSettlementLineRequest(
     string? Description = null,
     decimal? ManualAmount = null);
 
-/// <summary>Appends a manual line (OTRO_INGRESO / OTRO_DESCUENTO / HORAS_EXTRAS_PENDIENTES…).</summary>
+/// <summary>Appends a manual line (OTRO_INGRESO / OTRO_DESCUENTO…). System-calculated concepts are rejected.</summary>
 public sealed record AddSettlementManualLineRequest(
     [Required] string ConceptCode,
     [Required] string Description,

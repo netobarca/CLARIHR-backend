@@ -1018,7 +1018,11 @@ internal static class GlobalCatalogSeedData
         CreateSettlementConceptSeed(-9834L, "SV", "RENUNCIA_VOLUNTARIA", "Compensación económica por renuncia voluntaria", SettlementConceptClass.Ingreso, false, false, true, SettlementExemptionRule.HastaMontoLegal, null, true, null, 50),
         CreateSettlementConceptSeed(-9835L, "SV", "BONO_PENDIENTE", "Bono pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 60),
         CreateSettlementConceptSeed(-9836L, "SV", "COMISION_PENDIENTE", "Comisión pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 70),
-        CreateSettlementConceptSeed(-9837L, "SV", "HORAS_EXTRAS_PENDIENTES", "Horas extras pendientes", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 80),
+        // IsSystemCalculated=true (REQ-002 PR-6/D-19): the compensatory-time pay-off is an AUTOMATIC engine
+        // line (ComputeIncomeLine reaches its case only when the CATALOG flag is true — SettlementCalculation.
+        // Rules.cs:382). Flipping this also closes the manual path for the concept (AddManualLine rejects
+        // system concepts with SETTLEMENT_CONCEPT_INVALID), so there is no double auto+manual pay-off.
+        CreateSettlementConceptSeed(-9837L, "SV", "HORAS_EXTRAS_PENDIENTES", "Horas extras pendientes", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 80),
         CreateSettlementConceptSeed(-9838L, "SV", "OTRO_INGRESO", "Otro ingreso", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 90),
         // Descuentos
         CreateSettlementConceptSeed(-9839L, "SV", "ISSS", "ISSS (cotización del empleado)", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, true, null, 100),
