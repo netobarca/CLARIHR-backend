@@ -1068,3 +1068,70 @@ public sealed class ClinicSectorCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of incapacity registration statuses (general-catalogs key
+/// <c>incapacity-statuses</c>: en revisión, registrada, anulada) backing the lifecycle of an
+/// employee incapacity record (vacaciones e incapacidades module). Seeded for SV.
+/// </summary>
+public sealed class IncapacityStatusCatalogItem : GeneralCatalogItem
+{
+    private IncapacityStatusCatalogItem()
+    {
+    }
+
+    private IncapacityStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static IncapacityStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of vacation request statuses (general-catalogs key
+/// <c>vacation-request-statuses</c>: solicitada, aprobada, rechazada, anulada, devuelta parcial,
+/// devuelta) backing the lifecycle of an employee vacation request (vacaciones e incapacidades
+/// module). Seeded for SV.
+/// </summary>
+public sealed class VacationRequestStatusCatalogItem : GeneralCatalogItem
+{
+    private VacationRequestStatusCatalogItem()
+    {
+    }
+
+    private VacationRequestStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static VacationRequestStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

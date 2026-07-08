@@ -273,7 +273,8 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             item.IsActive,
             item.Notes,
             item.PaymentMethodCode,
-            item.PaymentBankAccountPublicId);
+            item.PaymentBankAccountPublicId,
+            (DayOfWeek?)item.RestDayOfWeek);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
@@ -414,6 +415,7 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             command.Item.Notes,
             command.Item.PaymentMethodCode,
             command.Item.PaymentBankAccountPublicId,
+            command.Item.RestDayOfWeek,
             cancellationToken);
         if (response is null)
         {
@@ -564,6 +566,7 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             input.Notes,
             input.PaymentMethodCode,
             input.PaymentBankAccountPublicId,
+            input.RestDayOfWeek,
             input.IsActive,
             state.IsActiveMutated,
             cancellationToken);
@@ -783,6 +786,13 @@ internal static class PersonnelFileEmploymentAssignmentPatchApplier
             errors["assignmentTypeCode"] = ["AssignmentTypeCode is required."];
         }
 
+        // PATCH bypasses the FluentValidation input validator, so the day-of-week range (D-26) is
+        // re-enforced here with the same message the PUT/POST validator emits.
+        if (state.RestDayOfWeek is < 0 or > 6)
+        {
+            errors["restDayOfWeek"] = ["RestDayOfWeek must be between 0 (Sunday) and 6 (Saturday)."];
+        }
+
         return errors.Count == 0
             ? Result.Success()
             : Result.Failure(ErrorCatalog.Validation(errors));
@@ -825,6 +835,11 @@ internal static class PersonnelFileEmploymentAssignmentPatchApplier
         if (PersonnelFileTalentPatch.IsSegment(property, "paymentBankAccountPublicId"))
         {
             return Mutate(state, () => state.PaymentBankAccountPublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "restDayOfWeek"))
+        {
+            return Mutate(state, () => state.RestDayOfWeek = isRemove ? null : PersonnelFileTalentPatch.ReadNullableInt(value, path));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "positionSlotId"))

@@ -359,6 +359,99 @@ public sealed partial class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
     }
 
+    // Same shape as EmploymentAssignmentBody but with the D-26 rest-day field. Kept separate so the
+    // existing tests keep posting bodies WITHOUT the key (backwards-compatibility coverage for free).
+    private static object EmploymentAssignmentBodyWithRestDay(
+        Guid positionSlotId,
+        int? restDayOfWeek,
+        bool isPrimary = true,
+        bool isActive = true) =>
+        new
+        {
+            assignmentTypeCode = "INDEFINIDO",
+            positionSlotPublicId = positionSlotId,
+            orgUnitPublicId = (Guid?)null,
+            workCenterPublicId = (Guid?)null,
+            costCenterPublicId = (Guid?)null,
+            startDate = DateTime.UtcNow.Date,
+            endDate = (DateTime?)null,
+            isPrimary,
+            isActive,
+            notes = (string?)null,
+            restDayOfWeek
+        };
+
+    [Fact]
+    public async Task EmploymentAssignment_RestDayOfWeek_PutReflectsAndGetReturnsIt()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-MP-RD1", "Direccion MP RD1", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-MP-RD1", "Perfil MP RD1", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-MP-RD1", "Plaza MP RD1", profile.Id, maxEmployees: 2);
+        var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Once", "Empleado");
+
+        // Create WITHOUT the field: the assignment stays null (additive, backwards compatible).
+        var created = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
+            EmploymentAssignmentBody(slot.Id));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Guid assignmentId;
+        Guid token;
+        using (var createdDoc = JsonDocument.Parse(await created.Content.ReadAsStringAsync()))
+        {
+            assignmentId = createdDoc.RootElement.GetProperty("employmentAssignmentPublicId").GetGuid();
+            token = createdDoc.RootElement.GetProperty("concurrencyToken").GetGuid();
+            Assert.True(
+                !createdDoc.RootElement.TryGetProperty("restDayOfWeek", out var restDay)
+                || restDay.ValueKind == JsonValueKind.Null);
+        }
+
+        // PUT with restDayOfWeek = 3 (Wednesday) — the response reflects the new value.
+        var put = await PutAssignmentAsync(
+            client,
+            employeeId,
+            assignmentId,
+            token,
+            EmploymentAssignmentBodyWithRestDay(slot.Id, restDayOfWeek: 3));
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        using (var putDoc = JsonDocument.Parse(await put.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(3, putDoc.RootElement.GetProperty("restDayOfWeek").GetInt32());
+        }
+
+        // GET returns the persisted value.
+        var get = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions/{assignmentId}");
+        get.EnsureSuccessStatusCode();
+        using var getDoc = JsonDocument.Parse(await get.Content.ReadAsStringAsync());
+        Assert.Equal(3, getDoc.RootElement.GetProperty("restDayOfWeek").GetInt32());
+    }
+
+    [Fact]
+    public async Task EmploymentAssignment_RestDayOfWeekOutOfRange_IsRejected()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-MP-RD2", "Direccion MP RD2", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-MP-RD2", "Perfil MP RD2", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-MP-RD2", "Plaza MP RD2", profile.Id, maxEmployees: 2);
+        var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Doce", "Empleado");
+
+        var assignment = await PostAssignmentAsync(client, employeeId, EmploymentAssignmentBody(slot.Id));
+
+        // 7 is outside the DayOfWeek range (0 = Sunday … 6 = Saturday) → request validation 400.
+        var put = await PutAssignmentAsync(
+            client,
+            employeeId,
+            assignment.Id,
+            assignment.Token,
+            EmploymentAssignmentBodyWithRestDay(slot.Id, restDayOfWeek: 7));
+
+        await AssertProblemDetailsAsync(put, HttpStatusCode.BadRequest, "common.validation");
+    }
+
     private async Task<(Guid Id, Guid Token)> PostAssignmentAsync(HttpClient client, Guid employeeId, object body)
     {
         var response = await client.PostJsonAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions", body);

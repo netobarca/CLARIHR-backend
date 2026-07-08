@@ -39,7 +39,10 @@ public sealed record PersonnelFileEmploymentAssignmentResponse(
     // (LEFT JOIN: null when the assignment has no slot or the slot no longer exists). Lets the frontend show the
     // plaza by code/title instead of a raw UUID; see docs/technical/respuesta-backend-* for the rationale.
     string? PositionSlotCode = null,
-    string? PositionSlotTitle = null)
+    string? PositionSlotTitle = null,
+    // Día de descanso semanal de la plaza (vacaciones/incapacidades D-26): 0 = Sunday … 6 = Saturday.
+    // Null = not configured (additive, backwards compatible).
+    int? RestDayOfWeek = null)
 {
     [JsonIgnore]
     public Guid Id => EmploymentAssignmentPublicId;
@@ -60,7 +63,9 @@ public sealed record EmploymentAssignmentInput(
     bool IsActive,
     string? Notes,
     string? PaymentMethodCode = null,
-    Guid? PaymentBankAccountPublicId = null);
+    Guid? PaymentBankAccountPublicId = null,
+    // Día de descanso semanal (D-26): 0 = Sunday … 6 = Saturday; null = not configured.
+    int? RestDayOfWeek = null);
 
 public sealed record AddPersonnelFileEmploymentAssignmentCommand(
     Guid PersonnelFileId,
@@ -110,6 +115,10 @@ internal sealed class EmploymentAssignmentInputValidator : AbstractValidator<Emp
         RuleFor(input => input.PaymentMethodCode).MaximumLength(80).When(input => !string.IsNullOrWhiteSpace(input.PaymentMethodCode));
         RuleFor(input => input.PositionSlotId).NotNull();
         RuleFor(input => input.StartDate).LessThanOrEqualTo(input => input.EndDate!.Value).When(input => input.EndDate.HasValue);
+        RuleFor(input => input.RestDayOfWeek)
+            .InclusiveBetween(0, 6)
+            .When(input => input.RestDayOfWeek.HasValue)
+            .WithMessage("RestDayOfWeek must be between 0 (Sunday) and 6 (Saturday).");
     }
 }
 
@@ -187,6 +196,7 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
     public string? PayrollTypeCode { get; set; }
     public string? PaymentMethodCode { get; set; }
     public Guid? PaymentBankAccountPublicId { get; set; }
+    public int? RestDayOfWeek { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
@@ -208,6 +218,7 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
             PayrollTypeCode = response.PayrollTypeCode,
             PaymentMethodCode = response.PaymentMethodCode,
             PaymentBankAccountPublicId = response.PaymentBankAccountPublicId,
+            RestDayOfWeek = response.RestDayOfWeek,
             PositionSlotId = response.PositionSlotId,
             OrgUnitId = response.OrgUnitId,
             WorkCenterId = response.WorkCenterId,
@@ -235,6 +246,7 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
             IsActive,
             Notes,
             PaymentMethodCode,
-            PaymentBankAccountPublicId);
+            PaymentBankAccountPublicId,
+            RestDayOfWeek);
 }
 

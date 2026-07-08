@@ -624,6 +624,27 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("CLINIC_SECTOR_CATALOG", -9862L, "SV", "PRIVADA", "Privada", 30),
     ];
 
+    // Incapacity registration statuses (vacaciones e incapacidades module): lifecycle of an
+    // employee incapacity record (self-service entries start EN_REVISION).
+    public static IEnumerable<object> GetIncapacityStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("INCAPACITY_STATUS_CATALOG", -9850L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("INCAPACITY_STATUS_CATALOG", -9851L, "SV", "REGISTRADA", "Registrada", 20),
+        CreateGeneralCatalogSeed("INCAPACITY_STATUS_CATALOG", -9852L, "SV", "ANULADA", "Anulada", 30),
+    ];
+
+    // Vacation request statuses (vacaciones e incapacidades module): lifecycle of an employee
+    // vacation request, including partial/full devolution of enjoyed days.
+    public static IEnumerable<object> GetVacationRequestStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9853L, "SV", "SOLICITADA", "Solicitada", 10),
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9854L, "SV", "APROBADA", "Aprobada", 20),
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9855L, "SV", "RECHAZADA", "Rechazada", 30),
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9856L, "SV", "ANULADA", "Anulada", 40),
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9857L, "SV", "DEVUELTA_PARCIAL", "Devuelta parcial", 50),
+        CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9858L, "SV", "DEVUELTA", "Devuelta", 60),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -757,6 +778,11 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9482L, "SV", "BAJA", "Baja / retiro definitivo", 130),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9483L, "SV", "REVERSION_BAJA", "Reversión de baja", 140),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9484L, "SV", "LIQUIDACION", "Liquidación de personal", 150),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9485L, "SV", "INCAPACIDAD", "Incapacidad", 160),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9486L, "SV", "PRORROGA_INCAPACIDAD", "Prórroga de incapacidad", 170),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9487L, "SV", "LACTANCIA", "Lactancia", 180),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9488L, "SV", "GOCE_VACACIONES", "Goce de vacaciones", 190),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9489L, "SV", "DEVOLUCION_VACACIONES", "Devolución de vacaciones", 200),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>

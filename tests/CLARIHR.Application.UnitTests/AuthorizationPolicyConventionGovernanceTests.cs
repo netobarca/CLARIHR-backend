@@ -136,6 +136,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // controllers.
         PersonnelFilePolicies.ViewSettlements,
         PersonnelFilePolicies.ManageSettlements,
+        // Leave module ("vacaciones e incapacidades", D-17/D-18): all four are authn-only supersets
+        // because both families have self-service branches (own incapacity EN_REVISION, own vacation
+        // request); the precise View*/Manage*/isSelf/anti-self checks live in the handler gates.
+        PersonnelFilePolicies.ViewIncapacities,
+        PersonnelFilePolicies.ManageIncapacities,
+        PersonnelFilePolicies.ViewVacations,
+        PersonnelFilePolicies.ManageVacations,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

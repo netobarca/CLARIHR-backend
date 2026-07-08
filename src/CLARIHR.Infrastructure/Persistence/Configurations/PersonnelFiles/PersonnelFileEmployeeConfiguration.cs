@@ -72,6 +72,10 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.Property(item => item.PayrollTypeCode).HasColumnName("payroll_type_code").HasMaxLength(80);
         builder.Property(item => item.PaymentMethodCode).HasColumnName("payment_method_code").HasMaxLength(80);
         builder.Property(item => item.PaymentBankAccountPublicId).HasColumnName("payment_bank_account_public_id");
+        // Nullable DayOfWeek stored as smallint (0 = Sunday … 6 = Saturday); null = not configured (D-26).
+        // The non-nullable provider type is the EF idiom for nullable enums: the column stays NULL-able
+        // (nullability follows the property) and EF composes the null pass-through itself.
+        builder.Property(item => item.RestDayOfWeek).HasColumnName("rest_day_of_week").HasConversion<short>();
         builder.Property(item => item.PositionSlotPublicId).HasColumnName("position_slot_public_id");
         builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");

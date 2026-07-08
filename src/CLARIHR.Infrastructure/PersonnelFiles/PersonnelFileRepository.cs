@@ -1375,6 +1375,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "ASSOCIATION" => await GetCountryScopedCatalogItemsAsync<AssociationCatalogItem>(countryCatalogItemId.Value, "Association", cancellationToken),
             "ADDITIONALBENEFITTYPE" => await GetCountryScopedCatalogItemsAsync<AdditionalBenefitTypeCatalogItem>(countryCatalogItemId.Value, "AdditionalBenefitType", cancellationToken),
             "CLINICSECTOR" => await GetCountryScopedCatalogItemsAsync<ClinicSectorCatalogItem>(countryCatalogItemId.Value, "ClinicSector", cancellationToken),
+            "INCAPACITYSTATUS" => await GetCountryScopedCatalogItemsAsync<IncapacityStatusCatalogItem>(countryCatalogItemId.Value, "IncapacityStatus", cancellationToken),
+            "VACATIONREQUESTSTATUS" => await GetCountryScopedCatalogItemsAsync<VacationRequestStatusCatalogItem>(countryCatalogItemId.Value, "VacationRequestStatus", cancellationToken),
             _ => []
         };
     }
@@ -1640,6 +1642,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "SETTLEMENTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<SettlementStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "SETTLEMENTCONCEPT" => await IsCountryScopedCatalogCodeActiveAsync<SettlementConceptCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CLINICSECTOR" => await IsCountryScopedCatalogCodeActiveAsync<ClinicSectorCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "INCAPACITYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<IncapacityStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "VACATIONREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<VacationRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

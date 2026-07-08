@@ -76,6 +76,60 @@ public sealed class PersonnelFileEmploymentAssignmentPatchTests
     }
 
     [Fact]
+    public void From_MapsRestDayOfWeek()
+    {
+        var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline() with { RestDayOfWeek = 3 });
+
+        Assert.Equal(3, state.RestDayOfWeek);
+    }
+
+    [Fact]
+    public void ToInput_RoundTripsRestDayOfWeek()
+    {
+        var input = PersonnelFileEmploymentAssignmentPatchState.From(Baseline() with { RestDayOfWeek = 3 }).ToInput();
+
+        Assert.Equal(3, input.RestDayOfWeek);
+    }
+
+    [Fact]
+    public void Apply_ReplaceRestDayOfWeek_Mutates()
+    {
+        var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Apply([Replace("/restDayOfWeek", 3)], state).IsSuccess);
+        Assert.Equal(3, state.RestDayOfWeek);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Apply_RemoveRestDayOfWeek_ClearsValue()
+    {
+        var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline() with { RestDayOfWeek = 3 });
+
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Apply([Remove("/restDayOfWeek")], state).IsSuccess);
+        Assert.Null(state.RestDayOfWeek);
+        Assert.True(state.HasMutation);
+    }
+
+    [Fact]
+    public void Validate_RestDayOfWeekOutOfRange_Fails()
+    {
+        var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Apply([Replace("/restDayOfWeek", 7)], state).IsSuccess);
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Validate(state).IsFailure);
+    }
+
+    [Fact]
+    public void Validate_RestDayOfWeekInRange_Succeeds()
+    {
+        var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline());
+
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Apply([Replace("/restDayOfWeek", 0)], state).IsSuccess);
+        Assert.True(PersonnelFileEmploymentAssignmentPatchApplier.Validate(state).IsSuccess);
+    }
+
+    [Fact]
     public void Apply_ReplacePositionSlotId_Mutates()
     {
         var state = PersonnelFileEmploymentAssignmentPatchState.From(Baseline());

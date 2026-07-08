@@ -588,6 +588,19 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Leave module (incapacidades/lactancia/vacaciones — leave module D-17/D-18). All four stay
+    // authn-only supersets — NOT RequireAssertion — because both families have self-service branches
+    // (an employee registers their own incapacity EN_REVISION and creates/cancels their own vacation
+    // request); the precise View*/Manage*/isSelf/anti-self checks live in the handler gates.
+    options.AddPolicy(PersonnelFilePolicies.ViewIncapacities, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageIncapacities, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ViewVacations, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageVacations, policyBuilder => policyBuilder
+        .Combine(policy));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

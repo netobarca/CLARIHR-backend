@@ -3055,6 +3055,589 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/company-holidays':
+    get:
+      tags:
+        - Company Holidays
+      summary: List company holidays for a company
+      description: "Returns a paginated list of the company's holidays (\"días de asueto\"), filterable\nby `year` (calendar year of the holiday date), `scopeCode`\n(NACIONAL/LOCAL/INSTITUCIONAL) and `isActive`, ordered by date ascending. The\nowning company is validated against the authenticated tenant. Set\n`includeAllowedActions=true` to receive per-item read/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: scopeCode
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Company Holidays
+      summary: Create a company holiday
+      description: "Creates a company holiday under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. `scopeCode` must be one of NACIONAL/LOCAL/INSTITUCIONAL\n(`400` otherwise). A duplicate date yields `409 HOLIDAY_DUPLICATE`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyHolidayRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyHolidayRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyHolidayRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/company-holidays/{publicId}':
+    get:
+      tags:
+        - Company Holidays
+      summary: Get a company holiday by id
+      description: "Returns a single company holiday by its public id. The owning company is resolved\nfrom the authenticated tenant; a non-existent id yields `404`, while an id that\nbelongs to another tenant yields `403 TENANT_MISMATCH`. The current\n`concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Company Holidays
+      summary: Update a company holiday
+      description: "Replaces the editable fields of a company holiday (date, description, scope code).\n`scopeCode` must be one of NACIONAL/LOCAL/INSTITUCIONAL (`400` otherwise). Requires\nthe current `concurrencyToken` in the `If-Match` header; a missing/malformed header\nyields `400` and a stale token yields `409 CONCURRENCY_CONFLICT`. A duplicate date\nyields `409 HOLIDAY_DUPLICATE`. The refreshed token is returned in the body and the\n`ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyHolidayRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyHolidayRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyHolidayRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/company-holidays/{publicId}/activate':
+    patch:
+      tags:
+        - Company Holidays
+      summary: Activate a company holiday
+      description: "Reactivates an inactive company holiday. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/company-holidays/{publicId}/inactivate':
+    patch:
+      tags:
+        - Company Holidays
+      summary: Inactivate a company holiday
+      description: "Deactivates (soft-delete) a company holiday. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompanyHolidayResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/preferences':
     get:
       tags:
@@ -3121,7 +3704,7 @@ paths:
       tags:
         - Company Preferences
       summary: Replace the company preferences
-      description: "Replaces the editable fields (currency code and time zone). Requires the current\n`concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The\nrefreshed token is returned in the body and the `ETag` header."
+      description: "Replaces the editable fields: currency code, time zone, the optional HR-dashboard and\neconomic-aid parametrization, and the optional vacation/incapacity parametrization\n(nullable — `null` means the legal default, resolved when the policy is consumed: 15\nannual vacation days, 0 additional vacation benefit days, start on holiday not allowed,\nend on holiday allowed, start on rest day not allowed, anniversary counting by default,\nSunday (`0`) company rest day, 9 employer-covered incapacity days per year, 0 additional\nincapacity benefit days and incapacity document required). The PUT is a full\nreplacement: omitting or sending `null` for an optional field clears it back to the\nlegal default. Requires the current `concurrencyToken` in the `If-Match` header\n(missing → `400`, stale → `409`). The refreshed token is returned in the body and the\n`ETag` header."
       parameters:
         - name: companyPublicId
           in: path
@@ -8841,7 +9424,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a general catalog
-      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
+      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
       parameters:
         - name: catalogKey
           in: path
@@ -9006,6 +9589,1276 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/incapacity-risks':
+    get:
+      tags:
+        - Incapacity Risks
+      summary: List incapacity risks for a company
+      description: "Returns a paginated list of the company's incapacity risks, filterable by\n`isActive` and free-text `q` over code and name. Each item carries the risk's\nday-counting flags and the count of its subsidy parameters (`parameterCount`); the\nfull tranche set travels only on the by-id read. The owning company is validated\nagainst the authenticated tenant. Set `includeAllowedActions=true` to receive\nper-item read/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Incapacity Risks
+      summary: Create an incapacity risk
+      description: "Creates an incapacity risk under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. The subsidy `parameters` are optional in the POST: when\nthey travel, the tranche set must start at day 1, be contiguous and only the last\ntranche may be open-ended (`dayTo = null`), with payer codes `ISSS`, `EMPRESA` or\n`SIN_PAGO` (`422 RISK_PARAMETERS_INVALID` otherwise; a risk without `hasSubsidy`\ncannot define tranches). A duplicate code yields `409 INCAPACITY_RISK_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityRiskRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityRiskRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityRiskRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-risks/{publicId}':
+    get:
+      tags:
+        - Incapacity Risks
+      summary: Get an incapacity risk by id
+      description: "Returns a single incapacity risk by its public id, including its subsidy\nparameters ordered by `sortOrder`. The owning company is resolved from the\nauthenticated tenant; a non-existent id yields `404`, while an id that belongs to\nanother tenant yields `403 TENANT_MISMATCH`. The current `concurrencyToken` is\nemitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Incapacity Risks
+      summary: Update an incapacity risk
+      description: "Replaces the scalar fields of an incapacity risk (code, name and the\nday-counting/behavior flags). The subsidy parameters are NOT touched here — use\n`PUT /incapacity-risks/{publicId}/parameters` to replace the tranche set. Turning\noff `hasSubsidy` while tranches still exist yields\n`422 INCAPACITY_RISK_RULE_VIOLATION`. Requires the current `concurrencyToken` in the\n`If-Match` header; a missing/malformed header yields `400` and a stale token yields\n`409 CONCURRENCY_CONFLICT`. A duplicate code yields\n`409 INCAPACITY_RISK_CODE_CONFLICT`. The refreshed token is returned in the body and\nthe `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityRiskRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityRiskRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityRiskRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-risks/{publicId}/parameters':
+    put:
+      tags:
+        - Incapacity Risks
+      summary: Replace the subsidy parameters of an incapacity risk
+      description: "Replaces the FULL subsidy tranche set of the risk in one shot. The set must start at\nday 1, be contiguous and only the last tranche may be open-ended (`dayTo = null`),\nwith payer codes `ISSS`, `EMPRESA` or `SIN_PAGO`; a risk with `hasSubsidy` requires\nat least one tranche and a risk without it only accepts an empty set\n(`422 RISK_PARAMETERS_INVALID` otherwise). Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`).\nReturns the full risk with the new tranche set; the refreshed token is returned in\nthe body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceIncapacityRiskParametersRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceIncapacityRiskParametersRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ReplaceIncapacityRiskParametersRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-risks/{publicId}/activate':
+    patch:
+      tags:
+        - Incapacity Risks
+      summary: Activate an incapacity risk
+      description: "Reactivates an inactive incapacity risk. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-risks/{publicId}/inactivate':
+    patch:
+      tags:
+        - Incapacity Risks
+      summary: Inactivate an incapacity risk
+      description: "Deactivates (soft-delete) an incapacity risk. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityRiskResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/incapacity-types':
+    get:
+      tags:
+        - Incapacity Types
+      summary: List incapacity types for a company
+      description: "Returns a paginated list of the company's incapacity types, filterable by\n`isActive` and free-text `q` over code and name. The owning company is validated\nagainst the authenticated tenant. Set `includeAllowedActions=true` to receive\nper-item read/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Incapacity Types
+      summary: Create an incapacity type
+      description: "Creates an incapacity type under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. A duplicate code yields\n`409 INCAPACITY_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateIncapacityTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-types/{publicId}':
+    get:
+      tags:
+        - Incapacity Types
+      summary: Get an incapacity type by id
+      description: "Returns a single incapacity type by its public id. The owning company is resolved\nfrom the authenticated tenant; a non-existent id yields `404`, while an id that\nbelongs to another tenant yields `403 TENANT_MISMATCH`. The current\n`concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Incapacity Types
+      summary: Update an incapacity type
+      description: "Replaces the editable fields of an incapacity type (code, name, deduction/income\ntype texts, work-accident flag). Requires the current `concurrencyToken` in the\n`If-Match` header; a missing/malformed header yields `400` and a stale token yields\n`409 CONCURRENCY_CONFLICT`. A duplicate code yields\n`409 INCAPACITY_TYPE_CODE_CONFLICT`. The refreshed token is returned in the body and\nthe `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-types/{publicId}/activate':
+    patch:
+      tags:
+        - Incapacity Types
+      summary: Activate an incapacity type
+      description: "Reactivates an inactive incapacity type. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/incapacity-types/{publicId}/inactivate':
+    patch:
+      tags:
+        - Incapacity Types
+      summary: Inactivate an incapacity type
+      description: "Deactivates (soft-delete) an incapacity type. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -13004,6 +14857,111 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/leave-configuration/load-template':
+    post:
+      tags:
+        - Leave Configuration
+      summary: Load the El Salvador leave-configuration template
+      description: "Applies the El Salvador template to the company's leave-configuration masters: the\nfive incapacity risks of Anexo A.2 (with their subsidy tranches), the minimum\nincapacity types (including `LACTANCIA`) and — only when the optional `year` query\nparameter travels — the national holidays of Art. 190 CT for that year (Semana\nSanta is derived from the Easter computus). Idempotent by code/date: rows the\ncompany already has are never overwritten (even when edited or inactive) and are\nreported as skipped; only the missing template rows are created. Returns `200 OK`\nwith the created/skipped summary. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            maximum: 2100
+            minimum: 2000
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/LeaveTemplateSeedResultResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveTemplateSeedResultResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/LeaveTemplateSeedResultResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/legal-representatives':
     get:
       tags:
@@ -15766,6 +17724,588 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/medical-clinics':
+    get:
+      tags:
+        - Medical Clinics
+      summary: List medical clinics for a company
+      description: "Returns a paginated list of the company's medical clinics, filterable by\n`isActive`, `sectorCode` (clinic-sectors catalog code) and free-text `q` over the\ndescription. The owning company is validated against the authenticated tenant. Set\n`includeAllowedActions=true` to receive per-item read/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: sectorCode
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Medical Clinics
+      summary: Create a medical clinic
+      description: "Creates a medical clinic under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. The optional `sectorCode` must be an active code of the\ncountry-scoped clinic-sectors catalog (`422 MEDICAL_CLINIC_SECTOR_INVALID`\notherwise). A duplicate description yields `409 MEDICAL_CLINIC_DESCRIPTION_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMedicalClinicRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateMedicalClinicRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateMedicalClinicRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/medical-clinics/{publicId}':
+    get:
+      tags:
+        - Medical Clinics
+      summary: Get a medical clinic by id
+      description: "Returns a single medical clinic by its public id. The owning company is resolved\nfrom the authenticated tenant; a non-existent id yields `404`, while an id that\nbelongs to another tenant yields `403 TENANT_MISMATCH`. The current\n`concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Medical Clinics
+      summary: Update a medical clinic
+      description: "Replaces the editable fields of a medical clinic (description, specialty, sector\ncode). The optional `sectorCode` must be an active code of the country-scoped\nclinic-sectors catalog (`422 MEDICAL_CLINIC_SECTOR_INVALID` otherwise). Requires the\ncurrent `concurrencyToken` in the `If-Match` header; a missing/malformed header\nyields `400` and a stale token yields `409 CONCURRENCY_CONFLICT`. A duplicate\ndescription yields `409 MEDICAL_CLINIC_DESCRIPTION_CONFLICT`. The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMedicalClinicRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMedicalClinicRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateMedicalClinicRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/medical-clinics/{publicId}/activate':
+    patch:
+      tags:
+        - Medical Clinics
+      summary: Activate a medical clinic
+      description: "Reactivates an inactive medical clinic. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/medical-clinics/{publicId}/inactivate':
+    patch:
+      tags:
+        - Medical Clinics
+      summary: Inactivate a medical clinic
+      description: "Deactivates (soft-delete) a medical clinic. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/MedicalClinicResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/organization-structure-catalogs/unit-types':
     get:
       tags:
@@ -18251,6 +20791,589 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/payroll-periods':
+    get:
+      tags:
+        - Payroll Periods
+      summary: List payroll periods for a company
+      description: "Returns a paginated list of the company's payroll period definitions, filterable by\n`payPeriodTypeCode` (pay-periods catalog code), `year` and `isActive`, ordered by\nyear descending then number ascending. The owning company is validated against the\nauthenticated tenant. Set `includeAllowedActions=true` to receive per-item\nread/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: payPeriodTypeCode
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Payroll Periods
+      summary: Create a payroll period
+      description: "Creates a payroll period under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. `payPeriodTypeCode` must be an active code of the\ncountry-scoped pay-periods catalog (`422 PAYROLL_PERIOD_TYPE_INVALID` otherwise). A\nduplicate (type, year, number) yields `409 PAYROLL_PERIOD_DUPLICATE`; a date range\noverlapping another active period of the same type and year yields\n`422 PAYROLL_PERIOD_OVERLAP`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayrollPeriodRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayrollPeriodRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreatePayrollPeriodRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/payroll-periods/{publicId}':
+    get:
+      tags:
+        - Payroll Periods
+      summary: Get a payroll period by id
+      description: "Returns a single payroll period by its public id. The owning company is resolved\nfrom the authenticated tenant; a non-existent id yields `404`, while an id that\nbelongs to another tenant yields `403 TENANT_MISMATCH`. The current\n`concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Payroll Periods
+      summary: Update a payroll period
+      description: "Replaces the editable fields of a payroll period (type, year, number, label,\ndates). `payPeriodTypeCode` must be an active code of the country-scoped pay-periods\ncatalog (`422 PAYROLL_PERIOD_TYPE_INVALID` otherwise); a duplicate (type, year,\nnumber) yields `409 PAYROLL_PERIOD_DUPLICATE` and an overlapping date range yields\n`422 PAYROLL_PERIOD_OVERLAP`. Requires the current `concurrencyToken` in the\n`If-Match` header; a missing/malformed header yields `400` and a stale token yields\n`409 CONCURRENCY_CONFLICT`. The refreshed token is returned in the body and the\n`ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePayrollPeriodRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePayrollPeriodRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdatePayrollPeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/payroll-periods/{publicId}/activate':
+    patch:
+      tags:
+        - Payroll Periods
+      summary: Activate a payroll period
+      description: "Reactivates an inactive payroll period. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/payroll-periods/{publicId}/inactivate':
+    patch:
+      tags:
+        - Payroll Periods
+      summary: Inactivate a payroll period
+      description: "Deactivates (soft-delete) a payroll period. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -41769,6 +44892,12 @@ components:
           type: string
           format: uuid
           nullable: true
+        restDayOfWeek:
+          maximum: 6
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
       additionalProperties: false
     AddFamilyMemberRequest:
       type: object
@@ -43005,6 +46134,79 @@ components:
           type: string
           format: uuid
       additionalProperties: false
+    CompanyHolidayListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        scopeCode:
+          type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    CompanyHolidayListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyHolidayListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    CompanyHolidayResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        scopeCode:
+          type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
     CompanyPreferenceResponse:
       type: object
       properties:
@@ -43025,6 +46227,51 @@ components:
         minimumSeniorityMonthsForEconomicAid:
           type: integer
           format: int32
+          nullable: true
+        annualVacationDaysDefault:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        additionalVacationBenefitDaysDefault:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        allowVacationStartOnHoliday:
+          type: boolean
+          nullable: true
+        allowVacationEndOnHoliday:
+          type: boolean
+          nullable: true
+        allowVacationStartOnRestDay:
+          type: boolean
+          nullable: true
+        defaultUseAnniversary:
+          type: boolean
+          nullable: true
+        companyRestDayOfWeek:
+          maximum: 6
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        employerCoveredIncapacityDaysPerYear:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        additionalIncapacityBenefitDaysPerYear:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        incapacityRequiresDocument:
+          type: boolean
           nullable: true
         concurrencyToken:
           type: string
@@ -43767,6 +47014,17 @@ components:
             format: uuid
           nullable: true
       additionalProperties: false
+    CreateCompanyHolidayRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        scopeCode:
+          type: string
+      additionalProperties: false
     CreateCompanyUserRequest:
       type: object
       properties:
@@ -43849,6 +47107,51 @@ components:
           type: string
           nullable: true
         isAnonymous:
+          type: boolean
+      additionalProperties: false
+    CreateIncapacityRiskRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        countsSeventhDay:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        allowsIndefinite:
+          type: boolean
+        allowsExtension:
+          type: boolean
+        usesFund:
+          type: boolean
+        hasSubsidy:
+          type: boolean
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityRiskParameterInputModel'
+          nullable: true
+      additionalProperties: false
+    CreateIncapacityTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        deductionTypeText:
+          type: string
+          nullable: true
+        incomeTypeText:
+          type: string
+          nullable: true
+        appliesToWorkAccident:
           type: boolean
       additionalProperties: false
     CreateInternalCatalogValueRequest:
@@ -44007,6 +47310,18 @@ components:
         allowsWorkCenters:
           type: boolean
       additionalProperties: false
+    CreateMedicalClinicRequest:
+      type: object
+      properties:
+        description:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        sectorCode:
+          type: string
+          nullable: true
+      additionalProperties: false
     CreateOccupationalPyramidLevelRequest:
       type: object
       properties:
@@ -44059,6 +47374,26 @@ components:
         normalizedCode:
           type: string
           readOnly: true
+      additionalProperties: false
+    CreatePayrollPeriodRequest:
+      type: object
+      properties:
+        payPeriodTypeCode:
+          type: string
+        year:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
       additionalProperties: false
     CreatePersonnelFileRequest:
       type: object
@@ -45466,6 +48801,230 @@ components:
         - ScreenAction
         - Field
       type: string
+    IncapacityRiskListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        countsSeventhDay:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        allowsIndefinite:
+          type: boolean
+        allowsExtension:
+          type: boolean
+        usesFund:
+          type: boolean
+        hasSubsidy:
+          type: boolean
+        parameterCount:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    IncapacityRiskListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityRiskListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    IncapacityRiskParameterInputModel:
+      type: object
+      properties:
+        dayFrom:
+          type: integer
+          format: int32
+        dayTo:
+          type: integer
+          format: int32
+          nullable: true
+        subsidyPercent:
+          type: number
+          format: double
+        payerCode:
+          type: string
+      additionalProperties: false
+    IncapacityRiskParameterResponse:
+      type: object
+      properties:
+        dayFrom:
+          type: integer
+          format: int32
+        dayTo:
+          type: integer
+          format: int32
+          nullable: true
+        subsidyPercent:
+          type: number
+          format: double
+        payerCode:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+      additionalProperties: false
+    IncapacityRiskResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        countsSeventhDay:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        allowsIndefinite:
+          type: boolean
+        allowsExtension:
+          type: boolean
+        usesFund:
+          type: boolean
+        hasSubsidy:
+          type: boolean
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityRiskParameterResponse'
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    IncapacityTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        deductionTypeText:
+          type: string
+          nullable: true
+        incomeTypeText:
+          type: string
+          nullable: true
+        appliesToWorkAccident:
+          type: boolean
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    IncapacityTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    IncapacityTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        deductionTypeText:
+          type: string
+          nullable: true
+        incomeTypeText:
+          type: string
+          nullable: true
+        appliesToWorkAccident:
+          type: boolean
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
     IncomeTaxBracketRequestItem:
       type: object
       properties:
@@ -46519,6 +50078,37 @@ components:
         - Certification
         - Other
       type: string
+    LeaveTemplateSeedResultResponse:
+      type: object
+      properties:
+        risksCreated:
+          type: integer
+          format: int32
+        riskParametersCreated:
+          type: integer
+          format: int32
+        typesCreated:
+          type: integer
+          format: int32
+        holidaysCreated:
+          type: integer
+          format: int32
+        risksSkipped:
+          type: integer
+          format: int32
+        typesSkipped:
+          type: integer
+          format: int32
+        holidaysSkipped:
+          type: integer
+          format: int32
+        totalCreated:
+          type: integer
+          format: int32
+        totalSkipped:
+          type: integer
+          format: int32
+      additionalProperties: false
     LegalRepresentativeListItemResponse:
       type: object
       properties:
@@ -46926,6 +50516,81 @@ components:
           type: string
           format: date-time
           nullable: true
+      additionalProperties: false
+    MedicalClinicListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        sectorCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    MedicalClinicListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicalClinicListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    MedicalClinicResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        sectorCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
       additionalProperties: false
     MoveLocationGroupRequest:
       type: object
@@ -49005,6 +52670,97 @@ components:
         value:
           nullable: true
       additionalProperties: false
+    PayrollPeriodListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        payPeriodTypeCode:
+          type: string
+        year:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    PayrollPeriodListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollPeriodListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    PayrollPeriodResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        payPeriodTypeCode:
+          type: string
+        year:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
     PersonnelCatalogItemResponse:
       type: object
       properties:
@@ -49808,6 +53564,12 @@ components:
           nullable: true
         positionSlotTitle:
           type: string
+          nullable: true
+        restDayOfWeek:
+          maximum: 6
+          minimum: 0
+          type: integer
+          format: int32
           nullable: true
       additionalProperties: false
     PersonnelFileFamilyMemberResponse:
@@ -52074,6 +55836,15 @@ components:
           type: string
           nullable: true
       additionalProperties: false
+    ReplaceIncapacityRiskParametersRequest:
+      type: object
+      properties:
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityRiskParameterInputModel'
+          nullable: true
+      additionalProperties: false
     ReplaceIncomeTaxBracketsRequest:
       type: object
       properties:
@@ -53198,6 +56969,17 @@ components:
           type: string
           nullable: true
       additionalProperties: false
+    UpdateCompanyHolidayRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        scopeCode:
+          type: string
+      additionalProperties: false
     UpdateCompanyPreferencesRequest:
       type: object
       properties:
@@ -53215,6 +56997,51 @@ components:
         minimumSeniorityMonthsForEconomicAid:
           type: integer
           format: int32
+          nullable: true
+        annualVacationDaysDefault:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        additionalVacationBenefitDaysDefault:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        allowVacationStartOnHoliday:
+          type: boolean
+          nullable: true
+        allowVacationEndOnHoliday:
+          type: boolean
+          nullable: true
+        allowVacationStartOnRestDay:
+          type: boolean
+          nullable: true
+        defaultUseAnniversary:
+          type: boolean
+          nullable: true
+        companyRestDayOfWeek:
+          maximum: 6
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        employerCoveredIncapacityDaysPerYear:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        additionalIncapacityBenefitDaysPerYear:
+          maximum: 365
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
+        incapacityRequiresDocument:
+          type: boolean
           nullable: true
       additionalProperties: false
     UpdateCompanyUserRequest:
@@ -53538,6 +57365,12 @@ components:
           type: string
           format: uuid
           nullable: true
+        restDayOfWeek:
+          maximum: 6
+          minimum: 0
+          type: integer
+          format: int32
+          nullable: true
       additionalProperties: false
     UpdateFamilyMemberRequest:
       type: object
@@ -53632,6 +57465,46 @@ components:
           type: string
           nullable: true
         isPrimary:
+          type: boolean
+      additionalProperties: false
+    UpdateIncapacityRiskRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        countsSeventhDay:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        allowsIndefinite:
+          type: boolean
+        allowsExtension:
+          type: boolean
+        usesFund:
+          type: boolean
+        hasSubsidy:
+          type: boolean
+      additionalProperties: false
+    UpdateIncapacityTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        deductionTypeText:
+          type: string
+          nullable: true
+        incomeTypeText:
+          type: string
+          nullable: true
+        appliesToWorkAccident:
           type: boolean
       additionalProperties: false
     UpdateInsuranceBeneficiaryRequest:
@@ -53936,6 +57809,18 @@ components:
           format: date-time
           nullable: true
       additionalProperties: false
+    UpdateMedicalClinicRequest:
+      type: object
+      properties:
+        description:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        sectorCode:
+          type: string
+          nullable: true
+      additionalProperties: false
     UpdateOccupationalPyramidLevelRequest:
       type: object
       properties:
@@ -54016,6 +57901,26 @@ components:
         normalizedCode:
           type: string
           readOnly: true
+      additionalProperties: false
+    UpdatePayrollPeriodRequest:
+      type: object
+      properties:
+        payPeriodTypeCode:
+          type: string
+        year:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
       additionalProperties: false
     UpdatePerformanceEvaluationRequest:
       type: object

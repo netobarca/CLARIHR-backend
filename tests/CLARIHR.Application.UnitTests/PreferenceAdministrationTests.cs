@@ -419,7 +419,7 @@ public sealed class CompanyPreferenceAdministrationTests
         var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
-            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", null, null, null, Guid.NewGuid()),
+            UpdateCommand(tenantId, "EUR", "Europe/Madrid", Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -443,7 +443,7 @@ public sealed class CompanyPreferenceAdministrationTests
         var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
 
         var result = await handler.Handle(
-            new UpdateCompanyPreferencesCommand(tenantId, "EUR", "Europe/Madrid", null, null, null, expectedToken),
+            UpdateCommand(tenantId, "EUR", "Europe/Madrid", expectedToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -553,6 +553,114 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.Equal(0, unitOfWork.SaveChangesCalls);
         Assert.Empty(auditService.TenantEntries); // a rejected patch is never audited
     }
+
+    [Fact]
+    public async Task UpdateCompanyPreferencesCommandHandler_WhenLeavePoliciesProvided_ShouldPersistAndReturnThem()
+    {
+        var tenantId = Guid.NewGuid();
+        var preference = CompanyPreference.Create("USD", "UTC");
+        preference.SetTenantId(tenantId);
+        var expectedToken = preference.ConcurrencyToken;
+
+        var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
+        var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
+
+        var result = await handler.Handle(
+            UpdateCommand(tenantId, "USD", "UTC", expectedToken) with
+            {
+                AnnualVacationDaysDefault = 20,
+                AdditionalVacationBenefitDaysDefault = 5,
+                AllowVacationStartOnHoliday = true,
+                AllowVacationEndOnHoliday = false,
+                AllowVacationStartOnRestDay = true,
+                DefaultUseAnniversary = false,
+                CompanyRestDayOfWeek = 6,
+                EmployerCoveredIncapacityDaysPerYear = 12,
+                AdditionalIncapacityBenefitDaysPerYear = 3,
+                IncapacityRequiresDocument = false
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(20, result.Value.AnnualVacationDaysDefault);
+        Assert.Equal(5, result.Value.AdditionalVacationBenefitDaysDefault);
+        Assert.True(result.Value.AllowVacationStartOnHoliday);
+        Assert.False(result.Value.AllowVacationEndOnHoliday);
+        Assert.True(result.Value.AllowVacationStartOnRestDay);
+        Assert.False(result.Value.DefaultUseAnniversary);
+        Assert.Equal(6, result.Value.CompanyRestDayOfWeek);
+        Assert.Equal(12, result.Value.EmployerCoveredIncapacityDaysPerYear);
+        Assert.Equal(3, result.Value.AdditionalIncapacityBenefitDaysPerYear);
+        Assert.False(result.Value.IncapacityRequiresDocument);
+
+        // The values landed on the tracked entity (not just the response projection).
+        Assert.Equal(20, preference.AnnualVacationDaysDefault);
+        Assert.Equal(6, preference.CompanyRestDayOfWeek);
+        Assert.NotEqual(expectedToken, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyPreferencesCommandHandler_WhenLeavePoliciesAreNull_ShouldClearStoredValues()
+    {
+        var tenantId = Guid.NewGuid();
+        var preference = CompanyPreference.Create("USD", "UTC");
+        preference.SetTenantId(tenantId);
+        preference.SetLeavePolicies(20, 5, true, false, true, false, 6, 12, 3, false);
+        var expectedToken = preference.ConcurrencyToken;
+
+        var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
+        var repository = new TestCompanyPreferenceRepository(preference);
+        var auditService = new TestAuditService();
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new UpdateCompanyPreferencesCommandHandler(authorizationService, repository, auditService, unitOfWork);
+
+        // PUT replaces the whole document: nulls clear the stored values back to "use the legal default".
+        var result = await handler.Handle(
+            UpdateCommand(tenantId, "USD", "UTC", expectedToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value.AnnualVacationDaysDefault);
+        Assert.Null(result.Value.AdditionalVacationBenefitDaysDefault);
+        Assert.Null(result.Value.AllowVacationStartOnHoliday);
+        Assert.Null(result.Value.AllowVacationEndOnHoliday);
+        Assert.Null(result.Value.AllowVacationStartOnRestDay);
+        Assert.Null(result.Value.DefaultUseAnniversary);
+        Assert.Null(result.Value.CompanyRestDayOfWeek);
+        Assert.Null(result.Value.EmployerCoveredIncapacityDaysPerYear);
+        Assert.Null(result.Value.AdditionalIncapacityBenefitDaysPerYear);
+        Assert.Null(result.Value.IncapacityRequiresDocument);
+        Assert.Null(preference.AnnualVacationDaysDefault);
+    }
+
+    // PUT baseline for the pre-existing currency/time-zone tests: every grouped rich-setter field
+    // (dashboard, economic aid, leave policies) travels as null so only the scalars are exercised.
+    private static UpdateCompanyPreferencesCommand UpdateCommand(
+        Guid companyId,
+        string currencyCode,
+        string timeZone,
+        Guid concurrencyToken) =>
+        new(
+            companyId,
+            currencyCode,
+            timeZone,
+            HrFunctionalAreaCode: null,
+            FileUpToDateThresholdMonths: null,
+            MinimumSeniorityMonthsForEconomicAid: null,
+            AnnualVacationDaysDefault: null,
+            AdditionalVacationBenefitDaysDefault: null,
+            AllowVacationStartOnHoliday: null,
+            AllowVacationEndOnHoliday: null,
+            AllowVacationStartOnRestDay: null,
+            DefaultUseAnniversary: null,
+            CompanyRestDayOfWeek: null,
+            EmployerCoveredIncapacityDaysPerYear: null,
+            AdditionalIncapacityBenefitDaysPerYear: null,
+            IncapacityRequiresDocument: null,
+            ConcurrencyToken: concurrencyToken);
 
     private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>
         new(op, path, null, value is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(value));

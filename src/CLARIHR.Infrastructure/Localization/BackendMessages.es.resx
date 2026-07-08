@@ -2080,4 +2080,22 @@
   <data name="validation.message.end_date_must_be_greater_than_or_equal_to_start_date" xml:space="preserve">
     <value>La fecha final debe ser mayor o igual a la fecha inicial.</value>
   </data>
+  <data name="validation.message.annual_vacation_days_must_be_between_0_and_365" xml:space="preserve">
+    <value>Los días anuales de vacaciones deben estar entre 0 y 365.</value>
+  </data>
+  <data name="validation.message.additional_vacation_benefit_days_must_be_between_0_and_365" xml:space="preserve">
+    <value>Los días adicionales de beneficio de vacaciones deben estar entre 0 y 365.</value>
+  </data>
+  <data name="validation.message.company_rest_day_of_week_must_be_between_0_sunday_and_6_saturday" xml:space="preserve">
+    <value>El día de descanso semanal de la empresa debe estar entre 0 (domingo) y 6 (sábado).</value>
+  </data>
+  <data name="validation.message.employer_covered_incapacity_days_per_year_must_be_between_0_and_365" xml:space="preserve">
+    <value>Los días de incapacidad cubiertos por el patrono por año deben estar entre 0 y 365.</value>
+  </data>
+  <data name="validation.message.additional_incapacity_benefit_days_per_year_must_be_between_0_and_365" xml:space="preserve">
+    <value>Los días adicionales de beneficio de incapacidad por año deben estar entre 0 y 365.</value>
+  </data>
+  <data name="validation.message.restdayofweek_must_be_between_0_sunday_and_6_saturday" xml:space="preserve">
+    <value>El día de descanso semanal debe estar entre 0 (domingo) y 6 (sábado).</value>
+  </data>
 </root>

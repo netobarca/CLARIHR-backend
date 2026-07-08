@@ -151,7 +151,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         bool isActive,
         string? notes,
         string? paymentMethodCode,
-        Guid? paymentBankAccountPublicId)
+        Guid? paymentBankAccountPublicId,
+        DayOfWeek? restDayOfWeek)
     {
         PublicId = Guid.NewGuid();
         ConcurrencyToken = Guid.NewGuid();
@@ -170,6 +171,7 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         Notes = PersonnelFileNormalization.CleanOptional(notes);
         PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode);
         PaymentBankAccountPublicId = paymentBankAccountPublicId;
+        RestDayOfWeek = restDayOfWeek;
     }
 
     public long PersonnelFileId { get; private set; }
@@ -191,6 +193,10 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     public string? PaymentMethodCode { get; private set; }
 
     public Guid? PaymentBankAccountPublicId { get; private set; }
+
+    // Día de descanso semanal de la plaza (vacaciones/incapacidades D-26): defines the employee's "séptimo"
+    // rest day for this plaza (Sunday = 0 … Saturday = 6, .NET DayOfWeek). Null = not configured (additive).
+    public DayOfWeek? RestDayOfWeek { get; private set; }
 
     public Guid? PositionSlotPublicId { get; private set; }
 
@@ -229,7 +235,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         bool isActive,
         string? notes,
         string? paymentMethodCode = null,
-        Guid? paymentBankAccountPublicId = null) =>
+        Guid? paymentBankAccountPublicId = null,
+        DayOfWeek? restDayOfWeek = null) =>
         new(
             assignmentTypeCode,
             contractTypeCode,
@@ -245,7 +252,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
             isActive,
             notes,
             paymentMethodCode,
-            paymentBankAccountPublicId);
+            paymentBankAccountPublicId,
+            restDayOfWeek);
 
     public void Update(
         string assignmentTypeCode,
@@ -261,7 +269,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         bool isPrimary,
         string? notes,
         string? paymentMethodCode = null,
-        Guid? paymentBankAccountPublicId = null)
+        Guid? paymentBankAccountPublicId = null,
+        DayOfWeek? restDayOfWeek = null)
     {
         ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
@@ -278,6 +287,7 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         Notes = PersonnelFileNormalization.CleanOptional(notes);
         PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode);
         PaymentBankAccountPublicId = paymentBankAccountPublicId;
+        RestDayOfWeek = restDayOfWeek;
     }
 
     public void SetActive(bool isActive)

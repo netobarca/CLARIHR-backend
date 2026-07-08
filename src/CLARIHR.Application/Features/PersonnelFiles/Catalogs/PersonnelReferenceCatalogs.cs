@@ -126,6 +126,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string SettlementStatus = "SettlementStatus";
     public const string SettlementConcept = "SettlementConcept";
     public const string ClinicSector = "ClinicSector";
+    public const string IncapacityStatus = "IncapacityStatus";
+    public const string VacationRequestStatus = "VacationRequestStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

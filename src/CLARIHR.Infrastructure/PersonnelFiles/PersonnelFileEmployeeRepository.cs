@@ -85,12 +85,13 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? notes,
         string? paymentMethodCode,
         Guid? paymentBankAccountPublicId,
+        int? restDayOfWeek,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .SingleOrDefaultAsync(x => x.PublicId == employmentAssignmentPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes, paymentMethodCode, paymentBankAccountPublicId);
+        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes, paymentMethodCode, paymentBankAccountPublicId, (DayOfWeek?)restDayOfWeek);
         return await MapWithSlotLabelAsync(item, cancellationToken);
     }
 
@@ -111,6 +112,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? notes,
         string? paymentMethodCode,
         Guid? paymentBankAccountPublicId,
+        int? restDayOfWeek,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken)
@@ -118,7 +120,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .SingleOrDefaultAsync(x => x.PublicId == employmentAssignmentPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes, paymentMethodCode, paymentBankAccountPublicId);
+        item.Update(assignmentTypeCode, contractTypeCode, workdayCode, payrollTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, notes, paymentMethodCode, paymentBankAccountPublicId, (DayOfWeek?)restDayOfWeek);
         if (isActiveMutated)
         {
             item.SetActive(isActive);
@@ -2253,7 +2255,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.PaymentMethodCode,
             item.PaymentBankAccountPublicId,
             positionSlotCode,
-            positionSlotTitle);
+            positionSlotTitle,
+            (int?)item.RestDayOfWeek);
 
     // Resolves each assignment's position-slot code/title in one extra batched query (keyed by the slot's
     // public id) so the list/add paths stay O(1) queries instead of N+1. The slot reference is a loose Guid,

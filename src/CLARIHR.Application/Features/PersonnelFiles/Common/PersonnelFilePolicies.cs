@@ -176,4 +176,34 @@ public static class PersonnelFilePolicies
     /// of the precise EnsureCanManageSettlementsAsync handler gate.
     /// </summary>
     public const string ManageSettlements = "PersonnelFiles.ManageSettlements";
+
+    /// <summary>
+    /// Read policy for incapacity sub-resources (leave module D-17/D-18). Authn-only superset: the precise
+    /// check (ViewIncapacities / Admin, or the employee reading their own incapacities — health data, 403
+    /// without masking) lives in the incapacity read handlers (self-service, D-18).
+    /// </summary>
+    public const string ViewIncapacities = "PersonnelFiles.ViewIncapacities";
+
+    /// <summary>
+    /// Write policy for incapacity and lactation sub-resources (leave module D-17). Authn-only superset —
+    /// kept NOT a RequireAssertion so a self-service employee registering their own incapacity
+    /// (<c>EN_REVISION</c>, D-18) is not blocked at the API layer; confirmation/closure/annulment and
+    /// lactation stay manager-only via the precise handler gate.
+    /// </summary>
+    public const string ManageIncapacities = "PersonnelFiles.ManageIncapacities";
+
+    /// <summary>
+    /// Read policy for vacation sub-resources (fund, balances, requests, plan — leave module D-17).
+    /// Authn-only superset: the precise check (ViewVacations / Admin, or the employee reading their own
+    /// fund/requests) lives in the vacation read handlers (self-service, D-18).
+    /// </summary>
+    public const string ViewVacations = "PersonnelFiles.ViewVacations";
+
+    /// <summary>
+    /// Write policy for vacation sub-resources (leave module D-17). Authn-only superset — kept NOT a
+    /// RequireAssertion so a self-service employee creating/cancelling their own request (D-18) is not
+    /// blocked at the API layer; decision/return/fund generation/plan stay manager-only via the precise
+    /// handler gate (anti-self on decision, RN-17).
+    /// </summary>
+    public const string ManageVacations = "PersonnelFiles.ManageVacations";
 }

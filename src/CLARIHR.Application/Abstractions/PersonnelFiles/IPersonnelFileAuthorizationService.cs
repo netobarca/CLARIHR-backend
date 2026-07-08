@@ -229,5 +229,42 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanViewRetirementInterviewTrayAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for incapacities and lactation (leave module D-17): the dedicated
+    /// <c>PersonnelFiles.ViewIncapacities</c> permission, or Admin / IAM super-admin. The self-service
+    /// branch (employee reading their OWN incapacities) is resolved by the handler bases, not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewIncapacitiesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for incapacities and lactation (leave module D-17): the dedicated
+    /// <c>PersonnelFiles.ManageIncapacities</c> permission, or Admin / IAM super-admin. The self-service
+    /// create branch (D-18) is resolved by the handler bases, not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageIncapacitiesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Read gate for the vacation fund, requests, calendar and annual plan (leave module D-17): the
+    /// dedicated <c>PersonnelFiles.ViewVacations</c> permission, or Admin / IAM super-admin. The
+    /// self-service branch (employee reading their OWN fund/requests) is resolved by the handler bases.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewVacationsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for the vacation fund (generation), request decision/return and the annual plan
+    /// (leave module D-17): the dedicated <c>PersonnelFiles.ManageVacations</c> permission, or
+    /// Admin / IAM super-admin. The self-service create/cancel branch (D-18) is resolved by the
+    /// handler bases, not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageVacationsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

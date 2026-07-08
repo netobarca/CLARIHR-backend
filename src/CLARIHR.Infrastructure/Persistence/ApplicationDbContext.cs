@@ -260,6 +260,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<ClinicSectorCatalogItem> ClinicSectorCatalogItems => Set<ClinicSectorCatalogItem>();
 
+    public DbSet<IncapacityStatusCatalogItem> IncapacityStatusCatalogItems => Set<IncapacityStatusCatalogItem>();
+
+    public DbSet<VacationRequestStatusCatalogItem> VacationRequestStatusCatalogItems => Set<VacationRequestStatusCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();

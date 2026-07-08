@@ -41,6 +41,37 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(preference => preference.MinimumSeniorityMonthsForEconomicAid)
             .HasColumnName("minimum_seniority_months_for_economic_aid");
 
+        // Vacation & incapacity parametrization (D-20/D-24/D-26/D-27); all nullable (null = legal default).
+        builder.Property(preference => preference.AnnualVacationDaysDefault)
+            .HasColumnName("annual_vacation_days_default");
+
+        builder.Property(preference => preference.AdditionalVacationBenefitDaysDefault)
+            .HasColumnName("additional_vacation_benefit_days_default");
+
+        builder.Property(preference => preference.AllowVacationStartOnHoliday)
+            .HasColumnName("allow_vacation_start_on_holiday");
+
+        builder.Property(preference => preference.AllowVacationEndOnHoliday)
+            .HasColumnName("allow_vacation_end_on_holiday");
+
+        builder.Property(preference => preference.AllowVacationStartOnRestDay)
+            .HasColumnName("allow_vacation_start_on_rest_day");
+
+        builder.Property(preference => preference.DefaultUseAnniversary)
+            .HasColumnName("default_use_anniversary");
+
+        builder.Property(preference => preference.CompanyRestDayOfWeek)
+            .HasColumnName("company_rest_day_of_week");
+
+        builder.Property(preference => preference.EmployerCoveredIncapacityDaysPerYear)
+            .HasColumnName("employer_covered_incapacity_days_per_year");
+
+        builder.Property(preference => preference.AdditionalIncapacityBenefitDaysPerYear)
+            .HasColumnName("additional_incapacity_benefit_days_per_year");
+
+        builder.Property(preference => preference.IncapacityRequiresDocument)
+            .HasColumnName("incapacity_requires_document");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

@@ -91,7 +91,11 @@ public static class ProvisioningConstants
         new("PersonnelFiles.AuthorizeRetirement", "Autorizar retiros definitivos", "Autorizar o rechazar las solicitudes de retiro definitivo (y anular una autorizada). No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRetirement"),
         new("PersonnelFiles.RevertRetirement", "Revertir retiros definitivos", "Revertir un retiro definitivo ejecutado restaurando los estados del empleado. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "RevertRetirement"),
         new("PersonnelFiles.ViewSettlements", "Ver liquidaciones", "Consulta de las liquidaciones de personal (detalle por expediente, bandeja de la empresa y exportaciones).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewSettlements"),
-        new("PersonnelFiles.ManageSettlements", "Gestionar liquidaciones", "Crear, editar, emitir y anular las liquidaciones de personal, y administrar los escenarios de simulacion.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSettlements")
+        new("PersonnelFiles.ManageSettlements", "Gestionar liquidaciones", "Crear, editar, emitir y anular las liquidaciones de personal, y administrar los escenarios de simulacion.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageSettlements"),
+        new("PersonnelFiles.ViewIncapacities", "Ver incapacidades", "Consulta de las incapacidades y periodos de lactancia de los expedientes, la bandeja de la empresa y sus exportaciones.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewIncapacities"),
+        new("PersonnelFiles.ManageIncapacities", "Gestionar incapacidades", "Registrar, confirmar, cerrar, anular y prorrogar incapacidades, y administrar los periodos de lactancia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageIncapacities"),
+        new("PersonnelFiles.ViewVacations", "Ver vacaciones", "Consulta del fondo de vacaciones, saldos, solicitudes, calendario y plan anual de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewVacations"),
+        new("PersonnelFiles.ManageVacations", "Gestionar vacaciones", "Generar el fondo de vacaciones, decidir y devolver solicitudes, y administrar el plan anual.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageVacations")
     ];
 }
 

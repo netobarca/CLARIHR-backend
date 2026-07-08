@@ -2080,4 +2080,22 @@
   <data name="validation.message.end_date_must_be_greater_than_or_equal_to_start_date" xml:space="preserve">
     <value>End date must be greater than or equal to start date.</value>
   </data>
+  <data name="validation.message.annual_vacation_days_must_be_between_0_and_365" xml:space="preserve">
+    <value>Annual vacation days must be between 0 and 365.</value>
+  </data>
+  <data name="validation.message.additional_vacation_benefit_days_must_be_between_0_and_365" xml:space="preserve">
+    <value>Additional vacation benefit days must be between 0 and 365.</value>
+  </data>
+  <data name="validation.message.company_rest_day_of_week_must_be_between_0_sunday_and_6_saturday" xml:space="preserve">
+    <value>Company rest day of week must be between 0 (Sunday) and 6 (Saturday).</value>
+  </data>
+  <data name="validation.message.employer_covered_incapacity_days_per_year_must_be_between_0_and_365" xml:space="preserve">
+    <value>Employer-covered incapacity days per year must be between 0 and 365.</value>
+  </data>
+  <data name="validation.message.additional_incapacity_benefit_days_per_year_must_be_between_0_and_365" xml:space="preserve">
+    <value>Additional incapacity benefit days per year must be between 0 and 365.</value>
+  </data>
+  <data name="validation.message.restdayofweek_must_be_between_0_sunday_and_6_saturday" xml:space="preserve">
+    <value>RestDayOfWeek must be between 0 (Sunday) and 6 (Saturday).</value>
+  </data>
 </root>

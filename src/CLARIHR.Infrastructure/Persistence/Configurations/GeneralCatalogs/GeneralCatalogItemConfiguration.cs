@@ -582,3 +582,33 @@ internal sealed class ClinicSectorCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class IncapacityStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<IncapacityStatusCatalogItem>
+{
+    public IncapacityStatusCatalogItemConfiguration()
+        : base(
+            "incapacity_status_catalog_items",
+            "pk_incapacity_status_catalog_items",
+            "uq_incapacity_status_catalog_items__public_id",
+            "uq_incapacity_status_catalog_items__country_code",
+            "ix_incapacity_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetIncapacityStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class VacationRequestStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<VacationRequestStatusCatalogItem>
+{
+    public VacationRequestStatusCatalogItemConfiguration()
+        : base(
+            "vacation_request_status_catalog_items",
+            "pk_vacation_request_status_catalog_items",
+            "uq_vacation_request_status_catalog_items__public_id",
+            "uq_vacation_request_status_catalog_items__country_code",
+            "ix_vacation_request_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetVacationRequestStatusCatalogItems())
+    {
+    }
+}

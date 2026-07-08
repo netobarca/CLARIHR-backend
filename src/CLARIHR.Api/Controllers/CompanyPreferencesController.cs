@@ -46,9 +46,11 @@ public sealed class CompanyPreferencesController(
     [SwaggerOperation(
         Summary = "Replace the company preferences",
         Description = """
-            Replaces the editable fields (currency code and time zone). Requires the current
-            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The
-            refreshed token is returned in the body and the `ETag` header.
+            Replaces the editable fields: currency code, time zone, the optional HR-dashboard and
+            economic-aid parametrization, and the optional vacation/incapacity parametrization
+            (nullable — `null` means the legal default, resolved when the policy is consumed).
+            Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`,
+            stale → `409`). The refreshed token is returned in the body and the `ETag` header.
             """)]
     public async Task<ActionResult<CompanyPreferenceResponse>> Update(
         Guid companyId,
@@ -64,6 +66,16 @@ public sealed class CompanyPreferencesController(
                 request.HrFunctionalAreaCode,
                 request.FileUpToDateThresholdMonths,
                 request.MinimumSeniorityMonthsForEconomicAid,
+                request.AnnualVacationDaysDefault,
+                request.AdditionalVacationBenefitDaysDefault,
+                request.AllowVacationStartOnHoliday,
+                request.AllowVacationEndOnHoliday,
+                request.AllowVacationStartOnRestDay,
+                request.DefaultUseAnniversary,
+                request.CompanyRestDayOfWeek,
+                request.EmployerCoveredIncapacityDaysPerYear,
+                request.AdditionalIncapacityBenefitDaysPerYear,
+                request.IncapacityRequiresDocument,
                 concurrencyToken),
             cancellationToken);
 
@@ -110,7 +122,20 @@ public sealed class CompanyPreferencesController(
         string? HrFunctionalAreaCode = null,
         int? FileUpToDateThresholdMonths = null,
         // Economic-aid eligibility (D-08): minimum seniority in months to request economic aid (optional).
-        int? MinimumSeniorityMonthsForEconomicAid = null);
+        int? MinimumSeniorityMonthsForEconomicAid = null,
+        // Vacation & incapacity parametrization (D-20/D-24/D-26/D-27), all optional: null = the legal
+        // default (15 / 0 / no / yes / no / yes / Sunday / 9 / 0 / yes), resolved when the policy is
+        // consumed — it is never stored. Day counts 0-365; rest day 0-6 with Sunday = 0.
+        int? AnnualVacationDaysDefault = null,
+        int? AdditionalVacationBenefitDaysDefault = null,
+        bool? AllowVacationStartOnHoliday = null,
+        bool? AllowVacationEndOnHoliday = null,
+        bool? AllowVacationStartOnRestDay = null,
+        bool? DefaultUseAnniversary = null,
+        int? CompanyRestDayOfWeek = null,
+        int? EmployerCoveredIncapacityDaysPerYear = null,
+        int? AdditionalIncapacityBenefitDaysPerYear = null,
+        bool? IncapacityRequiresDocument = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

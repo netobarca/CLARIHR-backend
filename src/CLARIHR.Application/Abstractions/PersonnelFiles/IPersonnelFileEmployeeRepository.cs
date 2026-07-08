@@ -38,6 +38,7 @@ public interface IPersonnelFileEmployeeRepository
         string? notes,
         string? paymentMethodCode,
         Guid? paymentBankAccountPublicId,
+        int? restDayOfWeek,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileEmploymentAssignmentResponse?> PatchEmploymentAssignmentAsync(
@@ -57,6 +58,7 @@ public interface IPersonnelFileEmployeeRepository
         string? notes,
         string? paymentMethodCode,
         Guid? paymentBankAccountPublicId,
+        int? restDayOfWeek,
         bool isActive,
         bool isActiveMutated,
         CancellationToken cancellationToken);

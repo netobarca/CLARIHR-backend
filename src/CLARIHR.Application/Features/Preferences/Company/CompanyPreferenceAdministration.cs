@@ -19,6 +19,17 @@ public sealed record CompanyPreferenceResponse(
     string? HrFunctionalAreaCode,
     int? FileUpToDateThresholdMonths,
     int? MinimumSeniorityMonthsForEconomicAid,
+    // Vacation & incapacity parametrization (D-20/D-24/D-26/D-27): null = legal default, resolved on consumption.
+    int? AnnualVacationDaysDefault,
+    int? AdditionalVacationBenefitDaysDefault,
+    bool? AllowVacationStartOnHoliday,
+    bool? AllowVacationEndOnHoliday,
+    bool? AllowVacationStartOnRestDay,
+    bool? DefaultUseAnniversary,
+    int? CompanyRestDayOfWeek,
+    int? EmployerCoveredIncapacityDaysPerYear,
+    int? AdditionalIncapacityBenefitDaysPerYear,
+    bool? IncapacityRequiresDocument,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -32,6 +43,17 @@ public sealed record UpdateCompanyPreferencesCommand(
     string? HrFunctionalAreaCode,
     int? FileUpToDateThresholdMonths,
     int? MinimumSeniorityMonthsForEconomicAid,
+    // Vacation & incapacity parametrization (D-20/D-24/D-26/D-27): null = legal default, resolved on consumption.
+    int? AnnualVacationDaysDefault,
+    int? AdditionalVacationBenefitDaysDefault,
+    bool? AllowVacationStartOnHoliday,
+    bool? AllowVacationEndOnHoliday,
+    bool? AllowVacationStartOnRestDay,
+    bool? DefaultUseAnniversary,
+    int? CompanyRestDayOfWeek,
+    int? EmployerCoveredIncapacityDaysPerYear,
+    int? AdditionalIncapacityBenefitDaysPerYear,
+    bool? IncapacityRequiresDocument,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -78,6 +100,28 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
         RuleFor(command => command.MinimumSeniorityMonthsForEconomicAid)
             .GreaterThan(0)
             .When(static command => command.MinimumSeniorityMonthsForEconomicAid.HasValue);
+        // Vacation & incapacity parametrization (D-20/D-24/D-26/D-27). All optional; when provided the
+        // ranges mirror the domain SetLeavePolicies guards (day counts 0-365, rest day 0-6 Sunday-first).
+        RuleFor(command => command.AnnualVacationDaysDefault)
+            .InclusiveBetween(0, 365)
+            .WithMessage("Annual vacation days must be between 0 and 365.")
+            .When(static command => command.AnnualVacationDaysDefault.HasValue);
+        RuleFor(command => command.AdditionalVacationBenefitDaysDefault)
+            .InclusiveBetween(0, 365)
+            .WithMessage("Additional vacation benefit days must be between 0 and 365.")
+            .When(static command => command.AdditionalVacationBenefitDaysDefault.HasValue);
+        RuleFor(command => command.CompanyRestDayOfWeek)
+            .InclusiveBetween(0, 6)
+            .WithMessage("Company rest day of week must be between 0 (Sunday) and 6 (Saturday).")
+            .When(static command => command.CompanyRestDayOfWeek.HasValue);
+        RuleFor(command => command.EmployerCoveredIncapacityDaysPerYear)
+            .InclusiveBetween(0, 365)
+            .WithMessage("Employer-covered incapacity days per year must be between 0 and 365.")
+            .When(static command => command.EmployerCoveredIncapacityDaysPerYear.HasValue);
+        RuleFor(command => command.AdditionalIncapacityBenefitDaysPerYear)
+            .InclusiveBetween(0, 365)
+            .WithMessage("Additional incapacity benefit days per year must be between 0 and 365.")
+            .When(static command => command.AdditionalIncapacityBenefitDaysPerYear.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -156,6 +200,17 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
         // the same transaction (the shared helper still drives currency/time-zone + audit + concurrency).
         preference.SetDashboardSettings(command.HrFunctionalAreaCode, command.FileUpToDateThresholdMonths);
         preference.SetEconomicAidEligibility(command.MinimumSeniorityMonthsForEconomicAid);
+        preference.SetLeavePolicies(
+            command.AnnualVacationDaysDefault,
+            command.AdditionalVacationBenefitDaysDefault,
+            command.AllowVacationStartOnHoliday,
+            command.AllowVacationEndOnHoliday,
+            command.AllowVacationStartOnRestDay,
+            command.DefaultUseAnniversary,
+            command.CompanyRestDayOfWeek,
+            command.EmployerCoveredIncapacityDaysPerYear,
+            command.AdditionalIncapacityBenefitDaysPerYear,
+            command.IncapacityRequiresDocument);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -219,9 +274,10 @@ internal sealed class PatchCompanyPreferencesCommandHandler(
 
         var before = CompanyPreferenceAdministrationHelpers.Map(preference);
 
-        // Scalar-only patch: currencyCode/timeZone are the entity's only mutable fields and are
+        // Scalar-only patch: currencyCode/timeZone are the only patchable fields and are
         // re-normalized + re-validated by Update exactly as the PUT path does. The applier already
         // enforced the same length rules (currencyCode == 3, timeZone <= 100) before we get here.
+        // The grouped rich-setter fields (dashboard, economic aid, leave policies) are PUT-only.
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
             command.CompanyId,
@@ -416,6 +472,16 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.HrFunctionalAreaCode,
             preference.FileUpToDateThresholdMonths,
             preference.MinimumSeniorityMonthsForEconomicAid,
+            preference.AnnualVacationDaysDefault,
+            preference.AdditionalVacationBenefitDaysDefault,
+            preference.AllowVacationStartOnHoliday,
+            preference.AllowVacationEndOnHoliday,
+            preference.AllowVacationStartOnRestDay,
+            preference.DefaultUseAnniversary,
+            preference.CompanyRestDayOfWeek,
+            preference.EmployerCoveredIncapacityDaysPerYear,
+            preference.AdditionalIncapacityBenefitDaysPerYear,
+            preference.IncapacityRequiresDocument,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

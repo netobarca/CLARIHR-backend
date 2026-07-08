@@ -147,7 +147,10 @@ public sealed record AddEmploymentAssignmentRequest(
     bool IsActive,
     string? Notes,
     string? PaymentMethodCode = null,
-    Guid? PaymentBankAccountPublicId = null);
+    Guid? PaymentBankAccountPublicId = null,
+    // Día de descanso semanal de la plaza (vacaciones/incapacidades D-26): 0 = Sunday … 6 = Saturday.
+    // Optional and additive; omit/null when the plaza has no configured rest day.
+    int? RestDayOfWeek = null);
 
 public sealed record UpdateEmploymentAssignmentRequest(
     // Same contract as the create body: both fields are required server-side (see AddEmploymentAssignmentRequest).
@@ -164,7 +167,9 @@ public sealed record UpdateEmploymentAssignmentRequest(
     bool IsPrimary,
     string? Notes,
     string? PaymentMethodCode = null,
-    Guid? PaymentBankAccountPublicId = null);
+    Guid? PaymentBankAccountPublicId = null,
+    // Día de descanso semanal de la plaza (D-26): 0 = Sunday … 6 = Saturday; null clears/omits it (PUT replaces).
+    int? RestDayOfWeek = null);
 
 public sealed class PatchEmploymentAssignmentRequest
 {
@@ -176,6 +181,8 @@ public sealed class PatchEmploymentAssignmentRequest
     public string? PayrollTypeCode { get; set; }
     public string? PaymentMethodCode { get; set; }
     public Guid? PaymentBankAccountPublicId { get; set; }
+    // Día de descanso semanal de la plaza (D-26): 0 = Sunday … 6 = Saturday; `remove` clears it.
+    public int? RestDayOfWeek { get; set; }
     public Guid? PositionSlotId { get; set; }
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }

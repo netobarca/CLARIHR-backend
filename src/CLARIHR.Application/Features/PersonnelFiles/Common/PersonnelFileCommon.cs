@@ -240,6 +240,36 @@ public static class PersonnelFilePermissionCodes
     public const string ManageSettlements = "PersonnelFiles.ManageSettlements";
 
     /// <summary>
+    /// Dedicated permission to read incapacities and lactation periods of any personnel file (leave
+    /// module D-17). Health data: an employee always reads their OWN incapacities without this
+    /// permission (self-service gate in the handlers); Admin is a superset.
+    /// </summary>
+    public const string ViewIncapacities = "PersonnelFiles.ViewIncapacities";
+
+    /// <summary>
+    /// Dedicated permission to register/confirm/close/annul/extend incapacities and to manage lactation
+    /// periods (leave module D-17). Admin is a superset. Self-service employees register their own
+    /// incapacity in <c>EN_REVISION</c> without this permission (D-18); confirming your own incapacity
+    /// is forbidden (anti-self gate in the handlers).
+    /// </summary>
+    public const string ManageIncapacities = "PersonnelFiles.ManageIncapacities";
+
+    /// <summary>
+    /// Dedicated permission to read the vacation fund, balances, requests, calendar and annual plan of
+    /// any personnel file (leave module D-17). An employee always reads their OWN fund and requests
+    /// without this permission (self-service gate in the handlers); Admin is a superset.
+    /// </summary>
+    public const string ViewVacations = "PersonnelFiles.ViewVacations";
+
+    /// <summary>
+    /// Dedicated permission to manage the vacation fund (generation), decide/return vacation requests
+    /// and administer the annual plan (leave module D-17). Admin is a superset. Self-service employees
+    /// create/cancel their own request without this permission (D-18); deciding a request of your own
+    /// personnel file is forbidden (anti-self gate in the handlers, RN-17).
+    /// </summary>
+    public const string ManageVacations = "PersonnelFiles.ManageVacations";
+
+    /// <summary>
     /// Dedicated permission to read the HR analytics dashboard (aggregate indicators over the personnel
     /// padrón). Lets configurable roles see the dashboards without full personnel-file read; the regular
     /// <see cref="Read"/> permission and <see cref="Admin"/> are supersets. The dashboard is read-only and
