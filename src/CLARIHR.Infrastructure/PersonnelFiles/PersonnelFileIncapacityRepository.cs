@@ -112,6 +112,220 @@ internal sealed class PersonnelFileIncapacityRepository(ApplicationDbContext dbC
             .Select(item => (long?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IncapacityBandejaResponse> QueryIncapacitiesAsync(
+        QueryIncapacitiesQuery query, CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredIncapacities(
+            query.EmployeeId, query.RiskCode, query.IncapacityTypeCode, query.PayrollTypeCode,
+            query.StartFromUtc, query.StartToUtc);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even though the items
+        // default to REGISTRADA.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Incapacity.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var statusFilter = ResolveStatusFilter(query.StatusCode);
+        var filtered = baseQuery.Where(row => row.Incapacity.StatusCode == statusFilter);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Incapacity.StartDate)
+            .ThenByDescending(row => row.Incapacity.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new IncapacityListItemResponse(
+                row.Incapacity.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Incapacity.AssignedPositionPublicId,
+                row.Incapacity.RiskCodeSnapshot,
+                row.IncapacityTypePublicId,
+                row.IncapacityTypeCode,
+                row.IncapacityTypeName,
+                row.MedicalClinicName,
+                row.Incapacity.StatusCode,
+                row.Incapacity.OriginCode,
+                row.Incapacity.StartDate,
+                row.Incapacity.EndDate,
+                row.Incapacity.CalendarDays,
+                row.Incapacity.ComputableDays,
+                row.Incapacity.SubsidizedDays,
+                row.Incapacity.DiscountDays,
+                row.Incapacity.EmployerDays,
+                row.Incapacity.SubsidyAmount,
+                row.Incapacity.DiscountAmount,
+                row.Incapacity.EmployerAmount,
+                row.Incapacity.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.Incapacity.RiskUsesFundSnapshot))
+            .ToArrayAsync(cancellationToken);
+
+        return new IncapacityBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<IncapacidadExportRow>> GetIncapacityExportRowsAsync(
+        ExportIncapacitiesQuery query, CancellationToken cancellationToken)
+    {
+        var statusFilter = ResolveStatusFilter(query.StatusCode);
+        var filtered = FilteredIncapacities(
+                query.EmployeeId, query.RiskCode, query.IncapacityTypeCode, query.PayrollTypeCode,
+                query.StartFromUtc, query.StartToUtc)
+            .Where(row => row.Incapacity.StatusCode == statusFilter)
+            .OrderByDescending(row => row.Incapacity.StartDate)
+            .ThenByDescending(row => row.Incapacity.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
+
+        // Materialized then mapped in-memory: TrancheDetailJson is deserialized and flattened (not expressible
+        // in an EF projection).
+        var rows = await limited.ToListAsync(cancellationToken);
+        return rows
+            .Select(row => new IncapacidadExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Incapacity.AssignedPositionPublicId?.ToString() ?? string.Empty,
+                row.Incapacity.RiskCodeSnapshot,
+                row.IncapacityTypeName ?? row.IncapacityTypeCode,
+                row.MedicalClinicName,
+                row.Incapacity.StatusCode,
+                row.Incapacity.OriginCode,
+                row.Incapacity.StartDate,
+                row.Incapacity.EndDate,
+                row.Incapacity.CalendarDays,
+                row.Incapacity.ComputableDays,
+                row.Incapacity.SubsidizedDays,
+                row.Incapacity.DiscountDays,
+                row.Incapacity.EmployerDays,
+                row.Incapacity.SubsidyAmount,
+                row.Incapacity.DiscountAmount,
+                row.Incapacity.EmployerAmount,
+                FlattenTranches(row.Incapacity.TrancheDetailJson),
+                row.Incapacity.MonthlyBaseSalary,
+                row.Incapacity.DailySalary,
+                row.Incapacity.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.PayrollPeriodStart,
+                row.PayrollPeriodEnd,
+                row.Incapacity.RiskUsesFundSnapshot))
+            .ToArray();
+    }
+
+    private IQueryable<IncapacityQueryRow> FilteredIncapacities(
+        Guid? employeeId,
+        string? riskCode,
+        string? incapacityTypeCode,
+        string? payrollTypeCode,
+        DateTime? startFromUtc,
+        DateTime? startToUtc)
+    {
+        // Member-init (not a positional record ctor) so EF composes further Where/GroupBy over this intermediate
+        // projection reliably (same shape as SettlementRepository.FilteredSettlements).
+        var query =
+            from incapacity in dbContext.PersonnelFileIncapacities.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on incapacity.PersonnelFileId equals file.Id
+            join type in dbContext.IncapacityTypes.AsNoTracking() on incapacity.IncapacityTypeId equals type.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            join clinicEntry in dbContext.MedicalClinics.AsNoTracking()
+                on incapacity.MedicalClinicId equals (long?)clinicEntry.Id into clinicGroup
+            from clinic in clinicGroup.DefaultIfEmpty()
+            join periodEntry in dbContext.PayrollPeriodDefinitions.AsNoTracking()
+                on incapacity.PayrollPeriodDefinitionId equals (long?)periodEntry.Id into periodGroup
+            from period in periodGroup.DefaultIfEmpty()
+            select new IncapacityQueryRow
+            {
+                Incapacity = incapacity,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                IncapacityTypePublicId = type.PublicId,
+                IncapacityTypeCode = type.Code,
+                IncapacityTypeName = type.Name,
+                MedicalClinicName = clinic != null ? clinic.Description : null,
+                PayrollPeriodLabel = period != null ? period.Label : null,
+                PayrollPeriodStart = period != null ? period.StartDate : (DateOnly?)null,
+                PayrollPeriodEnd = period != null ? period.EndDate : (DateOnly?)null,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(riskCode))
+        {
+            var normalizedRisk = riskCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Incapacity.RiskCodeSnapshot == normalizedRisk);
+        }
+
+        if (!string.IsNullOrWhiteSpace(incapacityTypeCode))
+        {
+            var normalizedType = incapacityTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.IncapacityTypeCode == normalizedType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Incapacity.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        if (startFromUtc is { } startFrom)
+        {
+            var from = DateOnly.FromDateTime(startFrom);
+            query = query.Where(row => row.Incapacity.StartDate >= from);
+        }
+
+        if (startToUtc is { } startTo)
+        {
+            var to = DateOnly.FromDateTime(startTo);
+            query = query.Where(row => row.Incapacity.StartDate <= to);
+        }
+
+        return query;
+    }
+
+    /// <summary>The bandeja/export default (R-T6): when no status is supplied the input is REGISTRADA only, which
+    /// excludes the EN_REVISION self-registrations from the payroll input.</summary>
+    private static string ResolveStatusFilter(string? statusCode) =>
+        string.IsNullOrWhiteSpace(statusCode) ? IncapacityStatuses.Registrada : statusCode.Trim().ToUpperInvariant();
+
+    private static string FlattenTranches(string? trancheDetailJson) =>
+        string.Join(
+            "; ",
+            DeserializeTranches(trancheDetailJson)
+                .Select(tranche => $"{tranche.DayFromAbsolute}-{tranche.DayToAbsolute}: {tranche.SubsidyPercent:0.##}% {tranche.PayerCode}"));
+
+    private sealed class IncapacityQueryRow
+    {
+        public PersonnelFileIncapacity Incapacity { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+
+        public Guid IncapacityTypePublicId { get; init; }
+
+        public string IncapacityTypeCode { get; init; } = string.Empty;
+
+        public string? IncapacityTypeName { get; init; }
+
+        public string? MedicalClinicName { get; init; }
+
+        public string? PayrollPeriodLabel { get; init; }
+
+        public DateOnly? PayrollPeriodStart { get; init; }
+
+        public DateOnly? PayrollPeriodEnd { get; init; }
+    }
+
     public void Add(PersonnelFileIncapacity entity) => dbContext.PersonnelFileIncapacities.Add(entity);
 
     public void AddDocument(PersonnelFileIncapacityDocument entity) => dbContext.PersonnelFileIncapacityDocuments.Add(entity);

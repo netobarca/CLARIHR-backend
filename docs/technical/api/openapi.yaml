@@ -23826,6 +23826,348 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/lactation-periods':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's lactation periods
+      description: "Returns every lactation period recorded for the specified personnel file with its ordered daily-permit schedules. Access requires the `ViewIncapacities` permission or the employee reading their own lactation periods."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileLactationPeriodResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Register a lactation period
+      description: "Registers a lactation period tied to the active LACTANCIA incapacity type together with its daily-permit schedules (each contained in the period and non-overlapping) and journals the LACTANCIA personnel action. HR-only (`ManageIncapacities`, D-18). A schedule outside the period range gives 422 `LACTATION_SCHEDULE_OUT_OF_RANGE`; overlapping schedules give 422 `LACTATION_SCHEDULE_OVERLAP`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LactationPeriodRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileLactationPeriodResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/lactation-periods/{lactationPeriodPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a lactation period by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lactationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileLactationPeriodResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Edit a lactation period and replace its schedules
+      description: "Updates the lactation period dates and notes and replaces the full daily-permit schedule set (each schedule must be contained in the new range and must not overlap). Requires the `If-Match` header with the current `concurrencyToken`; the new token is returned in the `ETag` header. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lactationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LactationPeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileLactationPeriodResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/lactation-periods/{lactationPeriodPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul a lactation period
+      description: "Annuls a REGISTRADA lactation period (terminal); the reason is mandatory. Requires the `If-Match` header with the current `concurrencyToken`. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lactationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulLactationPeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileLactationPeriodResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/incapacities/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide incapacities bandeja
+      description: "Returns a paginated, filterable list of the company's incapacities (by employee, risk code, type code, status, payroll type and start-date range) with days and referential amounts, plus per-status counts. The StatusCounts cover every status; the items DEFAULT to `status=REGISTRADA` when no status is supplied — this excludes the EN_REVISION self-registrations from the payroll input (R-T6). HR-only (`ViewIncapacities`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryIncapacitiesRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/incapacities/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the incapacities bandeja to Excel/CSV/JSON
+      description: "Exports the filtered incapacities (same filters as the bandeja) to `xlsx`, `csv` or `json` with days and amounts per section, the flattened per-tranche percentages, the monthly/daily base salary and the payroll type + period. DEFAULTS to `status=REGISTRADA` (the payroll input excludes EN_REVISION). HR-only. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: riskCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: incapacityTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: statusCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: startFromUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+        - name: startToUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents':
     get:
       tags:
@@ -51408,6 +51750,244 @@ components:
           nullable: true
         observations:
           type: string
+          nullable: true
+    LactationScheduleResponse:
+      type: object
+      properties:
+        lactationSchedulePublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        dailyPermitsCount:
+          type: integer
+          format: int32
+        minutesPerPermit:
+          type: integer
+          format: int32
+        sortOrder:
+          type: integer
+          format: int32
+    PersonnelFileLactationPeriodResponse:
+      type: object
+      properties:
+        lactationPeriodPublicId:
+          type: string
+          format: uuid
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterNameSnapshot:
+          type: string
+          nullable: true
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        incapacityTypeCode:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        statusCode:
+          type: string
+        annulmentReason:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/LactationScheduleResponse'
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    LactationScheduleRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        dailyPermitsCount:
+          type: integer
+          format: int32
+        minutesPerPermit:
+          type: integer
+          format: int32
+    LactationPeriodRequest:
+      type: object
+      properties:
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/LactationScheduleRequest'
+    AnnulLactationPeriodRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    IncapacityListItemResponse:
+      type: object
+      properties:
+        incapacityPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        riskCode:
+          type: string
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        incapacityTypeCode:
+          type: string
+        incapacityTypeName:
+          type: string
+          nullable: true
+        medicalClinicName:
+          type: string
+          nullable: true
+        statusCode:
+          type: string
+        originCode:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        calendarDays:
+          type: integer
+          format: int32
+        computableDays:
+          type: integer
+          format: int32
+        subsidizedDays:
+          type: integer
+          format: int32
+        discountDays:
+          type: integer
+          format: int32
+        employerDays:
+          type: integer
+          format: int32
+        subsidyAmount:
+          type: number
+          format: double
+        discountAmount:
+          type: number
+          format: double
+        employerAmount:
+          type: number
+          format: double
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        usesFund:
+          type: boolean
+    IncapacityBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    QueryIncapacitiesRequest:
+      type: object
+      properties:
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        riskCode:
+          type: string
+          nullable: true
+        incapacityTypeCode:
+          type: string
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        startFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        startToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
           nullable: true
     MedicalClaimDocumentResponse:
       type: object

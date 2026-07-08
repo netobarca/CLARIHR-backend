@@ -54,6 +54,24 @@ public interface IPersonnelFileIncapacityRepository
     Task<long?> GetInternalIdAsync(
         Guid personnelFilePublicId, Guid incapacityPublicId, CancellationToken cancellationToken);
 
+    // ── Company-wide bandeja + export (PR-6) ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Paginated company-wide bandeja: the items honor every filter (defaulting the status to REGISTRADA when
+    /// none is supplied, so EN_REVISION self-registrations are excluded from the payroll input), while the
+    /// StatusCounts are computed over the same filter WITHOUT the status predicate — so every status is
+    /// represented and the caller can see the EN_REVISION/ANULADA volume.
+    /// </summary>
+    Task<IncapacityBandejaResponse> QueryIncapacitiesAsync(
+        QueryIncapacitiesQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The export rows for the filtered incapacities (same default-REGISTRADA rule). The per-tranche breakdown
+    /// is flattened from each record's <c>TrancheDetailJson</c> in-memory (not expressible in an EF projection).
+    /// </summary>
+    Task<IReadOnlyCollection<IncapacidadExportRow>> GetIncapacityExportRowsAsync(
+        ExportIncapacitiesQuery query, CancellationToken cancellationToken);
+
     // ── Writes (added to the change tracker; the caller commits through IUnitOfWork) ──────────────
     void Add(PersonnelFileIncapacity entity);
 

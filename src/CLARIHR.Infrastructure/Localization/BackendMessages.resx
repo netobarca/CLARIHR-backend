@@ -2146,4 +2146,16 @@
   <data name="INCAPACITY_OVERLAP" xml:space="preserve">
     <value>The incapacity date range overlaps another active incapacity of the same employee.</value>
   </data>
+  <data name="LACTATION_TYPE_INVALID" xml:space="preserve">
+    <value>The referenced type must be the active LACTANCIA incapacity type.</value>
+  </data>
+  <data name="LACTATION_SCHEDULE_OUT_OF_RANGE" xml:space="preserve">
+    <value>Every lactation schedule must be contained within the lactation period.</value>
+  </data>
+  <data name="LACTATION_SCHEDULE_OVERLAP" xml:space="preserve">
+    <value>The lactation schedules must not overlap each other.</value>
+  </data>
+  <data name="LACTATION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The lactation period is not in a state that allows this operation.</value>
+  </data>
 </root>

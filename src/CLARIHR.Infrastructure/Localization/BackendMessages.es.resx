@@ -2146,4 +2146,16 @@
   <data name="INCAPACITY_OVERLAP" xml:space="preserve">
     <value>El rango de fechas de la incapacidad se solapa con otra incapacidad activa del mismo empleado.</value>
   </data>
+  <data name="LACTATION_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo referenciado debe ser el tipo de incapacidad LACTANCIA activo.</value>
+  </data>
+  <data name="LACTATION_SCHEDULE_OUT_OF_RANGE" xml:space="preserve">
+    <value>Todo horario de lactancia debe estar contenido dentro del periodo de lactancia.</value>
+  </data>
+  <data name="LACTATION_SCHEDULE_OVERLAP" xml:space="preserve">
+    <value>Los horarios de lactancia no deben solaparse entre sí.</value>
+  </data>
+  <data name="LACTATION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El periodo de lactancia no está en un estado que permita esta operación.</value>
+  </data>
 </root>
