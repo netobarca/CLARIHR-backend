@@ -14,7 +14,10 @@ namespace CLARIHR.Infrastructure.PersonnelFiles;
 /// <see cref="CompensatoryTimeRules.BuildStatement"/>; the advisory lock serializes balance-reducing writes
 /// per (tenant, employee) so the never-negative fund invariant survives concurrent debits (RN-03).
 /// </summary>
-internal sealed class CompensatoryTimeRepository(ApplicationDbContext dbContext) : ICompensatoryTimeRepository
+internal sealed class CompensatoryTimeRepository(
+    ApplicationDbContext dbContext,
+    IPersonnelFileIncapacityRepository incapacityRepository,
+    IPersonnelFileVacationRepository vacationRepository) : ICompensatoryTimeRepository
 {
     // RA-1: a fixed class id namespaces this advisory lock against any other advisory-lock use; the object
     // id is derived deterministically from (tenant, personnel file) so every balance-reducing mutation of one
@@ -165,6 +168,222 @@ internal sealed class CompensatoryTimeRepository(ApplicationDbContext dbContext)
                     && document.TenantId == tenantId,
                 cancellationToken);
 
+    // ── Absences (PR-4) ───────────────────────────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyCollection<PersonnelFileCompensatoryTimeAbsenceResponse>> GetAbsenceResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken)
+    {
+        var items = await QueryAbsencesWithIncludes()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.StartDate)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapAbsence).ToArray();
+    }
+
+    public async Task<PersonnelFileCompensatoryTimeAbsenceResponse?> GetAbsenceResponseAsync(
+        Guid personnelFilePublicId, Guid absencePublicId, CancellationToken cancellationToken)
+    {
+        var item = await QueryAbsencesWithIncludes()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == absencePublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return item is null ? null : MapAbsence(item);
+    }
+
+    public Task<PersonnelFileCompensatoryTimeAbsence?> GetAbsenceEntityAsync(
+        Guid personnelFilePublicId, Guid absencePublicId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeAbsences
+            .SingleOrDefaultAsync(
+                item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == absencePublicId,
+                cancellationToken);
+
+    public void AddAbsence(PersonnelFileCompensatoryTimeAbsence entity) =>
+        dbContext.PersonnelFileCompensatoryTimeAbsences.Add(entity);
+
+    public Task<bool> HasOverlappingAbsenceAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, long? excludeAbsenceId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .Where(absence => absence.PersonnelFileId == personnelFileId
+                && absence.StatusCode == CompensatoryTimeStatuses.Registrada
+                && (!excludeAbsenceId.HasValue || absence.Id != excludeAbsenceId.Value))
+            // Two ranges overlap iff each starts on/before the other ends.
+            .AnyAsync(absence => absence.StartDate <= endDate && startDate <= absence.EndDate, cancellationToken);
+
+    public async Task<CompensatoryTimeCrossOverlap> CheckCrossModuleOverlapAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken)
+    {
+        // The two REQ-001 cross-module queries are isolated here (aclaración №6) — reuse the incapacity and
+        // vacation overlap predicates rather than re-implementing the range logic.
+        var incapacityOverlap = await incapacityRepository.HasOverlappingIncapacityAsync(
+            personnelFileId, startDate, endDate, excludeIncapacityId: null, cancellationToken);
+        var vacationOverlap = await vacationRepository.HasOverlappingRequestAsync(
+            personnelFileId, startDate, endDate, excludeRequestId: null, cancellationToken);
+        return new CompensatoryTimeCrossOverlap(incapacityOverlap, vacationOverlap);
+    }
+
+    public Task<bool> PayrollPeriodExistsAsync(Guid tenantId, Guid payrollPeriodPublicId, CancellationToken cancellationToken) =>
+        dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .AnyAsync(
+                period => period.TenantId == tenantId && period.PublicId == payrollPeriodPublicId && period.IsActive,
+                cancellationToken);
+
+    public Task<DayOfWeek?> GetPrimaryPlazaRestDayAsync(long personnelFileId, CancellationToken cancellationToken) =>
+        vacationRepository.GetPrimaryPlazaRestDayAsync(personnelFileId, cancellationToken);
+
+    public Task<IReadOnlySet<DateOnly>> GetHolidaysInRangeAsync(
+        Guid tenantId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken) =>
+        vacationRepository.GetHolidaysInRangeAsync(tenantId, startDate, endDate, cancellationToken);
+
+    public async Task<CompensatoryTimeStatementPage> GetStatementPageAsync(
+        long personnelFileId,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        Guid? compensatoryTimeTypePublicId,
+        string? statusCode,
+        bool includeAnnulled,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var normalizedStatus = string.IsNullOrWhiteSpace(statusCode) ? null : statusCode.Trim().ToUpperInvariant();
+
+        var creditsQuery = dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .Where(credit => credit.PersonnelFileId == personnelFileId);
+        if (normalizedStatus is not null)
+        {
+            creditsQuery = creditsQuery.Where(credit => credit.StatusCode == normalizedStatus);
+        }
+        else if (!includeAnnulled)
+        {
+            creditsQuery = creditsQuery.Where(credit => credit.StatusCode == CompensatoryTimeStatuses.Registrada);
+        }
+
+        if (fromDate is { } creditFrom)
+        {
+            creditsQuery = creditsQuery.Where(credit => credit.WorkDate >= creditFrom);
+        }
+
+        if (toDate is { } creditTo)
+        {
+            creditsQuery = creditsQuery.Where(credit => credit.WorkDate <= creditTo);
+        }
+
+        if (compensatoryTimeTypePublicId is { } creditType)
+        {
+            creditsQuery = creditsQuery.Where(credit => credit.CompensatoryTimeType!.PublicId == creditType);
+        }
+
+        var creditSources = await creditsQuery
+            .Select(credit => new StatementSource(
+                credit.PublicId,
+                credit.WorkDate,
+                credit.CreatedUtc,
+                CompensatoryTimeMovementKind.Credit,
+                credit.HoursCredited,
+                credit.StatusCode,
+                credit.CompensatoryTimeType!.Code,
+                credit.TypeNameSnapshot,
+                credit.WorkDetail))
+            .ToListAsync(cancellationToken);
+
+        var absencesQuery = dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .Where(absence => absence.PersonnelFileId == personnelFileId);
+        if (normalizedStatus is not null)
+        {
+            absencesQuery = absencesQuery.Where(absence => absence.StatusCode == normalizedStatus);
+        }
+        else if (!includeAnnulled)
+        {
+            absencesQuery = absencesQuery.Where(absence => absence.StatusCode == CompensatoryTimeStatuses.Registrada);
+        }
+
+        if (fromDate is { } absenceFrom)
+        {
+            absencesQuery = absencesQuery.Where(absence => absence.StartDate >= absenceFrom);
+        }
+
+        if (toDate is { } absenceTo)
+        {
+            absencesQuery = absencesQuery.Where(absence => absence.StartDate <= absenceTo);
+        }
+
+        if (compensatoryTimeTypePublicId is { } absenceType)
+        {
+            absencesQuery = absencesQuery.Where(absence => absence.CompensatoryTimeType!.PublicId == absenceType);
+        }
+
+        var absenceSources = await absencesQuery
+            .Select(absence => new StatementSource(
+                absence.PublicId,
+                absence.StartDate,
+                absence.CreatedUtc,
+                CompensatoryTimeMovementKind.Absence,
+                absence.HoursDebited,
+                absence.StatusCode,
+                absence.CompensatoryTimeType!.Code,
+                absence.TypeNameSnapshot,
+                absence.Reason))
+            .ToListAsync(cancellationToken);
+
+        var sources = creditSources.Concat(absenceSources).ToDictionary(source => source.PublicId);
+        var statement = CompensatoryTimeRules.BuildStatement(
+            sources.Values
+                .Select(source => new CompensatoryTimeMovement(
+                    source.PublicId, source.Date, source.CreatedUtc, source.Kind, source.Hours, source.StatusCode))
+                .ToArray());
+
+        var lines = statement.Lines
+            .Select(line =>
+            {
+                var source = sources[line.PublicId];
+                return new CompensatoryTimeStatementLineResponse(
+                    line.PublicId,
+                    line.Kind == CompensatoryTimeMovementKind.Credit ? "ACREDITACION" : "AUSENCIA",
+                    line.Date,
+                    source.TypeCode,
+                    source.TypeName,
+                    source.Detail,
+                    line.SignedHours,
+                    line.StatusCode,
+                    line.IsAnnulled,
+                    line.RunningBalance);
+            })
+            .ToList();
+
+        var pageItems = lines
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new CompensatoryTimeStatementPage(
+            pageItems,
+            lines.Count,
+            statement.TotalCredited,
+            statement.TotalDebited,
+            statement.Balance);
+    }
+
+    /// <summary>In-memory display projection of a fund movement fed to <see cref="CompensatoryTimeRules.BuildStatement"/>.</summary>
+    private sealed record StatementSource(
+        Guid PublicId,
+        DateOnly Date,
+        DateTime CreatedUtc,
+        CompensatoryTimeMovementKind Kind,
+        decimal Hours,
+        string StatusCode,
+        string TypeCode,
+        string TypeName,
+        string Detail);
+
+    private IQueryable<PersonnelFileCompensatoryTimeAbsence> QueryAbsencesWithIncludes() =>
+        dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .Include(item => item.CompensatoryTimeType);
+
     private IQueryable<PersonnelFileCompensatoryTimeCredit> QueryCreditsWithIncludes() =>
         dbContext.PersonnelFileCompensatoryTimeCredits
             .AsNoTracking()
@@ -189,6 +408,25 @@ internal sealed class CompensatoryTimeRepository(ApplicationDbContext dbContext)
             item.AuthorizerFilePublicId,
             item.AssignedPositionPublicId,
             item.OvertimeRecordPublicId,
+            item.StatusCode,
+            item.AnnulmentReason,
+            item.Notes,
+            item.IsActive,
+            item.ConcurrencyToken,
+            item.CreatedUtc,
+            item.ModifiedUtc);
+
+    private static PersonnelFileCompensatoryTimeAbsenceResponse MapAbsence(PersonnelFileCompensatoryTimeAbsence item) =>
+        new(
+            item.PublicId,
+            item.CompensatoryTimeType!.PublicId,
+            item.CompensatoryTimeType!.Code,
+            item.TypeNameSnapshot,
+            item.StartDate,
+            item.EndDate,
+            item.HoursDebited,
+            item.Reason,
+            item.PayrollPeriodPublicId,
             item.StatusCode,
             item.AnnulmentReason,
             item.Notes,

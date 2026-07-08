@@ -2257,6 +2257,21 @@
   <data name="COMPENSATORY_TIME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The compensatory-time credit is not in a state that allows this operation.</value>
   </data>
+  <data name="COMPENSATORY_TIME_BALANCE_INSUFFICIENT" xml:space="preserve">
+    <value>The compensatory-time fund does not have enough hours to cover this absence.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_ABSENCE_OVERLAP" xml:space="preserve">
+    <value>The absence date range overlaps another active compensatory-time absence.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_INCAPACITY_OVERLAP" xml:space="preserve">
+    <value>The absence date range overlaps an active incapacity.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_VACATION_OVERLAP" xml:space="preserve">
+    <value>The absence date range overlaps a live vacation request or enjoyment.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The referenced payroll period does not exist or is inactive for the company.</value>
+  </data>
   <data name="EMPLOYEE_PROFILE_RETIRED_LOCKED" xml:space="preserve">
     <value>The employee profile is retired; this record can no longer be created, edited or annulled.</value>
   </data>

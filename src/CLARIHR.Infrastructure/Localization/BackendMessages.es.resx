@@ -2257,6 +2257,21 @@
   <data name="COMPENSATORY_TIME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>La acreditación de tiempo compensatorio no está en un estado que permita esta operación.</value>
   </data>
+  <data name="COMPENSATORY_TIME_BALANCE_INSUFFICIENT" xml:space="preserve">
+    <value>El fondo de tiempo compensatorio no tiene horas suficientes para cubrir esta ausencia.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_ABSENCE_OVERLAP" xml:space="preserve">
+    <value>El rango de fechas de la ausencia se solapa con otra ausencia de tiempo compensatorio vigente.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_INCAPACITY_OVERLAP" xml:space="preserve">
+    <value>El rango de fechas de la ausencia se solapa con una incapacidad activa.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_VACATION_OVERLAP" xml:space="preserve">
+    <value>El rango de fechas de la ausencia se solapa con una solicitud o goce de vacaciones vigente.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>El periodo de planilla referenciado no existe o está inactivo para la empresa.</value>
+  </data>
   <data name="EMPLOYEE_PROFILE_RETIRED_LOCKED" xml:space="preserve">
     <value>El expediente del empleado está retirado; este registro ya no puede crearse, editarse ni anularse.</value>
   </data>

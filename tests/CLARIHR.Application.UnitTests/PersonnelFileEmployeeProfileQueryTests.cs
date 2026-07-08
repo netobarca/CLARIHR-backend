@@ -138,6 +138,7 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
             RetirementDate: null,
             VacationDaysAvailable: null,
             DisabilityDaysAvailable: null,
+            CompensatoryTimeHoursAvailable: null,
             ConcurrencyToken: Guid.NewGuid(),
             CreatedAtUtc: new DateTime(2026, 1, 1),
             ModifiedAtUtc: null);

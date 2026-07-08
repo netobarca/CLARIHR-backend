@@ -262,4 +262,228 @@ public sealed partial class ApiIntegrationTests
             smallCredit.ConcurrencyToken, new { reason = "Ajuste" });
         Assert.Equal(HttpStatusCode.OK, withHeadroom.StatusCode);
     }
+
+    // ── PR-4: absences + fund + estado de cuenta + profile balance + carrera ────────────────────────
+
+    private static object BuildAbsenceBody(
+        Guid typeId, string startDate, string endDate, decimal hours, Guid? payrollPeriodPublicId = null) =>
+        new
+        {
+            compensatoryTimeTypePublicId = typeId,
+            startDate,
+            endDate,
+            hoursDebited = hours,
+            reason = "Goce de tiempo compensatorio solicitado por el empleado",
+            payrollPeriodPublicId,
+            notes = (string?)null
+        };
+
+    private async Task<PersonnelFileCompensatoryTimeCreditResponse> CreateCreditNoDocAsync(
+        HttpClient client, Guid fileId, Guid typeId, string workDate, decimal hoursWorked)
+    {
+        var response = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-credits",
+            BuildCreditBody(typeId, workDate, hoursWorked, authorizationFilePublicId: null));
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.Created, $"Create credit failed: {(int)response.StatusCode} {payload}");
+        return (await response.Content.ReadFromJsonAsync<PersonnelFileCompensatoryTimeCreditResponse>(JsonOptions))!;
+    }
+
+    private async Task<PersonnelFileCompensatoryTimeAbsenceResponse> CreateAbsenceAsync(
+        HttpClient client, Guid fileId, Guid typeId, string startDate, string endDate, decimal hours)
+    {
+        var response = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, startDate, endDate, hours));
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.Created, $"Create absence failed: {(int)response.StatusCode} {payload}");
+        return (await response.Content.ReadFromJsonAsync<PersonnelFileCompensatoryTimeAbsenceResponse>(JsonOptions))!;
+    }
+
+    private async Task<CompensatoryTimeStatementResponse> GetCompensatoryStatementAsync(HttpClient client, Guid fileId)
+    {
+        var response = await client.GetAsync($"/api/v1/personnel-files/{fileId}/compensatory-time-statement");
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Statement failed: {(int)response.StatusCode} {payload}");
+        return (await response.Content.ReadFromJsonAsync<CompensatoryTimeStatementResponse>(JsonOptions))!;
+    }
+
+    private async Task<decimal?> GetCompensatoryHoursAvailableAsync(HttpClient client, Guid fileId)
+    {
+        var response = await client.GetAsync($"/api/v1/personnel-files/{fileId}/employment-information");
+        response.EnsureSuccessStatusCode();
+        var profile = await response.Content.ReadFromJsonAsync<PersonnelFileEmployeeProfileResponse>(JsonOptions);
+        return profile?.CompensatoryTimeHoursAvailable;
+    }
+
+    private async Task MarkProfileRetiredAsync(Guid fileId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var internalId = await dbContext.Set<PersonnelFile>()
+            .IgnoreQueryFilters()
+            .Where(file => file.PublicId == fileId)
+            .Select(file => file.Id)
+            .FirstAsync();
+        await dbContext.Set<PersonnelFileEmployeeProfile>()
+            .IgnoreQueryFilters()
+            .Where(profile => profile.PersonnelFileId == internalId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(
+                profile => profile.EmploymentStatusCode, PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode));
+    }
+
+    [Fact]
+    public async Task CompensatoryTimeAbsence_RoundTrip_SuggestionDebitStatementProfileOverlapAndAnnul()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        await SetCompensatoryTimeCreditRequiresDocumentAsync(scenario.TenantId, requires: false);
+        using var client = factory.CreateClientFor(CreateCompensatoryTimeManagerContext(scenario));
+
+        var (fileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Elena", "Goce", "EMP-CT-E", "elena.ct.e@empresa.test");
+        var (typeId, _) = await SeedCompensatoryTimeTypeAsync(scenario, "FLEX", "Tiempo compensatorio", CompensatoryTimeOperations.Both, 1.00m);
+
+        // Fund = 40 credited hours (two 20h sessions — a single credit is capped at 24h/day).
+        _ = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-02", 20m);
+        _ = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-03", 20m);
+        Assert.Equal(40m, await GetCompensatoryHoursAvailableAsync(client, fileId));
+
+        // Suggestion for 2026-04-06..2026-04-10 with one holiday (04-08) → (5 − 1) days × 8 = 32h (rest day degraded: none set).
+        await SeedCompanyHolidayAsync(scenario, new DateOnly(2026, 4, 8));
+        var suggestionResponse = await client.GetAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences/absence-hours-suggestion?start=2026-04-06&end=2026-04-10");
+        suggestionResponse.EnsureSuccessStatusCode();
+        var suggestion = await suggestionResponse.Content.ReadFromJsonAsync<CompensatoryTimeAbsenceHoursSuggestionResponse>(JsonOptions);
+        Assert.NotNull(suggestion);
+        Assert.Equal(32.00m, suggestion!.SuggestedHours);
+        Assert.Equal(4, suggestion.WorkingDays);
+        Assert.Equal(1, suggestion.HolidaysExcluded);
+
+        // Register the absence with the suggested hours → 201 + GOCE journal + balance drops to 8.
+        var absence = await CreateAbsenceAsync(client, fileId, typeId, "2026-04-06", "2026-04-10", 32m);
+        Assert.Equal(CompensatoryTimeStatuses.Registrada, absence.StatusCode);
+        Assert.Equal(1, await CountPersonnelActionsAsync(scenario.TenantId, fileId, "GOCE_TIEMPO_COMPENSATORIO"));
+
+        var afterDebit = await GetCompensatoryStatementAsync(client, fileId);
+        Assert.Equal(40m, afterDebit.TotalCredited);
+        Assert.Equal(32m, afterDebit.TotalDebited);
+        Assert.Equal(8m, afterDebit.AvailableBalance);
+        Assert.Equal(3, afterDebit.Items.Count); // 2 credits + 1 absence
+        Assert.Equal(8m, await GetCompensatoryHoursAvailableAsync(client, fileId)); // profile == statement balance
+
+        // Imputation to a non-existent payroll period → 422.
+        var badPeriod = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-05-04", "2026-05-04", 2m, payrollPeriodPublicId: Guid.NewGuid()));
+        await AssertProblemDetailsAsync(badPeriod, HttpStatusCode.UnprocessableEntity, "COMPENSATORY_TIME_PAYROLL_PERIOD_INVALID");
+
+        // A second absence overlapping the first → 422 (RN-05, same-module overlap).
+        var overlap = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-04-09", "2026-04-12", 4m));
+        await AssertProblemDetailsAsync(overlap, HttpStatusCode.UnprocessableEntity, "COMPENSATORY_TIME_ABSENCE_OVERLAP");
+
+        // Annul the absence → the debited hours are restored to the fund.
+        var annul = await SendSettlementAsync(
+            client, HttpMethod.Patch, $"/api/v1/personnel-files/{fileId}/compensatory-time-absences/{absence.Id}/annulment",
+            absence.ConcurrencyToken, new { reason = "Goce cancelado por el empleado" });
+        Assert.Equal(HttpStatusCode.OK, annul.StatusCode);
+
+        var afterAnnul = await GetCompensatoryStatementAsync(client, fileId);
+        Assert.Equal(40m, afterAnnul.AvailableBalance);
+        Assert.Equal(0m, afterAnnul.TotalDebited);
+        Assert.Equal(2, afterAnnul.Items.Count); // the annulled absence is excluded by default → 2 credits remain
+        Assert.Equal(40m, await GetCompensatoryHoursAvailableAsync(client, fileId));
+    }
+
+    [Fact]
+    public async Task CompensatoryTimeAbsence_InsufficientBalance_Returns422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        await SetCompensatoryTimeCreditRequiresDocumentAsync(scenario.TenantId, requires: false);
+        using var client = factory.CreateClientFor(CreateCompensatoryTimeManagerContext(scenario));
+
+        var (fileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Iván", "SinFondo", "EMP-CT-I", "ivan.ct.i@empresa.test");
+        var (typeId, _) = await SeedCompensatoryTimeTypeAsync(scenario, "FLEX", "Tiempo compensatorio", CompensatoryTimeOperations.Both, 1.00m);
+
+        _ = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-02", 4m); // fund = 4
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-04-06", "2026-04-06", 8m)); // debit 8 > 4
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "COMPENSATORY_TIME_BALANCE_INSUFFICIENT");
+        Assert.Equal(4m, await GetCompensatoryHoursAvailableAsync(client, fileId));
+    }
+
+    [Fact]
+    public async Task CompensatoryTimeAbsence_ConcurrentDebits_ExactlyOneSucceedsUnderLock()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        await SetCompensatoryTimeCreditRequiresDocumentAsync(scenario.TenantId, requires: false);
+        using var client = factory.CreateClientFor(CreateCompensatoryTimeManagerContext(scenario));
+
+        var (fileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Karla", "Carrera", "EMP-CT-K", "karla.ct.k@empresa.test");
+        var (typeId, _) = await SeedCompensatoryTimeTypeAsync(scenario, "FLEX", "Tiempo compensatorio", CompensatoryTimeOperations.Both, 1.00m);
+
+        // Fund covers exactly ONE of the two 8h debits.
+        _ = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-02", 8m);
+
+        // Two concurrent debits on DIFFERENT (non-overlapping) date ranges so both pass the overlap pre-check and
+        // then contend on the advisory lock: exactly one 201 and one 422 (RN-03).
+        var postA = client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-04-06", "2026-04-06", 8m));
+        var postB = client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-05-04", "2026-05-04", 8m));
+        var responses = await Task.WhenAll(postA, postB);
+
+        var created = responses.Count(response => response.StatusCode == HttpStatusCode.Created);
+        var rejected = responses.Count(response => response.StatusCode == HttpStatusCode.UnprocessableEntity);
+        Assert.Equal(1, created);
+        Assert.Equal(1, rejected);
+
+        var rejectedResponse = responses.Single(response => response.StatusCode == HttpStatusCode.UnprocessableEntity);
+        await AssertProblemDetailsAsync(rejectedResponse, HttpStatusCode.UnprocessableEntity, "COMPENSATORY_TIME_BALANCE_INSUFFICIENT");
+
+        // The fund is drained to exactly 0 (one 8h debit applied), never negative.
+        Assert.Equal(0m, await GetCompensatoryHoursAvailableAsync(client, fileId));
+    }
+
+    [Fact]
+    public async Task CompensatoryTimeAbsence_SelfServiceReadOwnAndRetiredLock()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        await SetCompensatoryTimeCreditRequiresDocumentAsync(scenario.TenantId, requires: false);
+        using var hr = factory.CreateClientFor(CreateCompensatoryTimeManagerContext(scenario));
+
+        var (selfFileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Laura", "Propia", "EMP-CT-L", "laura.ct.l@empresa.test",
+            linkedUserPublicId: scenario.ActorUserId);
+        var (otherFileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Mario", "Ajeno", "EMP-CT-M", "mario.ct.m@empresa.test");
+        var (typeId, _) = await SeedCompensatoryTimeTypeAsync(scenario, "FLEX", "Tiempo compensatorio", CompensatoryTimeOperations.Both, 1.00m);
+
+        _ = await CreateCreditNoDocAsync(hr, selfFileId, typeId, "2026-03-02", 16m);
+
+        // Self-service (no permissions) reads its OWN estado de cuenta + absences → 200.
+        using var selfClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+        var ownStatement = await selfClient.GetAsync($"/api/v1/personnel-files/{selfFileId}/compensatory-time-statement");
+        Assert.Equal(HttpStatusCode.OK, ownStatement.StatusCode);
+        var ownAbsences = await selfClient.GetAsync($"/api/v1/personnel-files/{selfFileId}/compensatory-time-absences");
+        Assert.Equal(HttpStatusCode.OK, ownAbsences.StatusCode);
+
+        // Another employee's estado de cuenta → 403.
+        var foreignStatement = await selfClient.GetAsync($"/api/v1/personnel-files/{otherFileId}/compensatory-time-statement");
+        Assert.Equal(HttpStatusCode.Forbidden, foreignStatement.StatusCode);
+
+        // A RETIRADO profile freezes the fund → every write is rejected (aclaración №9).
+        await MarkProfileRetiredAsync(selfFileId);
+        var retiredWrite = await hr.PostJsonAsync(
+            $"/api/v1/personnel-files/{selfFileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-04-06", "2026-04-06", 4m));
+        await AssertProblemDetailsAsync(retiredWrite, HttpStatusCode.UnprocessableEntity, "EMPLOYEE_PROFILE_RETIRED_LOCKED");
+    }
 }

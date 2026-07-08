@@ -81,4 +81,67 @@ public interface ICompensatoryTimeRepository
 
     Task<PersonnelFileCompensatoryTimeCreditDocument?> GetDocumentEntityAsync(
         Guid creditPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken);
+
+    // ── Absence reads (PR-4) ──────────────────────────────────────────────────────────────────────
+    Task<IReadOnlyCollection<PersonnelFileCompensatoryTimeAbsenceResponse>> GetAbsenceResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken);
+
+    Task<PersonnelFileCompensatoryTimeAbsenceResponse?> GetAbsenceResponseAsync(
+        Guid personnelFilePublicId, Guid absencePublicId, CancellationToken cancellationToken);
+
+    /// <summary>Tracked entity for the domain guards to mutate.</summary>
+    Task<PersonnelFileCompensatoryTimeAbsence?> GetAbsenceEntityAsync(
+        Guid personnelFilePublicId, Guid absencePublicId, CancellationToken cancellationToken);
+
+    void AddAbsence(PersonnelFileCompensatoryTimeAbsence entity);
+
+    // ── Overlaps + imputation (RN-05 / P-14) ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// True when the employee already has a REGISTRADA compensatory-time absence whose date range overlaps
+    /// [<paramref name="startDate"/>, <paramref name="endDate"/>], excluding <paramref name="excludeAbsenceId"/>
+    /// (the record being edited). RN-05.
+    /// </summary>
+    Task<bool> HasOverlappingAbsenceAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, long? excludeAbsenceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Isolates the two REQ-001 cross-module overlap queries (aclaración №6): whether the range overlaps a live
+    /// incapacity (reuses <c>HasOverlappingIncapacityAsync</c>) and/or a live vacation request/enjoyment
+    /// (reuses <c>HasOverlappingRequestAsync</c>). If REQ-001 were absent this is where the degraded mode toggles
+    /// them off.
+    /// </summary>
+    Task<CompensatoryTimeCrossOverlap> CheckCrossModuleOverlapAsync(
+        long personnelFileId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken);
+
+    /// <summary>True when the tenant has an ACTIVE payroll-period instance (REQ-001 master) with this public id (P-14).</summary>
+    Task<bool> PayrollPeriodExistsAsync(Guid tenantId, Guid payrollPeriodPublicId, CancellationToken cancellationToken);
+
+    // ── Absence-hours suggestion inputs (REQ-001; §3.5) ───────────────────────────────────────────
+
+    /// <summary>The weekly rest day of the employee's primary active plaza (null → resolve against the company preference).</summary>
+    Task<DayOfWeek?> GetPrimaryPlazaRestDayAsync(long personnelFileId, CancellationToken cancellationToken);
+
+    /// <summary>The active tenant holidays that fall in the [start, end] range (suggestion exclusion).</summary>
+    Task<IReadOnlySet<DateOnly>> GetHolidaysInRangeAsync(
+        Guid tenantId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken);
+
+    // ── Estado de cuenta (PR-4, §3.9) ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A filtered, paginated estado-de-cuenta page: the running balance is computed by
+    /// <see cref="CompensatoryTime.CompensatoryTimeRules.BuildStatement"/> over the WHOLE filtered set (so a
+    /// page's running balance carries the accumulated offset — R-T9), then the requested page is sliced. The
+    /// totals cover the whole filtered set; with no filters the balance equals <see cref="GetBalanceAsync"/>.
+    /// </summary>
+    Task<CompensatoryTimeStatementPage> GetStatementPageAsync(
+        long personnelFileId,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        Guid? compensatoryTimeTypePublicId,
+        string? statusCode,
+        bool includeAnnulled,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
 }

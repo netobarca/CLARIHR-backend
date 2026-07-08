@@ -179,6 +179,7 @@ public sealed class PersonnelFileEmployeeProfileEmailChangeTests
             RetirementDate: null,
             VacationDaysAvailable: null,
             DisabilityDaysAvailable: null,
+            CompensatoryTimeHoursAvailable: null,
             ConcurrencyToken: Guid.NewGuid(),
             CreatedAtUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             ModifiedAtUtc: null);

@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
@@ -56,11 +57,48 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         // Map projection (member-init gotcha).
         var disabilityDaysAvailable = await ComputeDisabilityDaysAvailableAsync(item, cancellationToken);
         var vacationDaysAvailable = await ComputeVacationDaysAvailableAsync(item, cancellationToken);
+        var compensatoryTimeHoursAvailable = await ComputeCompensatoryTimeHoursAvailableAsync(item, cancellationToken);
         return Map(item) with
         {
             DisabilityDaysAvailable = disabilityDaysAvailable,
             VacationDaysAvailable = vacationDaysAvailable,
+            CompensatoryTimeHoursAvailable = compensatoryTimeHoursAvailable,
         };
+    }
+
+    /// <summary>
+    /// Available compensatory-time fund balance in HOURS (REQ-002 §3.9): Σ credited − Σ debited over the
+    /// REGISTRADA credits/absences, via <see cref="CompensatoryTimeRules.Balance"/> — the SAME aggregation the
+    /// estado de cuenta uses, so the profile figure and the statement balance cuadran by construction. Null when
+    /// the employee has no compensatory-time movement yet (documented in the FE guide).
+    /// </summary>
+    private async Task<decimal?> ComputeCompensatoryTimeHoursAvailableAsync(
+        PersonnelFileEmployeeProfile profile,
+        CancellationToken cancellationToken)
+    {
+        var hasCredits = await dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .AnyAsync(credit => credit.PersonnelFileId == profile.PersonnelFileId, cancellationToken);
+        var hasAbsences = await dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .AnyAsync(absence => absence.PersonnelFileId == profile.PersonnelFileId, cancellationToken);
+        if (!hasCredits && !hasAbsences)
+        {
+            return null;
+        }
+
+        var credited = await dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .Where(credit => credit.PersonnelFileId == profile.PersonnelFileId
+                && credit.StatusCode == CompensatoryTimeStatuses.Registrada)
+            .SumAsync(credit => (decimal?)credit.HoursCredited, cancellationToken) ?? 0m;
+        var debited = await dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .Where(absence => absence.PersonnelFileId == profile.PersonnelFileId
+                && absence.StatusCode == CompensatoryTimeStatuses.Registrada)
+            .SumAsync(absence => (decimal?)absence.HoursDebited, cancellationToken) ?? 0m;
+
+        return CompensatoryTimeRules.Balance(credited, debited);
     }
 
     /// <summary>
@@ -2287,6 +2325,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.RetirementDate,
             VacationDaysAvailable: null,
             DisabilityDaysAvailable: null,
+            CompensatoryTimeHoursAvailable: null,
             item.ConcurrencyToken,
             item.CreatedUtc,
             item.ModifiedUtc);

@@ -38,6 +38,10 @@ public sealed record PersonnelFileEmployeeProfileResponse(
     DateTime? RetirementDate,
     decimal? VacationDaysAvailable,
     decimal? DisabilityDaysAvailable,
+    // Available compensatory-time fund balance in HOURS (REQ-002 §3.9): Σ credited − Σ debited over REGISTRADA
+    // movements. Null when the module has no fund data yet for the employee; equals the statement's balance
+    // (unfiltered) by construction.
+    decimal? CompensatoryTimeHoursAvailable,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
