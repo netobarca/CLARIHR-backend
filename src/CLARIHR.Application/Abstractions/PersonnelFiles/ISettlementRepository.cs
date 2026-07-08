@@ -50,7 +50,8 @@ public sealed record SettlementCalculationContext(
     SettlementSchemeDto Afp,
     IReadOnlyList<SettlementTaxBracketDto> RentaBrackets,
     IReadOnlyList<SettlementConceptResponse> Concepts,
-    string CurrencyCode);
+    string CurrencyCode,
+    decimal? PendingVacationDays = null);
 
 /// <summary>Lookup of a requester candidate (D-06: HR only) — display name + activity + HR-area membership.</summary>
 public sealed record SettlementRequesterLookup(
@@ -97,6 +98,15 @@ public interface ISettlementRepository
         Guid assignedPositionPublicId,
         DateTime asOfUtc,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Pending enjoyment days of the employee's active vacation fund (RF-019): Σ over active periods with
+    /// <c>GeneratesEnjoymentDays</c> of (granted − net consumed) — the SAME derivation that powers the
+    /// profile's <c>VacationDaysAvailable</c>. Null when the module has no fund for the employee, in which
+    /// case the engine keeps the legacy <c>DaysSinceAnniversary</c> default for VACACION_PROPORCIONAL
+    /// (fully retrocompatible). Resolved into <see cref="SettlementCalculationContext.PendingVacationDays"/>.
+    /// </summary>
+    Task<decimal?> GetPendingVacationDaysAsync(long personnelFileId, CancellationToken cancellationToken);
 
     /// <summary>HRIS separation type of a retirement category (drives the suggested compensation line — D-08).</summary>
     Task<RetirementSeparationType?> GetSeparationTypeAsync(Guid tenantId, string retirementCategoryCode, CancellationToken cancellationToken);

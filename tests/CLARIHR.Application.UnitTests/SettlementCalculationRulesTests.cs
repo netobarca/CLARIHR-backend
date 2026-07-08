@@ -59,7 +59,8 @@ public sealed class SettlementCalculationRulesTests
         decimal minimumWage = 365m,
         IReadOnlyList<SuggestedPlazaItem>? plazaItems = null,
         IReadOnlyList<TaxBracketInput>? brackets = null,
-        IReadOnlyList<SettlementLineState>? existing = null) =>
+        IReadOnlyList<SettlementLineState>? existing = null,
+        decimal? pendingVacationDays = null) =>
         new(
             SettlementKind.Liquidacion,
             separation,
@@ -72,7 +73,8 @@ public sealed class SettlementCalculationRulesTests
             new ContributionSchemeInput(3.00m, 7.50m, 1000.00m),
             new ContributionSchemeInput(7.25m, 8.75m, 7045.06m),
             brackets ?? RentaBrackets2026,
-            existing ?? []);
+            existing ?? [],
+            pendingVacationDays);
 
     private static SettlementLineResult Line(SettlementCalculationResult result, string code) =>
         Assert.Single(result.Lines, line => line.ConceptCode == code);
@@ -129,6 +131,29 @@ public sealed class SettlementCalculationRulesTests
         var line = Line(result, SettlementConceptCodes.VacacionProporcional);
 
         // Anniversary 2026-03-01 → 2026-06-15 = 106 days; 20.00 × 15 × 1.30 × 106/365 = 113.26
+        Assert.Equal(106m, line.UnitsOrDays);
+        Assert.Equal(113.26m, line.CalculatedAmount);
+    }
+
+    [Fact]
+    public void Vacacion_WithPendingFundDays_SuggestsFundInsteadOfAnniversary()
+    {
+        // RF-019: an employee with a live vacation fund → the initial suggestion uses the pending fund days
+        // (12), NOT the 106 anniversary days. Amount = 20.00 × 15 × 1.30 × 12/365 = 12.82.
+        var result = SettlementCalculationRules.Calculate(Input(pendingVacationDays: 12m));
+        var line = Line(result, SettlementConceptCodes.VacacionProporcional);
+
+        Assert.Equal(12m, line.UnitsOrDays);
+        Assert.Equal(12.82m, line.CalculatedAmount);
+    }
+
+    [Fact]
+    public void Vacacion_WithZeroPendingFundDays_FallsBackToAnniversary()
+    {
+        // Retrocompatibility: a null/0 fund keeps the legacy DaysSinceAnniversary default untouched.
+        var result = SettlementCalculationRules.Calculate(Input(pendingVacationDays: 0m));
+        var line = Line(result, SettlementConceptCodes.VacacionProporcional);
+
         Assert.Equal(106m, line.UnitsOrDays);
         Assert.Equal(113.26m, line.CalculatedAmount);
     }

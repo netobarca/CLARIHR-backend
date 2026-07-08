@@ -102,7 +102,8 @@ internal sealed record SettlementCalculationInput(
     ContributionSchemeInput Isss,
     ContributionSchemeInput Afp,
     IReadOnlyList<TaxBracketInput> RentaBrackets,
-    IReadOnlyList<SettlementLineState> ExistingLines);
+    IReadOnlyList<SettlementLineState> ExistingLines,
+    decimal? PendingVacationDays = null);
 
 // ── Output model ─────────────────────────────────────────────────────────────────────────────
 
@@ -302,7 +303,15 @@ internal static class SettlementCalculationRules
         var specs = new List<LineSpec>
         {
             EngineSpec(SettlementConceptCodes.Salario),
-            EngineSpec(SettlementConceptCodes.VacacionProporcional),
+
+            // VACACION_PROPORCIONAL (RF-019): seed the suggested units with the employee's pending fund days
+            // when a fund exists (> 0); otherwise leave null so ComputeIncomeLine keeps the legacy
+            // DaysSinceAnniversary default (retrocompatible — no fund ⇒ identical to the prior behaviour).
+            new LineSpec(
+                null, SettlementConceptCodes.VacacionProporcional, ResolveClass(SettlementConceptCodes.VacacionProporcional),
+                IsIncluded: true, UnitsOrDays: input.PendingVacationDays > 0 ? input.PendingVacationDays : null,
+                OverrideAmount: null, IsManual: false, ManualAmount: 0m, Description: null, CounterpartyName: null),
+
             EngineSpec(SettlementConceptCodes.AguinaldoProporcional),
         };
 

@@ -188,6 +188,9 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
             .Select(item => item.CurrencyCode)
             .SingleOrDefaultAsync(cancellationToken) ?? "USD";
 
+        // Pending fund days feed the VACACION_PROPORCIONAL suggestion (RF-019); null → legacy anniversary default.
+        var pendingVacationDays = await GetPendingVacationDaysAsync(personnelFileId, cancellationToken);
+
         return new SettlementCalculationContext(
             new SettlementPlazaContext(
                 assignment.PublicId, assignment.StartDate, assignment.EndDate, assignment.IsActive,
@@ -201,8 +204,12 @@ internal sealed class SettlementRepository(ApplicationDbContext dbContext) : ISe
             afp,
             brackets,
             concepts,
-            currency);
+            currency,
+            pendingVacationDays);
     }
+
+    public Task<decimal?> GetPendingVacationDaysAsync(long personnelFileId, CancellationToken cancellationToken) =>
+        VacationFundQueries.GetAvailableEnjoymentDaysAsync(dbContext, personnelFileId, cancellationToken);
 
     public async Task<RetirementSeparationType?> GetSeparationTypeAsync(
         Guid tenantId,

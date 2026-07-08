@@ -66,59 +66,14 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     /// <summary>
     /// Available enjoyment days of the employee's active fund (§3.10): Σ over active periods with
     /// <c>GeneratesEnjoymentDays</c> of (granted − net consumed), via <see cref="VacationRules.AvailableDays"/>.
-    /// Null when the module has no fund data yet for the employee (documented in the FE guide).
+    /// Null when the module has no fund data yet for the employee (documented in the FE guide). Delegates to
+    /// <see cref="VacationFundQueries.GetAvailableEnjoymentDaysAsync"/> — the SAME derivation the settlement
+    /// engine consumes for the VACACION_PROPORCIONAL suggestion (RF-019), so the two never diverge.
     /// </summary>
-    private async Task<decimal?> ComputeVacationDaysAvailableAsync(
+    private Task<decimal?> ComputeVacationDaysAvailableAsync(
         PersonnelFileEmployeeProfile profile,
-        CancellationToken cancellationToken)
-    {
-        var periods = await dbContext.PersonnelFileVacationPeriods
-            .AsNoTracking()
-            .Where(period => period.PersonnelFileId == profile.PersonnelFileId
-                && period.IsActive
-                && period.GeneratesEnjoymentDays)
-            .ToListAsync(cancellationToken);
-        if (periods.Count == 0)
-        {
-            return null;
-        }
-
-        var consuming = VacationRequestStatuses.ConsumesFund.ToArray();
-        var allocations = await dbContext.VacationRequestAllocations
-            .AsNoTracking()
-            .Join(
-                dbContext.PersonnelFileVacationRequests.AsNoTracking(),
-                allocation => allocation.VacationRequestId,
-                request => request.Id,
-                (allocation, request) => new { allocation.VacationPeriodId, allocation.Days, request.PersonnelFileId, request.StatusCode })
-            .Where(row => row.PersonnelFileId == profile.PersonnelFileId && consuming.Contains(row.StatusCode))
-            .Select(row => new { row.VacationPeriodId, row.Days })
-            .ToListAsync(cancellationToken);
-
-        var returnDistributions = await dbContext.VacationReturns
-            .AsNoTracking()
-            .Join(
-                dbContext.PersonnelFileVacationRequests.AsNoTracking(),
-                entry => entry.VacationRequestId,
-                request => request.Id,
-                (entry, request) => new { entry.DistributionJson, request.PersonnelFileId, request.StatusCode })
-            .Where(row => row.PersonnelFileId == profile.PersonnelFileId && consuming.Contains(row.StatusCode))
-            .Select(row => row.DistributionJson)
-            .ToListAsync(cancellationToken);
-
-        var net = VacationFundMath.NetConsumedByPeriod(
-            allocations.Select(row => (row.VacationPeriodId, row.Days)),
-            returnDistributions);
-
-        var available = 0;
-        foreach (var period in periods)
-        {
-            var consumed = Math.Max(0, net.GetValueOrDefault(period.Id));
-            available += VacationRules.AvailableDays(period, [consumed]);
-        }
-
-        return available;
-    }
+        CancellationToken cancellationToken) =>
+        VacationFundQueries.GetAvailableEnjoymentDaysAsync(dbContext, profile.PersonnelFileId, cancellationToken);
 
     /// <summary>
     /// Remaining employer-cap days of the current year for one employee (D-27/§3.10): (covered + benefit)

@@ -84,7 +84,8 @@ internal static class SettlementCalculationSupport
             context.RentaBrackets
                 .Select(bracket => new TaxBracketInput(bracket.LowerBound, bracket.UpperBound, bracket.FixedFee, bracket.RatePercent, bracket.ExcessOver))
                 .ToArray(),
-            settlement.Lines.Count == 0 ? [] : BuildStates(settlement));
+            settlement.Lines.Count == 0 ? [] : BuildStates(settlement),
+            context.PendingVacationDays);
 
         var result = SettlementCalculationRules.Calculate(input);
 
