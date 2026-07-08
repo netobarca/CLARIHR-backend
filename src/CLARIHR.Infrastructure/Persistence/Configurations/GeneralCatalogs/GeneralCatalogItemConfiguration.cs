@@ -644,3 +644,20 @@ internal sealed class CompensatoryTimeOperationCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class PersonnelTransactionStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PersonnelTransactionStatusCatalogItem>
+{
+    public PersonnelTransactionStatusCatalogItemConfiguration()
+        : base(
+            "personnel_transaction_status_catalog_items",
+            "pk_personnel_transaction_status_catalog_items",
+            "uq_personnel_transaction_status_catalog_items__public_id",
+            "uq_personnel_transaction_status_catalog_items__country_code",
+            // Shortened to __active_sort: the full __country_active_sort would exceed the 63-char
+            // PostgreSQL identifier limit (precedent: compensatory_time_operation_catalog_items).
+            "ix_personnel_transaction_status_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetPersonnelTransactionStatusCatalogItems())
+    {
+    }
+}

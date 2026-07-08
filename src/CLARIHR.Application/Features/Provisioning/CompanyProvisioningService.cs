@@ -1,6 +1,7 @@
 using System.Text;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.EmployeeRelations;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
@@ -34,6 +35,7 @@ internal sealed class CompanyProvisioningService(
     IOrgStructureCatalogSeedService orgStructureCatalogSeedService,
     ICompetencyFrameworkSeedService competencyFrameworkSeedService,
     ILeaveTemplateSeeder leaveTemplateSeeder,
+    IEmployeeRelationsTemplateSeeder employeeRelationsTemplateSeeder,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider) : ICompanyProvisioningService
@@ -154,6 +156,7 @@ internal sealed class CompanyProvisioningService(
         await orgStructureCatalogSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
         await competencyFrameworkSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
         _ = await leaveTemplateSeeder.ApplyTemplateAsync(company.PublicId, dateTimeProvider.UtcNow.Year, cancellationToken);
+        _ = await employeeRelationsTemplateSeeder.ApplyTemplateAsync(company.PublicId, cancellationToken);
 
         return Result<ProvisionedCompanyResult>.Success(new ProvisionedCompanyResult(
             company.PublicId,

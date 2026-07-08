@@ -268,6 +268,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CompensatoryTimeOperationCatalogItem> CompensatoryTimeOperationCatalogItems => Set<CompensatoryTimeOperationCatalogItem>();
 
+    public DbSet<PersonnelTransactionStatusCatalogItem> PersonnelTransactionStatusCatalogItems => Set<PersonnelTransactionStatusCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();

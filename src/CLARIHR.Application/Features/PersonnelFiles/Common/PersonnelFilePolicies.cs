@@ -221,4 +221,56 @@ public static class PersonnelFilePolicies
     /// super-admin), like ManageSettlements.
     /// </summary>
     public const string ManageCompensatoryTime = "PersonnelFiles.ManageCompensatoryTime";
+
+    /// <summary>
+    /// Read policy for recognition sub-resources ("reconocimientos" — REQ-003 D-05). Authn-only superset:
+    /// the precise check (ViewRecognitions / Admin, or the employee reading their own APLICADAS —
+    /// self-service, D-13) lives in the recognition read handlers (PR-3).
+    /// </summary>
+    public const string ViewRecognitions = "PersonnelFiles.ViewRecognitions";
+
+    /// <summary>
+    /// Write policy for recognition sub-resources (register/edit/annul — REQ-003 D-05). Authn-only
+    /// superset with fallback Admin/ManageAdministration; the precise HR-only gate lives in the
+    /// recognition write handlers (PR-3). Decision/revocation is the dedicated
+    /// <see cref="AuthorizeRecognitions"/> grant.
+    /// </summary>
+    public const string ManageRecognitions = "PersonnelFiles.ManageRecognitions";
+
+    /// <summary>
+    /// Write policy for deciding/revoking a recognition (REQ-003 D-05). RequireAssertion over the
+    /// dedicated AuthorizeRecognitions grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizeRecognitions = "PersonnelFiles.AuthorizeRecognitions";
+
+    /// <summary>
+    /// Read policy for disciplinary-action sub-resources ("amonestaciones" — REQ-003 D-05). Authn-only
+    /// superset: the precise check (ViewDisciplinaryActions / Admin, or the employee reading their own
+    /// APLICADAS — self-service, D-13) lives in the disciplinary-action read handlers (PR-4).
+    /// </summary>
+    public const string ViewDisciplinaryActions = "PersonnelFiles.ViewDisciplinaryActions";
+
+    /// <summary>
+    /// Write policy for disciplinary-action sub-resources (register/edit/annul — REQ-003 D-05). Authn-only
+    /// superset with fallback Admin/ManageAdministration; the precise HR-only gate lives in the
+    /// disciplinary-action write handlers (PR-4). Decision/revocation is the dedicated
+    /// <see cref="AuthorizeDisciplinaryActions"/> grant.
+    /// </summary>
+    public const string ManageDisciplinaryActions = "PersonnelFiles.ManageDisciplinaryActions";
+
+    /// <summary>
+    /// Write policy for deciding/revoking a disciplinary action (REQ-003 D-05). RequireAssertion over the
+    /// dedicated AuthorizeDisciplinaryActions grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizeDisciplinaryActions = "PersonnelFiles.AuthorizeDisciplinaryActions";
+
+    /// <summary>
+    /// Read policy for the time-availability query ("consulta de disponibilidad de tiempos" — REQ-003
+    /// D-14). Corporate read with no self-service branch, so it is a RequireAssertion superset of the
+    /// precise EnsureCanViewTimeAvailabilityAsync handler gate (the dedicated permission, or Admin / IAM
+    /// super-admin).
+    /// </summary>
+    public const string ViewTimeAvailability = "PersonnelFiles.ViewTimeAvailability";
 }

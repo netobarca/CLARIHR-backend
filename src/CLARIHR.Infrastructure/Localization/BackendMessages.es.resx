@@ -2278,4 +2278,37 @@
   <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
     <value>El código de operación debe ser ACREDITA, DEBITA o AMBAS.</value>
   </data>
+  <data name="RECOGNITION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el tipo de reconocimiento.</value>
+  </data>
+  <data name="RECOGNITION_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro tipo de reconocimiento activo ya usa el código solicitado.</value>
+  </data>
+  <data name="RECOGNITION_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de reconocimiento está referenciado por un registro activo y no puede inactivarse.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el tipo de amonestación.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro tipo de amonestación activo ya usa el código solicitado.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de amonestación está referenciado por un registro activo y no puede inactivarse.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la causa de amonestación.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otra causa de amonestación activa ya usa el código solicitado.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_IN_USE" xml:space="preserve">
+    <value>La causa de amonestación está referenciada por un registro activo y no puede inactivarse.</value>
+  </data>
+  <data name="DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto de descuento no existe, está inactivo o no es un concepto de egreso.</value>
+  </data>
+  <data name="EMPLOYEE_RELATIONS_CONFIGURATION_FORBIDDEN" xml:space="preserve">
+    <value>No tiene permiso para acceder a la administración de configuración de relaciones laborales.</value>
+  </data>
 </root>

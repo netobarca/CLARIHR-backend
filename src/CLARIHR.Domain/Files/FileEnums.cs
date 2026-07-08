@@ -21,7 +21,9 @@ public enum FilePurpose
     EconomicAidRequestDocument,
     CertificateRequestDocument,
     IncapacityDocument,
-    CompensatoryTimeDocument
+    CompensatoryTimeDocument,
+    RecognitionDocument,
+    DisciplinaryActionDocument
 }
 
 public enum StorageProvider

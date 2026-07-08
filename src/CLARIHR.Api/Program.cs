@@ -11,6 +11,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.EmployeeRelations.Common;
 using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
@@ -616,6 +617,42 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Otras transacciones de personal — recognitions + disciplinary actions (REQ-003 D-05). View* and
+    // Manage* stay authn-only supersets because both families have a self-service read branch (an
+    // employee reading their OWN applied records, D-13) and Manage is not blocked at the API layer; the
+    // precise View*/Manage*/isSelf/anti-self checks live in the handler gates (PR-3/PR-4). Authorize*
+    // deliberately EXCLUDE PersonnelFiles.Admin (separation of duties + double anti-self — mirrors
+    // AuthorizeRetirement); the IAM super-admin remains the universal fallback. ViewTimeAvailability is a
+    // RequireAssertion (corporate read, no self-service) like the compensatory-time read superset would
+    // be if it had no self branch.
+    options.AddPolicy(PersonnelFilePolicies.ViewRecognitions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageRecognitions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeRecognitions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeRecognitions,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.ViewDisciplinaryActions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageDisciplinaryActions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeDisciplinaryActions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.ViewTimeAvailability, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ViewTimeAvailability,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
@@ -652,6 +689,25 @@ builder.Services.AddAuthorization(options =>
             context,
             LeaveConfigurationPermissionCodes.Admin,
             LeaveConfigurationPermissionCodes.ManageAdministration)));
+
+    // Employee-relations configuration masters (recognition types, disciplinary-action types/causes —
+    // REQ-003) — declarative policies kept a superset of the precise
+    // EmployeeRelationsConfigurationAuthorizationService handler gate (EnsureCanReadAsync /
+    // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(EmployeeRelationsConfigurationPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            EmployeeRelationsConfigurationPermissionCodes.Read,
+            EmployeeRelationsConfigurationPermissionCodes.Admin,
+            EmployeeRelationsConfigurationPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(EmployeeRelationsConfigurationPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            EmployeeRelationsConfigurationPermissionCodes.Admin,
+            EmployeeRelationsConfigurationPermissionCodes.ManageAdministration)));
 
     // Locations (work centers, work center types, location groups/levels/hierarchy) — declarative
     // policies kept a superset of the precise ILocationAuthorizationService handler gate

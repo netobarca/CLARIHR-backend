@@ -442,6 +442,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestOrgStructureCatalogSeedService(),
             new TestCompetencyFrameworkSeedService(),
             new TestLeaveTemplateSeeder(),
+            new TestEmployeeRelationsTemplateSeeder(),
             planEntitlementService,
             unitOfWork,
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
@@ -530,6 +531,14 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             int? holidayYear,
             CancellationToken cancellationToken) =>
             Task.FromResult(new LeaveTemplateSeedResult(0, 0, 0, 0, 0, 0, 0));
+    }
+
+    private sealed class TestEmployeeRelationsTemplateSeeder : CLARIHR.Application.Abstractions.EmployeeRelations.IEmployeeRelationsTemplateSeeder
+    {
+        public Task<CLARIHR.Application.Abstractions.EmployeeRelations.EmployeeRelationsTemplateSeedResult> ApplyTemplateAsync(
+            Guid tenantId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new CLARIHR.Application.Abstractions.EmployeeRelations.EmployeeRelationsTemplateSeedResult(0, 0, 0, 0, 0, 0));
     }
 
     private sealed class TestCountryCatalogRepository : ICountryCatalogRepository

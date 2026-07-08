@@ -206,6 +206,19 @@ public static class AuditEventTypes
     public const string PayrollPeriodDefinitionActivated = "PAYROLL_PERIOD_DEFINITION_ACTIVATED";
     public const string PayrollPeriodDefinitionInactivated = "PAYROLL_PERIOD_DEFINITION_INACTIVATED";
     public const string LeaveTemplateLoaded = "LEAVE_TEMPLATE_LOADED";
+    public const string RecognitionTypeCreated = "RECOGNITION_TYPE_CREATED";
+    public const string RecognitionTypeUpdated = "RECOGNITION_TYPE_UPDATED";
+    public const string RecognitionTypeActivated = "RECOGNITION_TYPE_ACTIVATED";
+    public const string RecognitionTypeInactivated = "RECOGNITION_TYPE_INACTIVATED";
+    public const string DisciplinaryActionTypeCreated = "DISCIPLINARY_ACTION_TYPE_CREATED";
+    public const string DisciplinaryActionTypeUpdated = "DISCIPLINARY_ACTION_TYPE_UPDATED";
+    public const string DisciplinaryActionTypeActivated = "DISCIPLINARY_ACTION_TYPE_ACTIVATED";
+    public const string DisciplinaryActionTypeInactivated = "DISCIPLINARY_ACTION_TYPE_INACTIVATED";
+    public const string DisciplinaryActionCauseCreated = "DISCIPLINARY_ACTION_CAUSE_CREATED";
+    public const string DisciplinaryActionCauseUpdated = "DISCIPLINARY_ACTION_CAUSE_UPDATED";
+    public const string DisciplinaryActionCauseActivated = "DISCIPLINARY_ACTION_CAUSE_ACTIVATED";
+    public const string DisciplinaryActionCauseInactivated = "DISCIPLINARY_ACTION_CAUSE_INACTIVATED";
+    public const string EmployeeRelationsTemplateLoaded = "EMPLOYEE_RELATIONS_TEMPLATE_LOADED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
 
@@ -408,6 +421,19 @@ public static class AuditEventTypes
         PayrollPeriodDefinitionActivated,
         PayrollPeriodDefinitionInactivated,
         LeaveTemplateLoaded,
+        RecognitionTypeCreated,
+        RecognitionTypeUpdated,
+        RecognitionTypeActivated,
+        RecognitionTypeInactivated,
+        DisciplinaryActionTypeCreated,
+        DisciplinaryActionTypeUpdated,
+        DisciplinaryActionTypeActivated,
+        DisciplinaryActionTypeInactivated,
+        DisciplinaryActionCauseCreated,
+        DisciplinaryActionCauseUpdated,
+        DisciplinaryActionCauseActivated,
+        DisciplinaryActionCauseInactivated,
+        EmployeeRelationsTemplateLoaded,
         VacationPeriodsGenerated,
         VacationPlanSaved
     ];
@@ -476,6 +502,10 @@ public static class AuditEntityTypes
     public const string CompanyHoliday = "CompanyHoliday";
     public const string PayrollPeriodDefinition = "PayrollPeriodDefinition";
     public const string LeaveConfiguration = "LeaveConfiguration";
+    public const string RecognitionType = "RecognitionType";
+    public const string DisciplinaryActionType = "DisciplinaryActionType";
+    public const string DisciplinaryActionCause = "DisciplinaryActionCause";
+    public const string EmployeeRelationsConfiguration = "EmployeeRelationsConfiguration";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -527,7 +557,11 @@ public static class AuditEntityTypes
         IncapacityRisk,
         CompanyHoliday,
         PayrollPeriodDefinition,
-        LeaveConfiguration
+        LeaveConfiguration,
+        RecognitionType,
+        DisciplinaryActionType,
+        DisciplinaryActionCause,
+        EmployeeRelationsConfiguration
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

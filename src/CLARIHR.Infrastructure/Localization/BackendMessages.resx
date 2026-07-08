@@ -2278,4 +2278,37 @@
   <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
     <value>Operation code must be ACREDITA, DEBITA or AMBAS.</value>
   </data>
+  <data name="RECOGNITION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The recognition type could not be found.</value>
+  </data>
+  <data name="RECOGNITION_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another active recognition type already uses the requested code.</value>
+  </data>
+  <data name="RECOGNITION_TYPE_IN_USE" xml:space="preserve">
+    <value>The recognition type is referenced by an active record and cannot be inactivated.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The disciplinary-action type could not be found.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another active disciplinary-action type already uses the requested code.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_IN_USE" xml:space="preserve">
+    <value>The disciplinary-action type is referenced by an active record and cannot be inactivated.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_NOT_FOUND" xml:space="preserve">
+    <value>The disciplinary-action cause could not be found.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another active disciplinary-action cause already uses the requested code.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_IN_USE" xml:space="preserve">
+    <value>The disciplinary-action cause is referenced by an active record and cannot be inactivated.</value>
+  </data>
+  <data name="DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>The deduction concept could not be found, is inactive, or is not an expense (egreso) concept.</value>
+  </data>
+  <data name="EMPLOYEE_RELATIONS_CONFIGURATION_FORBIDDEN" xml:space="preserve">
+    <value>You do not have permission to access employee-relations configuration administration.</value>
+  </data>
 </root>

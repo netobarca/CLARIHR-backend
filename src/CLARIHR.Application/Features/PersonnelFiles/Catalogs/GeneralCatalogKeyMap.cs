@@ -72,6 +72,7 @@ public static class GeneralCatalogKeyMap
             ["vacation-request-statuses"] = PersonnelCurriculumCatalogCategories.VacationRequestStatus,
             ["compensatory-time-statuses"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeStatus,
             ["compensatory-time-operations"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeOperation,
+            ["personnel-transaction-statuses"] = PersonnelCurriculumCatalogCategories.PersonnelTransactionStatus,
         };
 
     /// <summary>

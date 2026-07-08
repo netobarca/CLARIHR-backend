@@ -660,6 +660,16 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("COMPENSATORY_TIME_OPERATION_CATALOG", -9869L, "SV", "AMBAS", "Ambas", 30),
     ];
 
+    // Personnel-transaction statuses (REQ-003 "otras transacciones de personal"): the one-decision
+    // lifecycle shared by recognitions and disciplinary actions (D-15).
+    public static IEnumerable<object> GetPersonnelTransactionStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PERSONNEL_TRANSACTION_STATUS_CATALOG", -9875L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("PERSONNEL_TRANSACTION_STATUS_CATALOG", -9876L, "SV", "APLICADA", "Aplicada", 20),
+        CreateGeneralCatalogSeed("PERSONNEL_TRANSACTION_STATUS_CATALOG", -9877L, "SV", "RECHAZADA", "Rechazada", 30),
+        CreateGeneralCatalogSeed("PERSONNEL_TRANSACTION_STATUS_CATALOG", -9878L, "SV", "ANULADA", "Anulada", 40),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -800,6 +810,7 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9489L, "SV", "DEVOLUCION_VACACIONES", "Devolución de vacaciones", 200),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9870L, "SV", "ACREDITACION_TIEMPO_COMPENSATORIO", "Acreditación de tiempo compensatorio", 210),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9871L, "SV", "GOCE_TIEMPO_COMPENSATORIO", "Goce de tiempo compensatorio", 220),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9879L, "SV", "RECONOCIMIENTO", "Reconocimiento", 230),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>

@@ -289,6 +289,56 @@ public static class PersonnelFilePermissionCodes
     /// never exposes the per-employee sensitive data guarded by the dedicated View* permissions.
     /// </summary>
     public const string ViewReports = "PersonnelFiles.ViewReports";
+
+    /// <summary>
+    /// Dedicated permission to read employee recognitions ("reconocimientos" — REQ-003 D-05). An employee
+    /// always reads their OWN applied recognitions without this permission (self-service gate in the
+    /// handlers, PR-3); Admin is a superset.
+    /// </summary>
+    public const string ViewRecognitions = "PersonnelFiles.ViewRecognitions";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/annul (EN_REVISION) recognitions (REQ-003 D-05). Admin is a
+    /// superset. Deciding/revoking a recognition requires the dedicated <see cref="AuthorizeRecognitions"/>
+    /// grant (double anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageRecognitions = "PersonnelFiles.ManageRecognitions";
+
+    /// <summary>
+    /// Dedicated permission to decide/revoke a recognition (REQ-003 D-05). Like
+    /// <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeRecognitions = "PersonnelFiles.AuthorizeRecognitions";
+
+    /// <summary>
+    /// Dedicated permission to read employee disciplinary actions ("amonestaciones" — REQ-003 D-05). An
+    /// employee always reads their OWN applied disciplinary actions without this permission (self-service
+    /// gate in the handlers, PR-4); Admin is a superset.
+    /// </summary>
+    public const string ViewDisciplinaryActions = "PersonnelFiles.ViewDisciplinaryActions";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/annul (EN_REVISION) disciplinary actions (REQ-003 D-05).
+    /// Admin is a superset. Deciding/revoking a disciplinary action requires the dedicated
+    /// <see cref="AuthorizeDisciplinaryActions"/> grant (double anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageDisciplinaryActions = "PersonnelFiles.ManageDisciplinaryActions";
+
+    /// <summary>
+    /// Dedicated permission to decide/revoke a disciplinary action (REQ-003 D-05). Like
+    /// <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeDisciplinaryActions = "PersonnelFiles.AuthorizeDisciplinaryActions";
+
+    /// <summary>
+    /// Dedicated permission to read the time-availability query ("consulta de disponibilidad de tiempos" —
+    /// REQ-003 D-14): a corporate planning view with a minimal payload (no cause/facts/amounts). Corporate
+    /// read with no self-service; Admin is a superset.
+    /// </summary>
+    public const string ViewTimeAvailability = "PersonnelFiles.ViewTimeAvailability";
+
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

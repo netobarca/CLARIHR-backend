@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.EmployeeRelations;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
@@ -13,6 +14,7 @@ using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.EmployeeRelations.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -148,6 +150,18 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // credit/absence controllers that carry these are added in PR-3/PR-4.
         PersonnelFilePolicies.ViewCompensatoryTime,
         PersonnelFilePolicies.ManageCompensatoryTime,
+        // Otras transacciones de personal — recognitions + disciplinary actions (REQ-003 D-05): authn-only
+        // View*/Manage* supersets (self-service read branch of own applied records) + Authorize* that
+        // deliberately exclude PersonnelFiles.Admin (separation of duties + double anti-self, mirrors
+        // AuthorizeRetirement) + ViewTimeAvailability RequireAssertion (corporate read, no self-service).
+        // The record controllers that carry these are added in PR-3/PR-4/PR-6.
+        PersonnelFilePolicies.ViewRecognitions,
+        PersonnelFilePolicies.ManageRecognitions,
+        PersonnelFilePolicies.AuthorizeRecognitions,
+        PersonnelFilePolicies.ViewDisciplinaryActions,
+        PersonnelFilePolicies.ManageDisciplinaryActions,
+        PersonnelFilePolicies.AuthorizeDisciplinaryActions,
+        PersonnelFilePolicies.ViewTimeAvailability,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)
@@ -160,6 +174,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         LeaveConfigurationPolicies.Read,
         LeaveConfigurationPolicies.Manage,
+    };
+
+    private static readonly HashSet<string> EmployeeRelationsConfigurationPolicyNames = new(StringComparer.Ordinal)
+    {
+        EmployeeRelationsConfigurationPolicies.Read,
+        EmployeeRelationsConfigurationPolicies.Manage,
     };
 
     private static readonly HashSet<string> LocationPolicyNames = new(StringComparer.Ordinal)
@@ -263,6 +283,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 LeaveConfigurationPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
 
+        if (AnyHandlerInjects(typeof(IEmployeeRelationsConfigurationAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                EmployeeRelationsConfigurationPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                EmployeeRelationsConfigurationPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
+
         if (AnyHandlerInjects(typeof(ILocationAuthorizationService)))
         {
             Assert.Contains(controllers, entry => entry.Marker is not null &&
@@ -334,6 +361,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(PersonnelFilePolicyNames);
         valid.UnionWith(CostCenterPolicyNames);
         valid.UnionWith(LeaveConfigurationPolicyNames);
+        valid.UnionWith(EmployeeRelationsConfigurationPolicyNames);
         valid.UnionWith(LocationPolicyNames);
         valid.UnionWith(LegalRepresentativePolicyNames);
         valid.UnionWith(OrgUnitPolicyNames);

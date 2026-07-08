@@ -130,6 +130,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string VacationRequestStatus = "VacationRequestStatus";
     public const string CompensatoryTimeStatus = "CompensatoryTimeStatus";
     public const string CompensatoryTimeOperation = "CompensatoryTimeOperation";
+    public const string PersonnelTransactionStatus = "PersonnelTransactionStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

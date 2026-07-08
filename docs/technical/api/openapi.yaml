@@ -9424,7 +9424,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a general catalog
-      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`, `compensatory-time-statuses`, `compensatory-time-operations`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
+      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`, `compensatory-time-statuses`, `compensatory-time-operations`, `personnel-transaction-statuses`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
       parameters:
         - name: catalogKey
           in: path
@@ -18816,6 +18816,1843 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/recognition-types':
+    get:
+      tags:
+        - Recognition Types
+      summary: List recognition types for a company
+      description: "Returns a paginated list of the company's recognition types (REQ-003 — the master starts empty; the administrator creates the types), filterable by `isActive` and free-text `q` over the code and name. Set `includeAllowedActions=true` to receive per-item read/manage flags. A caller without the required permissions yields `403`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Recognition Types
+      summary: Create a recognition type
+      description: "Creates a recognition type under the company and returns `201 Created` with the `Location` and `ETag` headers. A duplicate active code yields `409 RECOGNITION_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecognitionTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecognitionTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateRecognitionTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/recognition-types/{publicId}':
+    get:
+      tags:
+        - Recognition Types
+      summary: Get a recognition type by id
+      description: "Returns a single recognition type by its public id. A non-existent id yields `404 RECOGNITION_TYPE_NOT_FOUND`; an id that belongs to another tenant yields `403 TENANT_MISMATCH`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Recognition Types
+      summary: Update a recognition type
+      description: "Replaces the editable fields (code, name, sort order). Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). A duplicate active code yields `409 RECOGNITION_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecognitionTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecognitionTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecognitionTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/recognition-types/{publicId}/activate':
+    patch:
+      tags:
+        - Recognition Types
+      summary: Activate a recognition type
+      description: "Reactivates an inactive recognition type. If another active type already uses the same code, activation yields `409 RECOGNITION_TYPE_CODE_CONFLICT`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/recognition-types/{publicId}/inactivate':
+    patch:
+      tags:
+        - Recognition Types
+      summary: Inactivate a recognition type
+      description: "Deactivates (soft-delete) a recognition type. A type referenced by an active record yields `422 RECOGNITION_TYPE_IN_USE`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/disciplinary-action-types':
+    get:
+      tags:
+        - Disciplinary Action Types
+      summary: List disciplinary-action types for a company
+      description: "Returns a paginated list of the company's disciplinary-action types (REQ-003 — the master starts empty; the administrator creates the types), filterable by `isActive`, `appliesSuspension` and free-text `q` over the code and name. Set `includeAllowedActions=true` to receive per-item read/manage flags. A caller without the required permissions yields `403`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: appliesSuspension
+          in: query
+          schema:
+            type: boolean
+            nullable: true
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Disciplinary Action Types
+      summary: Create a disciplinary-action type
+      description: "Creates a disciplinary-action type under the company and returns `201 Created` with the `Location` and `ETag` headers. `appliesSuspension` marks the types that imply a suspension. A duplicate active code yields `409 DISCIPLINARY_ACTION_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-types/{publicId}':
+    get:
+      tags:
+        - Disciplinary Action Types
+      summary: Get a disciplinary-action type by id
+      description: "Returns a single disciplinary-action type by its public id. A non-existent id yields `404 DISCIPLINARY_ACTION_TYPE_NOT_FOUND`; an id that belongs to another tenant yields `403 TENANT_MISMATCH`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Disciplinary Action Types
+      summary: Update a disciplinary-action type
+      description: "Replaces the editable fields (code, name, applies-suspension flag, sort order). Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). A duplicate active code yields `409 DISCIPLINARY_ACTION_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-types/{publicId}/activate':
+    patch:
+      tags:
+        - Disciplinary Action Types
+      summary: Activate a disciplinary-action type
+      description: "Reactivates an inactive disciplinary-action type. If another active type already uses the same code, activation yields `409 DISCIPLINARY_ACTION_TYPE_CODE_CONFLICT`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-types/{publicId}/inactivate':
+    patch:
+      tags:
+        - Disciplinary Action Types
+      summary: Inactivate a disciplinary-action type
+      description: "Deactivates (soft-delete) a disciplinary-action type. A type referenced by an active record yields `422 DISCIPLINARY_ACTION_TYPE_IN_USE`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/disciplinary-action-causes':
+    get:
+      tags:
+        - Disciplinary Action Causes
+      summary: List disciplinary-action causes for a company
+      description: "Returns a paginated list of the company's disciplinary-action causes (REQ-003 — the master starts empty; the administrator creates the causes), filterable by `isActive` and free-text `q` over the code and name. Set `includeAllowedActions=true` to receive per-item read/manage flags. A caller without the required permissions yields `403`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Disciplinary Action Causes
+      summary: Create a disciplinary-action cause
+      description: "Creates a disciplinary-action cause under the company and returns `201 Created` with the `Location` and `ETag` headers. When `deductionConceptTypeCode` travels it must resolve to a valid deduction concept, otherwise the request yields `422 DEDUCTION_CONCEPT_INVALID`. A duplicate active code yields `409 DISCIPLINARY_ACTION_CAUSE_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionCauseRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionCauseRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateDisciplinaryActionCauseRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-causes/{publicId}':
+    get:
+      tags:
+        - Disciplinary Action Causes
+      summary: Get a disciplinary-action cause by id
+      description: "Returns a single disciplinary-action cause by its public id. A non-existent id yields `404 DISCIPLINARY_ACTION_CAUSE_NOT_FOUND`; an id that belongs to another tenant yields `403 TENANT_MISMATCH`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Disciplinary Action Causes
+      summary: Update a disciplinary-action cause
+      description: "Replaces the editable fields (code, name, deduction-concept type code, sort order). When `deductionConceptTypeCode` travels it must resolve to a valid deduction concept, otherwise the request yields `422 DEDUCTION_CONCEPT_INVALID`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). A duplicate active code yields `409 DISCIPLINARY_ACTION_CAUSE_CODE_CONFLICT`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionCauseRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionCauseRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionCauseRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-causes/{publicId}/activate':
+    patch:
+      tags:
+        - Disciplinary Action Causes
+      summary: Activate a disciplinary-action cause
+      description: "Reactivates an inactive disciplinary-action cause. If another active cause already uses the same code, activation yields `409 DISCIPLINARY_ACTION_CAUSE_CODE_CONFLICT`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/disciplinary-action-causes/{publicId}/inactivate':
+    patch:
+      tags:
+        - Disciplinary Action Causes
+      summary: Inactivate a disciplinary-action cause
+      description: "Deactivates (soft-delete) a disciplinary-action cause. A cause referenced by an active record yields `422 DISCIPLINARY_ACTION_CAUSE_IN_USE`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionCauseResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/employee-relations/load-template':
+    post:
+      tags:
+        - Employee Relations Configuration
+      summary: Load the employee-relations template
+      description: "Applies the employee-relations template to the company's masters: the recognition\ntypes, disciplinary-action types and disciplinary-action causes of REQ-003. Idempotent\nby code: rows the company already has are never overwritten (even when edited or\ninactive) and are reported as skipped; only the missing template rows are created.\nReturns `200 OK` with the created/skipped summary. A caller without the required\npermissions yields `403`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/EmployeeRelationsTemplateSeedResultResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeRelationsTemplateSeedResultResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeRelationsTemplateSeedResultResponse'
         '400':
           description: Bad Request
           content:
@@ -55822,6 +57659,365 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    CreateRecognitionTypeRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    UpdateRecognitionTypeRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    RecognitionTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    RecognitionTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecognitionTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RecognitionTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    CreateDisciplinaryActionTypeRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        appliesSuspension:
+          type: boolean
+          default: false
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    UpdateDisciplinaryActionTypeRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        appliesSuspension:
+          type: boolean
+          default: false
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    DisciplinaryActionTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        appliesSuspension:
+          type: boolean
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    DisciplinaryActionTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisciplinaryActionTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DisciplinaryActionTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        appliesSuspension:
+          type: boolean
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    CreateDisciplinaryActionCauseRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    UpdateDisciplinaryActionCauseRequest:
+      required:
+        - code
+        - name
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    DisciplinaryActionCauseListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    DisciplinaryActionCauseListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisciplinaryActionCauseListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DisciplinaryActionCauseResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    EmployeeRelationsTemplateSeedResultResponse:
+      type: object
+      properties:
+        recognitionTypesCreated:
+          type: integer
+          format: int32
+        disciplinaryActionTypesCreated:
+          type: integer
+          format: int32
+        disciplinaryActionCausesCreated:
+          type: integer
+          format: int32
+        recognitionTypesSkipped:
+          type: integer
+          format: int32
+        disciplinaryActionTypesSkipped:
+          type: integer
+          format: int32
+        disciplinaryActionCausesSkipped:
+          type: integer
+          format: int32
+        totalCreated:
+          type: integer
+          format: int32
+        totalSkipped:
+          type: integer
+          format: int32
       additionalProperties: false
     MedicalClinicListItemResponse:
       type: object

@@ -1203,3 +1203,38 @@ public sealed class CompensatoryTimeOperationCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of personnel-transaction statuses (general-catalogs key
+/// <c>personnel-transaction-statuses</c>: en revisión, aplicada, rechazada, anulada) backing the
+/// one-decision lifecycle shared by recognitions and disciplinary actions ("otras transacciones de
+/// personal", REQ-003 D-15). Hybrid model: the domain constants (<c>PersonnelTransactionStatuses</c>)
+/// are canonical; this catalog backs i18n/UI. Seeded for SV.
+/// </summary>
+public sealed class PersonnelTransactionStatusCatalogItem : GeneralCatalogItem
+{
+    private PersonnelTransactionStatusCatalogItem()
+    {
+    }
+
+    private PersonnelTransactionStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PersonnelTransactionStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

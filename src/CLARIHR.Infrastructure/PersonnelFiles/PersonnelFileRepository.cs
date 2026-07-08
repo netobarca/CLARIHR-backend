@@ -1379,6 +1379,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "VACATIONREQUESTSTATUS" => await GetCountryScopedCatalogItemsAsync<VacationRequestStatusCatalogItem>(countryCatalogItemId.Value, "VacationRequestStatus", cancellationToken),
             "COMPENSATORYTIMESTATUS" => await GetCountryScopedCatalogItemsAsync<CompensatoryTimeStatusCatalogItem>(countryCatalogItemId.Value, "CompensatoryTimeStatus", cancellationToken),
             "COMPENSATORYTIMEOPERATION" => await GetCountryScopedCatalogItemsAsync<CompensatoryTimeOperationCatalogItem>(countryCatalogItemId.Value, "CompensatoryTimeOperation", cancellationToken),
+            "PERSONNELTRANSACTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<PersonnelTransactionStatusCatalogItem>(countryCatalogItemId.Value, "PersonnelTransactionStatus", cancellationToken),
             _ => []
         };
     }
@@ -1648,6 +1649,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "VACATIONREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<VacationRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "COMPENSATORYTIMESTATUS" => await IsCountryScopedCatalogCodeActiveAsync<CompensatoryTimeStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "COMPENSATORYTIMEOPERATION" => await IsCountryScopedCatalogCodeActiveAsync<CompensatoryTimeOperationCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "PERSONNELTRANSACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<PersonnelTransactionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

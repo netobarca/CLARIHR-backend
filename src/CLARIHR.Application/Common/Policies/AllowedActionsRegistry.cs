@@ -1,6 +1,7 @@
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.EmployeeRelations.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.JobProfiles;
@@ -153,6 +154,21 @@ public static class AllowedActionsRegistry
             LeaveConfigurationPermissionCodes.Read,
             LeaveConfigurationPermissionCodes.Admin,
             LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            EmployeeRelationsConfigurationPermissionCodes.RecognitionTypesResourceKey,
+            EmployeeRelationsConfigurationPermissionCodes.Read,
+            EmployeeRelationsConfigurationPermissionCodes.Admin,
+            EmployeeRelationsConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            EmployeeRelationsConfigurationPermissionCodes.DisciplinaryActionTypesResourceKey,
+            EmployeeRelationsConfigurationPermissionCodes.Read,
+            EmployeeRelationsConfigurationPermissionCodes.Admin,
+            EmployeeRelationsConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            EmployeeRelationsConfigurationPermissionCodes.DisciplinaryActionCausesResourceKey,
+            EmployeeRelationsConfigurationPermissionCodes.Read,
+            EmployeeRelationsConfigurationPermissionCodes.Admin,
+            EmployeeRelationsConfigurationPermissionCodes.ManageAdministration);
         yield return Policy(
             LegalRepresentativePermissionCodes.ResourceKey,
             LegalRepresentativePermissionCodes.Read,

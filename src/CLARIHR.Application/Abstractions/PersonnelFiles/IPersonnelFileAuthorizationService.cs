@@ -285,5 +285,67 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageCompensatoryTimeAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for recognitions (REQ-003 D-05): the dedicated <c>PersonnelFiles.ViewRecognitions</c>
+    /// permission, or Admin / IAM super-admin. The self-service branch (employee reading their OWN
+    /// applied recognitions) is resolved by the handler bases (PR-3), not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewRecognitionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for recognitions (REQ-003 D-05): the dedicated
+    /// <c>PersonnelFiles.ManageRecognitions</c> permission, or Admin / IAM super-admin (HR-only).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageRecognitionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Decision/revocation gate for recognitions (REQ-003 D-05): the dedicated
+    /// <c>PersonnelFiles.AuthorizeRecognitions</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties, mirrors AuthorizeRetirement).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeRecognitionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Read gate for disciplinary actions (REQ-003 D-05): the dedicated
+    /// <c>PersonnelFiles.ViewDisciplinaryActions</c> permission, or Admin / IAM super-admin. The
+    /// self-service branch (employee reading their OWN applied disciplinary actions) is resolved by the
+    /// handler bases (PR-4), not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewDisciplinaryActionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for disciplinary actions (REQ-003 D-05): the dedicated
+    /// <c>PersonnelFiles.ManageDisciplinaryActions</c> permission, or Admin / IAM super-admin (HR-only).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageDisciplinaryActionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Decision/revocation gate for disciplinary actions (REQ-003 D-05): the dedicated
+    /// <c>PersonnelFiles.AuthorizeDisciplinaryActions</c> permission, or IAM super-admin — <c>Admin</c>
+    /// is deliberately excluded (separation of duties, mirrors AuthorizeRetirement).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeDisciplinaryActionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Read gate for the time-availability query (REQ-003 D-14): the dedicated
+    /// <c>PersonnelFiles.ViewTimeAvailability</c> permission, or Admin / IAM super-admin. Corporate read
+    /// with no self-service.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewTimeAvailabilityAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

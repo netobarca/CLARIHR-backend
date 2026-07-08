@@ -5257,6 +5257,255 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.EmployeeRelations.DisciplinaryActionCause", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("DeductionConceptTypeCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("deduction_concept_type_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_disciplinary_action_causes");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_disciplinary_action_causes__public_id");
+
+                    b.HasIndex("TenantId", "IsActive")
+                        .HasDatabaseName("ix_disciplinary_action_causes__tenant_active");
+
+                    b.HasIndex("TenantId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_disciplinary_action_causes__tenant_code_active")
+                        .HasFilter("is_active");
+
+                    b.ToTable("disciplinary_action_causes", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.EmployeeRelations.DisciplinaryActionType", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("AppliesSuspension")
+                        .HasColumnType("boolean")
+                        .HasColumnName("applies_suspension");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_disciplinary_action_types");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_disciplinary_action_types__public_id");
+
+                    b.HasIndex("TenantId", "IsActive")
+                        .HasDatabaseName("ix_disciplinary_action_types__tenant_active");
+
+                    b.HasIndex("TenantId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_disciplinary_action_types__tenant_code_active")
+                        .HasFilter("is_active");
+
+                    b.ToTable("disciplinary_action_types", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.EmployeeRelations.RecognitionType", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recognition_types");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_recognition_types__public_id");
+
+                    b.HasIndex("TenantId", "IsActive")
+                        .HasDatabaseName("ix_recognition_types__tenant_active");
+
+                    b.HasIndex("TenantId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_recognition_types__tenant_code_active")
+                        .HasFilter("is_active");
+
+                    b.ToTable("recognition_types", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Files.StoredFile", b =>
                 {
                     b.Property<long>("Id")
@@ -6027,6 +6276,22 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "GOCE DE TIEMPO COMPENSATORIO",
                             PublicId = new Guid("00b85f20-b2cd-bb4d-17df-08c9634f6e66"),
                             SortOrder = 220
+                        },
+                        new
+                        {
+                            Id = -9879L,
+                            Code = "RECONOCIMIENTO",
+                            ConcurrencyToken = new Guid("664af6a1-cb18-c2e8-b9d0-e300a926c2f2"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Reconocimiento",
+                            NormalizedCode = "RECONOCIMIENTO",
+                            NormalizedName = "RECONOCIMIENTO",
+                            PublicId = new Guid("b7fd7d75-d3fa-2991-a002-160847a7fff6"),
+                            SortOrder = 230
                         });
                 });
 
@@ -11770,6 +12035,157 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedCode = "BOLETA",
                             NormalizedName = "BOLETA DE PAGO",
                             PublicId = new Guid("411f8590-bc59-21bf-afe7-0219ecffe457"),
+                            SortOrder = 40
+                        });
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.PersonnelTransactionStatusCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_personnel_transaction_status_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personnel_transaction_status_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personnel_transaction_status_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_personnel_transaction_status_catalog_items__active_sort");
+
+                    b.ToTable("personnel_transaction_status_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9875L,
+                            Code = "EN_REVISION",
+                            ConcurrencyToken = new Guid("b740d966-38ae-5cbc-43e2-65e0a3d4aa5b"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "En revisión",
+                            NormalizedCode = "EN_REVISION",
+                            NormalizedName = "EN REVISIÓN",
+                            PublicId = new Guid("31233709-56b6-9efe-2e2e-3321e5d67213"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9876L,
+                            Code = "APLICADA",
+                            ConcurrencyToken = new Guid("25658846-0287-92e3-ecf4-fdd130605112"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Aplicada",
+                            NormalizedCode = "APLICADA",
+                            NormalizedName = "APLICADA",
+                            PublicId = new Guid("dfd26246-f307-20ca-cc46-c951f0a41ca3"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9877L,
+                            Code = "RECHAZADA",
+                            ConcurrencyToken = new Guid("569275c9-1539-0955-b615-4a48020adf22"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Rechazada",
+                            NormalizedCode = "RECHAZADA",
+                            NormalizedName = "RECHAZADA",
+                            PublicId = new Guid("1fa2a11d-e66d-142a-816e-431826ef32ce"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9878L,
+                            Code = "ANULADA",
+                            ConcurrencyToken = new Guid("ea134dca-0003-d905-028c-e0dd0329e3ee"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Anulada",
+                            NormalizedCode = "ANULADA",
+                            NormalizedName = "ANULADA",
+                            PublicId = new Guid("9f4b1f97-5a44-3db1-f4f1-1e44c7f01368"),
                             SortOrder = 40
                         });
                 });
@@ -31045,6 +31461,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.PaymentMethodCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.PersonnelTransactionStatusCatalogItem", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()
