@@ -46,7 +46,47 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .AsNoTracking()
             .SingleOrDefaultAsync(entry => entry.PersonnelFile.PublicId == personnelFileId, cancellationToken);
 
-        return item is null ? null : Map(item);
+        if (item is null)
+        {
+            return null;
+        }
+
+        // Publish the disability balance owned by this module (§3.10): the SAME pure rule as the
+        // incapacity-balance endpoint, so the two figures cuadran by construction.
+        return Map(item) with { DisabilityDaysAvailable = await ComputeDisabilityDaysAvailableAsync(item, cancellationToken) };
+    }
+
+    /// <summary>
+    /// Remaining employer-cap days of the current year for one employee (D-27/§3.10): (covered + benefit)
+    /// minus the EmployerDays already consumed by REGISTRADA incapacities of the year, floored at 0.
+    /// </summary>
+    private async Task<decimal?> ComputeDisabilityDaysAvailableAsync(
+        PersonnelFileEmployeeProfile profile,
+        CancellationToken cancellationToken)
+    {
+        var year = DateTime.UtcNow.Year;
+        var cap = await dbContext.CompanyPreferences
+            .AsNoTracking()
+            .Where(preference => preference.TenantId == profile.TenantId)
+            .Select(preference => new
+            {
+                preference.EmployerCoveredIncapacityDaysPerYear,
+                preference.AdditionalIncapacityBenefitDaysPerYear,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var consumed = await dbContext.PersonnelFileIncapacities
+            .AsNoTracking()
+            .Where(incapacity => incapacity.PersonnelFileId == profile.PersonnelFileId
+                && incapacity.StatusCode == IncapacityStatuses.Registrada
+                && incapacity.StartDate.Year == year)
+            .SumAsync(incapacity => (int?)incapacity.EmployerDays, cancellationToken) ?? 0;
+
+        var balance = IncapacityBalanceRules.Compute(
+            cap?.EmployerCoveredIncapacityDaysPerYear,
+            cap?.AdditionalIncapacityBenefitDaysPerYear,
+            consumed);
+        return balance.RemainingDays;
     }
 
     public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> AddEmploymentAssignmentAsync(

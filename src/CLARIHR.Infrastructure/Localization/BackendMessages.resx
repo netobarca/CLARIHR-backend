@@ -2053,6 +2053,48 @@
   <data name="INCAPACITY_WARNING_CAP_EXHAUSTED" xml:space="preserve">
     <value>The employer-covered incapacity day cap for the year is exhausted; the exceeding days were reclassified as unpaid discount days.</value>
   </data>
+  <data name="INCAPACITY_RISK_INVALID" xml:space="preserve">
+    <value>The incapacity risk does not exist or is inactive for the company.</value>
+  </data>
+  <data name="INCAPACITY_TYPE_INVALID" xml:space="preserve">
+    <value>The incapacity type does not exist or is inactive for the company.</value>
+  </data>
+  <data name="INCAPACITY_CLINIC_INVALID" xml:space="preserve">
+    <value>The medical clinic does not exist or is inactive for the company.</value>
+  </data>
+  <data name="INCAPACITY_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period does not exist or is inactive for the company.</value>
+  </data>
+  <data name="INCAPACITY_BASE_SALARY_MISSING" xml:space="preserve">
+    <value>No base salary (SALARIO_BASE) could be resolved for the referred or principal plaza.</value>
+  </data>
+  <data name="INCAPACITY_END_DATE_REQUIRED" xml:space="preserve">
+    <value>An end date is required because the selected risk does not allow an open-ended incapacity.</value>
+  </data>
+  <data name="INCAPACITY_DOCUMENT_REQUIRED" xml:space="preserve">
+    <value>A supporting document (constancia) is required to register the incapacity.</value>
+  </data>
+  <data name="INCAPACITY_DOCUMENT_PURPOSE_INVALID" xml:space="preserve">
+    <value>The referenced file was not uploaded with the incapacity-document purpose.</value>
+  </data>
+  <data name="INCAPACITY_EXTENSION_NOT_ALLOWED" xml:space="preserve">
+    <value>The selected risk does not allow an extension.</value>
+  </data>
+  <data name="INCAPACITY_EXTENSION_NOT_CONTIGUOUS" xml:space="preserve">
+    <value>An extension must start on the day after the source incapacity's end date.</value>
+  </data>
+  <data name="INCAPACITY_EXTENSION_SOURCE_INVALID" xml:space="preserve">
+    <value>The source incapacity cannot be extended (annulled, open-ended, or still under review).</value>
+  </data>
+  <data name="INCAPACITY_CHAIN_LOCKED" xml:space="preserve">
+    <value>The incapacity cannot be edited because it already has one or more extensions; annul those first.</value>
+  </data>
+  <data name="INCAPACITY_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The incapacity is not in a state that allows this operation.</value>
+  </data>
+  <data name="INCAPACITY_CONFIRM_SELF_FORBIDDEN" xml:space="preserve">
+    <value>An employee cannot confirm their own incapacity registration.</value>
+  </data>
   <data name="COMPANY_HOLIDAY_NOT_FOUND" xml:space="preserve">
     <value>The company holiday could not be found.</value>
   </data>
@@ -2100,5 +2142,8 @@
   </data>
   <data name="validation.message.restdayofweek_must_be_between_0_sunday_and_6_saturday" xml:space="preserve">
     <value>RestDayOfWeek must be between 0 (Sunday) and 6 (Saturday).</value>
+  </data>
+  <data name="INCAPACITY_OVERLAP" xml:space="preserve">
+    <value>The incapacity date range overlaps another active incapacity of the same employee.</value>
   </data>
 </root>

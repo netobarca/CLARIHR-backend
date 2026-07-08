@@ -264,6 +264,97 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Manage gate for incapacities (vacaciones/incapacidades D-17/D-18): the dedicated
+    /// <c>PersonnelFiles.ManageIncapacities</c> permission (or Admin). Used by confirm/close/annul/extension and
+    /// the HR edit — no self-service. Item-level optimistic concurrency is enforced by each command's own
+    /// If-Match token, so callers pass <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageIncapacitiesAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageIncapacitiesAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Create gate for incapacities (D-18 self-service): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageIncapacities</c> permission (or Admin) — HR registers a REGISTRADA record — OR
+    /// the caller is the employee self-registering an incapacity on their own file (EN_REVISION until HR
+    /// confirms). Returns <c>IsManager</c> so the handler derives the origin (RRHH vs AUTOSERVICIO) and the
+    /// initial status from the branch that authorized the write.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File, bool IsManager)> LoadForCreateOwnOrManageIncapacityAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null, false);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null,
+                false);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageIncapacitiesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canManageByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null, false);
+            }
+        }
+
+        return (null, personnelFile, canManageByRole);
+    }
+
+    /// <summary>
     /// Manage gate for economic-aid requests (D-03): the dedicated <c>PersonnelFiles.ManageEconomicAidRequests</c>
     /// permission (or Admin). Used by validate (resolution)/disburse/update/delete — RR. HH. only, no self-service.
     /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass
@@ -1066,6 +1157,56 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
         }
 
         var canViewByRole = (await authorizationService.EnsureCanViewMedicalClaimsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for incapacity sub-resources (vacaciones/incapacidades D-17/D-18): the caller has the dedicated
+    /// <c>ViewIncapacities</c> permission (or Admin), OR the caller is the employee reading their own
+    /// incapacities (self-service). Incapacities are health data: without the permission and without being the
+    /// owner the caller gets 403 (no masking). Mirrors the medical-claim read gate. Requires a completed employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForIncapacityReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewIncapacitiesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
         if (!canViewByRole)
         {
             var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId

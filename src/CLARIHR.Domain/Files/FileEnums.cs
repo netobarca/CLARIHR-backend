@@ -19,7 +19,8 @@ public enum FilePurpose
     MedicalClaimDocument,
     OffPayrollTransactionDocument,
     EconomicAidRequestDocument,
-    CertificateRequestDocument
+    CertificateRequestDocument,
+    IncapacityDocument
 }
 
 public enum StorageProvider

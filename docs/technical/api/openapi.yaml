@@ -23452,6 +23452,572 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's incapacities
+      description: "Returns every incapacity recorded for the specified personnel file with its engine breakdown (days and referential amounts). Access requires the `ViewIncapacities` permission or the employee reading their own incapacities (health data, D-18)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Register an incapacity
+      description: "Registers an incapacity and computes its day/amount breakdown inline. HR (`ManageIncapacities`) registers a REGISTRADA record; the employee may self-register on their own file (EN_REVISION until HR confirms, D-18). When the company preference requires it, a `documentFilePublicId` (constancia, purpose `IncapacityDocument`) is mandatory and is attached in the same transaction."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddIncapacityRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get an incapacity by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Edit an incapacity's business fields
+      description: "Updates the master references, dates and notes and recalculates the breakdown. Requires the `If-Match` header with the current `concurrencyToken`; the new token is returned in the `ETag` header. Editing the dates of a record that already has extensions is rejected (chain locked)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncapacityRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/confirmation':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Confirm a self-registered incapacity (EN_REVISION to REGISTRADA)
+      description: "HR confirmation of an EN_REVISION registration (D-18). Recalculates the breakdown against the employer cap available at confirmation time and journals the INCAPACIDAD personnel action. The confirming user must not be the subject employee (anti-self, 403). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/closure':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Close an open-ended incapacity
+      description: "Fixes the end date of an open-ended incapacity (D-11) and computes its final breakdown. Requires the `If-Match` header with the current `concurrencyToken`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseIncapacityRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul an incapacity
+      description: "Annuls an EN_REVISION or REGISTRADA incapacity (terminal); the reason is mandatory. An annulled record no longer consumes the employer cap. A record with live extensions must be annulled tail-first (chain locked). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulIncapacityRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/extensions':
+    post:
+      tags:
+        - Personnel Files
+      summary: Register an extension (prórroga) of an incapacity
+      description: "Registers a new incapacity that extends the source one: its start date is the source end date + 1 (RN-04) and its tranche numbering continues the chain (RN-03). The source must be a closed, non-annulled, already-registered record and the risk must allow extensions. Journals the PRORROGA_INCAPACIDAD personnel action. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddIncapacityExtensionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacity-balance':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get the employer-cap balance of an employee for a year
+      description: "Returns the yearly employer-cap balance (covered + benefit days, consumed days by REGISTRADA incapacities and the remaining days — the same figure as the profile's `disabilityDaysAvailable`). Defaults to the current year. Access requires `ViewIncapacities` or the owner employee."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIncapacityBalanceResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents':
+    get:
+      tags:
+        - Personnel Files
+      summary: List the supporting documents of an incapacity
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncapacityDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Attach a supporting document to an incapacity
+      description: "Links an already-uploaded file (two-step upload flow, purpose `IncapacityDocument`) to the incapacity. The employee may attach documents to their own incapacities (D-18)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddIncapacityDocumentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityDocumentResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents/{documentPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get an incapacity document by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncapacityDocumentResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: Remove a supporting document from an incapacity
+      description: "Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header with the document's current `concurrencyToken`. Manager-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents/{documentPublicId}/read-url':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a time-limited download URL for an incapacity document
+      description: "Authorizes the incapacity (same rule as reading it) and returns a short-lived, pre-signed (SAS) URL to download the attachment's binary directly from blob storage."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: incapacityPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetIncapacityDocumentReadUrlResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/medical-claims':
     get:
       tags:
@@ -50475,6 +51041,374 @@ components:
         password:
           type: string
       additionalProperties: false
+    IncapacityTrancheResponse:
+      type: object
+      properties:
+        dayFromAbsolute:
+          type: integer
+          format: int32
+        dayToAbsolute:
+          type: integer
+          format: int32
+        subsidyPercent:
+          type: number
+          format: double
+        payerCode:
+          type: string
+        days:
+          type: integer
+          format: int32
+        amount:
+          type: number
+          format: double
+    IncapacityCalculationWarningResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+    PersonnelFileIncapacityResponse:
+      type: object
+      properties:
+        incapacityPublicId:
+          type: string
+          format: uuid
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterNameSnapshot:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        riskPublicId:
+          type: string
+          format: uuid
+        riskCode:
+          type: string
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        incapacityTypeCode:
+          type: string
+        medicalClinicPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        extendsIncapacityPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        calendarDays:
+          type: integer
+          format: int32
+        computableDays:
+          type: integer
+          format: int32
+        computableDaysOverridden:
+          type: boolean
+        overrideNote:
+          type: string
+          nullable: true
+        subsidizedDays:
+          type: integer
+          format: int32
+        discountDays:
+          type: integer
+          format: int32
+        employerDays:
+          type: integer
+          format: int32
+        monthlyBaseSalary:
+          type: number
+          format: double
+        dailySalary:
+          type: number
+          format: double
+        subsidyAmount:
+          type: number
+          format: double
+        discountAmount:
+          type: number
+          format: double
+        employerAmount:
+          type: number
+          format: double
+        tranches:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityTrancheResponse'
+        statusCode:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncapacityCalculationWarningResponse'
+    PersonnelFileIncapacityBalanceResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+          format: int32
+        employerCoveredDays:
+          type: integer
+          format: int32
+        additionalBenefitDays:
+          type: integer
+          format: int32
+        totalCapDays:
+          type: integer
+          format: int32
+        consumedEmployerDays:
+          type: integer
+          format: int32
+        remainingDays:
+          type: integer
+          format: int32
+    IncapacityDocumentResponse:
+      type: object
+      properties:
+        incapacityDocumentPublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCode:
+          type: string
+          nullable: true
+        documentTypeName:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        filePublicId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    GetIncapacityDocumentReadUrlResponse:
+      type: object
+      properties:
+        readUrl:
+          type: string
+        expiresUtc:
+          type: string
+          format: date-time
+    AddIncapacityRequest:
+      type: object
+      properties:
+        riskPublicId:
+          type: string
+          format: uuid
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        medicalClinicPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        documentFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentObservations:
+          type: string
+          nullable: true
+    UpdateIncapacityRequest:
+      type: object
+      properties:
+        riskPublicId:
+          type: string
+          format: uuid
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        medicalClinicPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        documentFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentObservations:
+          type: string
+          nullable: true
+    AddIncapacityExtensionRequest:
+      type: object
+      properties:
+        riskPublicId:
+          type: string
+          format: uuid
+        incapacityTypePublicId:
+          type: string
+          format: uuid
+        medicalClinicPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        documentFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentObservations:
+          type: string
+          nullable: true
+    CloseIncapacityRequest:
+      type: object
+      properties:
+        endDate:
+          type: string
+          format: date
+    AnnulIncapacityRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    AddIncapacityDocumentRequest:
+      type: object
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        observations:
+          type: string
+          nullable: true
     MedicalClaimDocumentResponse:
       type: object
       properties:
