@@ -128,6 +128,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string ClinicSector = "ClinicSector";
     public const string IncapacityStatus = "IncapacityStatus";
     public const string VacationRequestStatus = "VacationRequestStatus";
+    public const string CompensatoryTimeStatus = "CompensatoryTimeStatus";
+    public const string CompensatoryTimeOperation = "CompensatoryTimeOperation";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

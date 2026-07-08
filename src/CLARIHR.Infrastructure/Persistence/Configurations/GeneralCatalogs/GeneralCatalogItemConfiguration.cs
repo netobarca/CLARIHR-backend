@@ -612,3 +612,35 @@ internal sealed class VacationRequestStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class CompensatoryTimeStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CompensatoryTimeStatusCatalogItem>
+{
+    public CompensatoryTimeStatusCatalogItemConfiguration()
+        : base(
+            "compensatory_time_status_catalog_items",
+            "pk_compensatory_time_status_catalog_items",
+            "uq_compensatory_time_status_catalog_items__public_id",
+            "uq_compensatory_time_status_catalog_items__country_code",
+            "ix_compensatory_time_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetCompensatoryTimeStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class CompensatoryTimeOperationCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<CompensatoryTimeOperationCatalogItem>
+{
+    public CompensatoryTimeOperationCatalogItemConfiguration()
+        : base(
+            "compensatory_time_operation_catalog_items",
+            "pk_compensatory_time_operation_catalog_items",
+            "uq_compensatory_time_operation_catalog_items__public_id",
+            "uq_compensatory_time_operation_catalog_items__country_code",
+            // Shortened to __active_sort: the full __country_active_sort would exceed the 63-char
+            // PostgreSQL identifier limit (precedent: off_payroll_transaction_type_catalog_items).
+            "ix_compensatory_time_operation_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetCompensatoryTimeOperationCatalogItems())
+    {
+    }
+}

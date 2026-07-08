@@ -76,6 +76,10 @@ public sealed class CompanyPreferencesController(
                 request.EmployerCoveredIncapacityDaysPerYear,
                 request.AdditionalIncapacityBenefitDaysPerYear,
                 request.IncapacityRequiresDocument,
+                request.CompensatoryTimeStandardDailyHours,
+                request.CompensatoryTimeMaxBalanceHours,
+                request.CompensatoryTimeCreditRequiresDocument,
+                request.CompensatoryTimeSettlementRateFactor,
                 concurrencyToken),
             cancellationToken);
 
@@ -135,7 +139,14 @@ public sealed class CompanyPreferencesController(
         int? CompanyRestDayOfWeek = null,
         int? EmployerCoveredIncapacityDaysPerYear = null,
         int? AdditionalIncapacityBenefitDaysPerYear = null,
-        bool? IncapacityRequiresDocument = null);
+        bool? IncapacityRequiresDocument = null,
+        // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15), all optional: null = the default
+        // (8 h/day / no cap / document required / rate 1.00), resolved when consumed — never stored.
+        // Numeric factors must be > 0 when provided.
+        decimal? CompensatoryTimeStandardDailyHours = null,
+        decimal? CompensatoryTimeMaxBalanceHours = null,
+        bool? CompensatoryTimeCreditRequiresDocument = null,
+        decimal? CompensatoryTimeSettlementRateFactor = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

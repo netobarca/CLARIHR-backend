@@ -72,6 +72,22 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(preference => preference.IncapacityRequiresDocument)
             .HasColumnName("incapacity_requires_document");
 
+        // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15); all nullable (null = default).
+        builder.Property(preference => preference.CompensatoryTimeStandardDailyHours)
+            .HasColumnName("compensatory_time_standard_daily_hours")
+            .HasColumnType("numeric(4,2)");
+
+        builder.Property(preference => preference.CompensatoryTimeMaxBalanceHours)
+            .HasColumnName("compensatory_time_max_balance_hours")
+            .HasColumnType("numeric(6,2)");
+
+        builder.Property(preference => preference.CompensatoryTimeCreditRequiresDocument)
+            .HasColumnName("compensatory_time_credit_requires_document");
+
+        builder.Property(preference => preference.CompensatoryTimeSettlementRateFactor)
+            .HasColumnName("compensatory_time_settlement_rate_factor")
+            .HasColumnType("numeric(5,2)");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

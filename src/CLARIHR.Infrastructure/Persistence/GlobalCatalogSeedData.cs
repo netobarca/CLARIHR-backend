@@ -645,6 +645,21 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("VACATION_REQUEST_STATUS_CATALOG", -9858L, "SV", "DEVUELTA", "Devuelta", 60),
     ];
 
+    // Compensatory-time record statuses (REQ-002): lifecycle of a compensatory-time credit / absence.
+    public static IEnumerable<object> GetCompensatoryTimeStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("COMPENSATORY_TIME_STATUS_CATALOG", -9865L, "SV", "REGISTRADA", "Registrada", 10),
+        CreateGeneralCatalogSeed("COMPENSATORY_TIME_STATUS_CATALOG", -9866L, "SV", "ANULADA", "Anulada", 20),
+    ];
+
+    // Compensatory-time operations (REQ-002): whether a compensatory-time type credits, debits, or both.
+    public static IEnumerable<object> GetCompensatoryTimeOperationCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("COMPENSATORY_TIME_OPERATION_CATALOG", -9867L, "SV", "ACREDITA", "Acredita", 10),
+        CreateGeneralCatalogSeed("COMPENSATORY_TIME_OPERATION_CATALOG", -9868L, "SV", "DEBITA", "Debita", 20),
+        CreateGeneralCatalogSeed("COMPENSATORY_TIME_OPERATION_CATALOG", -9869L, "SV", "AMBAS", "Ambas", 30),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -783,6 +798,8 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9487L, "SV", "LACTANCIA", "Lactancia", 180),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9488L, "SV", "GOCE_VACACIONES", "Goce de vacaciones", 190),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9489L, "SV", "DEVOLUCION_VACACIONES", "Devolución de vacaciones", 200),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9870L, "SV", "ACREDITACION_TIEMPO_COMPENSATORIO", "Acreditación de tiempo compensatorio", 210),
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9871L, "SV", "GOCE_TIEMPO_COMPENSATORIO", "Goce de tiempo compensatorio", 220),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>

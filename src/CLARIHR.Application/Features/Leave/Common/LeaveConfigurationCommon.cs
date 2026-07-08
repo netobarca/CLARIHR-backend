@@ -41,6 +41,7 @@ public static class LeaveConfigurationPermissionCodes
     public const string IncapacityTypesResourceKey = "INCAPACITY_TYPES";
     public const string CompanyHolidaysResourceKey = "COMPANY_HOLIDAYS";
     public const string PayrollPeriodsResourceKey = "PAYROLL_PERIODS";
+    public const string CompensatoryTimeTypesResourceKey = "COMPENSATORY_TIME_TYPES";
 }
 
 /// <summary>

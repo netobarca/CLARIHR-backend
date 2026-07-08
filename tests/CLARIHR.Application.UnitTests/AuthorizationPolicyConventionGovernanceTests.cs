@@ -143,6 +143,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ManageIncapacities,
         PersonnelFilePolicies.ViewVacations,
         PersonnelFilePolicies.ManageVacations,
+        // Compensatory time (REQ-002 D-01/D-13): authn-only read superset (self-service in the handlers,
+        // PR-3/PR-4) + RequireAssertion write policy (HR-only in Fase 1, like ManageSettlements). The
+        // credit/absence controllers that carry these are added in PR-3/PR-4.
+        PersonnelFilePolicies.ViewCompensatoryTime,
+        PersonnelFilePolicies.ManageCompensatoryTime,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

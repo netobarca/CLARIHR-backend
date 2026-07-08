@@ -264,6 +264,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<VacationRequestStatusCatalogItem> VacationRequestStatusCatalogItems => Set<VacationRequestStatusCatalogItem>();
 
+    public DbSet<CompensatoryTimeStatusCatalogItem> CompensatoryTimeStatusCatalogItems => Set<CompensatoryTimeStatusCatalogItem>();
+
+    public DbSet<CompensatoryTimeOperationCatalogItem> CompensatoryTimeOperationCatalogItems => Set<CompensatoryTimeOperationCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();
@@ -443,6 +447,8 @@ public sealed class ApplicationDbContext(
     public DbSet<IncapacityRiskParameter> IncapacityRiskParameters => Set<IncapacityRiskParameter>();
 
     public DbSet<IncapacityType> IncapacityTypes => Set<IncapacityType>();
+
+    public DbSet<CompensatoryTimeType> CompensatoryTimeTypes => Set<CompensatoryTimeType>();
 
     public DbSet<CompanyHoliday> CompanyHolidays => Set<CompanyHoliday>();
 

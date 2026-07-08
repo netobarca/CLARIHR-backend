@@ -30,6 +30,11 @@ public sealed record CompanyPreferenceResponse(
     int? EmployerCoveredIncapacityDaysPerYear,
     int? AdditionalIncapacityBenefitDaysPerYear,
     bool? IncapacityRequiresDocument,
+    // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15): null = default, resolved on consumption.
+    decimal? CompensatoryTimeStandardDailyHours,
+    decimal? CompensatoryTimeMaxBalanceHours,
+    bool? CompensatoryTimeCreditRequiresDocument,
+    decimal? CompensatoryTimeSettlementRateFactor,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -54,6 +59,11 @@ public sealed record UpdateCompanyPreferencesCommand(
     int? EmployerCoveredIncapacityDaysPerYear,
     int? AdditionalIncapacityBenefitDaysPerYear,
     bool? IncapacityRequiresDocument,
+    // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15): null = default, resolved on consumption.
+    decimal? CompensatoryTimeStandardDailyHours,
+    decimal? CompensatoryTimeMaxBalanceHours,
+    bool? CompensatoryTimeCreditRequiresDocument,
+    decimal? CompensatoryTimeSettlementRateFactor,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -122,6 +132,17 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
             .InclusiveBetween(0, 365)
             .WithMessage("Additional incapacity benefit days per year must be between 0 and 365.")
             .When(static command => command.AdditionalIncapacityBenefitDaysPerYear.HasValue);
+        // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15). All optional; when provided the
+        // numeric factors mirror the domain SetCompensatoryTimePolicies guards (> 0).
+        RuleFor(command => command.CompensatoryTimeStandardDailyHours)
+            .GreaterThan(0m)
+            .When(static command => command.CompensatoryTimeStandardDailyHours.HasValue);
+        RuleFor(command => command.CompensatoryTimeMaxBalanceHours)
+            .GreaterThan(0m)
+            .When(static command => command.CompensatoryTimeMaxBalanceHours.HasValue);
+        RuleFor(command => command.CompensatoryTimeSettlementRateFactor)
+            .GreaterThan(0m)
+            .When(static command => command.CompensatoryTimeSettlementRateFactor.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -211,6 +232,11 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
             command.EmployerCoveredIncapacityDaysPerYear,
             command.AdditionalIncapacityBenefitDaysPerYear,
             command.IncapacityRequiresDocument);
+        preference.SetCompensatoryTimePolicies(
+            command.CompensatoryTimeStandardDailyHours,
+            command.CompensatoryTimeMaxBalanceHours,
+            command.CompensatoryTimeCreditRequiresDocument,
+            command.CompensatoryTimeSettlementRateFactor);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -482,6 +508,10 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.EmployerCoveredIncapacityDaysPerYear,
             preference.AdditionalIncapacityBenefitDaysPerYear,
             preference.IncapacityRequiresDocument,
+            preference.CompensatoryTimeStandardDailyHours,
+            preference.CompensatoryTimeMaxBalanceHours,
+            preference.CompensatoryTimeCreditRequiresDocument,
+            preference.CompensatoryTimeSettlementRateFactor,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

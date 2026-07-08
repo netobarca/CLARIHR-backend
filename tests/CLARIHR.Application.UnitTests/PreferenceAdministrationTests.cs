@@ -660,6 +660,10 @@ public sealed class CompanyPreferenceAdministrationTests
             EmployerCoveredIncapacityDaysPerYear: null,
             AdditionalIncapacityBenefitDaysPerYear: null,
             IncapacityRequiresDocument: null,
+            CompensatoryTimeStandardDailyHours: null,
+            CompensatoryTimeMaxBalanceHours: null,
+            CompensatoryTimeCreditRequiresDocument: null,
+            CompensatoryTimeSettlementRateFactor: null,
             ConcurrencyToken: concurrencyToken);
 
     private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>

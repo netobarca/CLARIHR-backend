@@ -188,6 +188,10 @@ public static class AuditEventTypes
     public const string IncapacityTypeUpdated = "INCAPACITY_TYPE_UPDATED";
     public const string IncapacityTypeActivated = "INCAPACITY_TYPE_ACTIVATED";
     public const string IncapacityTypeInactivated = "INCAPACITY_TYPE_INACTIVATED";
+    public const string CompensatoryTimeTypeCreated = "COMPENSATORY_TIME_TYPE_CREATED";
+    public const string CompensatoryTimeTypeUpdated = "COMPENSATORY_TIME_TYPE_UPDATED";
+    public const string CompensatoryTimeTypeActivated = "COMPENSATORY_TIME_TYPE_ACTIVATED";
+    public const string CompensatoryTimeTypeInactivated = "COMPENSATORY_TIME_TYPE_INACTIVATED";
     public const string IncapacityRiskCreated = "INCAPACITY_RISK_CREATED";
     public const string IncapacityRiskUpdated = "INCAPACITY_RISK_UPDATED";
     public const string IncapacityRiskParametersReplaced = "INCAPACITY_RISK_PARAMETERS_REPLACED";
@@ -386,6 +390,10 @@ public static class AuditEventTypes
         IncapacityTypeUpdated,
         IncapacityTypeActivated,
         IncapacityTypeInactivated,
+        CompensatoryTimeTypeCreated,
+        CompensatoryTimeTypeUpdated,
+        CompensatoryTimeTypeActivated,
+        CompensatoryTimeTypeInactivated,
         IncapacityRiskCreated,
         IncapacityRiskUpdated,
         IncapacityRiskParametersReplaced,
@@ -463,6 +471,7 @@ public static class AuditEntityTypes
     public const string ExitInterviewSubmission = "ExitInterviewSubmission";
     public const string MedicalClinic = "MedicalClinic";
     public const string IncapacityType = "IncapacityType";
+    public const string CompensatoryTimeType = "CompensatoryTimeType";
     public const string IncapacityRisk = "IncapacityRisk";
     public const string CompanyHoliday = "CompanyHoliday";
     public const string PayrollPeriodDefinition = "PayrollPeriodDefinition";
@@ -514,6 +523,7 @@ public static class AuditEntityTypes
         ExitInterviewSubmission,
         MedicalClinic,
         IncapacityType,
+        CompensatoryTimeType,
         IncapacityRisk,
         CompanyHoliday,
         PayrollPeriodDefinition,

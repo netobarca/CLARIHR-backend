@@ -89,6 +89,32 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public bool? IncapacityRequiresDocument { get; private set; }
 
+    // Compensatory-time parametrization (REQ-002 P-10/P-11/P-15). All nullable: null means "use the
+    // legal/parametric default", which is resolved when the policy is CONSUMED — never stored here.
+
+    /// <summary>
+    /// Standard hours per working day used to convert a compensatory-time absence range into hours.
+    /// Null = default of 8 hours.
+    /// </summary>
+    public decimal? CompensatoryTimeStandardDailyHours { get; private set; }
+
+    /// <summary>
+    /// Maximum compensatory-time fund balance in hours a company allows (RN-11). Null = no cap (P-10).
+    /// </summary>
+    public decimal? CompensatoryTimeMaxBalanceHours { get; private set; }
+
+    /// <summary>
+    /// Whether crediting compensatory time requires the leadership authorization document (PDF).
+    /// Null = default of true (P-11 / D-20).
+    /// </summary>
+    public bool? CompensatoryTimeCreditRequiresDocument { get; private set; }
+
+    /// <summary>
+    /// Rate factor applied when valuing the pending compensatory-time balance in a settlement (D-19).
+    /// Null = default of 1.00 (P-15, confirmed with the business before deployment).
+    /// </summary>
+    public decimal? CompensatoryTimeSettlementRateFactor { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -191,6 +217,41 @@ public sealed class CompanyPreference : TenantEntity
         EmployerCoveredIncapacityDaysPerYear = employerCoveredIncapacityDaysPerYear;
         AdditionalIncapacityBenefitDaysPerYear = additionalIncapacityBenefitDaysPerYear;
         IncapacityRequiresDocument = incapacityRequiresDocument;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Sets the compensatory-time parametrization (REQ-002 P-10/P-11/P-15). Every parameter is nullable:
+    /// pass null to fall back to the default, which is resolved when the policy is consumed (it is never
+    /// stored). <paramref name="standardDailyHours"/> (null = 8), <paramref name="maxBalanceHours"/>
+    /// (null = no cap) and <paramref name="settlementRateFactor"/> (null = 1.00) must be greater than
+    /// zero when provided.
+    /// </summary>
+    public void SetCompensatoryTimePolicies(
+        decimal? standardDailyHours,
+        decimal? maxBalanceHours,
+        bool? creditRequiresDocument,
+        decimal? settlementRateFactor)
+    {
+        if (standardDailyHours is <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(standardDailyHours), "Standard daily hours must be greater than 0 when provided.");
+        }
+
+        if (maxBalanceHours is <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxBalanceHours), "Maximum balance hours must be greater than 0 when provided.");
+        }
+
+        if (settlementRateFactor is <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settlementRateFactor), "Settlement rate factor must be greater than 0 when provided.");
+        }
+
+        CompensatoryTimeStandardDailyHours = standardDailyHours;
+        CompensatoryTimeMaxBalanceHours = maxBalanceHours;
+        CompensatoryTimeCreditRequiresDocument = creditRequiresDocument;
+        CompensatoryTimeSettlementRateFactor = settlementRateFactor;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

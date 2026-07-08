@@ -2215,4 +2215,16 @@
   <data name="VACATION_PLAN_WARNING_DATE_RULE" xml:space="preserve">
     <value>Las vacaciones planificadas inician en asueto / día de descanso del empleado o finalizan en asueto (indicativo — no bloquea).</value>
   </data>
+  <data name="COMPENSATORY_TIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el tipo de tiempo compensatorio.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro tipo de tiempo compensatorio activo ya usa el código solicitado.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de tiempo compensatorio está referenciado por un registro activo y no puede inactivarse.</value>
+  </data>
+  <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
+    <value>El código de operación debe ser ACREDITA, DEBITA o AMBAS.</value>
+  </data>
 </root>

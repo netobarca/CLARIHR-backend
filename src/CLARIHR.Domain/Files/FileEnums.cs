@@ -20,7 +20,8 @@ public enum FilePurpose
     OffPayrollTransactionDocument,
     EconomicAidRequestDocument,
     CertificateRequestDocument,
-    IncapacityDocument
+    IncapacityDocument,
+    CompensatoryTimeDocument
 }
 
 public enum StorageProvider

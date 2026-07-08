@@ -1377,6 +1377,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CLINICSECTOR" => await GetCountryScopedCatalogItemsAsync<ClinicSectorCatalogItem>(countryCatalogItemId.Value, "ClinicSector", cancellationToken),
             "INCAPACITYSTATUS" => await GetCountryScopedCatalogItemsAsync<IncapacityStatusCatalogItem>(countryCatalogItemId.Value, "IncapacityStatus", cancellationToken),
             "VACATIONREQUESTSTATUS" => await GetCountryScopedCatalogItemsAsync<VacationRequestStatusCatalogItem>(countryCatalogItemId.Value, "VacationRequestStatus", cancellationToken),
+            "COMPENSATORYTIMESTATUS" => await GetCountryScopedCatalogItemsAsync<CompensatoryTimeStatusCatalogItem>(countryCatalogItemId.Value, "CompensatoryTimeStatus", cancellationToken),
+            "COMPENSATORYTIMEOPERATION" => await GetCountryScopedCatalogItemsAsync<CompensatoryTimeOperationCatalogItem>(countryCatalogItemId.Value, "CompensatoryTimeOperation", cancellationToken),
             _ => []
         };
     }
@@ -1644,6 +1646,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "CLINICSECTOR" => await IsCountryScopedCatalogCodeActiveAsync<ClinicSectorCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "INCAPACITYSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<IncapacityStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "VACATIONREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<VacationRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "COMPENSATORYTIMESTATUS" => await IsCountryScopedCatalogCodeActiveAsync<CompensatoryTimeStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "COMPENSATORYTIMEOPERATION" => await IsCountryScopedCatalogCodeActiveAsync<CompensatoryTimeOperationCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

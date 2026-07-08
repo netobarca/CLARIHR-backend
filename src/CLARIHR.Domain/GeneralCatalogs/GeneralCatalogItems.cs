@@ -1135,3 +1135,71 @@ public sealed class VacationRequestStatusCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of compensatory-time record statuses (general-catalogs key
+/// <c>compensatory-time-statuses</c>: registrada, anulada) backing the lifecycle of a compensatory-time
+/// credit / absence (REQ-002). Hybrid model (D-15): the domain constants are canonical; this catalog
+/// backs i18n/UI. Seeded for SV.
+/// </summary>
+public sealed class CompensatoryTimeStatusCatalogItem : GeneralCatalogItem
+{
+    private CompensatoryTimeStatusCatalogItem()
+    {
+    }
+
+    private CompensatoryTimeStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CompensatoryTimeStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of compensatory-time operations (general-catalogs key
+/// <c>compensatory-time-operations</c>: acredita, debita, ambas) describing whether a compensatory-time
+/// type credits, debits, or can do both to the fund (REQ-002). Hybrid model (D-15): the domain
+/// constants (<c>CompensatoryTimeOperations</c>) are canonical; this catalog backs i18n/UI. Seeded for SV.
+/// </summary>
+public sealed class CompensatoryTimeOperationCatalogItem : GeneralCatalogItem
+{
+    private CompensatoryTimeOperationCatalogItem()
+    {
+    }
+
+    private CompensatoryTimeOperationCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static CompensatoryTimeOperationCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

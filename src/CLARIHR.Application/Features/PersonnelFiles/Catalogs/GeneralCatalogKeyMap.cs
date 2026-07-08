@@ -70,6 +70,8 @@ public static class GeneralCatalogKeyMap
             ["clinic-sectors"] = PersonnelCurriculumCatalogCategories.ClinicSector,
             ["incapacity-statuses"] = PersonnelCurriculumCatalogCategories.IncapacityStatus,
             ["vacation-request-statuses"] = PersonnelCurriculumCatalogCategories.VacationRequestStatus,
+            ["compensatory-time-statuses"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeStatus,
+            ["compensatory-time-operations"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeOperation,
         };
 
     /// <summary>

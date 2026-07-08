@@ -95,7 +95,9 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewIncapacities", "Ver incapacidades", "Consulta de las incapacidades y periodos de lactancia de los expedientes, la bandeja de la empresa y sus exportaciones.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewIncapacities"),
         new("PersonnelFiles.ManageIncapacities", "Gestionar incapacidades", "Registrar, confirmar, cerrar, anular y prorrogar incapacidades, y administrar los periodos de lactancia.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageIncapacities"),
         new("PersonnelFiles.ViewVacations", "Ver vacaciones", "Consulta del fondo de vacaciones, saldos, solicitudes, calendario y plan anual de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewVacations"),
-        new("PersonnelFiles.ManageVacations", "Gestionar vacaciones", "Generar el fondo de vacaciones, decidir y devolver solicitudes, y administrar el plan anual.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageVacations")
+        new("PersonnelFiles.ManageVacations", "Gestionar vacaciones", "Generar el fondo de vacaciones, decidir y devolver solicitudes, y administrar el plan anual.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageVacations"),
+        new("PersonnelFiles.ViewCompensatoryTime", "Ver tiempo compensatorio", "Consulta del fondo de tiempo compensatorio, estado de cuenta, acreditaciones y ausencias de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewCompensatoryTime"),
+        new("PersonnelFiles.ManageCompensatoryTime", "Gestionar tiempo compensatorio", "Registrar, editar y anular acreditaciones y ausencias de tiempo compensatorio.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageCompensatoryTime")
     ];
 }
 

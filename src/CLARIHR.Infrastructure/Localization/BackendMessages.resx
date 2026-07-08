@@ -2215,4 +2215,16 @@
   <data name="VACATION_PLAN_WARNING_DATE_RULE" xml:space="preserve">
     <value>The planned vacation starts on a holiday / the employee's rest day or ends on a holiday (indicative — not blocking).</value>
   </data>
+  <data name="COMPENSATORY_TIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The compensatory-time type could not be found.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another active compensatory-time type already uses the requested code.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_IN_USE" xml:space="preserve">
+    <value>The compensatory-time type is referenced by an active record and cannot be inactivated.</value>
+  </data>
+  <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
+    <value>Operation code must be ACREDITA, DEBITA or AMBAS.</value>
+  </data>
 </root>

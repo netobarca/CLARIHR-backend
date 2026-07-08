@@ -168,6 +168,7 @@ public static class DependencyInjection
         services.AddScoped<ILeaveConfigurationAuthorizationService, LeaveConfigurationAuthorizationService>();
         services.AddScoped<ILeaveTemplateSeeder, LeaveTemplateSeeder>();
         services.AddScoped<IMedicalClinicRepository, MedicalClinicRepository>();
+        services.AddScoped<ICompensatoryTimeTypeRepository, CompensatoryTimeTypeRepository>();
         services.AddScoped<IIncapacityRiskRepository, IncapacityRiskRepository>();
         services.AddScoped<IIncapacityTypeRepository, IncapacityTypeRepository>();
         services.AddScoped<ICompanyHolidayRepository, CompanyHolidayRepository>();

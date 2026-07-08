@@ -270,6 +270,19 @@ public static class PersonnelFilePermissionCodes
     public const string ManageVacations = "PersonnelFiles.ManageVacations";
 
     /// <summary>
+    /// Dedicated permission to read the compensatory-time fund, statement, credits and absences of any
+    /// personnel file (REQ-002 D-13). An employee always reads their OWN fund/statement without this
+    /// permission (self-service gate in the handlers, PR-3/PR-4); Admin is a superset.
+    /// </summary>
+    public const string ViewCompensatoryTime = "PersonnelFiles.ViewCompensatoryTime";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/annul compensatory-time credits and absences (REQ-002
+    /// D-01/D-13). HR-only in Fase 1 (no self-service write, D-01); Admin is a superset.
+    /// </summary>
+    public const string ManageCompensatoryTime = "PersonnelFiles.ManageCompensatoryTime";
+
+    /// <summary>
     /// Dedicated permission to read the HR analytics dashboard (aggregate indicators over the personnel
     /// padrón). Lets configurable roles see the dashboards without full personnel-file read; the regular
     /// <see cref="Read"/> permission and <see cref="Admin"/> are supersets. The dashboard is read-only and

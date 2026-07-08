@@ -9424,7 +9424,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a general catalog
-      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
+      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`, `compensatory-time-statuses`, `compensatory-time-operations`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
       parameters:
         - name: catalogKey
           in: path
@@ -18234,6 +18234,588 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/MedicalClinicResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/compensatory-time-types':
+    get:
+      tags:
+        - Compensatory Time Types
+      summary: List compensatory-time types for a company
+      description: "Returns a paginated list of the company's compensatory-time types (REQ-002 D-05 — the master starts empty; the administrator creates the types), filterable by `isActive`, `operationCode` (ACREDITA / DEBITA / AMBAS) and free-text `q` over the code and name. Set `includeAllowedActions=true` to receive per-item read/manage flags. A caller without the leave-configuration permissions yields `403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: operationCode
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Compensatory Time Types
+      summary: Create a compensatory-time type
+      description: "Creates a compensatory-time type under the company and returns `201 Created` with the `Location` and `ETag` headers. `operationCode` must be one of ACREDITA / DEBITA / AMBAS; `creditFactor` must be greater than zero (default 1.00, snapshotted per credit). A duplicate active code yields `409 COMPENSATORY_TIME_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompensatoryTimeTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompensatoryTimeTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateCompensatoryTimeTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/compensatory-time-types/{publicId}':
+    get:
+      tags:
+        - Compensatory Time Types
+      summary: Get a compensatory-time type by id
+      description: "Returns a single compensatory-time type by its public id. A non-existent id yields `404 COMPENSATORY_TIME_TYPE_NOT_FOUND`; an id that belongs to another tenant yields `403 TENANT_MISMATCH`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Compensatory Time Types
+      summary: Update a compensatory-time type
+      description: "Replaces the editable fields (code, name, operation code, credit factor, sort order). Editing `creditFactor` does NOT recompute historical credits (RN-02). Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). A duplicate active code yields `409 COMPENSATORY_TIME_TYPE_CODE_CONFLICT`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompensatoryTimeTypeRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompensatoryTimeTypeRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompensatoryTimeTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/compensatory-time-types/{publicId}/activate':
+    patch:
+      tags:
+        - Compensatory Time Types
+      summary: Activate a compensatory-time type
+      description: "Reactivates an inactive compensatory-time type. If another active type already uses the same code, activation yields `409 COMPENSATORY_TIME_TYPE_CODE_CONFLICT`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/compensatory-time-types/{publicId}/inactivate':
+    patch:
+      tags:
+        - Compensatory Time Types
+      summary: Inactivate a compensatory-time type
+      description: "Deactivates (soft-delete) a compensatory-time type. A type referenced by an active record yields `422 COMPENSATORY_TIME_TYPE_IN_USE`. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeTypeResponse'
         '400':
           description: Bad Request
           content:
@@ -48146,6 +48728,21 @@ components:
         incapacityRequiresDocument:
           type: boolean
           nullable: true
+        compensatoryTimeStandardDailyHours:
+          type: number
+          format: double
+          nullable: true
+        compensatoryTimeMaxBalanceHours:
+          type: number
+          format: double
+          nullable: true
+        compensatoryTimeCreditRequiresDocument:
+          type: boolean
+          nullable: true
+        compensatoryTimeSettlementRateFactor:
+          type: number
+          format: double
+          nullable: true
         concurrencyToken:
           type: string
           format: uuid
@@ -53602,6 +54199,133 @@ components:
           type: string
           format: date-time
           nullable: true
+      additionalProperties: false
+    CreateCompensatoryTimeTypeRequest:
+      required:
+        - code
+        - name
+        - operationCode
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        operationCode:
+          type: string
+        creditFactor:
+          type: number
+          format: double
+          default: 1.00
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    UpdateCompensatoryTimeTypeRequest:
+      required:
+        - code
+        - name
+        - operationCode
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        operationCode:
+          type: string
+        creditFactor:
+          type: number
+          format: double
+          default: 1.00
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+      additionalProperties: false
+    CompensatoryTimeTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        operationCode:
+          type: string
+        creditFactor:
+          type: number
+          format: double
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    CompensatoryTimeTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompensatoryTimeTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    CompensatoryTimeTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        operationCode:
+          type: string
+        creditFactor:
+          type: number
+          format: double
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
       additionalProperties: false
     MedicalClinicListItemResponse:
       type: object
@@ -60128,6 +60852,21 @@ components:
           nullable: true
         incapacityRequiresDocument:
           type: boolean
+          nullable: true
+        compensatoryTimeStandardDailyHours:
+          type: number
+          format: double
+          nullable: true
+        compensatoryTimeMaxBalanceHours:
+          type: number
+          format: double
+          nullable: true
+        compensatoryTimeCreditRequiresDocument:
+          type: boolean
+          nullable: true
+        compensatoryTimeSettlementRateFactor:
+          type: number
+          format: double
           nullable: true
       additionalProperties: false
     UpdateCompanyUserRequest:

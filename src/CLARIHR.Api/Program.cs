@@ -601,6 +601,21 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PersonnelFilePolicies.ManageVacations, policyBuilder => policyBuilder
         .Combine(policy));
 
+    // Compensatory time (REQ-002 D-01/D-13). Read is an authn-only SUPERSET so the self-service branch
+    // (the employee reading their own fund/statement, PR-3/PR-4) is never blocked at the API layer; the
+    // precise gate (ViewCompensatoryTime / Admin, or self) lives in the compensatory-time read handlers.
+    // Writes are HR-only in Fase 1 (D-01), so ManageCompensatoryTime uses a RequireAssertion like
+    // ManageSettlements, kept a superset of the precise EnsureCanManageCompensatoryTimeAsync handler gate.
+    options.AddPolicy(PersonnelFilePolicies.ViewCompensatoryTime, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageCompensatoryTime, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageCompensatoryTime,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

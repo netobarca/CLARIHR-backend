@@ -266,5 +266,24 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageVacationsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for compensatory time (REQ-002 D-13): the dedicated
+    /// <c>PersonnelFiles.ViewCompensatoryTime</c> permission, or Admin / IAM super-admin. The
+    /// self-service branch (employee reading their OWN fund/statement) is resolved by the handler bases
+    /// (PR-3/PR-4), not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewCompensatoryTimeAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for compensatory time (REQ-002 D-01/D-13): the dedicated
+    /// <c>PersonnelFiles.ManageCompensatoryTime</c> permission, or Admin / IAM super-admin. HR-only in
+    /// Fase 1 (no self-service write).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageCompensatoryTimeAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

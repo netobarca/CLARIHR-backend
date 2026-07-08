@@ -16,4 +16,7 @@ public static class LeaveMasterConstraintNames
     public const string CompanyHolidayDateUnique = "uq_company_holidays__tenant_date";
 
     public const string PayrollPeriodUnique = "uq_payroll_period_definitions__tenant_type_year_number";
+
+    // Filtered unique (WHERE is_active): a compensatory-time-type code can be reused after inactivation.
+    public const string CompensatoryTimeTypeCodeUnique = "uq_compensatory_time_types__tenant_code_active";
 }

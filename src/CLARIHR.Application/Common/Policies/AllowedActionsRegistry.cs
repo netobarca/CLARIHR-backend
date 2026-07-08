@@ -149,6 +149,11 @@ public static class AllowedActionsRegistry
             LeaveConfigurationPermissionCodes.Admin,
             LeaveConfigurationPermissionCodes.ManageAdministration);
         yield return Policy(
+            LeaveConfigurationPermissionCodes.CompensatoryTimeTypesResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
             LegalRepresentativePermissionCodes.ResourceKey,
             LegalRepresentativePermissionCodes.Read,
             LegalRepresentativePermissionCodes.Admin,

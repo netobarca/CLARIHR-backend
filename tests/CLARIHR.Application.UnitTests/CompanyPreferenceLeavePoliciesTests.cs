@@ -264,5 +264,9 @@ public sealed class CompanyPreferenceLeavePoliciesTests
             EmployerCoveredIncapacityDaysPerYear: null,
             AdditionalIncapacityBenefitDaysPerYear: null,
             IncapacityRequiresDocument: null,
+            CompensatoryTimeStandardDailyHours: null,
+            CompensatoryTimeMaxBalanceHours: null,
+            CompensatoryTimeCreditRequiresDocument: null,
+            CompensatoryTimeSettlementRateFactor: null,
             ConcurrencyToken: Guid.NewGuid());
 }

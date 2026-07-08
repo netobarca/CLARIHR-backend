@@ -206,4 +206,19 @@ public static class PersonnelFilePolicies
     /// handler gate (anti-self on decision, RN-17).
     /// </summary>
     public const string ManageVacations = "PersonnelFiles.ManageVacations";
+
+    /// <summary>
+    /// Read policy for compensatory-time sub-resources (statement, credits, absences — REQ-002 D-13).
+    /// Authn-only superset: the precise check (ViewCompensatoryTime / Admin, or the employee reading
+    /// their own fund/statement — self-service) lives in the compensatory-time read handlers (PR-3/PR-4).
+    /// </summary>
+    public const string ViewCompensatoryTime = "PersonnelFiles.ViewCompensatoryTime";
+
+    /// <summary>
+    /// Write policy for compensatory-time sub-resources (credits, absences — REQ-002 D-01/D-13). HR-only
+    /// (no self-service write in Fase 1, D-01), so it is a RequireAssertion superset of the precise
+    /// EnsureCanManageCompensatoryTimeAsync handler gate (the dedicated permission, or Admin / IAM
+    /// super-admin), like ManageSettlements.
+    /// </summary>
+    public const string ManageCompensatoryTime = "PersonnelFiles.ManageCompensatoryTime";
 }
