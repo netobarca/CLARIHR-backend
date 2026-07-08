@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.Files;
@@ -485,5 +486,135 @@ public sealed partial class ApiIntegrationTests
             $"/api/v1/personnel-files/{selfFileId}/compensatory-time-absences",
             BuildAbsenceBody(typeId, "2026-04-06", "2026-04-06", 4m));
         await AssertProblemDetailsAsync(retiredWrite, HttpStatusCode.UnprocessableEntity, "EMPLOYEE_PROFILE_RETIRED_LOCKED");
+    }
+
+    // ── PR-5: company-wide bandeja + exports (movements + balances) ──────────────────────────────────
+
+    private async Task<(Guid PublicId, string Label)> SeedPayrollPeriodAsync(Guid tenantId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var period = Domain.Leave.PayrollPeriodDefinition.Create(
+            "QUINCENAL", 2026, 6, "Quincena 6 - 2026", new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 31));
+        period.SetTenantId(tenantId);
+        dbContext.Set<Domain.Leave.PayrollPeriodDefinition>().Add(period);
+        await dbContext.SaveChangesAsync();
+        return (period.PublicId, period.Label);
+    }
+
+    [Fact]
+    public async Task CompensatoryTime_MovementsBandeja_StatusCountsExcludeAnnulledAndExport()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        await SetCompensatoryTimeCreditRequiresDocumentAsync(scenario.TenantId, requires: false);
+        using var client = factory.CreateClientFor(CreateCompensatoryTimeManagerContext(scenario));
+
+        var (fileId, _) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Nora", "Bandeja", "EMP-CT-N", "nora.ct.n@empresa.test");
+        var (typeId, _) = await SeedCompensatoryTimeTypeAsync(scenario, "FLEX", "Tiempo compensatorio", CompensatoryTimeOperations.Both, 1.00m);
+        var (periodId, periodLabel) = await SeedPayrollPeriodAsync(scenario.TenantId);
+
+        // Fund = 10 + 6 credited (before annul) − 4 debited. Annul the 6h credit BEFORE debiting so the balance
+        // never goes negative → remaining vigente = 10 credited, 4 debited, saldo 6.
+        _ = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-02", 10m);
+        var toAnnul = await CreateCreditNoDocAsync(client, fileId, typeId, "2026-03-03", 6m);
+        var annul = await SendSettlementAsync(
+            client, HttpMethod.Patch, $"/api/v1/personnel-files/{fileId}/compensatory-time-credits/{toAnnul.Id}/annulment",
+            toAnnul.ConcurrencyToken, new { reason = "Registro duplicado" });
+        Assert.Equal(HttpStatusCode.OK, annul.StatusCode);
+
+        var absence = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{fileId}/compensatory-time-absences",
+            BuildAbsenceBody(typeId, "2026-04-06", "2026-04-06", 4m, payrollPeriodPublicId: periodId));
+        Assert.Equal(HttpStatusCode.Created, absence.StatusCode);
+
+        // Default bandeja: StatusCounts cover BOTH statuses; items exclude the ANULADA credit by default.
+        var bandeja = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/query", new { });
+        bandeja.EnsureSuccessStatusCode();
+        using (var doc = await ReadJsonAsync(bandeja))
+        {
+            Assert.Equal(2, doc.RootElement.GetProperty("totalCount").GetInt32()); // 10h credit + 4h absence
+            var statusCounts = doc.RootElement.GetProperty("statusCounts");
+            Assert.Equal(2, statusCounts.GetProperty("REGISTRADA").GetInt32()); // 1 credit + 1 absence
+            Assert.Equal(1, statusCounts.GetProperty("ANULADA").GetInt32());
+            foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
+            {
+                Assert.Equal("REGISTRADA", item.GetProperty("statusCode").GetString());
+            }
+        }
+
+        // Explicit ANULADA filter → the annulled credit only.
+        var annulled = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/query", new { statusCode = "ANULADA" });
+        annulled.EnsureSuccessStatusCode();
+        using (var doc = await ReadJsonAsync(annulled))
+        {
+            Assert.Equal(1, doc.RootElement.GetProperty("totalCount").GetInt32());
+            var row = doc.RootElement.GetProperty("items").EnumerateArray().Single();
+            Assert.Equal("ACREDITACION", row.GetProperty("operationCode").GetString());
+            Assert.Equal("ANULADA", row.GetProperty("statusCode").GetString());
+        }
+
+        // includeAnnulled → all three movements.
+        var all = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/query", new { includeAnnulled = true });
+        all.EnsureSuccessStatusCode();
+        using (var doc = await ReadJsonAsync(all))
+        {
+            Assert.Equal(3, doc.RootElement.GetProperty("totalCount").GetInt32());
+        }
+
+        // Operation filter → only the absence (default excludes annulled).
+        var absencesOnly = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/query", new { operationCode = "AUSENCIA" });
+        absencesOnly.EnsureSuccessStatusCode();
+        using (var doc = await ReadJsonAsync(absencesOnly))
+        {
+            Assert.Equal(1, doc.RootElement.GetProperty("totalCount").GetInt32());
+            var row = doc.RootElement.GetProperty("items").EnumerateArray().Single();
+            Assert.Equal("AUSENCIA", row.GetProperty("operationCode").GetString());
+            Assert.Equal(-4m, row.GetProperty("signedHours").GetDecimal());
+            Assert.Equal(periodLabel, row.GetProperty("payrollPeriodLabel").GetString());
+        }
+
+        // Movements export xlsx → 200 + spreadsheet content-type + non-empty body.
+        var exportXlsx = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/export?format=xlsx");
+        Assert.Equal(HttpStatusCode.OK, exportXlsx.StatusCode);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            exportXlsx.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await exportXlsx.Content.ReadAsByteArrayAsync());
+
+        // Movements export JSON → the absence row carries the imputed period + signed hours; annulled excluded.
+        var exportJson = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/export?format=json");
+        Assert.Equal(HttpStatusCode.OK, exportJson.StatusCode);
+        using (var doc = JsonDocument.Parse(await exportJson.Content.ReadAsStringAsync()))
+        {
+            var rows = doc.RootElement.EnumerateArray().ToList();
+            Assert.Equal(2, rows.Count); // annulled credit excluded by default
+            var absenceRow = rows.Single(row => row.GetProperty("Operacion").GetString() == "AUSENCIA");
+            Assert.Equal(-4m, absenceRow.GetProperty("Horas").GetDecimal());
+            Assert.Equal(periodLabel, absenceRow.GetProperty("PeriodoPlanilla").GetString());
+        }
+
+        // Balances export JSON → one row per employee with vigente movements (saldo = credited − debited).
+        var balances = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-balances/export?format=json");
+        Assert.Equal(HttpStatusCode.OK, balances.StatusCode);
+        using (var doc = JsonDocument.Parse(await balances.Content.ReadAsStringAsync()))
+        {
+            var row = doc.RootElement.EnumerateArray().Single();
+            Assert.Equal(10m, row.GetProperty("TotalAcreditado").GetDecimal());
+            Assert.Equal(4m, row.GetProperty("TotalDebitado").GetDecimal());
+            Assert.Equal(6m, row.GetProperty("SaldoDisponible").GetDecimal());
+        }
+
+        // Invalid export format → 400.
+        var badFormat = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/compensatory-time-movements/export?format=doc");
+        Assert.Equal(HttpStatusCode.BadRequest, badFormat.StatusCode);
     }
 }

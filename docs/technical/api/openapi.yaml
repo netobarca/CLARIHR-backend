@@ -25531,6 +25531,194 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/compensatory-time-movements/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide compensatory-time movements bandeja
+      description: "Returns a paginated, filterable list of the company's compensatory-time movements — credits (`ACREDITACION`, hours +) and absences (`AUSENCIA`, hours −) projected into one stream — by employee, type, operation, status and movement-date range, plus per-status counts. The StatusCounts cover every status; the items EXCLUDE the ANULADA movements by default (opt in with `includeAnnulled` or an explicit `statusCode`). HR-only (`ViewCompensatoryTime`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryCompensatoryTimeMovementsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeMovementBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/compensatory-time-movements/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the compensatory-time movements bandeja to Excel/CSV/JSON
+      description: "Exports the filtered movements (same filters as the bandeja) to `xlsx`, `csv` or `json` with the worked/date-range, hours worked, factor, signed hours, detail, authorizer, status and the imputed payroll period. The ANULADA movements are EXCLUDED by default (opt in with `includeAnnulled` or an explicit `statusCode`). HR-only. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: compensatoryTimeTypePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: operationCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: statusCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: includeAnnulled
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/compensatory-time-balances/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the per-employee compensatory-time balances to Excel/CSV/JSON
+      description: "Exports the fund balances (total credited / debited / available + last movement date) of every employee with at least one VIGENTE (REGISTRADA) movement to `xlsx`, `csv` or `json`. HR-only. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/vacation-periods':
     get:
       tags:
@@ -54798,6 +54986,125 @@ components:
         availableBalance:
           type: number
           format: double
+    CompensatoryTimeMovementListItemResponse:
+      type: object
+      properties:
+        movementPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        operationCode:
+          type: string
+        compensatoryTimeTypePublicId:
+          type: string
+          format: uuid
+        compensatoryTimeTypeCode:
+          type: string
+        typeNameSnapshot:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        hoursWorked:
+          type: number
+          format: double
+          nullable: true
+        factor:
+          type: number
+          format: double
+          nullable: true
+        signedHours:
+          type: number
+          format: double
+        detail:
+          type: string
+        authorizedByText:
+          type: string
+          nullable: true
+        statusCode:
+          type: string
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        payrollPeriodStart:
+          type: string
+          format: date
+          nullable: true
+        payrollPeriodEnd:
+          type: string
+          format: date
+          nullable: true
+        registeredUtc:
+          type: string
+          format: date-time
+    CompensatoryTimeMovementBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompensatoryTimeMovementListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    QueryCompensatoryTimeMovementsRequest:
+      type: object
+      properties:
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        compensatoryTimeTypePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        operationCode:
+          type: string
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        fromDate:
+          type: string
+          format: date
+          nullable: true
+        toDate:
+          type: string
+          format: date
+          nullable: true
+        includeAnnulled:
+          type: boolean
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
     AddCompensatoryTimeCreditDocumentRequest:
       type: object
       properties:

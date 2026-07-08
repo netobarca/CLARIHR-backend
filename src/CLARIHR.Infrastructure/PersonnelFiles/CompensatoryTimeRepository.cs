@@ -367,6 +367,412 @@ internal sealed class CompensatoryTimeRepository(
             statement.Balance);
     }
 
+    // ── Company-wide bandeja + exports (PR-5, §3.9) ───────────────────────────────────────────────
+
+    public async Task<CompensatoryTimeMovementBandejaResponse> QueryMovementsAsync(
+        QueryCompensatoryTimeMovementsQuery query, CancellationToken cancellationToken)
+    {
+        var operation = NormalizeOperation(query.OperationCode);
+        var includeCredits = operation is null || operation == CompensatoryTimeMovementOperations.Acreditacion;
+        var includeAbsences = operation is null || operation == CompensatoryTimeMovementOperations.Ausencia;
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even though the items
+        // default to REGISTRADA.
+        var statusCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (includeCredits)
+        {
+            await AccumulateStatusCountsAsync(
+                FilteredCredits(query.EmployeeId, query.CompensatoryTimeTypePublicId, query.FromDate, query.ToDate)
+                    .Select(credit => credit.StatusCode),
+                statusCounts,
+                cancellationToken);
+        }
+
+        if (includeAbsences)
+        {
+            await AccumulateStatusCountsAsync(
+                FilteredAbsences(query.EmployeeId, query.CompensatoryTimeTypePublicId, query.FromDate, query.ToDate)
+                    .Select(absence => absence.StatusCode),
+                statusCounts,
+                cancellationToken);
+        }
+
+        var (exactStatus, restrictToRegistrada) = ResolveItemStatusFilter(query.StatusCode, query.IncludeAnnulled);
+        var movements = await LoadMovementRowsAsync(
+            query.EmployeeId, query.CompensatoryTimeTypePublicId, query.FromDate, query.ToDate,
+            includeCredits, includeAbsences, exactStatus, restrictToRegistrada, maxRows: null, cancellationToken);
+
+        var ordered = movements
+            .OrderByDescending(movement => movement.StartDate)
+            .ThenByDescending(movement => movement.RegisteredUtc)
+            .ToList();
+
+        var items = ordered
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(ToListItem)
+            .ToArray();
+
+        return new CompensatoryTimeMovementBandejaResponse(
+            items, query.PageNumber, query.PageSize, ordered.Count, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<MovimientoTiempoCompensatorioExportRow>> GetMovementExportRowsAsync(
+        ExportCompensatoryTimeMovementsQuery query, CancellationToken cancellationToken)
+    {
+        var operation = NormalizeOperation(query.OperationCode);
+        var includeCredits = operation is null || operation == CompensatoryTimeMovementOperations.Acreditacion;
+        var includeAbsences = operation is null || operation == CompensatoryTimeMovementOperations.Ausencia;
+
+        var (exactStatus, restrictToRegistrada) = ResolveItemStatusFilter(query.StatusCode, query.IncludeAnnulled);
+        var movements = await LoadMovementRowsAsync(
+            query.EmployeeId, query.CompensatoryTimeTypePublicId, query.FromDate, query.ToDate,
+            includeCredits, includeAbsences, exactStatus, restrictToRegistrada, query.MaxRows, cancellationToken);
+
+        return movements
+            .OrderByDescending(movement => movement.StartDate)
+            .ThenByDescending(movement => movement.RegisteredUtc)
+            .Select(movement => new MovimientoTiempoCompensatorioExportRow(
+                movement.EmployeeFullName,
+                movement.EmployeeCode,
+                movement.OperationCode,
+                movement.TypeNameSnapshot,
+                movement.StartDate,
+                movement.EndDate,
+                movement.HoursWorked,
+                movement.Factor,
+                movement.SignedHours,
+                movement.Detail,
+                movement.AuthorizedByText,
+                movement.StatusCode,
+                movement.PayrollPeriodLabel,
+                movement.PayrollPeriodStart,
+                movement.PayrollPeriodEnd,
+                movement.RegisteredUtc))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<SaldoTiempoCompensatorioExportRow>> GetBalanceExportRowsAsync(
+        ExportCompensatoryTimeBalancesQuery query, CancellationToken cancellationToken)
+    {
+        // Per-employee aggregation over the VIGENTE (REGISTRADA) movements only — matches GetBalanceAsync /
+        // CompensatoryTimeRules.Balance by construction (an ANULADA movement never joins the fund).
+        var creditAggregates = await FilteredCredits(query.EmployeeId, null, null, null)
+            .Where(credit => credit.StatusCode == CompensatoryTimeStatuses.Registrada)
+            .GroupBy(credit => credit.PersonnelFileId)
+            .Select(group => new BalanceAggregate(
+                group.Key,
+                group.Sum(credit => credit.HoursCredited),
+                group.Max(credit => (DateOnly?)credit.WorkDate)))
+            .ToListAsync(cancellationToken);
+
+        var absenceAggregates = await FilteredAbsences(query.EmployeeId, null, null, null)
+            .Where(absence => absence.StatusCode == CompensatoryTimeStatuses.Registrada)
+            .GroupBy(absence => absence.PersonnelFileId)
+            .Select(group => new BalanceAggregate(
+                group.Key,
+                group.Sum(absence => absence.HoursDebited),
+                group.Max(absence => (DateOnly?)absence.StartDate)))
+            .ToListAsync(cancellationToken);
+
+        var credited = creditAggregates.ToDictionary(aggregate => aggregate.PersonnelFileId);
+        var debited = absenceAggregates.ToDictionary(aggregate => aggregate.PersonnelFileId);
+
+        var fileIds = credited.Keys.Union(debited.Keys).ToArray();
+        if (fileIds.Length == 0)
+        {
+            return [];
+        }
+
+        var employees = await (
+            from file in dbContext.PersonnelFiles.AsNoTracking()
+            where fileIds.Contains(file.Id)
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new { file.Id, file.FullName, EmployeeCode = profile != null ? profile.EmployeeCode : null })
+            .ToListAsync(cancellationToken);
+
+        var rows = employees
+            .Select(employee =>
+            {
+                var totalCredited = credited.TryGetValue(employee.Id, out var creditAggregate) ? creditAggregate.Total : 0m;
+                var totalDebited = debited.TryGetValue(employee.Id, out var debitAggregate) ? debitAggregate.Total : 0m;
+                var lastCredit = credited.TryGetValue(employee.Id, out var lastCreditAggregate) ? lastCreditAggregate.LastDate : null;
+                var lastAbsence = debited.TryGetValue(employee.Id, out var lastAbsenceAggregate) ? lastAbsenceAggregate.LastDate : null;
+                return new SaldoTiempoCompensatorioExportRow(
+                    employee.FullName,
+                    employee.EmployeeCode,
+                    totalCredited,
+                    totalDebited,
+                    CompensatoryTimeRules.Balance(totalCredited, totalDebited),
+                    MaxDate(lastCredit, lastAbsence));
+            })
+            .OrderBy(row => row.Empleado)
+            .ToList();
+
+        return query.MaxRows is { } maxRows ? rows.Take(maxRows + 1).ToArray() : rows;
+    }
+
+    private async Task<List<MovementRow>> LoadMovementRowsAsync(
+        Guid? employeeId,
+        Guid? typePublicId,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        bool includeCredits,
+        bool includeAbsences,
+        string? exactStatus,
+        bool restrictToRegistrada,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var movements = new List<MovementRow>();
+
+        if (includeCredits)
+        {
+            var creditsQuery =
+                from credit in WithItemStatus(
+                    FilteredCredits(employeeId, typePublicId, fromDate, toDate), exactStatus, restrictToRegistrada)
+                join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                    on credit.PersonnelFileId equals profileEntry.PersonnelFileId into profileGroup
+                from profile in profileGroup.DefaultIfEmpty()
+                orderby credit.WorkDate descending, credit.CreatedUtc descending
+                select new MovementRow
+                {
+                    MovementPublicId = credit.PublicId,
+                    PersonnelFilePublicId = credit.PersonnelFile.PublicId,
+                    EmployeeFullName = credit.PersonnelFile.FullName,
+                    EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                    OperationCode = CompensatoryTimeMovementOperations.Acreditacion,
+                    CompensatoryTimeTypePublicId = credit.CompensatoryTimeType!.PublicId,
+                    CompensatoryTimeTypeCode = credit.CompensatoryTimeType!.Code,
+                    TypeNameSnapshot = credit.TypeNameSnapshot,
+                    StartDate = credit.WorkDate,
+                    EndDate = null,
+                    HoursWorked = credit.HoursWorked,
+                    Factor = credit.FactorApplied,
+                    SignedHours = credit.HoursCredited,
+                    Detail = credit.WorkDetail,
+                    AuthorizedByText = credit.AuthorizedByText,
+                    StatusCode = credit.StatusCode,
+                    PayrollPeriodLabel = null,
+                    PayrollPeriodStart = null,
+                    PayrollPeriodEnd = null,
+                    RegisteredUtc = credit.CreatedUtc,
+                };
+
+            var creditsList = maxRows is { } creditMax ? creditsQuery.Take(creditMax + 1) : creditsQuery;
+            movements.AddRange(await creditsList.ToListAsync(cancellationToken));
+        }
+
+        if (includeAbsences)
+        {
+            var absencesQuery =
+                from absence in WithItemStatus(
+                    FilteredAbsences(employeeId, typePublicId, fromDate, toDate), exactStatus, restrictToRegistrada)
+                join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                    on absence.PersonnelFileId equals profileEntry.PersonnelFileId into profileGroup
+                from profile in profileGroup.DefaultIfEmpty()
+                join periodEntry in dbContext.PayrollPeriodDefinitions.AsNoTracking()
+                    on absence.PayrollPeriodPublicId equals (Guid?)periodEntry.PublicId into periodGroup
+                from period in periodGroup.DefaultIfEmpty()
+                orderby absence.StartDate descending, absence.CreatedUtc descending
+                select new MovementRow
+                {
+                    MovementPublicId = absence.PublicId,
+                    PersonnelFilePublicId = absence.PersonnelFile.PublicId,
+                    EmployeeFullName = absence.PersonnelFile.FullName,
+                    EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                    OperationCode = CompensatoryTimeMovementOperations.Ausencia,
+                    CompensatoryTimeTypePublicId = absence.CompensatoryTimeType!.PublicId,
+                    CompensatoryTimeTypeCode = absence.CompensatoryTimeType!.Code,
+                    TypeNameSnapshot = absence.TypeNameSnapshot,
+                    StartDate = absence.StartDate,
+                    EndDate = absence.EndDate,
+                    HoursWorked = null,
+                    Factor = null,
+                    SignedHours = -absence.HoursDebited,
+                    Detail = absence.Reason,
+                    AuthorizedByText = null,
+                    StatusCode = absence.StatusCode,
+                    PayrollPeriodLabel = period != null ? period.Label : null,
+                    PayrollPeriodStart = period != null ? period.StartDate : (DateOnly?)null,
+                    PayrollPeriodEnd = period != null ? period.EndDate : (DateOnly?)null,
+                    RegisteredUtc = absence.CreatedUtc,
+                };
+
+            var absencesList = maxRows is { } absenceMax ? absencesQuery.Take(absenceMax + 1) : absencesQuery;
+            movements.AddRange(await absencesList.ToListAsync(cancellationToken));
+        }
+
+        return movements;
+    }
+
+    private IQueryable<PersonnelFileCompensatoryTimeCredit> FilteredCredits(
+        Guid? employeeId, Guid? typePublicId, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var query = dbContext.PersonnelFileCompensatoryTimeCredits.AsNoTracking();
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(credit => credit.PersonnelFile.PublicId == employeePublicId);
+        }
+
+        if (typePublicId is { } typeId)
+        {
+            query = query.Where(credit => credit.CompensatoryTimeType!.PublicId == typeId);
+        }
+
+        if (fromDate is { } from)
+        {
+            query = query.Where(credit => credit.WorkDate >= from);
+        }
+
+        if (toDate is { } to)
+        {
+            query = query.Where(credit => credit.WorkDate <= to);
+        }
+
+        return query;
+    }
+
+    private IQueryable<PersonnelFileCompensatoryTimeAbsence> FilteredAbsences(
+        Guid? employeeId, Guid? typePublicId, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var query = dbContext.PersonnelFileCompensatoryTimeAbsences.AsNoTracking();
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(absence => absence.PersonnelFile.PublicId == employeePublicId);
+        }
+
+        if (typePublicId is { } typeId)
+        {
+            query = query.Where(absence => absence.CompensatoryTimeType!.PublicId == typeId);
+        }
+
+        if (fromDate is { } from)
+        {
+            query = query.Where(absence => absence.StartDate >= from);
+        }
+
+        if (toDate is { } to)
+        {
+            query = query.Where(absence => absence.StartDate <= to);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<PersonnelFileCompensatoryTimeCredit> WithItemStatus(
+        IQueryable<PersonnelFileCompensatoryTimeCredit> query, string? exactStatus, bool restrictToRegistrada) =>
+        exactStatus is not null ? query.Where(credit => credit.StatusCode == exactStatus)
+        : restrictToRegistrada ? query.Where(credit => credit.StatusCode == CompensatoryTimeStatuses.Registrada)
+        : query;
+
+    private static IQueryable<PersonnelFileCompensatoryTimeAbsence> WithItemStatus(
+        IQueryable<PersonnelFileCompensatoryTimeAbsence> query, string? exactStatus, bool restrictToRegistrada) =>
+        exactStatus is not null ? query.Where(absence => absence.StatusCode == exactStatus)
+        : restrictToRegistrada ? query.Where(absence => absence.StatusCode == CompensatoryTimeStatuses.Registrada)
+        : query;
+
+    private static async Task AccumulateStatusCountsAsync(
+        IQueryable<string> statuses, Dictionary<string, int> counts, CancellationToken cancellationToken)
+    {
+        var grouped = await statuses
+            .GroupBy(status => status)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        foreach (var entry in grouped)
+        {
+            counts[entry.Status] = (counts.TryGetValue(entry.Status, out var existing) ? existing : 0) + entry.Count;
+        }
+    }
+
+    /// <summary>Item filter (§3.9): an explicit status filters to exactly that status; otherwise the default
+    /// excludes ANULADA unless <paramref name="includeAnnulled"/> is set.</summary>
+    private static (string? ExactStatus, bool RestrictToRegistrada) ResolveItemStatusFilter(string? statusCode, bool includeAnnulled)
+    {
+        var normalized = string.IsNullOrWhiteSpace(statusCode) ? null : statusCode.Trim().ToUpperInvariant();
+        return normalized is not null ? (normalized, false) : (null, !includeAnnulled);
+    }
+
+    private static string? NormalizeOperation(string? operationCode) =>
+        string.IsNullOrWhiteSpace(operationCode) ? null : operationCode.Trim().ToUpperInvariant();
+
+    private static DateOnly? MaxDate(DateOnly? left, DateOnly? right) =>
+        left is null ? right : right is null ? left : left.Value >= right.Value ? left : right;
+
+    private static CompensatoryTimeMovementListItemResponse ToListItem(MovementRow movement) =>
+        new(
+            movement.MovementPublicId,
+            movement.PersonnelFilePublicId,
+            movement.EmployeeFullName,
+            movement.EmployeeCode,
+            movement.OperationCode,
+            movement.CompensatoryTimeTypePublicId,
+            movement.CompensatoryTimeTypeCode,
+            movement.TypeNameSnapshot,
+            movement.StartDate,
+            movement.EndDate,
+            movement.HoursWorked,
+            movement.Factor,
+            movement.SignedHours,
+            movement.Detail,
+            movement.AuthorizedByText,
+            movement.StatusCode,
+            movement.PayrollPeriodLabel,
+            movement.PayrollPeriodStart,
+            movement.PayrollPeriodEnd,
+            movement.RegisteredUtc);
+
+    /// <summary>Common in-memory shape of a bandeja/export movement (a credit or an absence).</summary>
+    private sealed class MovementRow
+    {
+        public Guid MovementPublicId { get; init; }
+
+        public Guid PersonnelFilePublicId { get; init; }
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public string? EmployeeCode { get; init; }
+
+        public string OperationCode { get; init; } = string.Empty;
+
+        public Guid CompensatoryTimeTypePublicId { get; init; }
+
+        public string CompensatoryTimeTypeCode { get; init; } = string.Empty;
+
+        public string TypeNameSnapshot { get; init; } = string.Empty;
+
+        public DateOnly StartDate { get; init; }
+
+        public DateOnly? EndDate { get; init; }
+
+        public decimal? HoursWorked { get; init; }
+
+        public decimal? Factor { get; init; }
+
+        public decimal SignedHours { get; init; }
+
+        public string Detail { get; init; } = string.Empty;
+
+        public string? AuthorizedByText { get; init; }
+
+        public string StatusCode { get; init; } = string.Empty;
+
+        public string? PayrollPeriodLabel { get; init; }
+
+        public DateOnly? PayrollPeriodStart { get; init; }
+
+        public DateOnly? PayrollPeriodEnd { get; init; }
+
+        public DateTime RegisteredUtc { get; init; }
+    }
+
+    private sealed record BalanceAggregate(long PersonnelFileId, decimal Total, DateOnly? LastDate);
+
     /// <summary>In-memory display projection of a fund movement fed to <see cref="CompensatoryTimeRules.BuildStatement"/>.</summary>
     private sealed record StatementSource(
         Guid PublicId,

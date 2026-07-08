@@ -144,4 +144,23 @@ public interface ICompensatoryTimeRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);
+
+    // ── Company-wide bandeja + exports (PR-5, §3.9) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// A paginated, filterable page of the company-wide movements bandeja: credits and absences projected into
+    /// one movement stream (ordered newest-first by movement date), plus per-status counts. The StatusCounts
+    /// cover EVERY status (respecting the non-status filters), while the items default to REGISTRADA when no
+    /// status is supplied and <c>includeAnnulled</c> is false (ANULADA excluded by default).
+    /// </summary>
+    Task<CompensatoryTimeMovementBandejaResponse> QueryMovementsAsync(
+        QueryCompensatoryTimeMovementsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The filtered movement export rows (same filters as the bandeja; ANULADA excluded unless requested).</summary>
+    Task<IReadOnlyCollection<MovimientoTiempoCompensatorioExportRow>> GetMovementExportRowsAsync(
+        ExportCompensatoryTimeMovementsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The per-employee fund balance export rows (only employees with at least one VIGENTE movement).</summary>
+    Task<IReadOnlyCollection<SaldoTiempoCompensatorioExportRow>> GetBalanceExportRowsAsync(
+        ExportCompensatoryTimeBalancesQuery query, CancellationToken cancellationToken);
 }
