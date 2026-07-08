@@ -194,6 +194,24 @@ internal static class VacationErrors
         "VACATION_RETURN_EXCEEDS_CONSUMED",
         "The returned days exceed the days still consumed by the vacation request.", ErrorType.UnprocessableEntity);
 
+    // ── Annual plan (PR-9) ─────────────────────────────────────────────────────────────────────────
+
+    public static readonly Error PlanNotFound = new(
+        "VACATION_PLAN_NOT_FOUND",
+        "The requested vacation plan could not be found.", ErrorType.NotFound);
+
+    public static readonly Error PlanLineOverlap = new(
+        "VACATION_PLAN_LINE_OVERLAP",
+        "An employee's planned vacation windows must not overlap each other within the plan.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PlanStateRuleViolation = new(
+        "VACATION_PLAN_STATE_RULE_VIOLATION",
+        "The vacation plan is not in a state that allows this operation.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PlanEmployeeInvalid = new(
+        "VACATION_PLAN_EMPLOYEE_INVALID",
+        "A plan line references an employee that does not belong to the company.", ErrorType.UnprocessableEntity);
+
     /// <summary>Maps an Art. 178 violation code (from <see cref="VacationRules.ValidateRequestDates"/>) to its error.</summary>
     public static Error ForDateViolation(string code) => code switch
     {

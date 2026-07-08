@@ -353,4 +353,156 @@ public sealed partial class ApiIntegrationTests
             requestA.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null });
         await AssertProblemDetailsAsync(approveA, HttpStatusCode.UnprocessableEntity, "VACATION_FUND_INSUFFICIENT");
     }
+
+    // ── Annual plan + calendar + bandeja/export (PR-9) ──────────────────────────────────────────────
+
+    private static async Task<VacationPlanResponse> ReadVacationPlanAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(response.IsSuccessStatusCode, $"Unexpected status: {(int)response.StatusCode} {payload}");
+        return (await response.Content.ReadFromJsonAsync<VacationPlanResponse>(JsonOptions))!;
+    }
+
+    [Fact]
+    public async Task Vacation_Plan_LinesReturnWarningsAndSameEmployeeOverlapIsRejected()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var hr = factory.CreateClientFor(CreateVacationManagerContext(scenario));
+
+        var (e1, _) = await SeedSettlementCandidateAsync(scenario.TenantId, "Petra", "Plan", "EMP-VP-1", "petra.vp1@empresa.test");
+
+        // A modest 2026 fund (15 available) and a holiday on a planned start date.
+        _ = await CreateManualVacationPeriodAsync(hr, e1, 2026, 15);
+        await SeedCompanyHolidayAsync(scenario, new DateOnly(2026, 3, 16));
+
+        // [1] Create a plan whose lines DON'T block: line1 starts on the holiday (date-rule warning); line2 pushes
+        // the cumulative planned days (5 + 20 = 25) past the 15 available (insufficient-fund warning).
+        var create = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-plans",
+            new
+            {
+                planYear = 2026,
+                lines = new[]
+                {
+                    new { personnelFilePublicId = e1, startDate = "2026-03-16", endDate = "2026-03-20", days = 5 },
+                    new { personnelFilePublicId = e1, startDate = "2026-06-01", endDate = "2026-06-30", days = 20 },
+                },
+            });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var plan = await ReadVacationPlanAsync(create);
+        Assert.Equal("VIGENTE", plan.StatusCode);
+        Assert.Equal(2026, plan.PlanYear);
+        Assert.Equal(2, plan.Lines.Count);
+
+        var holidayLine = plan.Lines.Single(line => line.StartDate == new DateOnly(2026, 3, 16));
+        Assert.Contains(holidayLine.Warnings, warning => warning.Code == "VACATION_PLAN_WARNING_DATE_RULE");
+        var bigLine = plan.Lines.Single(line => line.Days == 20);
+        Assert.Contains(bigLine.Warnings, warning => warning.Code == "VACATION_PLAN_WARNING_INSUFFICIENT_FUND");
+
+        // [2] A referenced employee outside the company is rejected.
+        var invalidEmployee = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-plans",
+            new
+            {
+                planYear = 2026,
+                lines = new[] { new { personnelFilePublicId = Guid.NewGuid(), startDate = "2026-04-01", endDate = "2026-04-05", days = 5 } },
+            });
+        await AssertProblemDetailsAsync(invalidEmployee, HttpStatusCode.UnprocessableEntity, "VACATION_PLAN_EMPLOYEE_INVALID");
+
+        // [3] Same-employee overlapping windows are rejected (the guard fires as a clean 422).
+        var overlap = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-plans",
+            new
+            {
+                planYear = 2026,
+                lines = new[]
+                {
+                    new { personnelFilePublicId = e1, startDate = "2026-07-01", endDate = "2026-07-10", days = 8 },
+                    new { personnelFilePublicId = e1, startDate = "2026-07-08", endDate = "2026-07-15", days = 6 },
+                },
+            });
+        await AssertProblemDetailsAsync(overlap, HttpStatusCode.UnprocessableEntity, "VACATION_PLAN_LINE_OVERLAP");
+
+        // [4] Annulment is terminal: a second annul is a state-rule violation.
+        var annul = await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/vacation-plans/{plan.Id}/annulment",
+            plan.ConcurrencyToken, body: null);
+        var annulled = await ReadVacationPlanAsync(annul);
+        Assert.Equal("ANULADO", annulled.StatusCode);
+
+        var reAnnul = await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/vacation-plans/{plan.Id}/annulment",
+            annulled.ConcurrencyToken, body: null);
+        await AssertProblemDetailsAsync(reAnnul, HttpStatusCode.UnprocessableEntity, "VACATION_PLAN_STATE_RULE_VIOLATION");
+    }
+
+    [Fact]
+    public async Task Vacation_CalendarBandejaAndExport_ReflectPlanAndEnjoyments()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var hr = factory.CreateClientFor(CreateVacationManagerContext(scenario));
+
+        var (e1, _) = await SeedSettlementCandidateAsync(scenario.TenantId, "Cala", "Calendario", "EMP-VC-1", "cala.vc1@empresa.test");
+
+        // A 2026 fund of 20 (15 legal + 5 benefit).
+        _ = await CreateManualVacationPeriodAsync(hr, e1, 2026, 15, benefit: 5);
+
+        // R1 → APROBADA (a "goce"); R2 stays SOLICITADA (disjoint window so it does not overlap R1).
+        var r1 = await CreateVacationRequestAsync(hr, e1, "2026-03-17", "2026-03-20", 4);
+        var approved = await ReadVacationRequestAsync(await SendSettlementAsync(
+            hr, HttpMethod.Patch, $"/api/v1/personnel-files/{e1}/vacation-requests/{r1.Id}/decision",
+            r1.ConcurrencyToken, new { approve = true, allocations = (object?)null, notes = (string?)null }));
+        Assert.Equal(VacationRequestStatuses.Aprobada, approved.StatusCode);
+        var r2 = await CreateVacationRequestAsync(hr, e1, "2026-05-04", "2026-05-07", 4);
+        Assert.Equal(VacationRequestStatuses.Solicitada, r2.StatusCode);
+
+        // A VIGENTE plan with one (warning-free) window for 2026.
+        var planResponse = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-plans",
+            new
+            {
+                planYear = 2026,
+                lines = new[] { new { personnelFilePublicId = e1, startDate = "2026-09-01", endDate = "2026-09-05", days = 5 } },
+            });
+        var plan = await ReadVacationPlanAsync(planResponse);
+
+        // [1] The calendar of 2026 carries the enjoyed window (R1) and the planned window.
+        var calendarResponse = await hr.GetAsync($"/api/v1/companies/{scenario.TenantId}/vacations/calendar?year=2026");
+        Assert.Equal(HttpStatusCode.OK, calendarResponse.StatusCode);
+        var calendar = await calendarResponse.Content.ReadFromJsonAsync<VacationCalendarResponse>(JsonOptions);
+        Assert.NotNull(calendar);
+        Assert.Equal(2026, calendar!.Year);
+        Assert.Contains(calendar.Enjoyments, entry => entry.VacationRequestPublicId == approved.Id && entry.StatusCode == "APROBADA");
+        Assert.DoesNotContain(calendar.Enjoyments, entry => entry.VacationRequestPublicId == r2.Id);
+        Assert.Contains(calendar.PlannedLines, line => line.VacationPlanPublicId == plan.Id && line.PersonnelFilePublicId == e1);
+
+        // [2] The requests bandeja lists both requests with the per-status counts over every status.
+        var bandejaResponse = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-requests/query", new { });
+        Assert.Equal(HttpStatusCode.OK, bandejaResponse.StatusCode);
+        var bandeja = await bandejaResponse.Content.ReadFromJsonAsync<VacationRequestBandejaResponse>(JsonOptions);
+        Assert.NotNull(bandeja);
+        Assert.Equal(2, bandeja!.TotalCount);
+        Assert.Equal(1, bandeja.StatusCounts.GetValueOrDefault("APROBADA"));
+        Assert.Equal(1, bandeja.StatusCounts.GetValueOrDefault("SOLICITADA"));
+        var approvedItem = Assert.Single(bandeja.Items, item => item.StatusCode == "APROBADA");
+        Assert.Equal(4, approvedItem.ConsumedDays);
+        Assert.Equal(4, approvedItem.NetConsumedDays);
+
+        // Filtering by status narrows the items (but not the counts).
+        var filteredResponse = await hr.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/vacation-requests/query", new { statusCode = "APROBADA" });
+        var filtered = await filteredResponse.Content.ReadFromJsonAsync<VacationRequestBandejaResponse>(JsonOptions);
+        Assert.NotNull(filtered);
+        Assert.Single(filtered!.Items);
+        Assert.Equal(2, filtered.StatusCounts.Values.Sum());
+
+        // [3] The goces export (APROBADA/DEVUELTA_PARCIAL/DEVUELTA): 200 + spreadsheet content-type + non-empty body.
+        var export = await hr.GetAsync($"/api/v1/companies/{scenario.TenantId}/vacation-requests/export?format=xlsx");
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            export.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await export.Content.ReadAsByteArrayAsync());
+    }
 }

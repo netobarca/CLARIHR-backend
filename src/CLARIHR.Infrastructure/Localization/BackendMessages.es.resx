@@ -2197,4 +2197,22 @@
   <data name="VACATION_RETURN_EXCEEDS_CONSUMED" xml:space="preserve">
     <value>Los días devueltos superan los días aún consumidos por la solicitud de vacaciones.</value>
   </data>
+  <data name="VACATION_PLAN_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el plan de vacaciones solicitado.</value>
+  </data>
+  <data name="VACATION_PLAN_LINE_OVERLAP" xml:space="preserve">
+    <value>Las ventanas de vacaciones planificadas de un empleado no deben solaparse entre sí dentro del plan.</value>
+  </data>
+  <data name="VACATION_PLAN_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El plan de vacaciones no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="VACATION_PLAN_EMPLOYEE_INVALID" xml:space="preserve">
+    <value>Una línea del plan hace referencia a un empleado que no pertenece a la empresa.</value>
+  </data>
+  <data name="VACATION_PLAN_WARNING_INSUFFICIENT_FUND" xml:space="preserve">
+    <value>Las vacaciones planificadas superan los días disponibles en el fondo del empleado (indicativo — no bloquea).</value>
+  </data>
+  <data name="VACATION_PLAN_WARNING_DATE_RULE" xml:space="preserve">
+    <value>Las vacaciones planificadas inician en asueto / día de descanso del empleado o finalizan en asueto (indicativo — no bloquea).</value>
+  </data>
 </root>

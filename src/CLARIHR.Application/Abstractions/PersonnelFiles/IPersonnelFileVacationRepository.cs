@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Abstractions.PersonnelFiles;
@@ -30,6 +31,16 @@ public sealed record VacationGenerationCandidate(
 
 /// <summary>The public id + year of a fund period, keyed by its internal id (for mapping allocations/returns to the wire).</summary>
 public sealed record VacationPeriodRef(Guid PublicId, int PeriodYear);
+
+/// <summary>
+/// The plan-warning context of one employee (leave module §3.7): the primary-plaza rest day and the total
+/// available enjoyment-fund days (Σ granted − net consumed of active enjoyment periods). Only resolved for
+/// employees that belong to the company (a missing entry means the referenced employee is invalid).
+/// </summary>
+public sealed record VacationPlanEmployeeContext(
+    Guid PersonnelFilePublicId,
+    DayOfWeek? PlazaRestDay,
+    int AvailableFundDays);
 
 /// <summary>
 /// Persistence port of the vacation fund vertical (leave module PR-7): period CRUD reads/writes, the derived
@@ -125,4 +136,36 @@ public interface IPersonnelFileVacationRepository
     /// <summary>Internal-id → (publicId, year) lookup of every period of the file (for mapping allocations/returns to the wire).</summary>
     Task<IReadOnlyDictionary<long, VacationPeriodRef>> GetPeriodRefLookupAsync(
         long personnelFileId, CancellationToken cancellationToken);
+
+    // ── Annual plan / calendar / bandeja (PR-9) ─────────────────────────────────────────────────────
+
+    void AddPlan(VacationPlan entity);
+
+    /// <summary>Tracked plan (with its lines loaded) for the domain guards to mutate (replace lines / annul).</summary>
+    Task<VacationPlan?> GetPlanEntityAsync(Guid tenantId, Guid vacationPlanPublicId, CancellationToken cancellationToken);
+
+    /// <summary>The company plans (optionally of one year), newest first. Lines carry no warnings on plain reads.</summary>
+    Task<IReadOnlyCollection<VacationPlanResponse>> GetPlanResponsesAsync(
+        Guid tenantId, int? year, CancellationToken cancellationToken);
+
+    Task<VacationPlanResponse?> GetPlanResponseAsync(
+        Guid tenantId, Guid vacationPlanPublicId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the plan-warning context (rest day + available fund days) of the given company employees. Only
+    /// entries for employees that belong to the company are returned (a missing key = invalid employee).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, VacationPlanEmployeeContext>> GetPlanEmployeeContextsAsync(
+        Guid tenantId, IReadOnlyCollection<Guid> personnelFilePublicIds, CancellationToken cancellationToken);
+
+    /// <summary>The company vacation calendar of one year: enjoyed windows (approved requests) + VIGENTE plan lines.</summary>
+    Task<VacationCalendarResponse> GetCalendarAsync(Guid tenantId, int year, CancellationToken cancellationToken);
+
+    /// <summary>The paginated company vacation-requests bandeja with per-status counts.</summary>
+    Task<VacationRequestBandejaResponse> QueryRequestsAsync(
+        QueryVacationRequestsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The "goces" export rows (APROBADA / DEVUELTA_PARCIAL / DEVUELTA) with the periods of origin.</summary>
+    Task<IReadOnlyCollection<GoceVacacionesExportRow>> GetGoceExportRowsAsync(
+        ExportVacationRequestsQuery query, CancellationToken cancellationToken);
 }

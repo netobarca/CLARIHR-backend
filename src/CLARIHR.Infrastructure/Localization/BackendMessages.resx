@@ -2197,4 +2197,22 @@
   <data name="VACATION_RETURN_EXCEEDS_CONSUMED" xml:space="preserve">
     <value>The returned days exceed the days still consumed by the vacation request.</value>
   </data>
+  <data name="VACATION_PLAN_NOT_FOUND" xml:space="preserve">
+    <value>The requested vacation plan could not be found.</value>
+  </data>
+  <data name="VACATION_PLAN_LINE_OVERLAP" xml:space="preserve">
+    <value>An employee's planned vacation windows must not overlap each other within the plan.</value>
+  </data>
+  <data name="VACATION_PLAN_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The vacation plan is not in a state that allows this operation.</value>
+  </data>
+  <data name="VACATION_PLAN_EMPLOYEE_INVALID" xml:space="preserve">
+    <value>A plan line references an employee that does not belong to the company.</value>
+  </data>
+  <data name="VACATION_PLAN_WARNING_INSUFFICIENT_FUND" xml:space="preserve">
+    <value>The planned vacation exceeds the days available in the employee's fund (indicative — not blocking).</value>
+  </data>
+  <data name="VACATION_PLAN_WARNING_DATE_RULE" xml:space="preserve">
+    <value>The planned vacation starts on a holiday / the employee's rest day or ends on a holiday (indicative — not blocking).</value>
+  </data>
 </root>

@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Compensation;
+using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -386,6 +387,335 @@ internal sealed class PersonnelFileVacationRepository(ApplicationDbContext dbCon
                 period => period.Id,
                 period => new VacationPeriodRef(period.PublicId, period.PeriodYear),
                 cancellationToken);
+
+    // ── Annual plan / calendar / bandeja (PR-9) ─────────────────────────────────────────────────────
+
+    public void AddPlan(VacationPlan entity) => dbContext.VacationPlans.Add(entity);
+
+    public async Task<VacationPlan?> GetPlanEntityAsync(
+        Guid tenantId, Guid vacationPlanPublicId, CancellationToken cancellationToken) =>
+        await dbContext.VacationPlans
+            .Include(plan => plan.Lines)
+            .Where(plan => plan.TenantId == tenantId && plan.PublicId == vacationPlanPublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<VacationPlanResponse>> GetPlanResponsesAsync(
+        Guid tenantId, int? year, CancellationToken cancellationToken)
+    {
+        var query = dbContext.VacationPlans
+            .AsNoTracking()
+            .Include(plan => plan.Lines)
+            .Where(plan => plan.TenantId == tenantId);
+        if (year is { } filterYear)
+        {
+            query = query.Where(plan => plan.PlanYear == filterYear);
+        }
+
+        var plans = await query
+            .OrderByDescending(plan => plan.PlanYear)
+            .ThenByDescending(plan => plan.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return plans.Select(plan => VacationPlanMapping.Map(plan)).ToArray();
+    }
+
+    public async Task<VacationPlanResponse?> GetPlanResponseAsync(
+        Guid tenantId, Guid vacationPlanPublicId, CancellationToken cancellationToken)
+    {
+        var plan = await dbContext.VacationPlans
+            .AsNoTracking()
+            .Include(item => item.Lines)
+            .Where(item => item.TenantId == tenantId && item.PublicId == vacationPlanPublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return plan is null ? null : VacationPlanMapping.Map(plan);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, VacationPlanEmployeeContext>> GetPlanEmployeeContextsAsync(
+        Guid tenantId, IReadOnlyCollection<Guid> personnelFilePublicIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, VacationPlanEmployeeContext>();
+        if (personnelFilePublicIds.Count == 0)
+        {
+            return result;
+        }
+
+        var ids = personnelFilePublicIds.Distinct().ToArray();
+        var files = await dbContext.PersonnelFiles
+            .AsNoTracking()
+            .Where(file => file.TenantId == tenantId
+                && file.RecordType == PersonnelFileRecordType.Employee
+                && file.IsActive
+                && ids.Contains(file.PublicId))
+            .Select(file => new { file.Id, file.PublicId })
+            .ToListAsync(cancellationToken);
+        if (files.Count == 0)
+        {
+            return result;
+        }
+
+        var fileIds = files.Select(file => file.Id).ToArray();
+
+        var restDays = await dbContext.PersonnelFileEmploymentAssignments
+            .AsNoTracking()
+            .Where(assignment => fileIds.Contains(assignment.PersonnelFileId) && assignment.IsActive)
+            .Select(assignment => new { assignment.PersonnelFileId, assignment.IsPrimary, assignment.StartDate, assignment.RestDayOfWeek })
+            .ToListAsync(cancellationToken);
+        var restByFile = restDays
+            .GroupBy(assignment => assignment.PersonnelFileId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate).First().RestDayOfWeek);
+
+        var periods = await dbContext.PersonnelFileVacationPeriods
+            .AsNoTracking()
+            .Where(period => fileIds.Contains(period.PersonnelFileId) && period.IsActive && period.GeneratesEnjoymentDays)
+            .Select(period => new { period.Id, period.PersonnelFileId, period.LegalDaysGranted, period.BenefitDaysGranted })
+            .ToListAsync(cancellationToken);
+        var net = await LoadNetConsumptionAsync(fileIds, cancellationToken);
+        var availableByFile = periods
+            .GroupBy(period => period.PersonnelFileId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(period =>
+                    Math.Max(0, period.LegalDaysGranted + period.BenefitDaysGranted - Math.Max(0, net.GetValueOrDefault(period.Id)))));
+
+        foreach (var file in files)
+        {
+            result[file.PublicId] = new VacationPlanEmployeeContext(
+                file.PublicId,
+                restByFile.GetValueOrDefault(file.Id),
+                availableByFile.GetValueOrDefault(file.Id));
+        }
+
+        return result;
+    }
+
+    public async Task<VacationCalendarResponse> GetCalendarAsync(Guid tenantId, int year, CancellationToken cancellationToken)
+    {
+        var yearStart = new DateOnly(year, 1, 1);
+        var yearEnd = new DateOnly(year, 12, 31);
+        var consuming = VacationRequestStatuses.ConsumesFund.ToArray();
+
+        var enjoyments = await (
+            from request in dbContext.PersonnelFileVacationRequests.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on request.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where request.TenantId == tenantId
+                && consuming.Contains(request.StatusCode)
+                && request.StartDate <= yearEnd && yearStart <= request.EndDate
+            orderby request.StartDate, request.EndDate
+            select new VacationCalendarEnjoymentEntry(
+                file.PublicId,
+                file.FullName,
+                profile != null ? profile.EmployeeCode : null,
+                request.PublicId,
+                request.StartDate,
+                request.EndDate,
+                request.RequestedDays,
+                request.StatusCode))
+            .ToListAsync(cancellationToken);
+
+        var plannedLines = await (
+            from line in dbContext.VacationPlanLines.AsNoTracking()
+            join plan in dbContext.VacationPlans.AsNoTracking() on line.VacationPlanId equals plan.Id
+            join fileEntry in dbContext.PersonnelFiles.AsNoTracking() on line.PersonnelFilePublicId equals fileEntry.PublicId into fileGroup
+            from file in fileGroup.DefaultIfEmpty()
+            where plan.TenantId == tenantId
+                && plan.StatusCode == VacationPlanStatuses.Vigente
+                && plan.PlanYear == year
+            orderby line.StartDate, line.EndDate
+            select new VacationCalendarPlanEntry(
+                line.PersonnelFilePublicId,
+                file != null ? file.FullName : null,
+                plan.PublicId,
+                line.StartDate,
+                line.EndDate,
+                line.Days))
+            .ToListAsync(cancellationToken);
+
+        return new VacationCalendarResponse(year, enjoyments, plannedLines);
+    }
+
+    public async Task<VacationRequestBandejaResponse> QueryRequestsAsync(
+        QueryVacationRequestsQuery query, CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredRequests(query.CompanyId, query.EmployeeId, query.StartFromUtc, query.StartToUtc);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Request.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = baseQuery;
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var normalizedStatus = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Request.StatusCode == normalizedStatus);
+        }
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var page = await filtered
+            .OrderByDescending(row => row.Request.StartDate)
+            .ThenByDescending(row => row.Request.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new
+            {
+                row.Request.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Request.RequesterFilePublicId,
+                row.Request.RequesterNameSnapshot,
+                row.Request.StartDate,
+                row.Request.EndDate,
+                row.Request.RequestedDays,
+                Consumed = row.Request.Allocations.Sum(allocation => (int?)allocation.Days) ?? 0,
+                Returned = row.Request.Returns.Sum(entry => (int?)entry.Days) ?? 0,
+                row.Request.StatusCode,
+                row.Request.DecisionDateUtc,
+                row.Request.CreatedUtc,
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = page
+            .Select(row => new VacationRequestListItemResponse(
+                row.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.RequesterFilePublicId,
+                row.RequesterNameSnapshot,
+                row.StartDate,
+                row.EndDate,
+                row.RequestedDays,
+                row.Consumed,
+                row.Returned,
+                row.Consumed - row.Returned,
+                row.StatusCode,
+                row.DecisionDateUtc,
+                row.CreatedUtc))
+            .ToArray();
+
+        return new VacationRequestBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<GoceVacacionesExportRow>> GetGoceExportRowsAsync(
+        ExportVacationRequestsQuery query, CancellationToken cancellationToken)
+    {
+        var consuming = VacationRequestStatuses.ConsumesFund.ToArray();
+        var filtered = FilteredRequests(query.CompanyId, query.EmployeeId, query.StartFromUtc, query.StartToUtc)
+            .Where(row => consuming.Contains(row.Request.StatusCode))
+            .OrderByDescending(row => row.Request.StartDate)
+            .ThenByDescending(row => row.Request.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
+
+        var rows = await limited
+            .Select(row => new
+            {
+                row.Request.Id,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Request.StatusCode,
+                row.Request.StartDate,
+                row.Request.EndDate,
+                row.Request.RequestedDays,
+                Consumed = row.Request.Allocations.Sum(allocation => (int?)allocation.Days) ?? 0,
+                Returned = row.Request.Returns.Sum(entry => (int?)entry.Days) ?? 0,
+                row.Request.DecisionDateUtc,
+            })
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var requestIds = rows.Select(row => row.Id).ToArray();
+        var allocationRows = await (
+            from allocation in dbContext.VacationRequestAllocations.AsNoTracking()
+            join period in dbContext.PersonnelFileVacationPeriods.AsNoTracking() on allocation.VacationPeriodId equals period.Id
+            where requestIds.Contains(allocation.VacationRequestId)
+            select new { allocation.VacationRequestId, period.PeriodYear, allocation.Days })
+            .ToListAsync(cancellationToken);
+
+        var periodsByRequest = allocationRows
+            .GroupBy(row => row.VacationRequestId)
+            .ToDictionary(
+                group => group.Key,
+                group => string.Join("; ", group
+                    .GroupBy(item => item.PeriodYear)
+                    .OrderBy(item => item.Key)
+                    .Select(item => $"{item.Key}: {item.Sum(entry => entry.Days)}")));
+
+        return rows
+            .Select(row => new GoceVacacionesExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.StatusCode,
+                row.StartDate,
+                row.EndDate,
+                row.RequestedDays,
+                row.Consumed,
+                row.Returned,
+                row.Consumed - row.Returned,
+                periodsByRequest.GetValueOrDefault(row.Id, string.Empty),
+                row.DecisionDateUtc))
+            .ToArray();
+    }
+
+    private IQueryable<VacationRequestQueryRow> FilteredRequests(
+        Guid tenantId, Guid? employeeId, DateTime? startFromUtc, DateTime? startToUtc)
+    {
+        var query =
+            from request in dbContext.PersonnelFileVacationRequests.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on request.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where request.TenantId == tenantId
+            select new VacationRequestQueryRow
+            {
+                Request = request,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (startFromUtc is { } startFrom)
+        {
+            var from = DateOnly.FromDateTime(startFrom);
+            query = query.Where(row => row.Request.StartDate >= from);
+        }
+
+        if (startToUtc is { } startTo)
+        {
+            var to = DateOnly.FromDateTime(startTo);
+            query = query.Where(row => row.Request.StartDate <= to);
+        }
+
+        return query;
+    }
+
+    private sealed class VacationRequestQueryRow
+    {
+        public PersonnelFileVacationRequest Request { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+    }
 
     private static PersonnelFileVacationRequestResponse MapRequest(
         PersonnelFileVacationRequest request, IReadOnlyDictionary<long, VacationPeriodRef> periodRefs)

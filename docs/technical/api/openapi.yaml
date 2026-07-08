@@ -24738,6 +24738,401 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-plans':
+    get:
+      tags:
+        - Personnel Files
+      summary: List the company's annual vacation plans
+      description: "Returns the company's annual vacation plans, newest first, optionally filtered by `year`. Line warnings are populated only on the POST/PUT responses; plain reads carry empty warning lists. HR-only (`ViewVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            nullable: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VacationPlanResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Create an annual vacation plan
+      description: "Creates a VIGENTE annual vacation plan with its per-employee planned windows (indicative, D-24). Each line carries a non-blocking `warnings[]` (`VACATION_PLAN_WARNING_INSUFFICIENT_FUND` / `VACATION_PLAN_WARNING_DATE_RULE`). Same-employee overlapping windows are rejected (`VACATION_PLAN_LINE_OVERLAP`); a line referencing an employee outside the company is rejected (`VACATION_PLAN_EMPLOYEE_INVALID`). Manager-only (`ManageVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddVacationPlanRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPlanResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-plans/{vacationPlanPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get an annual vacation plan by id
+      description: "Returns a single annual vacation plan by its public id (empty warning lists). HR-only (`ViewVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPlanPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPlanResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Replace the lines of an annual vacation plan
+      description: "Replaces the full set of planned windows of a VIGENTE plan and returns the recomputed per-line warnings. Same-employee overlaps are rejected (`VACATION_PLAN_LINE_OVERLAP`); an annulled plan is rejected (`VACATION_PLAN_STATE_RULE_VIOLATION`). Requires the `If-Match` header. Manager-only."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPlanPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVacationPlanRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPlanResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-plans/{vacationPlanPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul an annual vacation plan
+      description: "Annuls a VIGENTE plan (terminal). Rejected when the plan is already annulled (`VACATION_PLAN_STATE_RULE_VIOLATION`). Requires the `If-Match` header. Manager-only."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPlanPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPlanResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-requests/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide vacation-requests bandeja
+      description: "Returns a paginated, filterable list of the company's vacation requests (by employee, status and start-date range) with the requested / consumed / returned / net days, plus per-status counts (over every status). HR-only (`ViewVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryVacationRequestsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationRequestBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-requests/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the enjoyed vacations (goces) to Excel/CSV/JSON
+      description: "Exports the enjoyed vacations — approved / partially-returned / returned requests (APROBADA / DEVUELTA_PARCIAL / DEVUELTA) — with the enjoyment window, the requested / consumed / returned / net days and the periods of origin. Optionally filtered by employee and start-date range. HR-only (`ViewVacations`). Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: startFromUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+        - name: startToUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacations/calendar':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get the company vacation calendar of a year
+      description: "Returns the company's vacation calendar for `year`: the enjoyed windows (approved / partially-returned / returned requests overlapping the year) and the planned windows (lines of the VIGENTE plans of the year), each with the employee and the dates/days. HR-only (`ViewVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationCalendarResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents':
     get:
       tags:
@@ -52917,6 +53312,255 @@ components:
           type: integer
           format: int32
           nullable: true
+    VacationPlanLineWarning:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    VacationPlanLineResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        days:
+          type: integer
+          format: int32
+        sortOrder:
+          type: integer
+          format: int32
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationPlanLineWarning'
+    VacationPlanResponse:
+      type: object
+      properties:
+        vacationPlanPublicId:
+          type: string
+          format: uuid
+        planYear:
+          type: integer
+          format: int32
+        requestDate:
+          type: string
+          format: date
+        requesterNameSnapshot:
+          type: string
+          nullable: true
+        statusCode:
+          type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationPlanLineResponse'
+    VacationPlanLineRequest:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        days:
+          type: integer
+          format: int32
+    AddVacationPlanRequest:
+      type: object
+      properties:
+        planYear:
+          type: integer
+          format: int32
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationPlanLineRequest'
+    UpdateVacationPlanRequest:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationPlanLineRequest'
+    QueryVacationRequestsRequest:
+      type: object
+      properties:
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        startFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        startToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    VacationRequestListItemResponse:
+      type: object
+      properties:
+        vacationRequestPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterNameSnapshot:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        requestedDays:
+          type: integer
+          format: int32
+        consumedDays:
+          type: integer
+          format: int32
+        returnedDays:
+          type: integer
+          format: int32
+        netConsumedDays:
+          type: integer
+          format: int32
+        statusCode:
+          type: string
+        decisionDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        createdAtUtc:
+          type: string
+          format: date-time
+    VacationRequestBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationRequestListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    VacationCalendarEnjoymentEntry:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        vacationRequestPublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        requestedDays:
+          type: integer
+          format: int32
+        statusCode:
+          type: string
+    VacationCalendarPlanEntry:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+          nullable: true
+        vacationPlanPublicId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        days:
+          type: integer
+          format: int32
+    VacationCalendarResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        enjoyments:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationCalendarEnjoymentEntry'
+        plannedLines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationCalendarPlanEntry'
     MedicalClaimDocumentResponse:
       type: object
       properties:
