@@ -11,6 +11,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Auth.Common;
@@ -604,6 +605,25 @@ builder.Services.AddAuthorization(options =>
             context,
             CostCenterPermissionCodes.Admin,
             CostCenterPermissionCodes.ManageAdministration)));
+
+    // Leave configuration masters (medical clinics, incapacity risks/types, company holidays,
+    // payroll periods) — declarative policies kept a superset of the precise
+    // LeaveConfigurationAuthorizationService handler gate (EnsureCanReadAsync /
+    // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(LeaveConfigurationPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(LeaveConfigurationPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration)));
 
     // Locations (work centers, work center types, location groups/levels/hierarchy) — declarative
     // policies kept a superset of the precise ILocationAuthorizationService handler gate

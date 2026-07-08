@@ -2020,4 +2020,64 @@
   <data name="RETIREMENT_REVERSAL_BLOCKED_BY_SETTLEMENT" xml:space="preserve">
     <value>The retirement has an ISSUED settlement; annul the settlement first, then revert.</value>
   </data>
+  <data name="LEAVE_CONFIGURATION_FORBIDDEN" xml:space="preserve">
+    <value>You do not have permission to access leave configuration administration.</value>
+  </data>
+  <data name="MEDICAL_CLINIC_NOT_FOUND" xml:space="preserve">
+    <value>The medical clinic could not be found.</value>
+  </data>
+  <data name="MEDICAL_CLINIC_DESCRIPTION_CONFLICT" xml:space="preserve">
+    <value>Another medical clinic already uses the requested description.</value>
+  </data>
+  <data name="MEDICAL_CLINIC_SECTOR_INVALID" xml:space="preserve">
+    <value>The clinic sector code is not valid for the active catalog.</value>
+  </data>
+  <data name="INCAPACITY_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The incapacity type could not be found.</value>
+  </data>
+  <data name="INCAPACITY_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another incapacity type already uses the requested code.</value>
+  </data>
+  <data name="INCAPACITY_RISK_NOT_FOUND" xml:space="preserve">
+    <value>The incapacity risk could not be found.</value>
+  </data>
+  <data name="INCAPACITY_RISK_CODE_CONFLICT" xml:space="preserve">
+    <value>Another incapacity risk already uses the requested code.</value>
+  </data>
+  <data name="RISK_PARAMETERS_INVALID" xml:space="preserve">
+    <value>The incapacity risk parameters are invalid.</value>
+  </data>
+  <data name="INCAPACITY_RISK_RULE_VIOLATION" xml:space="preserve">
+    <value>The incapacity risk request violates a domain rule.</value>
+  </data>
+  <data name="COMPANY_HOLIDAY_NOT_FOUND" xml:space="preserve">
+    <value>The company holiday could not be found.</value>
+  </data>
+  <data name="HOLIDAY_DUPLICATE" xml:space="preserve">
+    <value>Another company holiday already exists for the requested date.</value>
+  </data>
+  <data name="COMPANY_HOLIDAY_RULE_VIOLATION" xml:space="preserve">
+    <value>The company holiday request violates a domain rule.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_NOT_FOUND" xml:space="preserve">
+    <value>The payroll period could not be found.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_TYPE_INVALID" xml:space="preserve">
+    <value>The pay period type code is not valid for the active catalog.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_DUPLICATE" xml:space="preserve">
+    <value>Another payroll period already uses the requested type, year and number.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_OVERLAP" xml:space="preserve">
+    <value>The payroll period date range overlaps another active period of the same type and year.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_RULE_VIOLATION" xml:space="preserve">
+    <value>The payroll period request violates a domain rule.</value>
+  </data>
+  <data name="validation.message.date_is_required" xml:space="preserve">
+    <value>Date is required.</value>
+  </data>
+  <data name="validation.message.end_date_must_be_greater_than_or_equal_to_start_date" xml:space="preserve">
+    <value>End date must be greater than or equal to start date.</value>
+  </data>
 </root>

@@ -51,6 +51,8 @@ public static class ProvisioningConstants
         new("PositionSlots.Admin", "Administrar plazas", "Administracion completa de plazas y ocupacion.", PositionSlotsModuleKey, "PositionSlots", "Manage"),
         new("CostCenters.Read", "Leer centros de costo", "Consulta de centros de costo contable y su uso.", CostCentersModuleKey, "CostCenters", "Read"),
         new("CostCenters.Admin", "Administrar centros de costo", "Administracion completa de centros de costo contable.", CostCentersModuleKey, "CostCenters", "Manage"),
+        new("LeaveConfiguration.Read", "Leer configuracion de vacaciones e incapacidades", "Consulta de los maestros de configuracion de vacaciones e incapacidades (clinicas medicas, riesgos y tipos de incapacidad, asuetos y periodos de planilla).", PersonnelFilesModuleKey, "LeaveConfiguration", "Read"),
+        new("LeaveConfiguration.Admin", "Administrar configuracion de vacaciones e incapacidades", "Administracion completa de los maestros de configuracion de vacaciones e incapacidades y carga de la plantilla legal.", PersonnelFilesModuleKey, "LeaveConfiguration", "Manage"),
         new("LegalRepresentatives.Read", "Leer representantes legales", "Consulta de representantes legales activos e historicos.", LegalRepresentativesModuleKey, "LegalRepresentatives", "Read"),
         new("LegalRepresentatives.Admin", "Administrar representantes legales", "Administracion completa de representantes legales.", LegalRepresentativesModuleKey, "LegalRepresentatives", "Manage"),
         new("CompetencyFramework.Read", "Leer marco de competencias", "Consulta del marco de competencias y conductas por puesto.", CompetencyFrameworkModuleKey, "CompetencyFramework", "Read"),

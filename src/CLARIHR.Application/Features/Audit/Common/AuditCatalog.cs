@@ -180,6 +180,28 @@ public static class AuditEventTypes
     public const string ExitInterviewSubmissionSaved = "EXIT_INTERVIEW_SUBMISSION_SAVED";
     public const string ExitInterviewSubmitted = "EXIT_INTERVIEW_SUBMITTED";
     public const string ExitInterviewSubmissionArchived = "EXIT_INTERVIEW_SUBMISSION_ARCHIVED";
+    public const string MedicalClinicCreated = "MEDICAL_CLINIC_CREATED";
+    public const string MedicalClinicUpdated = "MEDICAL_CLINIC_UPDATED";
+    public const string MedicalClinicActivated = "MEDICAL_CLINIC_ACTIVATED";
+    public const string MedicalClinicInactivated = "MEDICAL_CLINIC_INACTIVATED";
+    public const string IncapacityTypeCreated = "INCAPACITY_TYPE_CREATED";
+    public const string IncapacityTypeUpdated = "INCAPACITY_TYPE_UPDATED";
+    public const string IncapacityTypeActivated = "INCAPACITY_TYPE_ACTIVATED";
+    public const string IncapacityTypeInactivated = "INCAPACITY_TYPE_INACTIVATED";
+    public const string IncapacityRiskCreated = "INCAPACITY_RISK_CREATED";
+    public const string IncapacityRiskUpdated = "INCAPACITY_RISK_UPDATED";
+    public const string IncapacityRiskParametersReplaced = "INCAPACITY_RISK_PARAMETERS_REPLACED";
+    public const string IncapacityRiskActivated = "INCAPACITY_RISK_ACTIVATED";
+    public const string IncapacityRiskInactivated = "INCAPACITY_RISK_INACTIVATED";
+    public const string CompanyHolidayCreated = "COMPANY_HOLIDAY_CREATED";
+    public const string CompanyHolidayUpdated = "COMPANY_HOLIDAY_UPDATED";
+    public const string CompanyHolidayActivated = "COMPANY_HOLIDAY_ACTIVATED";
+    public const string CompanyHolidayInactivated = "COMPANY_HOLIDAY_INACTIVATED";
+    public const string PayrollPeriodDefinitionCreated = "PAYROLL_PERIOD_DEFINITION_CREATED";
+    public const string PayrollPeriodDefinitionUpdated = "PAYROLL_PERIOD_DEFINITION_UPDATED";
+    public const string PayrollPeriodDefinitionActivated = "PAYROLL_PERIOD_DEFINITION_ACTIVATED";
+    public const string PayrollPeriodDefinitionInactivated = "PAYROLL_PERIOD_DEFINITION_INACTIVATED";
+    public const string LeaveTemplateLoaded = "LEAVE_TEMPLATE_LOADED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -353,7 +375,29 @@ public static class AuditEventTypes
         ExitInterviewFormVersionCreated,
         ExitInterviewSubmissionSaved,
         ExitInterviewSubmitted,
-        ExitInterviewSubmissionArchived
+        ExitInterviewSubmissionArchived,
+        MedicalClinicCreated,
+        MedicalClinicUpdated,
+        MedicalClinicActivated,
+        MedicalClinicInactivated,
+        IncapacityTypeCreated,
+        IncapacityTypeUpdated,
+        IncapacityTypeActivated,
+        IncapacityTypeInactivated,
+        IncapacityRiskCreated,
+        IncapacityRiskUpdated,
+        IncapacityRiskParametersReplaced,
+        IncapacityRiskActivated,
+        IncapacityRiskInactivated,
+        CompanyHolidayCreated,
+        CompanyHolidayUpdated,
+        CompanyHolidayActivated,
+        CompanyHolidayInactivated,
+        PayrollPeriodDefinitionCreated,
+        PayrollPeriodDefinitionUpdated,
+        PayrollPeriodDefinitionActivated,
+        PayrollPeriodDefinitionInactivated,
+        LeaveTemplateLoaded
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -413,6 +457,12 @@ public static class AuditEntityTypes
     public const string CompanyPreference = "CompanyPreference";
     public const string ExitInterviewForm = "ExitInterviewForm";
     public const string ExitInterviewSubmission = "ExitInterviewSubmission";
+    public const string MedicalClinic = "MedicalClinic";
+    public const string IncapacityType = "IncapacityType";
+    public const string IncapacityRisk = "IncapacityRisk";
+    public const string CompanyHoliday = "CompanyHoliday";
+    public const string PayrollPeriodDefinition = "PayrollPeriodDefinition";
+    public const string LeaveConfiguration = "LeaveConfiguration";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -457,7 +507,13 @@ public static class AuditEntityTypes
         LocationLevel,
         CompanyPreference,
         ExitInterviewForm,
-        ExitInterviewSubmission
+        ExitInterviewSubmission,
+        MedicalClinic,
+        IncapacityType,
+        IncapacityRisk,
+        CompanyHoliday,
+        PayrollPeriodDefinition,
+        LeaveConfiguration
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

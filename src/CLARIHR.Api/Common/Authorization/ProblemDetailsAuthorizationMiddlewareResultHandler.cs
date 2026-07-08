@@ -2,6 +2,7 @@ using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
@@ -87,6 +88,8 @@ public sealed class ProblemDetailsAuthorizationMiddlewareResultHandler : IAuthor
                 PersonnelFileErrors.Forbidden,
             CostCenterPolicies.Read or CostCenterPolicies.Manage =>
                 CostCenterErrors.Forbidden,
+            LeaveConfigurationPolicies.Read or LeaveConfigurationPolicies.Manage =>
+                LeaveConfigurationErrors.Forbidden,
             LocationPolicies.Read or LocationPolicies.Manage =>
                 LocationErrors.Forbidden,
             LegalRepresentativePolicies.Read or LegalRepresentativePolicies.Manage =>

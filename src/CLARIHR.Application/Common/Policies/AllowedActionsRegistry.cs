@@ -2,6 +2,7 @@ using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -122,6 +123,31 @@ public static class AllowedActionsRegistry
             CostCenterPermissionCodes.Read,
             CostCenterPermissionCodes.Admin,
             CostCenterPermissionCodes.ManageAdministration);
+        yield return Policy(
+            LeaveConfigurationPermissionCodes.MedicalClinicsResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            LeaveConfigurationPermissionCodes.IncapacityRisksResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            LeaveConfigurationPermissionCodes.IncapacityTypesResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            LeaveConfigurationPermissionCodes.CompanyHolidaysResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            LeaveConfigurationPermissionCodes.PayrollPeriodsResourceKey,
+            LeaveConfigurationPermissionCodes.Read,
+            LeaveConfigurationPermissionCodes.Admin,
+            LeaveConfigurationPermissionCodes.ManageAdministration);
         yield return Policy(
             LegalRepresentativePermissionCodes.ResourceKey,
             LegalRepresentativePermissionCodes.Read,

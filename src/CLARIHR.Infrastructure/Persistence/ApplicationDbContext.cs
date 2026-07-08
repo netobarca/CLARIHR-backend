@@ -14,6 +14,7 @@ using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
@@ -257,6 +258,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CertificatePurposeCatalogItem> CertificatePurposeCatalogItems => Set<CertificatePurposeCatalogItem>();
 
+    public DbSet<ClinicSectorCatalogItem> ClinicSectorCatalogItems => Set<ClinicSectorCatalogItem>();
+
     public DbSet<AgeRangeCatalogItem> AgeRangeCatalogItems => Set<AgeRangeCatalogItem>();
 
     public DbSet<SeniorityRangeCatalogItem> SeniorityRangeCatalogItems => Set<SeniorityRangeCatalogItem>();
@@ -407,6 +410,19 @@ public sealed class ApplicationDbContext(
     public DbSet<SalaryTabulatorChangeRequest> SalaryTabulatorChangeRequests => Set<SalaryTabulatorChangeRequest>();
 
     public DbSet<SalaryTabulatorChangeRequestItem> SalaryTabulatorChangeRequestItems => Set<SalaryTabulatorChangeRequestItem>();
+
+    // Leave & incapacity masters (vacaciones e incapacidades module)
+    public DbSet<MedicalClinic> MedicalClinics => Set<MedicalClinic>();
+
+    public DbSet<IncapacityRisk> IncapacityRisks => Set<IncapacityRisk>();
+
+    public DbSet<IncapacityRiskParameter> IncapacityRiskParameters => Set<IncapacityRiskParameter>();
+
+    public DbSet<IncapacityType> IncapacityTypes => Set<IncapacityType>();
+
+    public DbSet<CompanyHoliday> CompanyHolidays => Set<CompanyHoliday>();
+
+    public DbSet<PayrollPeriodDefinition> PayrollPeriodDefinitions => Set<PayrollPeriodDefinition>();
 
     public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
 

@@ -6,6 +6,7 @@ using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
+using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
@@ -440,6 +441,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestLocationSeedService(),
             new TestOrgStructureCatalogSeedService(),
             new TestCompetencyFrameworkSeedService(),
+            new TestLeaveTemplateSeeder(),
             planEntitlementService,
             unitOfWork,
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
@@ -519,6 +521,15 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task EnsureSeededAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class TestLeaveTemplateSeeder : ILeaveTemplateSeeder
+    {
+        public Task<LeaveTemplateSeedResult> ApplyTemplateAsync(
+            Guid tenantId,
+            int? holidayYear,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new LeaveTemplateSeedResult(0, 0, 0, 0, 0, 0, 0));
     }
 
     private sealed class TestCountryCatalogRepository : ICountryCatalogRepository

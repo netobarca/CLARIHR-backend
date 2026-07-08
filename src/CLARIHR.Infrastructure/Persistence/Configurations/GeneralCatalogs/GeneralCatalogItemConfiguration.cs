@@ -567,3 +567,18 @@ internal sealed class CertificatePurposeCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class ClinicSectorCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<ClinicSectorCatalogItem>
+{
+    public ClinicSectorCatalogItemConfiguration()
+        : base(
+            "clinic_sector_catalog_items",
+            "pk_clinic_sector_catalog_items",
+            "uq_clinic_sector_catalog_items__public_id",
+            "uq_clinic_sector_catalog_items__country_code",
+            "ix_clinic_sector_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetClinicSectorCatalogItems())
+    {
+    }
+}

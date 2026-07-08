@@ -67,6 +67,7 @@ public static class GeneralCatalogKeyMap
             ["retirement-request-statuses"] = PersonnelCurriculumCatalogCategories.RetirementRequestStatus,
             ["settlement-statuses"] = PersonnelCurriculumCatalogCategories.SettlementStatus,
             ["settlement-concepts"] = PersonnelCurriculumCatalogCategories.SettlementConcept,
+            ["clinic-sectors"] = PersonnelCurriculumCatalogCategories.ClinicSector,
         };
 
     /// <summary>

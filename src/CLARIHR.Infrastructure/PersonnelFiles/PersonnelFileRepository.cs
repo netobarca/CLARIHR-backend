@@ -1374,6 +1374,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "AFP" => await GetCountryScopedCatalogItemsAsync<CLARIHR.Domain.Afps.AfpCatalogItem>(countryCatalogItemId.Value, "Afp", cancellationToken),
             "ASSOCIATION" => await GetCountryScopedCatalogItemsAsync<AssociationCatalogItem>(countryCatalogItemId.Value, "Association", cancellationToken),
             "ADDITIONALBENEFITTYPE" => await GetCountryScopedCatalogItemsAsync<AdditionalBenefitTypeCatalogItem>(countryCatalogItemId.Value, "AdditionalBenefitType", cancellationToken),
+            "CLINICSECTOR" => await GetCountryScopedCatalogItemsAsync<ClinicSectorCatalogItem>(countryCatalogItemId.Value, "ClinicSector", cancellationToken),
             _ => []
         };
     }
@@ -1638,6 +1639,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "RETIREMENTREQUESTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RetirementRequestStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "SETTLEMENTSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<SettlementStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "SETTLEMENTCONCEPT" => await IsCountryScopedCatalogCodeActiveAsync<SettlementConceptCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "CLINICSECTOR" => await IsCountryScopedCatalogCodeActiveAsync<ClinicSectorCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

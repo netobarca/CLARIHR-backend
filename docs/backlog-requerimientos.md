@@ -26,18 +26,18 @@
 
 | | |
 |---|---|
-| **Estado** | 🔴 PENDIENTE (listo para arrancar: análisis ratificado + plan técnico escritos) |
+| **Estado** | 🟡 EN DESARROLLO (PR-1 completado; Ola 1 en curso) |
 | **Análisis de negocio** | [`docs/business/analisis-vacaciones-incapacidades-empleado.md`](business/analisis-vacaciones-incapacidades-empleado.md) — D-01…D-27 + P-01…P-18 ratificadas; Anexo A.2/A.3/A.4 **confirmados** (2026-07-04) |
 | **Plan técnico** | [`docs/technical/plan-tecnico-vacaciones-incapacidades.md`](technical/plan-tecnico-vacaciones-incapacidades.md) — §0 aclaraciones · §3 arquitectura · §7 orden de PRs |
 | **Guía FE** | `docs/technical/guia-integracion-frontend-vacaciones-incapacidades.md` — se entrega en PR-10 |
 | **Rama** | `feature/vacaciones-incapacidades` (crear desde `master`) |
-| **Línea base de tests** | unit 2153 · integración 472/472 (post-merge liquidación, PR #56) — verificar al arrancar |
+| **Línea base de tests** | ✅ verificada 2026-07-08: unit 2153 · integración 472/472 (los 2 tests PDF exigen el contenedor `gotenberg` arriba — `docker compose up -d gotenberg`) |
 | **Alcance (síntesis)** | Incapacidades con motor de días+montos ISSS (tramos por riesgo, tope patronal 9/año, prórrogas, auto-registro `EN_REVISION`, constancia obligatoria) · lactancia con horarios · fondo anual de vacaciones **por empleado** (ley+beneficio) · plan anual · solicitudes con decisión RRHH y devolución total/parcial · maestros por empresa (clínicas sin semilla, riesgos/tipos con plantilla SV, asuetos, periodos de planilla por empresa) · bandejas/exports (planilla + provisión Finanzas) · saldos en perfil · integración liquidación |
 
 ### Checklist de PRs (fuente: plan técnico §7 — detalle por PR en el plan)
 
 **Ola 1 — configuración + incapacidades**
-- [ ] **PR-1** — Maestros por empresa + `LeaveTemplateSeeder` (A.2/A.3) + `load-template` + TPH `clinic-sectors` (M1) — plan §3.1
+- [x] **PR-1** — Maestros por empresa + `LeaveTemplateSeeder` (A.2/A.3) + `load-template` + TPH `clinic-sectors` (M1) — plan §3.1 ✅ 2026-07-08
 - [ ] **PR-2** — TPH de estados + 5 ActionTypes (`-9485…-9489`) + 4 permisos/gates + preferencias (+10 columnas) + `restDayOfWeek` en plaza + openapi temprano (M2) — plan §3.2/§3.3
 - [ ] **PR-3** — Dominio incapacidades + lactancia + EF + guards unitarios (M3) — plan §3.4
 - [ ] **PR-4** — Motor `IncapacityCalculationRules` + data provider + **suite A.4 en verde (gate de la ola)** — plan §3.5
@@ -57,10 +57,11 @@
 - [ ] La empresa carga su calendario de **periodos de planilla** (no hay plantilla — cada empresa define sus quincenas) y sus clínicas (maestro inicia vacío)
 
 ### Próxima acción
-> Crear la rama `feature/vacaciones-incapacidades`, commitear los documentos (análisis + plan técnico + este backlog — hoy están **sin commit**) y arrancar **PR-1** siguiendo el plan §3.1 (verificar antes los IDs de seed libres contra `GlobalCatalogSeedData`: TPH `-9850…-9862`, ActionTypes `-9485…-9489`).
+> Ejecutar **PR-2** (plan §3.2/§3.3) sobre la rama `feature/vacaciones-incapacidades`: 2 TPH de estados (`incapacity-statuses -9850…-9852`, `vacation-request-statuses -9853…-9858` — receta de 8 toques ya ensayada con `clinic-sectors`) + 5 ActionTypes (`-9485…-9489` INCAPACIDAD/PRORROGA_INCAPACIDAD/LACTANCIA/GOCE_VACACIONES/DEVOLUCION_VACACIONES en `ACTION_TYPE_CATALOG`) + 4 permisos `PersonnelFiles.View/ManageIncapacities|Vacations` (codes+provisioning+policies+gates fail-closed, fallback Admin) + 10 columnas de preferencias (`SetLeavePolicies`, PATCH admin) + `rest_day_of_week` en assignment (aditivo, validador 0–6) + migración M2 + **openapi temprano** (contrato de plaza — se mantiene A MANO vía skill). Molde de permisos: receta 8 archivos (memoria del repo); los maestros PR-1 usan `LeaveConfiguration.Read/Admin` (no confundir).
 
 ### Bitácora
 - **2026-07-04** — Análisis de negocio creado, ratificado (D-01…D-27, P-01…P-18) y confirmado el Anexo A (riesgos/asuetos/golden cases). Plan técnico escrito (PR-1…PR-10). Confirmaciones finales: quincenas por empresa (sin plantilla), clínicas sin catálogo inicial (campo opcional). Docs sin commit. Desarrollo no iniciado.
+- **2026-07-08** — Rama `feature/vacaciones-incapacidades` creada; docs commiteados (`547696a`). **PR-1 COMPLETADO** (mismo commit que esta bitácora): 6 entidades `Domain/Leave/` (MedicalClinic, IncapacityRisk+Parameter con guard `ReplaceParameters` de tramos contiguos, IncapacityType, CompanyHoliday, PayrollPeriodDefinition) · TPH `clinic-sectors` sembrado `-9860…-9862` (receta 8 toques) · 5 maestros governed end-to-end espejo CostCenters (familia `[ResourceActions]`, If-Match, activate/inactivate, SIN delete físico) con permisos nuevos **`LeaveConfiguration.Read/Admin`** (módulo PersonnelFiles) · `LeaveTemplateSeeder` idempotente (A.2: 5 riesgos con tramos; D-08: 6 tipos incl. LACTANCIA; A.3: 11 asuetos/año con computus de Semana Santa) + hook en `CompanyProvisioningService` + `POST companies/{id}/leave-configuration/load-template?year=` · migración `20260708063820_AddLeaveConfigurationMasters` (7 tablas + seed TPH), drift limpio · resx EN/ES (18 códigos + 2 validation.message) · governance actualizado (`AuthorizationPolicyConventionGovernanceTests` + registry + ProblemDetails 403). **Suites: unit 2171/2171 (2153 base + 18 dominio) · integración 484/484 (472 base + 12 nuevos `ApiIntegrationTests.Leave.cs`; los 2 tests PDF requieren Gotenberg en Docker)**. Hallazgos operativos: (1) el harness de integración NO pasa por `CompanyProvisioningService` (seeder directo con `Company.Create`) → el hook de plantilla se prueba resolviendo `ILeaveTemplateSeeder` del factory; (2) primer uso de `DateOnly` en el dominio — Npgsql lo mapea nativo a `date`, vigilar serialización en DTOs; (3) validación de guards del PUT de riesgos ANTES de abrir la transacción para no convertir 422 en 500. Siguiente: PR-2.
 
 ---
 

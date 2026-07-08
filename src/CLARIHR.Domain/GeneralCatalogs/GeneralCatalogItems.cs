@@ -1035,3 +1035,36 @@ public sealed class AdditionalBenefitTypeCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of medical-clinic sectors (general-catalogs key <c>clinic-sectors</c>:
+/// ISSS, pública, privada) backing the optional <c>sectorCode</c> of a company medical clinic
+/// (vacaciones e incapacidades module). Seeded for SV.
+/// </summary>
+public sealed class ClinicSectorCatalogItem : GeneralCatalogItem
+{
+    private ClinicSectorCatalogItem()
+    {
+    }
+
+    private ClinicSectorCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ClinicSectorCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

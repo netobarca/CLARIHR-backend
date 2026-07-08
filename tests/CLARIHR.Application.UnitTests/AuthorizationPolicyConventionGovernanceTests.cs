@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
@@ -13,6 +14,7 @@ using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.Leave.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
@@ -142,6 +144,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         CostCenterPolicies.Manage,
     };
 
+    private static readonly HashSet<string> LeaveConfigurationPolicyNames = new(StringComparer.Ordinal)
+    {
+        LeaveConfigurationPolicies.Read,
+        LeaveConfigurationPolicies.Manage,
+    };
+
     private static readonly HashSet<string> LocationPolicyNames = new(StringComparer.Ordinal)
     {
         LocationPolicies.Read,
@@ -236,6 +244,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 CostCenterPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
 
+        if (AnyHandlerInjects(typeof(ILeaveConfigurationAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                LeaveConfigurationPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                LeaveConfigurationPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
+
         if (AnyHandlerInjects(typeof(ILocationAuthorizationService)))
         {
             Assert.Contains(controllers, entry => entry.Marker is not null &&
@@ -306,6 +321,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(PositionSlotPolicyNames);
         valid.UnionWith(PersonnelFilePolicyNames);
         valid.UnionWith(CostCenterPolicyNames);
+        valid.UnionWith(LeaveConfigurationPolicyNames);
         valid.UnionWith(LocationPolicyNames);
         valid.UnionWith(LegalRepresentativePolicyNames);
         valid.UnionWith(OrgUnitPolicyNames);
@@ -327,7 +343,8 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
             invalid.Length == 0,
             "[AuthorizationPolicySet] must reference a constant from JobProfilePolicies / " +
             "PositionDescriptionCatalogPolicies / PositionSlotPolicies / PersonnelFilePolicies / " +
-            "CostCenterPolicies / LocationPolicies / LegalRepresentativePolicies / OrgUnitPolicies. " +
+            "CostCenterPolicies / LeaveConfigurationPolicies / LocationPolicies / " +
+            "LegalRepresentativePolicies / OrgUnitPolicies. " +
             "Offending:\n  " +
             string.Join("\n  ", invalid));
     }

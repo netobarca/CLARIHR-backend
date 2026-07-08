@@ -615,6 +615,15 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("SETTLEMENT_STATUS_CATALOG", -9822L, "SV", "ANULADA", "Anulada", 30),
     ];
 
+    // Medical-clinic sectors (vacaciones e incapacidades module): the optional `sectorCode` of a company
+    // medical clinic. Clinics themselves have NO seed — the sector catalog is the only seeded piece.
+    public static IEnumerable<object> GetClinicSectorCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("CLINIC_SECTOR_CATALOG", -9860L, "SV", "ISSS", "ISSS", 10),
+        CreateGeneralCatalogSeed("CLINIC_SECTOR_CATALOG", -9861L, "SV", "PUBLICA", "Pública", 20),
+        CreateGeneralCatalogSeed("CLINIC_SECTOR_CATALOG", -9862L, "SV", "PRIVADA", "Privada", 30),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
