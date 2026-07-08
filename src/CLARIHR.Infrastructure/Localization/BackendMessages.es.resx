@@ -2224,6 +2224,42 @@
   <data name="COMPENSATORY_TIME_TYPE_IN_USE" xml:space="preserve">
     <value>El tipo de tiempo compensatorio está referenciado por un registro activo y no puede inactivarse.</value>
   </data>
+  <data name="COMPENSATORY_TIME_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de tiempo compensatorio no existe o está inactivo para la empresa.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_OPERATION_MISMATCH" xml:space="preserve">
+    <value>El tipo de tiempo compensatorio no permite esta operación (una acreditación requiere un tipo ACREDITA o AMBAS).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_WORK_DATE_IN_FUTURE" xml:space="preserve">
+    <value>La fecha trabajada no puede ser posterior a hoy.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TIME_RANGE_INVALID" xml:space="preserve">
+    <value>El rango horario trabajado es incoherente (la hora de fin debe ser posterior a la de inicio).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_DOCUMENT_REQUIRED" xml:space="preserve">
+    <value>Se requiere un documento de autorización para registrar la acreditación de tiempo compensatorio.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_DOCUMENT_PURPOSE_INVALID" xml:space="preserve">
+    <value>El archivo referenciado no se cargó con el propósito de documento de tiempo compensatorio.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota cuando las horas acreditadas se ajustan manualmente.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_MAX_BALANCE_EXCEEDED" xml:space="preserve">
+    <value>La acreditación llevaría el saldo del fondo por encima del máximo configurado.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_BALANCE_WOULD_GO_NEGATIVE" xml:space="preserve">
+    <value>Editar o anular esta acreditación dejaría el saldo del fondo en negativo (existen débitos en su contra).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para anular una acreditación de tiempo compensatorio.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La acreditación de tiempo compensatorio no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="EMPLOYEE_PROFILE_RETIRED_LOCKED" xml:space="preserve">
+    <value>El expediente del empleado está retirado; este registro ya no puede crearse, editarse ni anularse.</value>
+  </data>
   <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
     <value>El código de operación debe ser ACREDITA, DEBITA o AMBAS.</value>
   </data>

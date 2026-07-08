@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Leave;
 using CLARIHR.Domain.Leave;
+using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,10 +33,39 @@ internal sealed class CompensatoryTimeTypeRepository(ApplicationDbContext dbCont
                     (!excludingCompensatoryTimeTypeId.HasValue || type.PublicId != excludingCompensatoryTimeTypeId.Value),
             cancellationToken);
 
-    // PR-1: the credit/absence tables do not exist yet (M2/PR-2). The usage guard is wired but always
-    // returns false until PR-3/PR-4 join against those tables.
-    public Task<bool> IsInUseAsync(Guid tenantId, Guid compensatoryTimeTypeId, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
+    // A type is in use when it is referenced by a REGISTRADA credit or absence (annulled movements no longer
+    // count). Resolves the type's internal id first, then probes both movement tables (PR-3 wires the credit
+    // branch; the absence branch is already live because the table exists — M2).
+    public async Task<bool> IsInUseAsync(Guid tenantId, Guid compensatoryTimeTypeId, CancellationToken cancellationToken)
+    {
+        var internalId = await dbContext.CompensatoryTimeTypes
+            .AsNoTracking()
+            .Where(type => type.TenantId == tenantId && type.PublicId == compensatoryTimeTypeId)
+            .Select(type => (long?)type.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (internalId is null)
+        {
+            return false;
+        }
+
+        var usedByCredit = await dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .AnyAsync(
+                credit => credit.CompensatoryTimeTypeId == internalId.Value
+                    && credit.StatusCode == CompensatoryTimeStatuses.Registrada,
+                cancellationToken);
+        if (usedByCredit)
+        {
+            return true;
+        }
+
+        return await dbContext.PersonnelFileCompensatoryTimeAbsences
+            .AsNoTracking()
+            .AnyAsync(
+                absence => absence.CompensatoryTimeTypeId == internalId.Value
+                    && absence.StatusCode == CompensatoryTimeStatuses.Registrada,
+                cancellationToken);
+    }
 
     public async Task<PagedResponse<CompensatoryTimeTypeListItemResponse>> SearchAsync(
         Guid tenantId,

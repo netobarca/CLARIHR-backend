@@ -1,4 +1,6 @@
+using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
+using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Abstractions.PersonnelFiles;
 
@@ -38,4 +40,45 @@ public interface ICompensatoryTimeRepository
     /// </summary>
     Task AcquireFundLockAsync(Guid tenantId, long personnelFileId, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    // ── Type reference resolution (public id → snapshot; null when inactive/foreign) ──────────────
+
+    /// <summary>
+    /// Resolves an ACTIVE compensatory-time type of the tenant to its internal id + code/name/operation/factor
+    /// snapshot (null when the type is inactive or belongs to another tenant). The operation and factor are
+    /// snapshotted on the credit at registration (RN-02/RN-04).
+    /// </summary>
+    Task<CompensatoryTimeTypeRef?> ResolveTypeAsync(Guid tenantId, Guid typePublicId, CancellationToken cancellationToken);
+
+    /// <summary>True when the employee's profile is RETIRADO (the fund is frozen — aclaración №9).</summary>
+    Task<bool> IsProfileRetiredAsync(long personnelFileId, CancellationToken cancellationToken);
+
+    // ── Credit reads ──────────────────────────────────────────────────────────────────────────────
+    Task<IReadOnlyCollection<PersonnelFileCompensatoryTimeCreditResponse>> GetCreditResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken);
+
+    Task<PersonnelFileCompensatoryTimeCreditResponse?> GetCreditResponseAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken);
+
+    /// <summary>Tracked entity for the domain guards to mutate.</summary>
+    Task<PersonnelFileCompensatoryTimeCredit?> GetCreditEntityAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken);
+
+    Task<long?> GetCreditInternalIdAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken);
+
+    // ── Writes (added to the change tracker; the caller commits through IUnitOfWork) ──────────────
+    void AddCredit(PersonnelFileCompensatoryTimeCredit entity);
+
+    void AddDocument(PersonnelFileCompensatoryTimeCreditDocument entity);
+
+    // ── Credit-document reads ─────────────────────────────────────────────────────────────────────
+    Task<IReadOnlyCollection<CompensatoryTimeCreditDocumentResponse>> GetDocumentResponsesAsync(
+        Guid creditPublicId, CancellationToken cancellationToken);
+
+    Task<CompensatoryTimeCreditDocumentResponse?> GetDocumentResponseAsync(
+        Guid creditPublicId, Guid documentPublicId, CancellationToken cancellationToken);
+
+    Task<PersonnelFileCompensatoryTimeCreditDocument?> GetDocumentEntityAsync(
+        Guid creditPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken);
 }

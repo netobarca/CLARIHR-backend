@@ -325,6 +325,16 @@ public static class PersonnelFileErrors
         "The requested operation is not allowed for the current personnel file state.",
         ErrorType.UnprocessableEntity);
 
+    /// <summary>
+    /// A retired employee's profile is frozen: modules whose records feed the settlement snapshot (e.g. the
+    /// compensatory-time fund — REQ-002 aclaración №9) reject every write while the profile is RETIRADO so the
+    /// already-computed settlement stays consistent. Reversing the retirement (30-day window) reopens the profile.
+    /// </summary>
+    public static readonly Error ProfileRetiredLocked = new(
+        "EMPLOYEE_PROFILE_RETIRED_LOCKED",
+        "The employee profile is retired; this record can no longer be created, edited or annulled.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error RecordTypeTransitionNotAllowed = new(
         "PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED",
         "Personnel file record type transitions are not allowed in this module.",

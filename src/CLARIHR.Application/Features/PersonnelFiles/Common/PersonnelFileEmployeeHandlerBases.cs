@@ -355,6 +355,50 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Manage gate for compensatory time (REQ-002 D-01): the dedicated
+    /// <c>PersonnelFiles.ManageCompensatoryTime</c> permission (or Admin). Used by every credit/absence write —
+    /// F1 is HR-only, no self-service (D-01). Item-level optimistic concurrency is enforced by each command's own
+    /// If-Match token, so callers pass <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageCompensatoryTimeAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageCompensatoryTimeAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
     /// Manage gate for vacations (leave module D-17): the dedicated <c>PersonnelFiles.ManageVacations</c>
     /// permission (or Admin). Used by the fund CRUD and the mass generation — no self-service. Item-level
     /// optimistic concurrency is enforced by each command's own If-Match token, so callers pass
@@ -1349,6 +1393,56 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
         }
 
         var canViewByRole = (await authorizationService.EnsureCanViewIncapacitiesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for compensatory-time sub-resources (REQ-002 D-01/D-10): the caller has the dedicated
+    /// <c>ViewCompensatoryTime</c> permission (or Admin), OR the caller is the employee reading their own fund /
+    /// estado de cuenta (self-service). Without the permission and without being the owner the caller gets 403
+    /// (no masking). Requires a completed employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForCompensatoryTimeReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewCompensatoryTimeAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
         if (!canViewByRole)
         {
             var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId

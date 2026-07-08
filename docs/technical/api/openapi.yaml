@@ -24034,6 +24034,442 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's compensatory-time credits
+      description: "Returns every compensatory-time credit recorded for the specified personnel file. Access requires the `ViewCompensatoryTime` permission or the employee reading their own credits."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileCompensatoryTimeCreditResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Register a compensatory-time credit
+      description: "Registers a compensatory-time credit and credits the hours into the employee fund (`hoursWorked × factor` snapshot, or a manual `hoursCreditedOverride` with a mandatory note). HR-only (`ManageCompensatoryTime`). When the company preference requires it, an `authorizationFilePublicId` (purpose `CompensatoryTimeDocument`) is mandatory and is attached in the same transaction. Journals the ACREDITACION_TIEMPO_COMPENSATORIO personnel action."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCompensatoryTimeCreditRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCompensatoryTimeCreditResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits/{creditPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a compensatory-time credit by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCompensatoryTimeCreditResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Edit a compensatory-time credit's business fields
+      description: "Updates the type, dates, hours and notes and recomputes the credited hours. Editing the hours down is re-verified against the fund balance under an advisory lock (the balance can never go negative). Requires the `If-Match` header with the current `concurrencyToken`; the new token is returned in the `ETag` header. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompensatoryTimeCreditRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCompensatoryTimeCreditResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits/{creditPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul a compensatory-time credit
+      description: "Annuls a REGISTRADA credit (terminal); the reason is mandatory. An annulled credit no longer counts toward the fund balance. If debits already stand against the credit the annulment is rejected under an advisory lock (the balance would go negative). Requires the `If-Match` header. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulCompensatoryTimeCreditRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCompensatoryTimeCreditResponse'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits/{creditPublicId}/documents':
+    get:
+      tags:
+        - Personnel Files
+      summary: List the authorization documents of a compensatory-time credit
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompensatoryTimeCreditDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Attach an authorization document to a compensatory-time credit
+      description: "Links an already-uploaded file (two-step upload-session then complete flow, with `purpose = CompensatoryTimeDocument`) to the credit. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCompensatoryTimeCreditDocumentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeCreditDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits/{creditPublicId}/documents/{documentPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a compensatory-time credit document by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensatoryTimeCreditDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: Remove an authorization document from a compensatory-time credit
+      description: "Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header with the document's current `concurrencyToken`. HR-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/compensatory-time-credits/{creditPublicId}/documents/{documentPublicId}/read-url':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a time-limited download URL for a compensatory-time credit document
+      description: "Authorizes the credit (same rule as reading it) and returns a short-lived, pre-signed (SAS) URL to download the attachment's binary directly from blob storage."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: creditPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCompensatoryTimeCreditDocumentReadUrlResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/incapacities':
     get:
       tags:
@@ -53671,6 +54107,236 @@ components:
         observations:
           type: string
           nullable: true
+    AddCompensatoryTimeCreditRequest:
+      type: object
+      properties:
+        compensatoryTimeTypePublicId:
+          type: string
+          format: uuid
+        workDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        hoursWorked:
+          type: number
+          format: double
+        hoursCreditedOverride:
+          type: number
+          format: double
+          nullable: true
+        overrideNote:
+          type: string
+          nullable: true
+        workDetail:
+          type: string
+        authorizedByText:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        authorizationFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentObservations:
+          type: string
+          nullable: true
+    UpdateCompensatoryTimeCreditRequest:
+      type: object
+      properties:
+        compensatoryTimeTypePublicId:
+          type: string
+          format: uuid
+        workDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        hoursWorked:
+          type: number
+          format: double
+        hoursCreditedOverride:
+          type: number
+          format: double
+          nullable: true
+        overrideNote:
+          type: string
+          nullable: true
+        workDetail:
+          type: string
+        authorizedByText:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    AnnulCompensatoryTimeCreditRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    PersonnelFileCompensatoryTimeCreditResponse:
+      type: object
+      properties:
+        compensatoryTimeCreditPublicId:
+          type: string
+          format: uuid
+        compensatoryTimeTypePublicId:
+          type: string
+          format: uuid
+        compensatoryTimeTypeCode:
+          type: string
+        typeNameSnapshot:
+          type: string
+        workDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        hoursWorked:
+          type: number
+          format: double
+        factorApplied:
+          type: number
+          format: double
+        hoursCredited:
+          type: number
+          format: double
+        isOverridden:
+          type: boolean
+        overrideNote:
+          type: string
+          nullable: true
+        workDetail:
+          type: string
+        authorizedByText:
+          type: string
+        authorizerFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+        annulmentReason:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    AddCompensatoryTimeCreditDocumentRequest:
+      type: object
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+    CompensatoryTimeCreditDocumentResponse:
+      type: object
+      properties:
+        compensatoryTimeCreditDocumentPublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCode:
+          type: string
+          nullable: true
+        documentTypeName:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        filePublicId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    GetCompensatoryTimeCreditDocumentReadUrlResponse:
+      type: object
+      properties:
+        readUrl:
+          type: string
+        expiresUtc:
+          type: string
+          format: date-time
     LactationScheduleResponse:
       type: object
       properties:

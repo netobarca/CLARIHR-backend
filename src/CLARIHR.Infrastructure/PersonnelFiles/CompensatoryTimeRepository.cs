@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
@@ -81,4 +82,134 @@ internal sealed class CompensatoryTimeRepository(ApplicationDbContext dbContext)
             new object[] { FundMutationLockClassId, objectKey },
             cancellationToken);
     }
+
+    public async Task<CompensatoryTimeTypeRef?> ResolveTypeAsync(Guid tenantId, Guid typePublicId, CancellationToken cancellationToken) =>
+        await dbContext.CompensatoryTimeTypes
+            .AsNoTracking()
+            .Where(type => type.TenantId == tenantId && type.PublicId == typePublicId && type.IsActive)
+            .Select(type => new CompensatoryTimeTypeRef(type.Id, type.Code, type.Name, type.OperationCode, type.CreditFactor))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<bool> IsProfileRetiredAsync(long personnelFileId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileEmployeeProfiles
+            .AsNoTracking()
+            .AnyAsync(
+                profile => profile.PersonnelFileId == personnelFileId
+                    && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileCompensatoryTimeCreditResponse>> GetCreditResponsesAsync(
+        Guid personnelFilePublicId, CancellationToken cancellationToken)
+    {
+        var items = await QueryCreditsWithIncludes()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.WorkDate)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapCredit).ToArray();
+    }
+
+    public async Task<PersonnelFileCompensatoryTimeCreditResponse?> GetCreditResponseAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken)
+    {
+        var item = await QueryCreditsWithIncludes()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == creditPublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return item is null ? null : MapCredit(item);
+    }
+
+    public Task<PersonnelFileCompensatoryTimeCredit?> GetCreditEntityAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeCredits
+            .SingleOrDefaultAsync(
+                item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == creditPublicId,
+                cancellationToken);
+
+    public Task<long?> GetCreditInternalIdAsync(
+        Guid personnelFilePublicId, Guid creditPublicId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == creditPublicId)
+            .Select(item => (long?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public void AddCredit(PersonnelFileCompensatoryTimeCredit entity) =>
+        dbContext.PersonnelFileCompensatoryTimeCredits.Add(entity);
+
+    public void AddDocument(PersonnelFileCompensatoryTimeCreditDocument entity) =>
+        dbContext.PersonnelFileCompensatoryTimeCreditDocuments.Add(entity);
+
+    public async Task<IReadOnlyCollection<CompensatoryTimeCreditDocumentResponse>> GetDocumentResponsesAsync(
+        Guid creditPublicId, CancellationToken cancellationToken) =>
+        await dbContext.PersonnelFileCompensatoryTimeCreditDocuments
+            .AsNoTracking()
+            .Where(document => document.Credit.PublicId == creditPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .Select(document => MapDocument(document))
+            .ToArrayAsync(cancellationToken);
+
+    public Task<CompensatoryTimeCreditDocumentResponse?> GetDocumentResponseAsync(
+        Guid creditPublicId, Guid documentPublicId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeCreditDocuments
+            .AsNoTracking()
+            .Where(document => document.Credit.PublicId == creditPublicId && document.PublicId == documentPublicId)
+            .Select(document => MapDocument(document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<PersonnelFileCompensatoryTimeCreditDocument?> GetDocumentEntityAsync(
+        Guid creditPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileCompensatoryTimeCreditDocuments
+            .SingleOrDefaultAsync(
+                document => document.Credit.PublicId == creditPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private IQueryable<PersonnelFileCompensatoryTimeCredit> QueryCreditsWithIncludes() =>
+        dbContext.PersonnelFileCompensatoryTimeCredits
+            .AsNoTracking()
+            .Include(item => item.CompensatoryTimeType);
+
+    private static PersonnelFileCompensatoryTimeCreditResponse MapCredit(PersonnelFileCompensatoryTimeCredit item) =>
+        new(
+            item.PublicId,
+            item.CompensatoryTimeType!.PublicId,
+            item.CompensatoryTimeType!.Code,
+            item.TypeNameSnapshot,
+            item.WorkDate,
+            item.StartTime,
+            item.EndTime,
+            item.HoursWorked,
+            item.FactorApplied,
+            item.HoursCredited,
+            item.IsOverridden,
+            item.OverrideNote,
+            item.WorkDetail,
+            item.AuthorizedByText,
+            item.AuthorizerFilePublicId,
+            item.AssignedPositionPublicId,
+            item.OvertimeRecordPublicId,
+            item.StatusCode,
+            item.AnnulmentReason,
+            item.Notes,
+            item.IsActive,
+            item.ConcurrencyToken,
+            item.CreatedUtc,
+            item.ModifiedUtc);
+
+    private static CompensatoryTimeCreditDocumentResponse MapDocument(PersonnelFileCompensatoryTimeCreditDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Code : null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.Observations,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.IsActive,
+            document.ConcurrencyToken,
+            document.CreatedUtc,
+            document.ModifiedUtc);
 }

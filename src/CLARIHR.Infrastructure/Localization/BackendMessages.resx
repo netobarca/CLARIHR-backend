@@ -2224,6 +2224,42 @@
   <data name="COMPENSATORY_TIME_TYPE_IN_USE" xml:space="preserve">
     <value>The compensatory-time type is referenced by an active record and cannot be inactivated.</value>
   </data>
+  <data name="COMPENSATORY_TIME_TYPE_INVALID" xml:space="preserve">
+    <value>The compensatory-time type does not exist or is inactive for the company.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TYPE_OPERATION_MISMATCH" xml:space="preserve">
+    <value>The compensatory-time type does not allow this operation (a credit requires an ACREDITA or AMBAS type).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_WORK_DATE_IN_FUTURE" xml:space="preserve">
+    <value>The worked date cannot be later than today.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_TIME_RANGE_INVALID" xml:space="preserve">
+    <value>The worked-time range is incoherent (the end time must be later than the start time).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_DOCUMENT_REQUIRED" xml:space="preserve">
+    <value>An authorization document is required to register the compensatory-time credit.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_DOCUMENT_PURPOSE_INVALID" xml:space="preserve">
+    <value>The referenced file was not uploaded with the compensatory-time-document purpose.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_OVERRIDE_NOTE_REQUIRED" xml:space="preserve">
+    <value>A note is required when the credited hours are manually adjusted.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_MAX_BALANCE_EXCEEDED" xml:space="preserve">
+    <value>The credit would take the fund balance over the configured maximum.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_BALANCE_WOULD_GO_NEGATIVE" xml:space="preserve">
+    <value>Editing or annulling this credit would drive the fund balance negative (there are debits against it).</value>
+  </data>
+  <data name="COMPENSATORY_TIME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>A reason is required to annul a compensatory-time credit.</value>
+  </data>
+  <data name="COMPENSATORY_TIME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The compensatory-time credit is not in a state that allows this operation.</value>
+  </data>
+  <data name="EMPLOYEE_PROFILE_RETIRED_LOCKED" xml:space="preserve">
+    <value>The employee profile is retired; this record can no longer be created, edited or annulled.</value>
+  </data>
   <data name="validation.message.operation_code_must_be_acredita_debita_or_ambas" xml:space="preserve">
     <value>Operation code must be ACREDITA, DEBITA or AMBAS.</value>
   </data>
