@@ -381,6 +381,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileSettlementLine> PersonnelFileSettlementLines => Set<PersonnelFileSettlementLine>();
 
+    public DbSet<PersonnelFileIncapacity> PersonnelFileIncapacities => Set<PersonnelFileIncapacity>();
+
+    public DbSet<PersonnelFileIncapacityDocument> PersonnelFileIncapacityDocuments => Set<PersonnelFileIncapacityDocument>();
+
+    public DbSet<PersonnelFileLactationPeriod> PersonnelFileLactationPeriods => Set<PersonnelFileLactationPeriod>();
+
+    public DbSet<LactationSchedule> LactationSchedules => Set<LactationSchedule>();
+
     public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
 
     public DbSet<CertificateRequestDocument> CertificateRequestDocuments => Set<CertificateRequestDocument>();
