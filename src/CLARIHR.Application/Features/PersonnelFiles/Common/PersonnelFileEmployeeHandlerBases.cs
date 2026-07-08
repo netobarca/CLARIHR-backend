@@ -355,6 +355,100 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
     }
 
     /// <summary>
+    /// Manage gate for vacations (leave module D-17): the dedicated <c>PersonnelFiles.ManageVacations</c>
+    /// permission (or Admin). Used by the fund CRUD and the mass generation — no self-service. Item-level
+    /// optimistic concurrency is enforced by each command's own If-Match token, so callers pass
+    /// <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageVacationsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageVacationsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for vacation sub-resources (leave module D-17/D-18): the caller has the dedicated
+    /// <c>ViewVacations</c> permission (or Admin), OR the caller is the employee reading their own fund /
+    /// requests (self-service). Without the permission and without being the owner the caller gets 403 (no
+    /// masking). Requires a completed employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForVacationReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewVacationsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
     /// Manage gate for economic-aid requests (D-03): the dedicated <c>PersonnelFiles.ManageEconomicAidRequests</c>
     /// permission (or Admin). Used by validate (resolution)/disburse/update/delete — RR. HH. only, no self-service.
     /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass

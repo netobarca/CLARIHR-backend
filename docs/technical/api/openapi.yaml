@@ -24168,6 +24168,306 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-periods':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's vacation fund periods
+      description: "Returns the active vacation fund periods of the employee (yearly grants + derived bounds). Access requires the `ViewVacations` permission or the employee reading their own fund (D-18)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileVacationPeriodResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Create a vacation fund period
+      description: "Creates a manual vacation fund period. The bounds are derived from the anniversary flag (defaulting to the company preference) and the primary-plaza anniversary or the calendar year; the grants default to the company preference. Rejected on a duplicate active period for the year (`VACATION_PERIOD_DUPLICATE`) or when the employee has not completed one year of service at the start of the period (`VACATION_ELIGIBILITY_NOT_MET`). Manager-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddVacationPeriodRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationPeriodResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-periods/{vacationPeriodPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a vacation fund period by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationPeriodResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Edit a vacation fund period's granted days
+      description: "Updates the legal/benefit granted days of a period. Requires the `If-Match` header with the current `concurrencyToken`. Rejected when the period already has enjoyed days (`VACATION_PERIOD_HAS_CONSUMPTION`). Manager-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVacationPeriodGrantsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileVacationPeriodResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: Remove a vacation fund period
+      description: "Soft-deletes a vacation fund period. Requires the `If-Match` header with the period's current `concurrencyToken`. Rejected when the period already has enjoyed days (`VACATION_PERIOD_HAS_CONSUMPTION`). Manager-only."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: vacationPeriodPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/vacation-fund':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get an employee's vacation fund detail
+      description: "Returns the vacation fund detail: per active period the granted/enjoyed/pending days plus the financial provision (pending × daily × 1.30, D-25). The daily salary is the base salary over 30. Access requires `ViewVacations` or the owner employee."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationFundResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-periods/generate':
+    post:
+      tags:
+        - Personnel Files
+      summary: Generate the yearly vacation fund for active employees
+      description: "Creates one active vacation fund period per active employee for the year (idempotent by employee-year). Art. 177-ineligible employees are reported per row (`errors`). The grants and anniversary flag default to the company preference; an optional `employeeIds` filter restricts the run. Manager-only (`ManageVacations`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateVacationPeriodsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPeriodGenerationSummary'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/vacation-fund/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the vacation fund provision to Excel/CSV/JSON
+      description: "Exports the Finanzas provision (D-25): one active period per employee with the granted days split into legal/benefit, the enjoyed and pending days, the daily salary (salary/30) and the provision (pending × daily × 1.30). Optionally filtered by year. HR-only (`ViewVacations`). Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/incapacities/{incapacityPublicId}/documents':
     get:
       tags:
@@ -51547,6 +51847,202 @@ components:
         remainingDays:
           type: integer
           format: int32
+    PersonnelFileVacationPeriodResponse:
+      type: object
+      properties:
+        vacationPeriodPublicId:
+          type: string
+          format: uuid
+        periodYear:
+          type: integer
+          format: int32
+        periodStartDate:
+          type: string
+          format: date
+        periodEndDate:
+          type: string
+          format: date
+        legalDaysGranted:
+          type: integer
+          format: int32
+        benefitDaysGranted:
+          type: integer
+          format: int32
+        totalDaysGranted:
+          type: integer
+          format: int32
+        generatesEnjoymentDays:
+          type: boolean
+        usedAnniversary:
+          type: boolean
+        sourceCode:
+          type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    VacationFundPeriodResponse:
+      type: object
+      properties:
+        vacationPeriodPublicId:
+          type: string
+          format: uuid
+        periodYear:
+          type: integer
+          format: int32
+        periodStartDate:
+          type: string
+          format: date
+        periodEndDate:
+          type: string
+          format: date
+        legalDaysGranted:
+          type: integer
+          format: int32
+        benefitDaysGranted:
+          type: integer
+          format: int32
+        totalDaysGranted:
+          type: integer
+          format: int32
+        generatesEnjoymentDays:
+          type: boolean
+        usedAnniversary:
+          type: boolean
+        sourceCode:
+          type: string
+        enjoyedDays:
+          type: integer
+          format: int32
+        pendingDays:
+          type: integer
+          format: int32
+        provisionAmount:
+          type: number
+          format: double
+          nullable: true
+    VacationFundResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        dailySalary:
+          type: number
+          format: double
+          nullable: true
+        totalGrantedDays:
+          type: integer
+          format: int32
+        totalEnjoyedDays:
+          type: integer
+          format: int32
+        totalPendingDays:
+          type: integer
+          format: int32
+        totalProvisionAmount:
+          type: number
+          format: double
+          nullable: true
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationFundPeriodResponse'
+    VacationPeriodGenerationError:
+      type: object
+      properties:
+        employeePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+          nullable: true
+        code:
+          type: string
+        message:
+          type: string
+    VacationPeriodGenerationSummary:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        totalEmployees:
+          type: integer
+          format: int32
+        created:
+          type: integer
+          format: int32
+        skipped:
+          type: integer
+          format: int32
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacationPeriodGenerationError'
+    AddVacationPeriodRequest:
+      type: object
+      properties:
+        periodYear:
+          type: integer
+          format: int32
+        useAnniversary:
+          type: boolean
+          nullable: true
+        legalDaysGranted:
+          type: integer
+          format: int32
+          nullable: true
+        benefitDaysGranted:
+          type: integer
+          format: int32
+          nullable: true
+        generatesEnjoymentDays:
+          type: boolean
+          nullable: true
+    UpdateVacationPeriodGrantsRequest:
+      type: object
+      properties:
+        legalDaysGranted:
+          type: integer
+          format: int32
+        benefitDaysGranted:
+          type: integer
+          format: int32
+    GenerateVacationPeriodsRequest:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        useAnniversary:
+          type: boolean
+          nullable: true
+        legalDaysGranted:
+          type: integer
+          format: int32
+          nullable: true
+        benefitDaysGranted:
+          type: integer
+          format: int32
+          nullable: true
+        generatesEnjoymentDays:
+          type: boolean
+          nullable: true
+        employeeIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
     IncapacityDocumentResponse:
       type: object
       properties:

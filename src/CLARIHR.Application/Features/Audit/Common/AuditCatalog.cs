@@ -202,6 +202,7 @@ public static class AuditEventTypes
     public const string PayrollPeriodDefinitionActivated = "PAYROLL_PERIOD_DEFINITION_ACTIVATED";
     public const string PayrollPeriodDefinitionInactivated = "PAYROLL_PERIOD_DEFINITION_INACTIVATED";
     public const string LeaveTemplateLoaded = "LEAVE_TEMPLATE_LOADED";
+    public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -397,7 +398,8 @@ public static class AuditEventTypes
         PayrollPeriodDefinitionUpdated,
         PayrollPeriodDefinitionActivated,
         PayrollPeriodDefinitionInactivated,
-        LeaveTemplateLoaded
+        LeaveTemplateLoaded,
+        VacationPeriodsGenerated
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

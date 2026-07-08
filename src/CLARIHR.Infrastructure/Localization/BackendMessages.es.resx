@@ -2158,4 +2158,13 @@
   <data name="LACTATION_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>El periodo de lactancia no está en un estado que permita esta operación.</value>
   </data>
+  <data name="VACATION_PERIOD_DUPLICATE" xml:space="preserve">
+    <value>Ya existe un periodo de vacaciones activo para este empleado y año.</value>
+  </data>
+  <data name="VACATION_PERIOD_HAS_CONSUMPTION" xml:space="preserve">
+    <value>El periodo de vacaciones no puede editarse ni eliminarse porque ya tiene días gozados.</value>
+  </data>
+  <data name="VACATION_ELIGIBILITY_NOT_MET" xml:space="preserve">
+    <value>El empleado aún no ha cumplido un año de servicio (Art. 177) al inicio del periodo.</value>
+  </data>
 </root>

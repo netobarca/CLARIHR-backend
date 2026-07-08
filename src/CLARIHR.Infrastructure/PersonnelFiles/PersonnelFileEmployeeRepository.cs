@@ -51,9 +51,73 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             return null;
         }
 
-        // Publish the disability balance owned by this module (§3.10): the SAME pure rule as the
-        // incapacity-balance endpoint, so the two figures cuadran by construction.
-        return Map(item) with { DisabilityDaysAvailable = await ComputeDisabilityDaysAvailableAsync(item, cancellationToken) };
+        // Publish the balances owned by this module (§3.10): the SAME pure rules as the incapacity-balance
+        // endpoint / the vacation fund detail, so the figures cuadran by construction. Computed OUTSIDE the
+        // Map projection (member-init gotcha).
+        var disabilityDaysAvailable = await ComputeDisabilityDaysAvailableAsync(item, cancellationToken);
+        var vacationDaysAvailable = await ComputeVacationDaysAvailableAsync(item, cancellationToken);
+        return Map(item) with
+        {
+            DisabilityDaysAvailable = disabilityDaysAvailable,
+            VacationDaysAvailable = vacationDaysAvailable,
+        };
+    }
+
+    /// <summary>
+    /// Available enjoyment days of the employee's active fund (§3.10): Σ over active periods with
+    /// <c>GeneratesEnjoymentDays</c> of (granted − net consumed), via <see cref="VacationRules.AvailableDays"/>.
+    /// Null when the module has no fund data yet for the employee (documented in the FE guide).
+    /// </summary>
+    private async Task<decimal?> ComputeVacationDaysAvailableAsync(
+        PersonnelFileEmployeeProfile profile,
+        CancellationToken cancellationToken)
+    {
+        var periods = await dbContext.PersonnelFileVacationPeriods
+            .AsNoTracking()
+            .Where(period => period.PersonnelFileId == profile.PersonnelFileId
+                && period.IsActive
+                && period.GeneratesEnjoymentDays)
+            .ToListAsync(cancellationToken);
+        if (periods.Count == 0)
+        {
+            return null;
+        }
+
+        var consuming = VacationRequestStatuses.ConsumesFund.ToArray();
+        var allocations = await dbContext.VacationRequestAllocations
+            .AsNoTracking()
+            .Join(
+                dbContext.PersonnelFileVacationRequests.AsNoTracking(),
+                allocation => allocation.VacationRequestId,
+                request => request.Id,
+                (allocation, request) => new { allocation.VacationPeriodId, allocation.Days, request.PersonnelFileId, request.StatusCode })
+            .Where(row => row.PersonnelFileId == profile.PersonnelFileId && consuming.Contains(row.StatusCode))
+            .Select(row => new { row.VacationPeriodId, row.Days })
+            .ToListAsync(cancellationToken);
+
+        var returnDistributions = await dbContext.VacationReturns
+            .AsNoTracking()
+            .Join(
+                dbContext.PersonnelFileVacationRequests.AsNoTracking(),
+                entry => entry.VacationRequestId,
+                request => request.Id,
+                (entry, request) => new { entry.DistributionJson, request.PersonnelFileId, request.StatusCode })
+            .Where(row => row.PersonnelFileId == profile.PersonnelFileId && consuming.Contains(row.StatusCode))
+            .Select(row => row.DistributionJson)
+            .ToListAsync(cancellationToken);
+
+        var net = VacationFundMath.NetConsumedByPeriod(
+            allocations.Select(row => (row.VacationPeriodId, row.Days)),
+            returnDistributions);
+
+        var available = 0;
+        foreach (var period in periods)
+        {
+            var consumed = Math.Max(0, net.GetValueOrDefault(period.Id));
+            available += VacationRules.AvailableDays(period, [consumed]);
+        }
+
+        return available;
     }
 
     /// <summary>

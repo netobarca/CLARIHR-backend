@@ -389,6 +389,18 @@ public sealed class ApplicationDbContext(
 
     public DbSet<LactationSchedule> LactationSchedules => Set<LactationSchedule>();
 
+    public DbSet<PersonnelFileVacationPeriod> PersonnelFileVacationPeriods => Set<PersonnelFileVacationPeriod>();
+
+    public DbSet<PersonnelFileVacationRequest> PersonnelFileVacationRequests => Set<PersonnelFileVacationRequest>();
+
+    public DbSet<VacationRequestAllocation> VacationRequestAllocations => Set<VacationRequestAllocation>();
+
+    public DbSet<VacationReturn> VacationReturns => Set<VacationReturn>();
+
+    public DbSet<VacationPlan> VacationPlans => Set<VacationPlan>();
+
+    public DbSet<VacationPlanLine> VacationPlanLines => Set<VacationPlanLine>();
+
     public DbSet<PersonnelFileCertificateRequest> PersonnelFileCertificateRequests => Set<PersonnelFileCertificateRequest>();
 
     public DbSet<CertificateRequestDocument> CertificateRequestDocuments => Set<CertificateRequestDocument>();
