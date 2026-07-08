@@ -393,6 +393,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<LactationSchedule> LactationSchedules => Set<LactationSchedule>();
 
+    public DbSet<PersonnelFileCompensatoryTimeCredit> PersonnelFileCompensatoryTimeCredits => Set<PersonnelFileCompensatoryTimeCredit>();
+
+    public DbSet<PersonnelFileCompensatoryTimeCreditDocument> PersonnelFileCompensatoryTimeCreditDocuments => Set<PersonnelFileCompensatoryTimeCreditDocument>();
+
+    public DbSet<PersonnelFileCompensatoryTimeAbsence> PersonnelFileCompensatoryTimeAbsences => Set<PersonnelFileCompensatoryTimeAbsence>();
+
     public DbSet<PersonnelFileVacationPeriod> PersonnelFileVacationPeriods => Set<PersonnelFileVacationPeriod>();
 
     public DbSet<PersonnelFileVacationRequest> PersonnelFileVacationRequests => Set<PersonnelFileVacationRequest>();

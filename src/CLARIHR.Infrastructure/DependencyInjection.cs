@@ -175,6 +175,7 @@ public static class DependencyInjection
         services.AddScoped<IPayrollPeriodRepository, PayrollPeriodRepository>();
         services.AddScoped<ILeaveCalculationDataProvider, LeaveCalculationDataProvider>();
         services.AddScoped<IPersonnelFileIncapacityRepository, PersonnelFileIncapacityRepository>();
+        services.AddScoped<ICompensatoryTimeRepository, CompensatoryTimeRepository>();
         services.AddScoped<IPersonnelFileLactationRepository, PersonnelFileLactationRepository>();
         services.AddScoped<IPersonnelFileVacationRepository, PersonnelFileVacationRepository>();
         services.AddScoped<ICompetencyFrameworkRepository, CompetencyFrameworkRepository>();
