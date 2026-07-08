@@ -2050,6 +2050,9 @@
   <data name="INCAPACITY_RISK_RULE_VIOLATION" xml:space="preserve">
     <value>La solicitud del riesgo de incapacidad viola una regla del dominio.</value>
   </data>
+  <data name="INCAPACITY_WARNING_CAP_EXHAUSTED" xml:space="preserve">
+    <value>El tope anual de días de incapacidad cubiertos por el patrono está agotado; los días excedentes se reclasificaron como días de descuento sin goce.</value>
+  </data>
   <data name="COMPANY_HOLIDAY_NOT_FOUND" xml:space="preserve">
     <value>No se encontró el asueto de la empresa.</value>
   </data>

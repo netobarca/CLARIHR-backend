@@ -2050,6 +2050,9 @@
   <data name="INCAPACITY_RISK_RULE_VIOLATION" xml:space="preserve">
     <value>The incapacity risk request violates a domain rule.</value>
   </data>
+  <data name="INCAPACITY_WARNING_CAP_EXHAUSTED" xml:space="preserve">
+    <value>The employer-covered incapacity day cap for the year is exhausted; the exceeding days were reclassified as unpaid discount days.</value>
+  </data>
   <data name="COMPANY_HOLIDAY_NOT_FOUND" xml:space="preserve">
     <value>The company holiday could not be found.</value>
   </data>
