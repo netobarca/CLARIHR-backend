@@ -25938,6 +25938,329 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/recurring-incomes/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide recurring-income bandeja
+      description: "Returns a paginated, filterable list of the company's recurring incomes (by employee, status, recurring-income type, payroll type and registration-date range) with the plan header, plus per-status counts. Every status is listed by default - annulled and rejected incomes are included with their status; the StatusCounts cover every status. HR-only (`ViewRecurringIncomes`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRecurringIncomesRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/recurring-incomes/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the recurring-income bandeja to Excel/CSV/JSON
+      description: "Exports the filtered recurring incomes (same filters as the bandeja) to `xlsx`, `csv` or `json` with the plan header, settlement action, status, currency and the registrar / decider ids. Annulled and rejected incomes are included (filter by status to narrow). HR-only. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: statusCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: recurringIncomeTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: registeredFromUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+        - name: registeredToUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/recurring-incomes/pending-installments/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide pending / overdue recurring-income installments
+      description: "Returns a paginated list of the THEORETICAL installments of the company's `VIGENTE` recurring incomes whose due date is on/before the cutoff and are NOT yet applied (RF-011). The cutoff is the `payrollPeriodPublicId` end date, the bare `cutoffDate`, or today; `startDate` narrows the lower bound; `payrollTypeCode` / `employeeId` scope the scan. Overdue installments (theoretical due < today) are flagged. HR-only (`ViewRecurringIncomes`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryPendingRecurringIncomeInstallmentsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomePendingInstallmentsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/recurring-incomes/pending-installments/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the pending / overdue recurring-income installments to Excel/CSV/JSON
+      description: "Exports the projected pending / overdue installments (same filters as the pending bandeja) to `xlsx`, `csv` or `json` with the theoretical due date, amount, currency and the overdue flag. HR-only. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: payrollPeriodPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: cutoffDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/recurring-incomes/payroll-input/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the recurring-income payroll input for an external payroll system
+      description: "Exports the APPLIED (`APLICADA`, active) installments of the MANDATORY `startDate`..`endDate` range (over the applied date), optionally scoped to a `payrollTypeCode` (RF-012 / section 5) - one row per installment with the employee, concept, payroll type, imputed period, applied date, number, amount, currency and cost center. It cuadra EXACTLY against the pending installments of the same filter once applied. A missing range bound yields 422. HR-only. Synchronous download capped at the configured row limit (413)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/economic-aid-requests':
     get:
       tags:
@@ -64687,6 +65010,205 @@ components:
           items:
             type: string
             format: uuid
+    QueryRecurringIncomesRequest:
+      type: object
+      properties:
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        registeredFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        registeredToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    RecurringIncomeListItemResponse:
+      type: object
+      properties:
+        recurringIncomePublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        costCenterPublicId:
+          type: string
+          format: uuid
+        costCenterNameSnapshot:
+          type: string
+        registrationDate:
+          type: string
+          format: date
+        installmentFrequencyCode:
+          type: string
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        installmentValue:
+          type: number
+          format: double
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+        statusCode:
+          type: string
+        registeredByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+    RecurringIncomeBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecurringIncomeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    QueryPendingRecurringIncomeInstallmentsRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    RecurringIncomePendingInstallmentResponse:
+      type: object
+      properties:
+        recurringIncomePublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        costCenterNameSnapshot:
+          type: string
+        payrollTypeCode:
+          type: string
+        currencyCode:
+          type: string
+        installmentNumber:
+          type: integer
+          format: int32
+        theoreticalDueDate:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: double
+        isOverdue:
+          type: boolean
+    RecurringIncomePendingInstallmentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecurringIncomePendingInstallmentResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     PersonnelFileEconomicAidRequestResponse:
       type: object
       properties:

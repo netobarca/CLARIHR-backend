@@ -81,3 +81,32 @@ public sealed record ApplyRecurringIncomePeriodRequest(
     Guid? PayrollPeriodPublicId,
     DateOnly? CutoffDate,
     IReadOnlyCollection<Guid>? ExcludedIncomePublicIds);
+
+/// <summary>
+/// Body for the company-wide recurring-income bandeja query (RF-010). Every filter is optional; when
+/// <c>StatusCode</c> is omitted every status is listed (annulled / rejected included). The StatusCounts are always
+/// computed over every status.
+/// </summary>
+public sealed record QueryRecurringIncomesRequest(
+    Guid? EmployeeId,
+    string? StatusCode,
+    string? RecurringIncomeTypeCode,
+    string? PayrollTypeCode,
+    DateTime? RegisteredFromUtc,
+    DateTime? RegisteredToUtc,
+    int? PageNumber,
+    int? PageSize);
+
+/// <summary>
+/// Body for the company-wide pending-installments bandeja query (RF-011). The cutoff is the
+/// <c>PayrollPeriodPublicId</c> end date, the bare <c>CutoffDate</c>, or today; <c>StartDate</c> narrows the lower
+/// bound; <c>PayrollTypeCode</c> / <c>EmployeeId</c> scope the VIGENTE-income scan.
+/// </summary>
+public sealed record QueryPendingRecurringIncomeInstallmentsRequest(
+    string? PayrollTypeCode,
+    Guid? PayrollPeriodPublicId,
+    DateOnly? CutoffDate,
+    DateOnly? StartDate,
+    Guid? EmployeeId,
+    int? PageNumber,
+    int? PageSize);

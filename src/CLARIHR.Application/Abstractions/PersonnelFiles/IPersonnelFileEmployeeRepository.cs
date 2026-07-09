@@ -1240,4 +1240,39 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         string payrollTypeCode,
         CancellationToken cancellationToken);
+
+    // ── Recurring-income bandeja + exports (REQ-005 PR-5) ───────────────────────────────────────────
+
+    /// <summary>The company-wide recurring-income bandeja page (RF-010): paginated + filtered items plus
+    /// per-status counts (computed over the full non-status filter, so every status is represented).</summary>
+    Task<RecurringIncomeBandejaResponse> QueryRecurringIncomesAsync(
+        QueryRecurringIncomesQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The recurring-income bandeja export rows (same filters as the bandeja; capped at
+    /// <c>MaxRows + 1</c> so the caller can detect the synchronous-limit overflow → 413).</summary>
+    Task<IReadOnlyCollection<IngresoCiclicoExportRow>> GetRecurringIncomeExportRowsAsync(
+        ExportRecurringIncomesQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The tenant's VIGENTE recurring incomes (optionally scoped to a payroll type / employee), each
+    /// enriched with the employee + plaza metadata and its applied installment numbers, for the pending-installments
+    /// projection (RF-011). The theoretical pending installments are projected in-memory by the pure rules.</summary>
+    Task<IReadOnlyList<RecurringIncomePendingScanItem>> GetRecurringIncomePendingScanAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        Guid? employeeId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The payroll-input rows (RF-012 / §5): the APPLIED (<c>APLICADA</c>, active) installments of the
+    /// mandatory applied-date range (optionally scoped to a payroll type), one row per installment with its
+    /// imputed period label. Capped at <c>MaxRows + 1</c> for the 413 overflow. Cuadra against the pending
+    /// installments of the same filter once applied (A.3-10); annulled installments are excluded.</summary>
+    Task<IReadOnlyCollection<InsumoPlanillaCiclicoExportRow>> GetRecurringIncomePayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken);
 }

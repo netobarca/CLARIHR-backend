@@ -2461,6 +2461,9 @@
   <data name="RECURRING_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>El lote de aplicación por periodo no pudo completarse por una cuota en conflicto: {0}.</value>
   </data>
+  <data name="RECURRING_INCOME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>Se requieren una fecha de inicio y una fecha de fin para exportar el insumo de planilla de ingresos cíclicos.</value>
+  </data>
   <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
     <value>InstallmentValue debe ser mayor que cero.</value>
   </data>

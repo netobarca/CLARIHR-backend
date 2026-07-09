@@ -4069,4 +4069,324 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 appliedByIncome.TryGetValue(income.Id, out var numbers) ? numbers : []))
             .ToArray();
     }
+
+    // ── Recurring-income bandeja + exports (REQ-005 PR-5) ───────────────────────────────────────────
+
+    public async Task<RecurringIncomeBandejaResponse> QueryRecurringIncomesAsync(
+        QueryRecurringIncomesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredRecurringIncomes(
+            query.CompanyId, query.EmployeeId, query.RecurringIncomeTypeCode, query.PayrollTypeCode,
+            query.RegisteredFromUtc, query.RegisteredToUtc);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even when the items are
+        // narrowed to one status.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Income.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = baseQuery;
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Income.StatusCode == status);
+        }
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Income.RegistrationDate)
+            .ThenByDescending(row => row.Income.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new RecurringIncomeListItemResponse(
+                row.Income.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Income.RecurringIncomeTypeCode,
+                row.Income.ConceptTypeCode,
+                row.Income.ConceptNameSnapshot,
+                row.Income.AssignedPositionPublicId,
+                row.Income.CostCenterPublicId,
+                row.Income.CostCenterNameSnapshot,
+                row.Income.RegistrationDate,
+                row.Income.InstallmentFrequencyCode,
+                row.Income.CurrencyCode,
+                row.Income.PayrollTypeCode,
+                row.Income.IsIndefinite,
+                row.Income.InstallmentValue,
+                row.Income.InstallmentCount,
+                row.Income.TotalAmount,
+                row.Income.SettlementActionCode,
+                row.Income.StatusCode,
+                row.Income.RegisteredByUserId == Guid.Empty ? (Guid?)null : row.Income.RegisteredByUserId,
+                row.Income.DecidedByUserId))
+            .ToArrayAsync(cancellationToken);
+
+        return new RecurringIncomeBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<IngresoCiclicoExportRow>> GetRecurringIncomeExportRowsAsync(
+        ExportRecurringIncomesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredRecurringIncomes(
+            query.CompanyId, query.EmployeeId, query.RecurringIncomeTypeCode, query.PayrollTypeCode,
+            query.RegisteredFromUtc, query.RegisteredToUtc);
+
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Income.StatusCode == status);
+        }
+
+        var ordered = filtered
+            .OrderByDescending(row => row.Income.RegistrationDate)
+            .ThenByDescending(row => row.Income.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? ordered.Take(maxRows + 1) : (IQueryable<RecurringIncomeQueryRow>)ordered;
+
+        var rows = await limited.ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new IngresoCiclicoExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Income.RecurringIncomeTypeCode,
+                row.Income.ConceptNameSnapshot,
+                row.Income.AssignedPositionPublicId.ToString(),
+                row.Income.CostCenterNameSnapshot,
+                row.Income.RegistrationDate,
+                row.Income.InstallmentFrequencyCode,
+                row.Income.InstallmentValue,
+                row.Income.InstallmentCount,
+                row.Income.TotalAmount,
+                row.Income.IsIndefinite,
+                row.Income.SettlementActionCode,
+                row.Income.StatusCode,
+                row.Income.CurrencyCode,
+                row.Income.RegisteredByUserId == Guid.Empty ? null : row.Income.RegisteredByUserId.ToString(),
+                row.Income.DecidedByUserId?.ToString()))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<RecurringIncomePendingScanItem>> GetRecurringIncomePendingScanAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        Guid? employeeId,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from income in dbContext.Set<PersonnelFileRecurringIncome>().AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on income.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where income.TenantId == tenantId && income.StatusCode == RecurringIncomeStatuses.Vigente
+            select new
+            {
+                income.Id,
+                income.PublicId,
+                FilePublicId = file.PublicId,
+                file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                income.RecurringIncomeTypeCode,
+                income.ConceptNameSnapshot,
+                income.AssignedPositionPublicId,
+                income.CostCenterNameSnapshot,
+                income.PayrollTypeCode,
+                income.CurrencyCode,
+                income.IsIndefinite,
+                income.InstallmentFrequencyCode,
+                income.InstallmentStartDate,
+                income.InstallmentValue,
+                income.InstallmentCount,
+                income.TotalAmount
+            };
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.FilePublicId == employeePublicId);
+        }
+
+        var incomes = await query.OrderBy(row => row.Id).ToArrayAsync(cancellationToken);
+        if (incomes.Length == 0)
+        {
+            return [];
+        }
+
+        var incomeIds = incomes.Select(income => income.Id).ToArray();
+        var appliedByIncome = (await dbContext.Set<PersonnelFileRecurringIncomeInstallment>()
+                .AsNoTracking()
+                .Where(installment => incomeIds.Contains(installment.RecurringIncomeId)
+                    && installment.StatusCode == RecurringIncomeInstallmentStatuses.Aplicada)
+                .Select(installment => new { installment.RecurringIncomeId, installment.InstallmentNumber })
+                .ToArrayAsync(cancellationToken))
+            .GroupBy(installment => installment.RecurringIncomeId)
+            .ToDictionary(group => group.Key, group => group.Select(installment => installment.InstallmentNumber).ToArray());
+
+        return incomes
+            .Select(income => new RecurringIncomePendingScanItem(
+                income.Id,
+                income.PublicId,
+                income.FilePublicId,
+                income.FullName,
+                income.EmployeeCode,
+                income.RecurringIncomeTypeCode,
+                income.ConceptNameSnapshot,
+                income.AssignedPositionPublicId,
+                income.CostCenterNameSnapshot,
+                income.PayrollTypeCode,
+                income.CurrencyCode,
+                income.IsIndefinite,
+                income.InstallmentFrequencyCode,
+                income.InstallmentStartDate,
+                income.InstallmentValue,
+                income.InstallmentCount,
+                income.TotalAmount,
+                appliedByIncome.TryGetValue(income.Id, out var numbers) ? numbers : []))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaCiclicoExportRow>> GetRecurringIncomePayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from installment in dbContext.Set<PersonnelFileRecurringIncomeInstallment>().AsNoTracking()
+            join income in dbContext.Set<PersonnelFileRecurringIncome>().AsNoTracking()
+                on installment.RecurringIncomeId equals income.Id
+            join file in dbContext.PersonnelFiles.AsNoTracking() on income.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where installment.TenantId == tenantId
+                // Excludes suspendidos/anulados: only APLICADA + active installments feed the payroll input.
+                && installment.StatusCode == RecurringIncomeInstallmentStatuses.Aplicada
+                && installment.IsActive
+                && installment.AppliedDate >= startDate
+                && installment.AppliedDate <= endDate
+            select new
+            {
+                file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                income.ConceptNameSnapshot,
+                installment.PayrollTypeCode,
+                installment.PayrollPeriodLabel,
+                installment.AppliedDate,
+                installment.InstallmentNumber,
+                installment.Amount,
+                installment.CurrencyCode,
+                income.CostCenterNameSnapshot
+            };
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        var ordered = query
+            .OrderBy(row => row.AppliedDate)
+            .ThenBy(row => row.FullName)
+            .ThenBy(row => row.InstallmentNumber);
+
+        var rows = maxRows is { } cap
+            ? await ordered.Take(cap + 1).ToArrayAsync(cancellationToken)
+            : await ordered.ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new InsumoPlanillaCiclicoExportRow(
+                row.FullName,
+                row.EmployeeCode,
+                row.ConceptNameSnapshot,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.AppliedDate,
+                row.InstallmentNumber,
+                row.Amount,
+                row.CurrencyCode,
+                row.CostCenterNameSnapshot))
+            .ToArray();
+    }
+
+    /// <summary>The company-scoped recurring-income filter shared by the bandeja and its export (member-init
+    /// intermediate projection so EF composes the Where/GroupBy over it reliably — same shape as the incapacities
+    /// / settlements filters).</summary>
+    private IQueryable<RecurringIncomeQueryRow> FilteredRecurringIncomes(
+        Guid tenantId,
+        Guid? employeeId,
+        string? recurringIncomeTypeCode,
+        string? payrollTypeCode,
+        DateTime? registeredFromUtc,
+        DateTime? registeredToUtc)
+    {
+        var query =
+            from income in dbContext.Set<PersonnelFileRecurringIncome>().AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on income.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where income.TenantId == tenantId
+            select new RecurringIncomeQueryRow
+            {
+                Income = income,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(recurringIncomeTypeCode))
+        {
+            var normalizedType = recurringIncomeTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Income.RecurringIncomeTypeCode == normalizedType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Income.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        if (registeredFromUtc is { } from)
+        {
+            var fromDate = DateOnly.FromDateTime(from);
+            query = query.Where(row => row.Income.RegistrationDate >= fromDate);
+        }
+
+        if (registeredToUtc is { } to)
+        {
+            var toDate = DateOnly.FromDateTime(to);
+            query = query.Where(row => row.Income.RegistrationDate <= toDate);
+        }
+
+        return query;
+    }
+
+    private sealed class RecurringIncomeQueryRow
+    {
+        public PersonnelFileRecurringIncome Income { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+    }
 }

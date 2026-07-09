@@ -57,6 +57,12 @@ internal static class RecurringIncomeErrors
         "RECURRING_INCOME_CLOSURE_REASON_REQUIRED",
         "A closure reason is required to close a recurring income manually.", ErrorType.UnprocessableEntity);
 
+    // The payroll-input export (§5) requires a bounded date range so the applied installments can be imputed to a
+    // period; a missing start/end date is a domain rule (422), not a shape error.
+    public static readonly Error PayrollInputRangeRequired = new(
+        "RECURRING_INCOME_PAYROLL_INPUT_RANGE_REQUIRED",
+        "A start date and an end date are required to export the recurring-income payroll input.", ErrorType.UnprocessableEntity);
+
     // Shares the code the pure rules already localize (RN-01/RN-02); the handler pre-checks the state before the
     // domain mutator so an invalid transition returns a clean 422 instead of a 500.
     public static readonly Error StateRuleViolation = new(

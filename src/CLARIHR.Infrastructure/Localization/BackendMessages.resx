@@ -2461,6 +2461,9 @@
   <data name="RECURRING_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>The apply-period batch could not be completed because of a conflicting installment: {0}.</value>
   </data>
+  <data name="RECURRING_INCOME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>A start date and an end date are required to export the recurring-income payroll input.</value>
+  </data>
   <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
     <value>InstallmentValue must be greater than zero.</value>
   </data>
