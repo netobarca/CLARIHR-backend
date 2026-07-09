@@ -284,6 +284,31 @@ internal sealed class SettlementRepository(
             }
         }
 
+        // Pending overtime feeds the AUTOMATIC HORAS_EXTRAS_PENDIENTES_PAGO pay-off line (REQ-007 RF-014/§0.15) —
+        // an ENGINE-CALCULATED line (Σ hours × factor × hourly rate), NOT a suggested manual amount like the incomes
+        // above. Scoped to THE PLAZA being settled (assigned_position_public_id == assignedPositionPublicId): each
+        // overtime record carries its own plaza, so per-plaza scoping avoids a double pay-off across plazas — unlike
+        // the per-employee compensatory-time fund, which is resolved only for the principal plaza. Only AUTORIZADA
+        // records that are active, NOT compensated by a compensatory-time credit (RF-013) and whose work date has
+        // elapsed (≤ the as-of date; future organized shifts are not payable) contribute. No records ⇒ null ⇒ the
+        // engine emits no line (retrocompatible).
+        OvertimeContext? pendingOvertime = null;
+        var asOfDate = DateOnly.FromDateTime(asOfUtc);
+        var overtimeRecords = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(record => record.PersonnelFileId == personnelFileId
+                && record.AssignedPositionPublicId == assignedPositionPublicId
+                && record.StatusCode == OvertimeRecordStatuses.Autorizada
+                && record.IsActive
+                && record.CompensatedByCreditPublicId == null
+                && record.WorkDate <= asOfDate)
+            .Select(record => new OvertimeContextRecord(record.PublicId, record.DurationDecimalHours, record.FactorApplied))
+            .ToListAsync(cancellationToken);
+        if (overtimeRecords.Count > 0)
+        {
+            pendingOvertime = new OvertimeContext(overtimeRecords, preference?.CompensatoryTimeStandardDailyHours ?? 8m);
+        }
+
         return new SettlementCalculationContext(
             new SettlementPlazaContext(
                 assignment.PublicId, assignment.StartDate, assignment.EndDate, assignment.IsActive,
@@ -299,7 +324,8 @@ internal sealed class SettlementRepository(
             concepts,
             currency,
             pendingVacationDays,
-            compensatoryTime);
+            compensatoryTime,
+            pendingOvertime);
     }
 
     /// <summary>

@@ -1614,4 +1614,22 @@ public interface IPersonnelFileEmployeeRepository
         DateOnly today,
         int? maxRows,
         CancellationToken cancellationToken);
+
+    // ── Overtime ↔ settlement hooks (REQ-007 PR-6, §0.15) ───────────────────────────────────────────────
+
+    /// <summary>The plaza's AUTORIZADA overtime records (tracked, active, NOT compensated — RF-013) that a settlement
+    /// closes when its HORAS_EXTRAS_PENDIENTES_PAGO line stays included: the caller splits them by work date — the
+    /// elapsed ones become APLICADA and the future organized shifts are annulled (§0.15/№13/№15); empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileOvertimeRecord>> GetOvertimeRecordsForSettlementAsync(
+        long personnelFileId,
+        Guid assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The overtime records a specific settlement closed (tracked): the ones it APPLIED and the FUTURE ones it
+    /// ANNULLED (stamped with the settlement id, regardless of is_active), to reopen when that settlement is annulled
+    /// (ReopenFromSettlement, §0.15); empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileOvertimeRecord>> GetOvertimeRecordsAppliedOrAnnulledBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken);
 }

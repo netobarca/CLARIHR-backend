@@ -91,7 +91,14 @@ internal static class SettlementCalculationSupport
                 : new CompensatoryTimeInput(
                     context.CompensatoryTime.PendingHours,
                     context.CompensatoryTime.StandardDailyHours,
-                    context.CompensatoryTime.RateFactor));
+                    context.CompensatoryTime.RateFactor),
+            context.PendingOvertime is null
+                ? null
+                : new OvertimeInput(
+                    context.PendingOvertime.Records
+                        .Select(record => new Overtime.OvertimeFactoredRecord(record.DecimalHours, record.Factor))
+                        .ToArray(),
+                    context.PendingOvertime.StandardDailyHours));
 
         var result = SettlementCalculationRules.Calculate(input);
 
@@ -966,6 +973,7 @@ internal sealed class IssueSettlementCommandHandler(
 {
     private const string SettlementActionTypeCode = "LIQUIDACION";
     private const string AppliedActionStatusCode = "APLICADA";
+    private const string OvertimeFutureAnnulmentReason = "Jornada futura anulada por la liquidación del empleado.";
 
     public async Task<Result<PersonnelFileSettlementResponse>> Handle(
         IssueSettlementCommand command,
@@ -1043,6 +1051,31 @@ internal sealed class IssueSettlementCommandHandler(
                 if (includedEventualKeys.Contains(income.Reference ?? income.ConceptNameSnapshot))
                 {
                     income.MarkAppliedBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+                }
+            }
+        }
+
+        // REQ-007 §0.15: when the engine-calculated HORAS_EXTRAS_PENDIENTES_PAGO line stayed INCLUDED, the plaza's
+        // AUTORIZADA overtime records that fed it are closed by THIS settlement — the elapsed (payable) ones become
+        // APLICADA (MarkAppliedBySettlement, idempotent) and the FUTURE organized shifts of the plaza are annulled
+        // (Annul with the settlement id), both stamped so annulment reopens exactly these (§0.15/№13/№15). Excluding
+        // the line ⇒ nothing is closed (the guard below is false → the records stay AUTORIZADA).
+        var overtimeLineIncluded = settlement.Lines.Any(line =>
+            line.IsIncluded && line.ConceptCode == SettlementConceptCodes.HorasExtrasPendientesPago);
+        if (overtimeLineIncluded)
+        {
+            var overtimeToday = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
+            var overtimeRecords = await employeeRepository.GetOvertimeRecordsForSettlementAsync(
+                personnelFile.Id, settlement.AssignedPositionPublicId, cancellationToken);
+            foreach (var record in overtimeRecords)
+            {
+                if (record.WorkDate > overtimeToday)
+                {
+                    record.Annul(OvertimeFutureAnnulmentReason, issuedByUserId, dateTimeProvider.UtcNow, settlement.PublicId);
+                }
+                else
+                {
+                    record.MarkAppliedBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
                 }
             }
         }
@@ -1137,6 +1170,16 @@ internal sealed class AnnulSettlementCommandHandler(
         foreach (var income in oneTimeToReopen)
         {
             income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
+        // REQ-007 §0.15: reopen exactly the overtime records this settlement closed (symmetric with the issue hook) —
+        // the APLICADA ones it applied AND the FUTURE ones it annulled return to AUTORIZADA (ReopenFromSettlement
+        // handles both branches by the stamped settlement id).
+        var overtimeToReopen = await employeeRepository.GetOvertimeRecordsAppliedOrAnnulledBySettlementAsync(
+            personnelFile.Id, settlement.PublicId, cancellationToken);
+        foreach (var record in overtimeToReopen)
+        {
+            record.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }
 
         TouchPersonnelFile(personnelFile);

@@ -49,6 +49,29 @@ public sealed record CompensatoryTimeContext(
     decimal RateFactor);
 
 /// <summary>
+/// One AUTORIZADA overtime record feeding the engine-calculated <c>HORAS_EXTRAS_PENDIENTES_PAGO</c> line
+/// (REQ-007 RF-014): its public id (audit) plus the decimal hours and the applied factor whose product joins
+/// the factored-hours sum.
+/// </summary>
+public sealed record OvertimeContextRecord(
+    Guid RecordPublicId,
+    decimal DecimalHours,
+    decimal Factor);
+
+/// <summary>
+/// The employee's pending overtime at retirement (REQ-007 RF-014/§0.15): the AUTORIZADA overtime records of
+/// THE PLAZA being settled (each record carries its own plaza, so per-plaza scoping avoids a double pay-off —
+/// unlike the per-employee compensatory-time fund which is resolved only for the principal plaza), not yet
+/// applied and not compensated by a compensatory-time credit (RF-013), with a work date on or before the
+/// as-of date. <c>StandardDailyHours</c> (preference <c>CompensatoryTimeStandardDailyHours</c> ?? 8) values the
+/// hour. Resolved only when at least one such record exists; otherwise the context carries <c>null</c> and the
+/// engine emits no line (fully retrocompatible).
+/// </summary>
+public sealed record OvertimeContext(
+    IReadOnlyList<OvertimeContextRecord> Records,
+    decimal StandardDailyHours);
+
+/// <summary>
 /// Everything the settlement engine consumes, resolved in ONE trip (pre-development clarification №2:
 /// insumos read at create/regenerate and snapshotted — later config changes never silently recalculate).
 /// </summary>
@@ -65,7 +88,8 @@ public sealed record SettlementCalculationContext(
     IReadOnlyList<SettlementConceptResponse> Concepts,
     string CurrencyCode,
     decimal? PendingVacationDays = null,
-    CompensatoryTimeContext? CompensatoryTime = null);
+    CompensatoryTimeContext? CompensatoryTime = null,
+    OvertimeContext? PendingOvertime = null);
 
 /// <summary>Lookup of a requester candidate (D-06: HR only) — display name + activity + HR-area membership.</summary>
 public sealed record SettlementRequesterLookup(

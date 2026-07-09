@@ -5464,6 +5464,28 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 && income.AppliedBySettlementPublicId == settlementPublicId)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileOvertimeRecord>> GetOvertimeRecordsForSettlementAsync(
+        long personnelFileId,
+        Guid assignedPositionPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .Where(record => record.PersonnelFileId == personnelFileId
+                && record.AssignedPositionPublicId == assignedPositionPublicId
+                && record.StatusCode == OvertimeRecordStatuses.Autorizada
+                && record.IsActive
+                && record.CompensatedByCreditPublicId == null)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileOvertimeRecord>> GetOvertimeRecordsAppliedOrAnnulledBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .Where(record => record.PersonnelFileId == personnelFileId
+                && (record.AppliedBySettlementPublicId == settlementPublicId
+                    || record.AnnulledBySettlementPublicId == settlementPublicId))
+            .ToListAsync(cancellationToken);
+
     public async Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(
         Guid personnelFilePublicId,
         Guid recurringIncomePublicId,

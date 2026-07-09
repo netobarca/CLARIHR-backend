@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
@@ -100,6 +101,15 @@ internal sealed record CompensatoryTimeInput(
     decimal StandardDailyHours,
     decimal RateFactor);
 
+/// <summary>
+/// The employee's pending overtime at retirement (REQ-007 RF-014/§0.15) mirrored into the pure engine: the
+/// AUTORIZADA overtime records of the plaza being settled (each an hour/factor pair) and the standard daily
+/// hours used to value the hour. Null ⇒ no HORAS_EXTRAS_PENDIENTES_PAGO line is emitted (retrocompatible).
+/// </summary>
+internal sealed record OvertimeInput(
+    IReadOnlyList<OvertimeFactoredRecord> Records,
+    decimal StandardDailyHours);
+
 /// <summary>Everything the engine needs, resolved (pure — pre-development clarification №2: snapshot at create/regenerate).</summary>
 internal sealed record SettlementCalculationInput(
     SettlementKind Kind,
@@ -115,7 +125,8 @@ internal sealed record SettlementCalculationInput(
     IReadOnlyList<TaxBracketInput> RentaBrackets,
     IReadOnlyList<SettlementLineState> ExistingLines,
     decimal? PendingVacationDays = null,
-    CompensatoryTimeInput? CompensatoryTime = null);
+    CompensatoryTimeInput? CompensatoryTime = null,
+    OvertimeInput? Overtime = null);
 
 // ── Output model ─────────────────────────────────────────────────────────────────────────────
 
@@ -347,6 +358,15 @@ internal static class SettlementCalculationRules
             specs.Add(EngineSpec(SettlementConceptCodes.HorasExtrasPendientes));
         }
 
+        // HORAS_EXTRAS_PENDIENTES_PAGO (REQ-007 RF-014/§0.15): the AUTORIZADA overtime records of the plaza being
+        // settled become an automatic pay-off line (Σ hours × factor × hourly rate). No records ⇒ no spec ⇒ the
+        // settlement suite stays identical (retrocompatible). The seed is IsSystemCalculated=true so the case below
+        // runs (and the manual path is closed — no double auto+manual pay-off).
+        if (input.Overtime is { Records.Count: > 0 })
+        {
+            specs.Add(EngineSpec(SettlementConceptCodes.HorasExtrasPendientesPago));
+        }
+
         // Plaza-config suggestions: pending bonus/commission incomes and external-deduction installments.
         specs.AddRange(input.PlazaItems.Select(item => new LineSpec(
             null, item.ConceptCode, ResolveClass(item.ConceptCode), IsIncluded: true, UnitsOrDays: null,
@@ -443,6 +463,19 @@ internal static class SettlementCalculationRules
                     calculationBase = CompensatoryTimeRules.HourlyRate(derived.DailySalary, standardDailyHours);
                     calculated = CompensatoryTimeRules.SettlementAmount(units.Value, calculationBase.Value, rateFactor);
                     detail = $"{units:0.##} h × {calculationBase:0.00}/h × factor {rateFactor:0.##}";
+                    break;
+
+                case SettlementConceptCodes.HorasExtrasPendientesPago:
+                    // Overtime pay-off (REQ-007 RF-014/§0.15): factored hours = the liquidator's edited units when
+                    // present, else Σ(decimalHours × factor) of the plaza's AUTORIZADA records; valued at
+                    // Round2(dailySalary / standardDailyHours). ISSS/AFP/Renta affectations are automatic (the concept
+                    // is configured Ingreso, affects the 3 bases, exención Ninguna). Default 8 h/day (§0.15/№3).
+                    var overtimeRecords = input.Overtime?.Records ?? [];
+                    var overtimeStandardDailyHours = input.Overtime?.StandardDailyHours ?? 8m;
+                    units = spec.UnitsOrDays ?? OvertimeRecordRules.FactoredHours(overtimeRecords);
+                    calculationBase = OvertimeRecordRules.HourlyRate(derived.DailySalary, overtimeStandardDailyHours);
+                    calculated = OvertimeRecordRules.SettlementAmount(units.Value, calculationBase.Value);
+                    detail = $"{overtimeRecords.Count} jornada(s) · {units:0.##} h-factor × {calculationBase:0.00}/h";
                     break;
 
                 case SettlementConceptCodes.Indemnizacion:
@@ -698,6 +731,7 @@ public static class SettlementConceptCodes
     public const string BonoPendiente = "BONO_PENDIENTE";
     public const string ComisionPendiente = "COMISION_PENDIENTE";
     public const string HorasExtrasPendientes = "HORAS_EXTRAS_PENDIENTES";
+    public const string HorasExtrasPendientesPago = "HORAS_EXTRAS_PENDIENTES_PAGO";
     public const string IngresoCiclicoPendiente = "INGRESO_CICLICO_PENDIENTE";
     public const string IngresoEventualPendiente = "INGRESO_EVENTUAL_PENDIENTE";
     public const string OtroIngreso = "OTRO_INGRESO";

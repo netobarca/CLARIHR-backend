@@ -1126,6 +1126,12 @@ internal static class GlobalCatalogSeedData
         // ingreso eventual AUTORIZADO); IsSystemCalculated=false → línea manual sugerida (no la calcula el motor),
         // como -9888. La suma la sugiere solo la plaza principal y solo por ingresos AUTORIZADO.
         CreateSettlementConceptSeed(-9905L, "SV", "INGRESO_EVENTUAL_PENDIENTE", "Ingreso eventual pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 96),
+        // Horas extras pendientes de pago (REQ-007 §0.15): línea CALCULADA por el motor (Σ horas × factor × valor-hora)
+        // desde las horas extras AUTORIZADA de la plaza que se liquida. IsSystemCalculated=true → el corte
+        // ComputeIncomeLine (spec.IsManual || !concept.IsSystemCalculated) deja correr el case; con false sería código
+        // muerto. Voltearlo a true también cierra la vía manual (AddManualLine rechaza conceptos de sistema con
+        // SETTLEMENT_CONCEPT_INVALID) → sin doble pago auto+manual. Espejo de afectaciones de -9837.
+        CreateSettlementConceptSeed(-9915L, "SV", "HORAS_EXTRAS_PENDIENTES_PAGO", "Horas extras pendientes de pago", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 81),
     ];
 
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>
