@@ -2557,4 +2557,10 @@
   <data name="ONE_TIME_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>The subject employee, the registrar or the requester cannot decide or revoke the one-time income.</value>
   </data>
+  <data name="ONE_TIME_INCOME_GROUP_DIMENSION_INVALID" xml:space="preserve">
+    <value>The groupBy dimension is invalid. Allowed dimensions: {0}.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
+    <value>A payroll type and a payroll period are required to export the one-time-income payroll input.</value>
+  </data>
 </root>

@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.Compensation;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CostCenters;
@@ -4055,6 +4056,501 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 row.PayrollPeriodEndDate,
                 row.ConcurrencyToken))
             .ToArray();
+    }
+
+    // ── One-time-income bandeja + exports (REQ-006 PR-5) ────────────────────────────────────────────
+
+    public async Task<OneTimeIncomeBandejaResponse> QueryOneTimeIncomesAsync(
+        QueryOneTimeIncomesQuery query,
+        OneTimeIncomeGroupDimension? groupBy,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredOneTimeIncomes(query.CompanyId, query);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even when the items are
+        // narrowed to a subset of statuses.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Income.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = ApplyStatusCodes(baseQuery, query.StatusCodes);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        // Amount totals BY CURRENCY of the filtered set (RN-13 — never a single cross-currency total).
+        var totalsByCurrency = await filtered
+            .GroupBy(row => row.Income.CurrencyCode)
+            .Select(group => new { group.Key, Total = group.Sum(row => row.Income.Amount) })
+            .ToDictionaryAsync(group => group.Key, group => group.Total, cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Income.IncomeDate)
+            .ThenByDescending(row => row.Income.PublicId)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new OneTimeIncomeListItemResponse(
+                row.Income.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Income.IncomeDate,
+                row.Income.Reference,
+                row.Income.ConceptTypeCode,
+                row.Income.ConceptNameSnapshot,
+                row.Income.IsFixedValue,
+                row.Income.CalculationMethod,
+                row.Income.Amount,
+                row.Income.CurrencyCode,
+                row.Income.AssignedPositionPublicId,
+                row.Income.CostCenterPublicId,
+                row.Income.CostCenterNameSnapshot,
+                row.Income.RequesterFilePublicId,
+                row.Income.RequesterNameSnapshot,
+                row.Income.PayrollTypeCode,
+                row.Income.PayrollPeriodPublicId,
+                row.Income.PayrollPeriodLabel,
+                row.Income.PayrollPeriodEndDate,
+                row.Income.StatusCode,
+                row.Income.RequestedByUserId == Guid.Empty ? (Guid?)null : row.Income.RequestedByUserId,
+                row.Income.DecidedByUserId))
+            .ToArrayAsync(cancellationToken);
+
+        IReadOnlyCollection<OneTimeIncomeGroupResponse>? groups = null;
+        if (groupBy is { } dimension)
+        {
+            groups = await AggregateOneTimeIncomesAsync(filtered, dimension, cancellationToken);
+        }
+
+        return new OneTimeIncomeBandejaResponse(
+            items, query.PageNumber, query.PageSize, totalCount, statusCounts, totalsByCurrency, groups);
+    }
+
+    public async Task<IReadOnlyCollection<IngresoEventualExportRow>> GetOneTimeIncomeExportRowsAsync(
+        ExportOneTimeIncomesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = ApplyStatusCodes(FilteredOneTimeIncomes(query.CompanyId, query), query.StatusCodes);
+
+        var ordered = filtered
+            .OrderByDescending(row => row.Income.IncomeDate)
+            .ThenByDescending(row => row.Income.PublicId);
+
+        var limited = query.MaxRows is { } maxRows ? ordered.Take(maxRows + 1) : (IQueryable<OneTimeIncomeQueryRow>)ordered;
+
+        var rows = await limited
+            .Select(row => new
+            {
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Income.IncomeDate,
+                row.Income.Reference,
+                row.Income.ConceptTypeCode,
+                row.Income.ConceptNameSnapshot,
+                row.Income.IsFixedValue,
+                row.Income.CalculationMethod,
+                row.Income.Amount,
+                row.Income.CurrencyCode,
+                row.Income.AssignedPositionPublicId,
+                row.Income.CostCenterNameSnapshot,
+                row.Income.PayrollTypeCode,
+                row.Income.PayrollPeriodLabel,
+                row.Income.RequesterNameSnapshot,
+                row.Income.StatusCode,
+                row.Income.RequestedByUserId,
+                row.Income.DecidedByUserId
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new IngresoEventualExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.IncomeDate,
+                row.Reference,
+                row.ConceptTypeCode,
+                row.ConceptNameSnapshot,
+                row.IsFixedValue,
+                row.CalculationMethod,
+                row.Amount,
+                row.CurrencyCode,
+                row.AssignedPositionPublicId.ToString(),
+                row.CostCenterNameSnapshot,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.RequesterNameSnapshot,
+                row.StatusCode,
+                row.RequestedByUserId == Guid.Empty ? null : row.RequestedByUserId.ToString(),
+                row.DecidedByUserId?.ToString()))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<IngresoEventualPendienteExportRow>> GetOneTimeIncomePendingExportRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        bool onlyOverdue,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query = PendingOneTimeIncomes(tenantId, payrollTypeCode);
+
+        var rows = await query
+            .OrderBy(income => income.IncomeDate)
+            .ThenBy(income => income.Id)
+            .Select(income => new
+            {
+                EmployeeFullName = income.PersonnelFile.FullName,
+                EmployeeCode = dbContext.PersonnelFileEmployeeProfiles
+                    .Where(profile => profile.PersonnelFileId == income.PersonnelFileId)
+                    .Select(profile => profile.EmployeeCode)
+                    .FirstOrDefault(),
+                income.IncomeDate,
+                income.ConceptTypeCode,
+                income.ConceptNameSnapshot,
+                income.Amount,
+                income.CurrencyCode,
+                income.PayrollTypeCode,
+                income.PayrollPeriodLabel,
+                income.PayrollPeriodEndDate
+            })
+            .ToArrayAsync(cancellationToken);
+
+        IEnumerable<IngresoEventualPendienteExportRow> mapped = rows
+            .Select(row => new IngresoEventualPendienteExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.IncomeDate,
+                row.ConceptTypeCode,
+                row.ConceptNameSnapshot,
+                row.Amount,
+                row.CurrencyCode,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.PayrollPeriodEndDate,
+                OneTimeIncomeRules.IsOverdue(row.PayrollPeriodEndDate, today)))
+            .Where(row => !onlyOverdue || row.Vencido);
+
+        if (maxRows is { } cap)
+        {
+            mapped = mapped.Take(cap + 1);
+        }
+
+        return mapped.ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaEventualExportRow>> GetOneTimeIncomePayrollInputRowsAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        string payrollPeriod,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        // Same base set as the pending tray (AUTORIZADO, active, no active application) filtered by the payroll
+        // type + declared period label, so the insumo cuadra EXACTLY against the pending of the same filter.
+        var query = PendingOneTimeIncomes(tenantId, payrollTypeCode)
+            .Where(income => income.PayrollPeriodLabel == payrollPeriod);
+
+        var ordered = query
+            .OrderBy(income => income.PersonnelFile.FullName)
+            .ThenBy(income => income.Id);
+
+        var limited = maxRows is { } cap ? ordered.Take(cap + 1) : (IQueryable<PersonnelFileOneTimeIncome>)ordered;
+
+        var rows = await limited
+            .Select(income => new
+            {
+                EmployeeFullName = income.PersonnelFile.FullName,
+                EmployeeCode = dbContext.PersonnelFileEmployeeProfiles
+                    .Where(profile => profile.PersonnelFileId == income.PersonnelFileId)
+                    .Select(profile => profile.EmployeeCode)
+                    .FirstOrDefault(),
+                income.ConceptNameSnapshot,
+                income.PayrollTypeCode,
+                income.PayrollPeriodLabel,
+                income.Amount,
+                income.CurrencyCode,
+                income.CostCenterNameSnapshot
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new InsumoPlanillaEventualExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.ConceptNameSnapshot,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.Amount,
+                row.CurrencyCode,
+                row.CostCenterNameSnapshot))
+            .ToArray();
+    }
+
+    /// <summary>The AUTORIZADO, active, unapplied one-time incomes of the tenant (optionally scoped to a payroll
+    /// type) — the pending set shared by the pending tray and the payroll input, so they cuadran by construction.</summary>
+    private IQueryable<PersonnelFileOneTimeIncome> PendingOneTimeIncomes(Guid tenantId, string? payrollTypeCode)
+    {
+        var query = dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(income => income.TenantId == tenantId
+                && income.IsActive
+                && income.StatusCode == OneTimeIncomeStatuses.Autorizado);
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(income => income.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        return query;
+    }
+
+    /// <summary>The company-scoped one-time-income filter shared by the bandeja + export + aggregation (member-init
+    /// intermediate projection so EF composes the Where/GroupBy over it reliably). Applies EVERY filter EXCEPT the
+    /// status codes (the caller applies those separately, so the StatusCounts always span every status).</summary>
+    private IQueryable<OneTimeIncomeQueryRow> FilteredOneTimeIncomes(Guid tenantId, IOneTimeIncomeFilters filters)
+    {
+        var query =
+            from income in dbContext.Set<PersonnelFileOneTimeIncome>().AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on income.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where income.TenantId == tenantId
+            select new OneTimeIncomeQueryRow
+            {
+                Income = income,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (filters.EmployeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.ConceptTypeCode))
+        {
+            var normalizedConcept = filters.ConceptTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Income.ConceptTypeCode == normalizedConcept);
+        }
+
+        if (filters.FromDate is { } from)
+        {
+            query = query.Where(row => row.Income.IncomeDate >= from);
+        }
+
+        if (filters.ToDate is { } to)
+        {
+            query = query.Where(row => row.Income.IncomeDate <= to);
+        }
+
+        if (filters.IsFixedValue is { } isFixedValue)
+        {
+            query = query.Where(row => row.Income.IsFixedValue == isFixedValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.PayrollTypeCode))
+        {
+            var normalizedPayrollType = filters.PayrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Income.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.PayrollPeriod))
+        {
+            var normalizedPeriod = filters.PayrollPeriod.Trim();
+            query = query.Where(row => row.Income.PayrollPeriodLabel == normalizedPeriod);
+        }
+
+        if (filters.CostCenterPublicId is { } costCenterPublicId)
+        {
+            query = query.Where(row => row.Income.CostCenterPublicId == costCenterPublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.CurrencyCode))
+        {
+            var normalizedCurrency = filters.CurrencyCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Income.CurrencyCode == normalizedCurrency);
+        }
+
+        if (filters.RequesterFilePublicId is { } requesterFilePublicId)
+        {
+            query = query.Where(row => row.Income.RequesterFilePublicId == requesterFilePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var pattern = $"%{filters.Search.Trim()}%";
+            query = query.Where(row =>
+                EF.Functions.ILike(row.EmployeeFullName, pattern)
+                || EF.Functions.ILike(row.Income.ConceptNameSnapshot, pattern)
+                || (row.Income.Reference != null && EF.Functions.ILike(row.Income.Reference, pattern)));
+        }
+
+        return query;
+    }
+
+    private static IQueryable<OneTimeIncomeQueryRow> ApplyStatusCodes(
+        IQueryable<OneTimeIncomeQueryRow> query,
+        IReadOnlyCollection<string>? statusCodes)
+    {
+        if (statusCodes is null || statusCodes.Count == 0)
+        {
+            return query;
+        }
+
+        var normalized = statusCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim().ToUpperInvariant())
+            .ToArray();
+        return normalized.Length == 0
+            ? query
+            : query.Where(row => normalized.Contains(row.Income.StatusCode));
+    }
+
+    /// <summary>Runs the composite-key (dimension, currency) aggregation in the DB, then folds it into per-dimension
+    /// buckets with per-currency totals (RN-13). The month dimension truncates the income date to <c>yyyy-MM</c>.</summary>
+    private static async Task<IReadOnlyCollection<OneTimeIncomeGroupResponse>> AggregateOneTimeIncomesAsync(
+        IQueryable<OneTimeIncomeQueryRow> filtered,
+        OneTimeIncomeGroupDimension dimension,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<OneTimeIncomeGroupAggregate> aggregateQuery = dimension switch
+        {
+            OneTimeIncomeGroupDimension.Estado => filtered
+                .GroupBy(row => new { Key = row.Income.StatusCode, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.Key,
+                    LabelText = group.Key.Key,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.Tipo => filtered
+                .GroupBy(row => new { Key = row.Income.ConceptTypeCode, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.Key,
+                    LabelText = group.Key.Key,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.Empleado => filtered
+                .GroupBy(row => new { row.EmployeeFilePublicId, row.EmployeeFullName, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.EmployeeFilePublicId.ToString(),
+                    LabelText = group.Key.EmployeeFullName,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.TipoPlanilla => filtered
+                .GroupBy(row => new { Key = row.Income.PayrollTypeCode, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.Key,
+                    LabelText = group.Key.Key,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.Periodo => filtered
+                .GroupBy(row => new { Key = row.Income.PayrollPeriodLabel, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.Key,
+                    LabelText = group.Key.Key,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.CentroCosto => filtered
+                .GroupBy(row => new { row.Income.CostCenterPublicId, row.Income.CostCenterNameSnapshot, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key.CostCenterPublicId.ToString(),
+                    LabelText = group.Key.CostCenterNameSnapshot,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.Moneda => filtered
+                .GroupBy(row => row.Income.CurrencyCode)
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    KeyText = group.Key,
+                    LabelText = group.Key,
+                    Currency = group.Key,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            OneTimeIncomeGroupDimension.Mes => filtered
+                .GroupBy(row => new { row.Income.IncomeDate.Year, row.Income.IncomeDate.Month, row.Income.CurrencyCode })
+                .Select(group => new OneTimeIncomeGroupAggregate
+                {
+                    Year = group.Key.Year,
+                    Month = group.Key.Month,
+                    Currency = group.Key.CurrencyCode,
+                    Count = group.Count(),
+                    Total = group.Sum(row => row.Income.Amount),
+                }),
+            _ => throw new ArgumentOutOfRangeException(nameof(dimension), dimension, "Unknown group dimension."),
+        };
+
+        var aggregates = await aggregateQuery.ToArrayAsync(cancellationToken);
+
+        return aggregates
+            .GroupBy(aggregate => aggregate.Year is { } year
+                ? $"{year:D4}-{aggregate.Month!.Value:D2}"
+                : aggregate.KeyText ?? string.Empty)
+            .Select(group =>
+            {
+                var first = group.First();
+                var label = first.Year is { } year
+                    ? $"{year:D4}-{first.Month!.Value:D2}"
+                    : first.LabelText ?? first.KeyText ?? string.Empty;
+                var totalsByCurrency = group
+                    .GroupBy(aggregate => aggregate.Currency)
+                    .ToDictionary(currencyGroup => currencyGroup.Key, currencyGroup => currencyGroup.Sum(aggregate => aggregate.Total));
+                var count = group.Sum(aggregate => aggregate.Count);
+                return new OneTimeIncomeGroupResponse(group.Key, label, count, totalsByCurrency);
+            })
+            .OrderByDescending(group => group.Count)
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private sealed class OneTimeIncomeQueryRow
+    {
+        public PersonnelFileOneTimeIncome Income { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+    }
+
+    private sealed class OneTimeIncomeGroupAggregate
+    {
+        public string? KeyText { get; init; }
+
+        public string? LabelText { get; init; }
+
+        public int? Year { get; init; }
+
+        public int? Month { get; init; }
+
+        public string Currency { get; init; } = string.Empty;
+
+        public int Count { get; init; }
+
+        public decimal Total { get; init; }
     }
 
     public async Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(

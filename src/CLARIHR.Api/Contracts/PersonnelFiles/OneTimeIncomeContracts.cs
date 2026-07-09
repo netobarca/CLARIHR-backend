@@ -102,3 +102,27 @@ public sealed record ApplyOneTimeIncomePeriodRequest(
 public sealed record QueryOneTimeIncomePendingRequest(
     string? PayrollTypeCode,
     bool? OnlyOverdue);
+
+/// <summary>
+/// Body for the company-wide one-time-income advanced search + aggregation (RF-008 / №14). Every filter is optional;
+/// when <c>StatusCodes</c> is empty every status is listed (the StatusCounts always span every status). When
+/// <c>GroupBy</c> is present the response also carries the aggregation buckets (composite key (dimension, currency);
+/// an invalid dimension → 400). The allowed dimensions are <c>estado</c>, <c>tipo</c>, <c>empleado</c>,
+/// <c>tipoPlanilla</c>, <c>periodo</c>, <c>centroCosto</c>, <c>moneda</c>, <c>mes</c>.
+/// </summary>
+public sealed record QueryOneTimeIncomesRequest(
+    IReadOnlyCollection<string>? StatusCodes,
+    Guid? EmployeeId,
+    string? ConceptTypeCode,
+    DateOnly? FromDate,
+    DateOnly? ToDate,
+    bool? IsFixedValue,
+    string? PayrollTypeCode,
+    string? PayrollPeriod,
+    Guid? CostCenterPublicId,
+    string? CurrencyCode,
+    Guid? RequesterFilePublicId,
+    string? Search,
+    string? GroupBy,
+    int? PageNumber,
+    int? PageSize);

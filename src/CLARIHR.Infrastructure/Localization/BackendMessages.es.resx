@@ -2557,4 +2557,10 @@
   <data name="ONE_TIME_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>El empleado sujeto, el registrador o el solicitante no pueden decidir ni revocar el ingreso eventual.</value>
   </data>
+  <data name="ONE_TIME_INCOME_GROUP_DIMENSION_INVALID" xml:space="preserve">
+    <value>La dimensión de agrupación (groupBy) no es válida. Dimensiones permitidas: {0}.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
+    <value>Se requieren un tipo de planilla y un periodo para exportar el insumo de planilla de ingresos eventuales.</value>
+  </data>
 </root>

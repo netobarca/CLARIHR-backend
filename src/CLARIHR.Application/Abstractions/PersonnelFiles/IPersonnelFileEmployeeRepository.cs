@@ -1401,4 +1401,42 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         string? payrollTypeCode,
         CancellationToken cancellationToken);
+
+    // ── One-time-income bandeja + exports (REQ-006 PR-5) ──────────────────────────────────────────────
+
+    /// <summary>The company-wide one-time-income bandeja page (RF-008): paginated + filtered items, per-status
+    /// counts (over the full non-status filter, so every status is represented), the amount totals BY CURRENCY of
+    /// the filtered set (RN-13) and — when a group dimension is supplied — the aggregation buckets (composite key
+    /// (dimension, currency), so they cuadran against the flat totals of the same filter, №14).</summary>
+    Task<OneTimeIncomeBandejaResponse> QueryOneTimeIncomesAsync(
+        QueryOneTimeIncomesQuery query,
+        OneTimeIncomeGroupDimension? groupBy,
+        CancellationToken cancellationToken);
+
+    /// <summary>The one-time-income bandeja export rows (same filters as the bandeja; capped at
+    /// <c>MaxRows + 1</c> so the caller can detect the synchronous-limit overflow → 413).</summary>
+    Task<IReadOnlyCollection<IngresoEventualExportRow>> GetOneTimeIncomeExportRowsAsync(
+        ExportOneTimeIncomesQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The pending / overdue tray export rows (RF-012): the AUTORIZADO one-time incomes without an active
+    /// application (optionally filtered by payroll type / only the overdue), each marked overdue against
+    /// <paramref name="today"/>. Capped at <c>MaxRows + 1</c> for the 413 overflow.</summary>
+    Task<IReadOnlyCollection<IngresoEventualPendienteExportRow>> GetOneTimeIncomePendingExportRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        bool onlyOverdue,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
+    /// <summary>The payroll-input rows (§5): the pending (AUTORIZADO, active, unapplied) one-time incomes of a
+    /// MANDATORY payroll type + period (matched against the declared period label). Cuadra EXACTLY against the
+    /// pending tray of the same filter (excludes annulled and applied). Capped at <c>MaxRows + 1</c> for the 413.</summary>
+    Task<IReadOnlyCollection<InsumoPlanillaEventualExportRow>> GetOneTimeIncomePayrollInputRowsAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        string payrollPeriod,
+        int? maxRows,
+        CancellationToken cancellationToken);
 }

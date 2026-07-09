@@ -25858,6 +25858,290 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the company-wide one-time-income bandeja (advanced search + aggregation)"
+      description: "Returns a paginated, filterable list of the company's one-time incomes (RF-008: by `statusCodes[]`, `employeeId`, `conceptTypeCode`, `fromDate`/`toDate`, `isFixedValue`, `payrollTypeCode`, `payrollPeriod`, `costCenterPublicId`, `currencyCode`, `requesterFilePublicId`, `search`), plus per-status counts (span every status) and the amount totals BY CURRENCY (RN-13). When `groupBy` is present the response also carries the aggregation buckets (composite key (dimension, currency); allowed dimensions: `estado`, `tipo`, `empleado`, `tipoPlanilla`, `periodo`, `centroCosto`, `moneda`, `mes` - an invalid dimension -> 400). The groups CUADRAN against the flat totals of the same filter. HR-only (`ViewOneTimeIncomes`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryOneTimeIncomesRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneTimeIncomeBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the one-time-income bandeja to Excel/CSV/JSON"
+      description: "Exports the filtered one-time incomes (same filters as the bandeja) to `xlsx`, `csv` or `json` with the header, value, destination, requester, status and the registrar / decider ids. HR-only (`ViewOneTimeIncomes`). Synchronous download capped at the configured row limit (`413` if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: statusCodes
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: conceptTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: isFixedValue
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: payrollPeriod
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: currencyCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: requesterFilePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/pending/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the pending / overdue one-time incomes to Excel/CSV/JSON"
+      description: "Exports the pending / overdue tray (the AUTORIZADO one-time incomes without an active application, RF-012) to `xlsx`, `csv` or `json`, each marked `Vencido` when its declared payroll-period end date already passed. Optionally filter by `payrollTypeCode` and/or `onlyOverdue`. HR-only (`ViewOneTimeIncomes`). Synchronous download capped (`413`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: onlyOverdue
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/payroll-input/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the one-time-income payroll input for an external payroll system"
+      description: "Exports the pending (AUTORIZADO, not yet applied) one-time incomes of a MANDATORY `payrollTypeCode` + `payrollPeriod` (matched against the declared period label) - one row per income with the employee, concept, payroll type, period, amount, currency and cost center (§5). Cuadra EXACTLY against the pending tray of the same filter (excludes annulled and applied). A missing payroll type or period yields `400`. HR-only (`ViewOneTimeIncomes`). Synchronous download capped (`413`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: payrollPeriod
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/recurring-incomes':
     get:
       tags:
@@ -65874,6 +66158,179 @@ components:
         onlyOverdue:
           type: boolean
           nullable: true
+    QueryOneTimeIncomesRequest:
+      type: object
+      properties:
+        statusCodes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        conceptTypeCode:
+          type: string
+          nullable: true
+        fromDate:
+          type: string
+          format: date
+          nullable: true
+        toDate:
+          type: string
+          format: date
+          nullable: true
+        isFixedValue:
+          type: boolean
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriod:
+          type: string
+          nullable: true
+        costCenterPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        search:
+          type: string
+          nullable: true
+        groupBy:
+          type: string
+          nullable: true
+          description: "Optional aggregation dimension. One of estado, tipo, empleado, tipoPlanilla, periodo, centroCosto, moneda, mes. An invalid value -> 400."
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    OneTimeIncomeListItemResponse:
+      type: object
+      properties:
+        oneTimeIncomePublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        incomeDate:
+          type: string
+          format: date
+        reference:
+          type: string
+          nullable: true
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        isFixedValue:
+          type: boolean
+        calculationMethod:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        costCenterPublicId:
+          type: string
+          format: uuid
+        costCenterNameSnapshot:
+          type: string
+        requesterFilePublicId:
+          type: string
+          format: uuid
+        requesterNameSnapshot:
+          type: string
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+        statusCode:
+          type: string
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+    OneTimeIncomeGroupResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        keyLabel:
+          type: string
+        count:
+          type: integer
+          format: int32
+        totalsByCurrency:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+    OneTimeIncomeBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneTimeIncomeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        totalsByCurrency:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        groups:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/OneTimeIncomeGroupResponse'
     RecurringIncomeResponse:
       type: object
       properties:
