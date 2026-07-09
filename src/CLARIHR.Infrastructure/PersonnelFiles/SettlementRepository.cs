@@ -254,6 +254,36 @@ internal sealed class SettlementRepository(
             }
         }
 
+        // One-time incomes (REQ-006 §3.5) feed the INGRESO_EVENTUAL_PENDIENTE settlement SUGGESTION: each AUTORIZADO
+        // one-off carries a KNOWN amount, so it travels through the existing SuggestedItems channel as an
+        // editable/excludable manual line — NOT an engine-calculated line (seed -9905, IsSystemCalculated=false),
+        // like the recurring INGRESO_CICLICO_PENDIENTE. An AUTORIZADO income by definition has no active application
+        // (RN-06), so the filter is just StatusCode == AUTORIZADO. Restricted to the principal plaza (per-employee
+        // vs per-plaza → no double suggestion on multi-plaza retirements, same criterion as compensatory time /
+        // cyclic incomes). No AUTORIZADO income → no suggestion (retrocompatible: the existing settlement is unchanged).
+        if (isPrincipalPlaza)
+        {
+            var pendingOneTimeIncomes = await dbContext.Set<PersonnelFileOneTimeIncome>()
+                .AsNoTracking()
+                .Where(item => item.PersonnelFileId == personnelFileId
+                    && item.StatusCode == OneTimeIncomeStatuses.Autorizado)
+                .Select(item => new
+                {
+                    item.Reference,
+                    item.ConceptNameSnapshot,
+                    item.Amount,
+                })
+                .ToListAsync(cancellationToken);
+            foreach (var income in pendingOneTimeIncomes)
+            {
+                suggested.Add(new SettlementSuggestedItemDto(
+                    SettlementConceptCodes.IngresoEventualPendiente,
+                    income.Reference ?? income.ConceptNameSnapshot,
+                    income.Amount,
+                    null));
+            }
+        }
+
         return new SettlementCalculationContext(
             new SettlementPlazaContext(
                 assignment.PublicId, assignment.StartDate, assignment.EndDate, assignment.IsActive,

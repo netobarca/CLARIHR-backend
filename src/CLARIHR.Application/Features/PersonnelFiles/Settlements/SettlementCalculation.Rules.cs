@@ -699,6 +699,7 @@ public static class SettlementConceptCodes
     public const string ComisionPendiente = "COMISION_PENDIENTE";
     public const string HorasExtrasPendientes = "HORAS_EXTRAS_PENDIENTES";
     public const string IngresoCiclicoPendiente = "INGRESO_CICLICO_PENDIENTE";
+    public const string IngresoEventualPendiente = "INGRESO_EVENTUAL_PENDIENTE";
     public const string OtroIngreso = "OTRO_INGRESO";
     public const string Isss = "ISSS";
     public const string Afp = "AFP";

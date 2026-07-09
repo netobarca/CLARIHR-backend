@@ -1108,6 +1108,10 @@ internal static class GlobalCatalogSeedData
         // Ingreso cíclico pendiente (REQ-005): sugerencia manual editable con monto conocido (saldo del plan);
         // IsSystemCalculated=false → línea manual sugerida (no la calcula el motor), como OTRO_INGRESO.
         CreateSettlementConceptSeed(-9888L, "SV", "INGRESO_CICLICO_PENDIENTE", "Ingreso cíclico pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 95),
+        // Ingreso eventual pendiente (REQ-006): sugerencia manual editable con monto conocido (el importe del
+        // ingreso eventual AUTORIZADO); IsSystemCalculated=false → línea manual sugerida (no la calcula el motor),
+        // como -9888. La suma la sugiere solo la plaza principal y solo por ingresos AUTORIZADO.
+        CreateSettlementConceptSeed(-9905L, "SV", "INGRESO_EVENTUAL_PENDIENTE", "Ingreso eventual pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 96),
     ];
 
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>

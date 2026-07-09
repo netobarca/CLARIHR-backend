@@ -1023,6 +1023,30 @@ internal sealed class IssueSettlementCommandHandler(
             income.FinalizeBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }
 
+        // REQ-006 §3.5: mark the employee's AUTORIZADO one-time incomes applied by THIS settlement, but ONLY those
+        // whose INGRESO_EVENTUAL_PENDIENTE suggestion line was kept INCLUDED (unlike the cyclic hook, an EXCLUDED
+        // line ⇒ the income is NOT paid via the settlement and stays AUTORIZADO). The line ↔ income link is the
+        // suggestion description (reference ?? conceptNameSnapshot). Idempotent: MarkAppliedBySettlement stamps
+        // AppliedBySettlementPublicId so annulment reopens exactly these.
+        var includedEventualKeys = settlement.Lines
+            .Where(line => line.IsIncluded && line.ConceptCode == SettlementConceptCodes.IngresoEventualPendiente)
+            .Select(line => line.Description)
+            .Where(description => description is not null)
+            .Select(description => description!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (includedEventualKeys.Count > 0)
+        {
+            var oneTimeToApply = await employeeRepository.GetAutorizadoOneTimeIncomesForSettlementAsync(
+                personnelFile.Id, cancellationToken);
+            foreach (var income in oneTimeToApply)
+            {
+                if (includedEventualKeys.Contains(income.Reference ?? income.ConceptNameSnapshot))
+                {
+                    income.MarkAppliedBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+                }
+            }
+        }
+
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -1103,6 +1127,14 @@ internal sealed class AnnulSettlementCommandHandler(
         var cyclicToReopen = await employeeRepository.GetRecurringIncomesClosedBySettlementAsync(
             personnelFile.Id, settlement.PublicId, cancellationToken);
         foreach (var income in cyclicToReopen)
+        {
+            income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
+        // REQ-006 §3.5: reopen exactly the one-time incomes this settlement applied (symmetric with the issue hook).
+        var oneTimeToReopen = await employeeRepository.GetOneTimeIncomesAppliedBySettlementAsync(
+            personnelFile.Id, settlement.PublicId, cancellationToken);
+        foreach (var income in oneTimeToReopen)
         {
             income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }

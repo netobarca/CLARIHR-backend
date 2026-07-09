@@ -4688,6 +4688,23 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 && income.ClosedBySettlementPublicId == settlementPublicId)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileOneTimeIncome>> GetAutorizadoOneTimeIncomesForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .Where(income => income.PersonnelFileId == personnelFileId
+                && income.StatusCode == OneTimeIncomeStatuses.Autorizado)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileOneTimeIncome>> GetOneTimeIncomesAppliedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .Where(income => income.PersonnelFileId == personnelFileId
+                && income.AppliedBySettlementPublicId == settlementPublicId)
+            .ToListAsync(cancellationToken);
+
     public async Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(
         Guid personnelFilePublicId,
         Guid recurringIncomePublicId,

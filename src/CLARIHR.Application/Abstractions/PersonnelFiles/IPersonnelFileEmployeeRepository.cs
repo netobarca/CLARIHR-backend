@@ -1218,6 +1218,19 @@ public interface IPersonnelFileEmployeeRepository
         Guid settlementPublicId,
         CancellationToken cancellationToken);
 
+    /// <summary>The employee's AUTORIZADO one-time incomes (tracked) to mark applied when a settlement is issued
+    /// (MarkAppliedBySettlement, REQ-006 §3.5), filtered by which suggestion lines stayed included; empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileOneTimeIncome>> GetAutorizadoOneTimeIncomesForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The employee's one-time incomes applied by a specific settlement (tracked) to reopen when that
+    /// settlement is annulled (ReopenFromSettlement, REQ-006 §3.5); empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileOneTimeIncome>> GetOneTimeIncomesAppliedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken);
+
     /// <summary>Raw plan + applied-installment-number data of a recurring income (AsNoTracking) for the derived
     /// schedule projection; null when the income is not on the file.</summary>
     Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(
