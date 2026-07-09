@@ -268,5 +268,7 @@ public sealed class CompanyPreferenceLeavePoliciesTests
             CompensatoryTimeMaxBalanceHours: null,
             CompensatoryTimeCreditRequiresDocument: null,
             CompensatoryTimeSettlementRateFactor: null,
+            OvertimeSelfServiceEnabled: null,
+            OvertimeMaxDailyMinutes: null,
             ConcurrencyToken: Guid.NewGuid());
 }

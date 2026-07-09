@@ -35,6 +35,9 @@ public sealed record CompanyPreferenceResponse(
     decimal? CompensatoryTimeMaxBalanceHours,
     bool? CompensatoryTimeCreditRequiresDocument,
     decimal? CompensatoryTimeSettlementRateFactor,
+    // Overtime parametrization (REQ-007 P-01/P-05): null = self-service off / no daily cap.
+    bool? OvertimeSelfServiceEnabled,
+    int? OvertimeMaxDailyMinutes,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -64,6 +67,9 @@ public sealed record UpdateCompanyPreferencesCommand(
     decimal? CompensatoryTimeMaxBalanceHours,
     bool? CompensatoryTimeCreditRequiresDocument,
     decimal? CompensatoryTimeSettlementRateFactor,
+    // Overtime parametrization (REQ-007 P-01/P-05): null = self-service off / no daily cap.
+    bool? OvertimeSelfServiceEnabled,
+    int? OvertimeMaxDailyMinutes,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -143,6 +149,11 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
         RuleFor(command => command.CompensatoryTimeSettlementRateFactor)
             .GreaterThan(0m)
             .When(static command => command.CompensatoryTimeSettlementRateFactor.HasValue);
+        // Overtime parametrization (REQ-007 P-05): the daily-minutes cap must be positive when provided
+        // (mirrors the domain SetOvertimePolicies guard).
+        RuleFor(command => command.OvertimeMaxDailyMinutes)
+            .GreaterThan(0)
+            .When(static command => command.OvertimeMaxDailyMinutes.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -237,6 +248,9 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
             command.CompensatoryTimeMaxBalanceHours,
             command.CompensatoryTimeCreditRequiresDocument,
             command.CompensatoryTimeSettlementRateFactor);
+        preference.SetOvertimePolicies(
+            command.OvertimeSelfServiceEnabled,
+            command.OvertimeMaxDailyMinutes);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -512,6 +526,8 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.CompensatoryTimeMaxBalanceHours,
             preference.CompensatoryTimeCreditRequiresDocument,
             preference.CompensatoryTimeSettlementRateFactor,
+            preference.OvertimeSelfServiceEnabled,
+            preference.OvertimeMaxDailyMinutes,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

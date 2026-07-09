@@ -443,6 +443,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestCompetencyFrameworkSeedService(),
             new TestLeaveTemplateSeeder(),
             new TestEmployeeRelationsTemplateSeeder(),
+            new TestOvertimeTemplateSeeder(),
             planEntitlementService,
             unitOfWork,
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
@@ -539,6 +540,14 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             Guid tenantId,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CLARIHR.Application.Abstractions.EmployeeRelations.EmployeeRelationsTemplateSeedResult(0, 0, 0, 0, 0, 0));
+    }
+
+    private sealed class TestOvertimeTemplateSeeder : CLARIHR.Application.Abstractions.Overtime.IOvertimeTemplateSeeder
+    {
+        public Task<CLARIHR.Application.Abstractions.Overtime.OvertimeTemplateSeedResult> ApplyTemplateAsync(
+            Guid tenantId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new CLARIHR.Application.Abstractions.Overtime.OvertimeTemplateSeedResult(0, 0, 0, 0));
     }
 
     private sealed class TestCountryCatalogRepository : ICountryCatalogRepository

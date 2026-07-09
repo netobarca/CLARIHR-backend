@@ -22,6 +22,7 @@ using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 
@@ -176,6 +177,22 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ViewOneTimeIncomes,
         PersonnelFilePolicies.ManageOneTimeIncomes,
         PersonnelFilePolicies.AuthorizeOneTimeIncomes,
+        // Horas extras del empleado (REQ-007 P-01): BOTH the View AND the Manage record policies are
+        // authn-only supersets, because the module has a dual channel — HR + employee portal self-service
+        // (preference default-off) + self-read (P-12) — and the authn-only write policy is what enables the
+        // portal channel (the precise gate lives in the handler). AuthorizeOvertimeRecords deliberately
+        // excludes PersonnelFiles.Admin (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
+        // The record controllers that carry these are added in PR-3/PR-4/PR-5; the overtime-configuration
+        // masters use the separate strict OvertimeConfigurationPolicies (see OvertimeConfigurationPolicyNames).
+        PersonnelFilePolicies.ViewOvertimeRecords,
+        PersonnelFilePolicies.ManageOvertimeRecords,
+        PersonnelFilePolicies.AuthorizeOvertimeRecords,
+    };
+
+    private static readonly HashSet<string> OvertimeConfigurationPolicyNames = new(StringComparer.Ordinal)
+    {
+        OvertimeConfigurationPolicies.Read,
+        OvertimeConfigurationPolicies.Manage,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)
@@ -373,6 +390,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(PositionDescriptionCatalogPolicyNames);
         valid.UnionWith(PositionSlotPolicyNames);
         valid.UnionWith(PersonnelFilePolicyNames);
+        valid.UnionWith(OvertimeConfigurationPolicyNames);
         valid.UnionWith(CostCenterPolicyNames);
         valid.UnionWith(LeaveConfigurationPolicyNames);
         valid.UnionWith(EmployeeRelationsConfigurationPolicyNames);

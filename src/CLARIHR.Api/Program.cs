@@ -23,6 +23,7 @@ using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -697,6 +698,48 @@ builder.Services.AddAuthorization(options =>
         .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
             context,
             PersonnelFilePermissionCodes.AuthorizeOneTimeIncomes,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
+    // Overtime records ("horas extras del empleado" — REQ-007 P-01). Dual channel: HR + employee portal
+    // self-service (preference default-off) + self-read (P-12). Unlike the recurring/one-time income
+    // modules, BOTH the read AND the write RECORD policies stay authn-only, because the write policy is the
+    // mechanism that enables the portal channel — the precise gate (View/ManageOvertimeRecords permission,
+    // Admin, or the employee acting on their own record when the preference is enabled) lives in the handler
+    // (EnsureCanView/ManageOvertimeRecordsAsync + the self-service load helpers, PR-3/PR-4). Mirrors the
+    // medical-claims / leave read+write policies. AuthorizeOvertimeRecords deliberately EXCLUDES
+    // PersonnelFiles.Admin (separation of duties + triple anti-self — mirrors AuthorizeRetirement); the IAM
+    // super-admin (ManageAdministration) remains the universal fallback. The record controllers that carry
+    // these are added in PR-3/PR-4/PR-5.
+    options.AddPolicy(PersonnelFilePolicies.ViewOvertimeRecords, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageOvertimeRecords, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeOvertimeRecords, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeOvertimeRecords,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
+    // Overtime configuration masters (overtime types, overtime justification types — REQ-007). Unlike the
+    // authn-only record policies above, the masters have NO self-service channel, so these are STRICT
+    // (RequireAssertion) declarative policies over the SAME View/ManageOvertimeRecords permission codes,
+    // kept a superset of the precise EnsureCanView/ManageOvertimeRecordsAsync handler gate (mirrors
+    // CostCenterPolicies / EmployeeRelationsConfigurationPolicies). The master controllers carry these in
+    // PR-1.
+    options.AddPolicy(OvertimeConfigurationPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ViewOvertimeRecords,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(OvertimeConfigurationPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageOvertimeRecords,
+            PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
     // Cost Centers — declarative policies kept a superset of the precise

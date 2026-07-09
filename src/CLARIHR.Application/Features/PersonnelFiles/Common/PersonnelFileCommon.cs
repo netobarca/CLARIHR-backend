@@ -382,6 +382,31 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string AuthorizeOneTimeIncomes = "PersonnelFiles.AuthorizeOneTimeIncomes";
 
+    /// <summary>
+    /// Dedicated permission to read overtime records ("horas extras del empleado" — REQ-007 P-01/P-11/P-12):
+    /// the per-file detail (including own records via the portal channel), the company bandeja and the
+    /// payroll-input exports. Also the READ side of the two overtime-configuration masters (overtime types /
+    /// justification types). Admin is a superset.
+    /// </summary>
+    public const string ViewOvertimeRecords = "PersonnelFiles.ViewOvertimeRecords";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/annul (EN_REVISION) overtime records and to apply them by
+    /// period (unitary or batch — REQ-007 P-01/P-07). Also the MANAGE side of the two overtime-configuration
+    /// masters (overtime types / justification types + load-template). Admin is a superset. The employee
+    /// portal self-service channel (P-01) does NOT require this permission — it is gated per-handler by the
+    /// company self-service preference. Deciding/revoking an overtime record requires the dedicated
+    /// <see cref="AuthorizeOvertimeRecords"/> grant (triple anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageOvertimeRecords = "PersonnelFiles.ManageOvertimeRecords";
+
+    /// <summary>
+    /// Dedicated permission to decide (authorize/reject) and revoke an overtime record (REQ-007 P-01/P-06).
+    /// Like <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties + triple anti-self); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeOvertimeRecords = "PersonnelFiles.AuthorizeOvertimeRecords";
+
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

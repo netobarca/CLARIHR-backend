@@ -10,6 +10,8 @@ using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.Auth;
@@ -169,6 +171,18 @@ public static class AllowedActionsRegistry
             EmployeeRelationsConfigurationPermissionCodes.Read,
             EmployeeRelationsConfigurationPermissionCodes.Admin,
             EmployeeRelationsConfigurationPermissionCodes.ManageAdministration);
+        // Overtime configuration masters (REQ-007) reuse the shared overtime record permission codes
+        // (View/ManageOvertimeRecords, PersonnelFiles.Admin), gated through IPersonnelFileAuthorizationService.
+        yield return Policy(
+            OvertimeConfigurationResourceKeys.OvertimeTypes,
+            PersonnelFilePermissionCodes.ViewOvertimeRecords,
+            PersonnelFilePermissionCodes.ManageOvertimeRecords,
+            PersonnelFilePermissionCodes.ManageAdministration);
+        yield return Policy(
+            OvertimeConfigurationResourceKeys.OvertimeJustificationTypes,
+            PersonnelFilePermissionCodes.ViewOvertimeRecords,
+            PersonnelFilePermissionCodes.ManageOvertimeRecords,
+            PersonnelFilePermissionCodes.ManageAdministration);
         yield return Policy(
             LegalRepresentativePermissionCodes.ResourceKey,
             LegalRepresentativePermissionCodes.Read,

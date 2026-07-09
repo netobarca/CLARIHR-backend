@@ -2293,6 +2293,24 @@
   <data name="RECOGNITION_TYPE_IN_USE" xml:space="preserve">
     <value>El tipo de reconocimiento está referenciado por un registro activo y no puede inactivarse.</value>
   </data>
+  <data name="OVERTIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el tipo de hora extra.</value>
+  </data>
+  <data name="OVERTIME_TYPE_CODE_TAKEN" xml:space="preserve">
+    <value>Otro tipo de hora extra activo ya usa el código solicitado.</value>
+  </data>
+  <data name="OVERTIME_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de hora extra está referenciado por un registro activo y no puede inactivarse.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró el tipo de justificación de hora extra.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_CODE_TAKEN" xml:space="preserve">
+    <value>Otro tipo de justificación de hora extra activo ya usa el código solicitado.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_IN_USE" xml:space="preserve">
+    <value>El tipo de justificación de hora extra está referenciado por un registro activo y no puede inactivarse.</value>
+  </data>
   <data name="DISCIPLINARY_ACTION_TYPE_NOT_FOUND" xml:space="preserve">
     <value>No se encontró el tipo de amonestación.</value>
   </data>

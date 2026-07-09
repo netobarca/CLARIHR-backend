@@ -730,6 +730,20 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9904L, "SV", "ANULADO", "Anulado", 50),
     ];
 
+    // REQ-007 (horas extras del empleado · P-01/P-07): the authorization lifecycle of an overtime record
+    // (register → authorize/reject → apply → reverse). APLICADA is REVERSIBLE (annulment/reversal reopens
+    // to AUTORIZADA). Feminine ("la solicitud"). Country-scoped HasData seed (SV); statusCode validates
+    // against this catalog. IDs -9910…-9914 (block -9910…-9919; slack -9915 reserved for the settlement
+    // concept in PR-6, -9916…-9919 free).
+    public static IEnumerable<object> GetOvertimeRecordStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9910L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9911L, "SV", "AUTORIZADA", "Autorizada", 20),
+        CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9912L, "SV", "RECHAZADA", "Rechazada", 30),
+        CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9913L, "SV", "APLICADA", "Aplicada", 40),
+        CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9914L, "SV", "ANULADA", "Anulada", 50),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

@@ -741,3 +741,18 @@ internal sealed class OneTimeIncomeStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class OvertimeRecordStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<OvertimeRecordStatusCatalogItem>
+{
+    public OvertimeRecordStatusCatalogItemConfiguration()
+        : base(
+            "overtime_record_status_catalog_items",
+            "pk_overtime_record_status_catalog_items",
+            "uq_overtime_record_status_catalog_items__public_id",
+            "uq_overtime_record_status_catalog_items__country_code",
+            "ix_overtime_record_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetOvertimeRecordStatusCatalogItems())
+    {
+    }
+}

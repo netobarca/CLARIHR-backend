@@ -400,5 +400,35 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanAuthorizeOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for overtime records (REQ-007 P-01/P-11/P-12): the dedicated
+    /// <c>PersonnelFiles.ViewOvertimeRecords</c> permission, or Admin / IAM super-admin. Also the READ gate
+    /// of the two overtime-configuration masters. (Employees reading their OWN records are allowed by a
+    /// separate self-service check in the record handlers.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewOvertimeRecordsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for overtime records (register/edit/annul + apply-by-period — REQ-007 P-01/P-07): the
+    /// dedicated <c>PersonnelFiles.ManageOvertimeRecords</c> permission, or Admin / IAM super-admin. Also the
+    /// MANAGE gate of the two overtime-configuration masters (types/justification types + load-template).
+    /// (Employees acting on their OWN EN_REVISION record under the self-service preference are allowed by a
+    /// separate self-service check in the record handlers.)
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageOvertimeRecordsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Decision/revocation gate for overtime records (REQ-007 P-01/P-06): the dedicated
+    /// <c>PersonnelFiles.AuthorizeOvertimeRecords</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeOvertimeRecordsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

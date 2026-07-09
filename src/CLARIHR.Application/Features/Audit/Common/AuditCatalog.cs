@@ -219,6 +219,15 @@ public static class AuditEventTypes
     public const string DisciplinaryActionCauseActivated = "DISCIPLINARY_ACTION_CAUSE_ACTIVATED";
     public const string DisciplinaryActionCauseInactivated = "DISCIPLINARY_ACTION_CAUSE_INACTIVATED";
     public const string EmployeeRelationsTemplateLoaded = "EMPLOYEE_RELATIONS_TEMPLATE_LOADED";
+    public const string OvertimeTypeCreated = "OVERTIME_TYPE_CREATED";
+    public const string OvertimeTypeUpdated = "OVERTIME_TYPE_UPDATED";
+    public const string OvertimeTypeActivated = "OVERTIME_TYPE_ACTIVATED";
+    public const string OvertimeTypeInactivated = "OVERTIME_TYPE_INACTIVATED";
+    public const string OvertimeJustificationTypeCreated = "OVERTIME_JUSTIFICATION_TYPE_CREATED";
+    public const string OvertimeJustificationTypeUpdated = "OVERTIME_JUSTIFICATION_TYPE_UPDATED";
+    public const string OvertimeJustificationTypeActivated = "OVERTIME_JUSTIFICATION_TYPE_ACTIVATED";
+    public const string OvertimeJustificationTypeInactivated = "OVERTIME_JUSTIFICATION_TYPE_INACTIVATED";
+    public const string OvertimeTemplateLoaded = "OVERTIME_TEMPLATE_LOADED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
@@ -436,6 +445,15 @@ public static class AuditEventTypes
         DisciplinaryActionCauseActivated,
         DisciplinaryActionCauseInactivated,
         EmployeeRelationsTemplateLoaded,
+        OvertimeTypeCreated,
+        OvertimeTypeUpdated,
+        OvertimeTypeActivated,
+        OvertimeTypeInactivated,
+        OvertimeJustificationTypeCreated,
+        OvertimeJustificationTypeUpdated,
+        OvertimeJustificationTypeActivated,
+        OvertimeJustificationTypeInactivated,
+        OvertimeTemplateLoaded,
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,
@@ -510,6 +528,9 @@ public static class AuditEntityTypes
     public const string DisciplinaryActionType = "DisciplinaryActionType";
     public const string DisciplinaryActionCause = "DisciplinaryActionCause";
     public const string EmployeeRelationsConfiguration = "EmployeeRelationsConfiguration";
+    public const string OvertimeType = "OvertimeType";
+    public const string OvertimeJustificationType = "OvertimeJustificationType";
+    public const string OvertimeConfiguration = "OvertimeConfiguration";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -565,7 +586,10 @@ public static class AuditEntityTypes
         RecognitionType,
         DisciplinaryActionType,
         DisciplinaryActionCause,
-        EmployeeRelationsConfiguration
+        EmployeeRelationsConfiguration,
+        OvertimeType,
+        OvertimeJustificationType,
+        OvertimeConfiguration
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

@@ -136,6 +136,7 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string RecurringIncomeSettlementAction = "RecurringIncomeSettlementAction";
     public const string RecurringIncomeType = "RecurringIncomeType";
     public const string OneTimeIncomeStatus = "OneTimeIncomeStatus";
+    public const string OvertimeRecordStatus = "OvertimeRecordStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

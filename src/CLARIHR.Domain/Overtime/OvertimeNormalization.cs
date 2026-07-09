@@ -1,0 +1,30 @@
+namespace CLARIHR.Domain.Overtime;
+
+/// <summary>
+/// Shared normalization helpers for the overtime configuration masters (overtime types, overtime
+/// justification types — REQ-007). Mirrors <c>CostCenterNormalization</c>: codes/names are trimmed and
+/// upper-cased for the filtered unique key and the case-insensitive search.
+/// </summary>
+internal static class OvertimeNormalization
+{
+    public static string Clean(string value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Value cannot be empty.", parameterName);
+        }
+
+        return value.Trim();
+    }
+
+    public static string? CleanOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+
+    public static string NormalizeCode(string value) =>
+        Clean(value, nameof(value)).ToUpperInvariant();
+
+    public static string NormalizeName(string value) =>
+        Clean(value, nameof(value)).ToUpperInvariant();
+}

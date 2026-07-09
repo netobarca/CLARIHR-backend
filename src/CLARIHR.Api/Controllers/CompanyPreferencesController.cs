@@ -80,6 +80,8 @@ public sealed class CompanyPreferencesController(
                 request.CompensatoryTimeMaxBalanceHours,
                 request.CompensatoryTimeCreditRequiresDocument,
                 request.CompensatoryTimeSettlementRateFactor,
+                request.OvertimeSelfServiceEnabled,
+                request.OvertimeMaxDailyMinutes,
                 concurrencyToken),
             cancellationToken);
 
@@ -146,7 +148,11 @@ public sealed class CompanyPreferencesController(
         decimal? CompensatoryTimeStandardDailyHours = null,
         decimal? CompensatoryTimeMaxBalanceHours = null,
         bool? CompensatoryTimeCreditRequiresDocument = null,
-        decimal? CompensatoryTimeSettlementRateFactor = null);
+        decimal? CompensatoryTimeSettlementRateFactor = null,
+        // Overtime parametrization (REQ-007 P-01/P-05), all optional: null = self-service off / no daily
+        // cap. The daily-minutes cap must be > 0 when provided.
+        bool? OvertimeSelfServiceEnabled = null,
+        int? OvertimeMaxDailyMinutes = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

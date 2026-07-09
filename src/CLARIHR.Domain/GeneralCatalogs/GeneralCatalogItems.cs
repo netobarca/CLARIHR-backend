@@ -1113,6 +1113,41 @@ public sealed class OneTimeIncomeStatusCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of overtime-record lifecycle STATUSES (general-catalogs key
+/// <c>overtime-record-statuses</c>) backing the <c>statusCode</c> of a personnel-file overtime record
+/// (REQ-007 · horas extras del empleado — the authorization lifecycle EN_REVISION/AUTORIZADA/RECHAZADA/
+/// APLICADA/ANULADA, where APLICADA is reversible; P-01/P-07). Feminine ("solicitud"). Mirrors
+/// <see cref="OneTimeIncomeStatusCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class OvertimeRecordStatusCatalogItem : GeneralCatalogItem
+{
+    private OvertimeRecordStatusCatalogItem()
+    {
+    }
+
+    private OvertimeRecordStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static OvertimeRecordStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Country-scoped catalog of hobbies (general-catalogs key <c>hobbies</c>) backing the required
 /// <c>hobbyCode</c> of a personnel-file hobby (RF-005, DP-07). Seeded for SV.
 /// </summary>

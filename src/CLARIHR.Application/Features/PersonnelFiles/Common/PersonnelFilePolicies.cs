@@ -319,4 +319,31 @@ public static class PersonnelFilePolicies
     /// deliberately excluded (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
     /// </summary>
     public const string AuthorizeOneTimeIncomes = "PersonnelFiles.AuthorizeOneTimeIncomes";
+
+    /// <summary>
+    /// Read policy for overtime-record sub-resources ("horas extras del empleado" — REQ-007). The module has
+    /// a dual channel — HR + employee portal self-service (P-01, preference default-off) and self-read (P-12)
+    /// — so this stays AUTHN-ONLY (mirrors the medical-claims / leave read policies, comment §47-53): the
+    /// precise check (ViewOvertimeRecords / Admin, or the employee reading their own record) lives in the
+    /// overtime read handlers. Kept authn-only — NOT a RequireAssertion — so a self-service employee is not
+    /// blocked at the API layer.
+    /// </summary>
+    public const string ViewOvertimeRecords = "PersonnelFiles.ViewOvertimeRecords";
+
+    /// <summary>
+    /// Write policy for overtime-record sub-resources (register/edit/annul + apply-by-period — REQ-007).
+    /// AUTHN-ONLY superset (NOT a RequireAssertion) — this is the mechanism that enables the employee portal
+    /// self-service channel (P-01): the precise check (ManageOvertimeRecords / Admin, or the employee acting
+    /// on their OWN EN_REVISION record when the company self-service preference is enabled) lives in the
+    /// overtime write handlers. Deciding/revoking is the dedicated <see cref="AuthorizeOvertimeRecords"/>
+    /// grant.
+    /// </summary>
+    public const string ManageOvertimeRecords = "PersonnelFiles.ManageOvertimeRecords";
+
+    /// <summary>
+    /// Write policy for deciding/revoking an overtime record (REQ-007 P-01/P-06). RequireAssertion over the
+    /// dedicated AuthorizeOvertimeRecords grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizeOvertimeRecords = "PersonnelFiles.AuthorizeOvertimeRecords";
 }

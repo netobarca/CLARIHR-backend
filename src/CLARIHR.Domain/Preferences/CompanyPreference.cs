@@ -115,6 +115,21 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public decimal? CompensatoryTimeSettlementRateFactor { get; private set; }
 
+    // Overtime parametrization (REQ-007 P-01/P-05). Both nullable: they gate optional behavior — when unset
+    // the safe default applies (self-service OFF, no daily cap), never stored as a magic value.
+
+    /// <summary>
+    /// Whether the employee portal self-service channel for registering own overtime records is enabled
+    /// (REQ-007 P-01). Null (or false) = OFF: only HR may register overtime.
+    /// </summary>
+    public bool? OvertimeSelfServiceEnabled { get; private set; }
+
+    /// <summary>
+    /// Maximum overtime minutes allowed per employee per work date before a new record is rejected (REQ-007
+    /// P-05). Null = no cap; when provided it must be greater than zero.
+    /// </summary>
+    public int? OvertimeMaxDailyMinutes { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -252,6 +267,23 @@ public sealed class CompanyPreference : TenantEntity
         CompensatoryTimeMaxBalanceHours = maxBalanceHours;
         CompensatoryTimeCreditRequiresDocument = creditRequiresDocument;
         CompensatoryTimeSettlementRateFactor = settlementRateFactor;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Sets the overtime parametrization (REQ-007 P-01/P-05). <paramref name="selfServiceEnabled"/> is
+    /// nullable (null = self-service OFF); <paramref name="maxDailyMinutes"/> is nullable (null = no daily
+    /// cap) and must be greater than zero when provided.
+    /// </summary>
+    public void SetOvertimePolicies(bool? selfServiceEnabled, int? maxDailyMinutes)
+    {
+        if (maxDailyMinutes is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDailyMinutes), "Overtime max daily minutes must be greater than 0 when provided.");
+        }
+
+        OvertimeSelfServiceEnabled = selfServiceEnabled;
+        OvertimeMaxDailyMinutes = maxDailyMinutes;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

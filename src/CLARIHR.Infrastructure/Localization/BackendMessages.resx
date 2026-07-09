@@ -2293,6 +2293,24 @@
   <data name="RECOGNITION_TYPE_IN_USE" xml:space="preserve">
     <value>The recognition type is referenced by an active record and cannot be inactivated.</value>
   </data>
+  <data name="OVERTIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The overtime type could not be found.</value>
+  </data>
+  <data name="OVERTIME_TYPE_CODE_TAKEN" xml:space="preserve">
+    <value>Another active overtime type already uses the requested code.</value>
+  </data>
+  <data name="OVERTIME_TYPE_IN_USE" xml:space="preserve">
+    <value>The overtime type is referenced by an active record and cannot be inactivated.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The overtime justification type could not be found.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_CODE_TAKEN" xml:space="preserve">
+    <value>Another active overtime justification type already uses the requested code.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_TYPE_IN_USE" xml:space="preserve">
+    <value>The overtime justification type is referenced by an active record and cannot be inactivated.</value>
+  </data>
   <data name="DISCIPLINARY_ACTION_TYPE_NOT_FOUND" xml:space="preserve">
     <value>The disciplinary-action type could not be found.</value>
   </data>

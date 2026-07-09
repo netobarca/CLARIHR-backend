@@ -88,6 +88,13 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
             .HasColumnName("compensatory_time_settlement_rate_factor")
             .HasColumnType("numeric(5,2)");
 
+        // Overtime parametrization (REQ-007 P-01/P-05); both nullable (null = self-service off / no cap).
+        builder.Property(preference => preference.OvertimeSelfServiceEnabled)
+            .HasColumnName("overtime_self_service_enabled");
+
+        builder.Property(preference => preference.OvertimeMaxDailyMinutes)
+            .HasColumnName("overtime_max_daily_minutes");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

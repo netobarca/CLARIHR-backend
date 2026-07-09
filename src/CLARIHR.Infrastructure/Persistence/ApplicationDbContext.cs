@@ -304,6 +304,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OneTimeIncomeStatusCatalogItem> OneTimeIncomeStatusCatalogItems => Set<OneTimeIncomeStatusCatalogItem>();
 
+    public DbSet<OvertimeRecordStatusCatalogItem> OvertimeRecordStatusCatalogItems => Set<OvertimeRecordStatusCatalogItem>();
+
     public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
 
     public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();

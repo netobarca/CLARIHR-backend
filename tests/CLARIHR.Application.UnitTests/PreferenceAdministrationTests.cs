@@ -664,6 +664,8 @@ public sealed class CompanyPreferenceAdministrationTests
             CompensatoryTimeMaxBalanceHours: null,
             CompensatoryTimeCreditRequiresDocument: null,
             CompensatoryTimeSettlementRateFactor: null,
+            OvertimeSelfServiceEnabled: null,
+            OvertimeMaxDailyMinutes: null,
             ConcurrencyToken: concurrencyToken);
 
     private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>
