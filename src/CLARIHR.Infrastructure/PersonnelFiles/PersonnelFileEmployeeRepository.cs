@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Compensation;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.CompetencyFramework;
@@ -4108,6 +4109,417 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 row.PayrollPeriodEndDate,
                 row.ConcurrencyToken))
             .ToArray();
+    }
+
+    // ── Overtime bandeja + exports (REQ-007 PR-5) ──────────────────────────────────────────────────────
+
+    public async Task<OvertimeRecordBandejaResponse> QueryOvertimeRecordsAsync(
+        QueryOvertimeRecordsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredOvertimeRecords(query.CompanyId, query);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even when the items are
+        // narrowed to a subset of statuses.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Record.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = ApplyOvertimeStatusCodes(baseQuery, query.StatusCodes);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        // Global total decimal HOURS of the filtered set (§0.16 — hours, never money).
+        var totalHours = await filtered.SumAsync(row => (decimal?)row.Record.DurationDecimalHours, cancellationToken) ?? 0m;
+
+        // Totals-by-type buckets: a GroupBy over duration_decimal_hours (Σ TotalsByType.TotalHours == totalHours).
+        var typeAggregates = await filtered
+            .GroupBy(row => new { row.Record.OvertimeTypeCodeSnapshot, row.Record.OvertimeTypeNameSnapshot })
+            .Select(group => new
+            {
+                group.Key.OvertimeTypeCodeSnapshot,
+                group.Key.OvertimeTypeNameSnapshot,
+                Count = group.Count(),
+                TotalHours = group.Sum(row => row.Record.DurationDecimalHours),
+            })
+            .ToArrayAsync(cancellationToken);
+
+        var totalsByType = typeAggregates
+            .Select(aggregate => new OvertimeTotalsByTypeResponse(
+                aggregate.OvertimeTypeCodeSnapshot,
+                aggregate.OvertimeTypeNameSnapshot,
+                aggregate.Count,
+                aggregate.TotalHours))
+            .OrderByDescending(bucket => bucket.TotalHours)
+            .ThenBy(bucket => bucket.OvertimeTypeCode, StringComparer.Ordinal)
+            .ToArray();
+
+        var items = await filtered
+            .OrderByDescending(row => row.Record.WorkDate)
+            .ThenByDescending(row => row.Record.PublicId)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new OvertimeRecordListItemResponse(
+                row.Record.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Record.WorkDate,
+                row.Record.OvertimeTypePublicId,
+                row.Record.OvertimeTypeCodeSnapshot,
+                row.Record.OvertimeTypeNameSnapshot,
+                row.Record.TypeFactorSnapshot,
+                row.Record.FactorApplied,
+                row.Record.DurationHours,
+                row.Record.DurationMinutes,
+                row.Record.DurationDecimalHours,
+                row.Record.JustificationTypePublicId,
+                row.Record.JustificationCodeSnapshot,
+                row.Record.JustificationNameSnapshot,
+                row.Record.OriginChannel,
+                row.Record.AssignedPositionPublicId,
+                row.Record.RequesterFilePublicId,
+                row.Record.RequesterNameSnapshot,
+                row.Record.PayrollTypeCode,
+                row.Record.PayrollPeriodPublicId,
+                row.Record.PayrollPeriodLabel,
+                row.Record.PayrollPeriodEndDate,
+                row.Record.StatusCode,
+                row.Record.RequestedByUserId == Guid.Empty ? (Guid?)null : row.Record.RequestedByUserId,
+                row.Record.DecidedByUserId))
+            .ToArrayAsync(cancellationToken);
+
+        return new OvertimeRecordBandejaResponse(
+            items, query.PageNumber, query.PageSize, totalCount, statusCounts, totalHours, totalsByType);
+    }
+
+    public async Task<IReadOnlyCollection<HoraExtraExportRow>> GetOvertimeRecordExportRowsAsync(
+        ExportOvertimeRecordsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = ApplyOvertimeStatusCodes(FilteredOvertimeRecords(query.CompanyId, query), query.StatusCodes);
+
+        var ordered = filtered
+            .OrderByDescending(row => row.Record.WorkDate)
+            .ThenByDescending(row => row.Record.PublicId);
+
+        var limited = query.MaxRows is { } maxRows ? ordered.Take(maxRows + 1) : (IQueryable<OvertimeRecordQueryRow>)ordered;
+
+        var rows = await limited
+            .Select(row => new
+            {
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Record.WorkDate,
+                row.Record.OvertimeTypeCodeSnapshot,
+                row.Record.OvertimeTypeNameSnapshot,
+                row.Record.JustificationNameSnapshot,
+                row.Record.FactorApplied,
+                row.Record.DurationDecimalHours,
+                row.Record.OriginChannel,
+                row.Record.AssignedPositionPublicId,
+                row.Record.PayrollTypeCode,
+                row.Record.PayrollPeriodLabel,
+                row.Record.RequesterNameSnapshot,
+                row.Record.StatusCode,
+                row.Record.RequestedByUserId,
+                row.Record.DecidedByUserId
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new HoraExtraExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.WorkDate,
+                row.OvertimeTypeCodeSnapshot,
+                row.OvertimeTypeNameSnapshot,
+                row.JustificationNameSnapshot,
+                row.FactorApplied,
+                row.DurationDecimalHours,
+                row.OriginChannel,
+                row.AssignedPositionPublicId.ToString(),
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.RequesterNameSnapshot,
+                row.StatusCode,
+                row.RequestedByUserId == Guid.Empty ? null : row.RequestedByUserId.ToString(),
+                row.DecidedByUserId?.ToString()))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<HoraExtraPendienteExportRow>> GetOvertimeRecordPendingExportRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        bool onlyOverdue,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query = PendingOvertimeRecords(tenantId, payrollTypeCode);
+
+        var rows = await query
+            .OrderBy(record => record.WorkDate)
+            .ThenBy(record => record.Id)
+            .Select(record => new
+            {
+                EmployeeFullName = record.PersonnelFile.FullName,
+                EmployeeCode = dbContext.Set<PersonnelFileEmployeeProfile>()
+                    .Where(profile => profile.PersonnelFileId == record.PersonnelFileId)
+                    .Select(profile => profile.EmployeeCode)
+                    .FirstOrDefault(),
+                record.WorkDate,
+                record.OvertimeTypeCodeSnapshot,
+                record.OvertimeTypeNameSnapshot,
+                record.FactorApplied,
+                record.DurationDecimalHours,
+                record.PayrollTypeCode,
+                record.PayrollPeriodLabel,
+                record.PayrollPeriodEndDate
+            })
+            .ToArrayAsync(cancellationToken);
+
+        IEnumerable<HoraExtraPendienteExportRow> mapped = rows
+            .Select(row => new HoraExtraPendienteExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.WorkDate,
+                row.OvertimeTypeCodeSnapshot,
+                row.OvertimeTypeNameSnapshot,
+                row.FactorApplied,
+                row.DurationDecimalHours,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.PayrollPeriodEndDate,
+                OvertimeRecordRules.IsOverdue(row.PayrollPeriodEndDate, today)))
+            .Where(row => !onlyOverdue || row.Vencido);
+
+        if (maxRows is { } cap)
+        {
+            mapped = mapped.Take(cap + 1);
+        }
+
+        return mapped.ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaHoraExtraExportRow>> GetOvertimeRecordPayrollInputRowsAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        string payrollPeriod,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        // Same base set as the pending tray (AUTORIZADA, active) filtered by the payroll type + declared period
+        // label + elapsed work date + NOT compensated (RF-013), so the insumo cuadra against the pending of the
+        // same filter (annulled + applied excluded by construction; compensated + future excluded here).
+        var query = PendingOvertimeRecords(tenantId, payrollTypeCode)
+            .Where(record => record.PayrollPeriodLabel == payrollPeriod
+                && record.WorkDate <= today
+                && record.CompensatedByCreditPublicId == null);
+
+        var ordered = query
+            .OrderBy(record => record.PersonnelFile.FullName)
+            .ThenBy(record => record.Id);
+
+        var limited = maxRows is { } cap ? ordered.Take(cap + 1) : (IQueryable<PersonnelFileOvertimeRecord>)ordered;
+
+        var rows = await limited
+            .Select(record => new
+            {
+                EmployeeFullName = record.PersonnelFile.FullName,
+                EmployeeCode = dbContext.Set<PersonnelFileEmployeeProfile>()
+                    .Where(profile => profile.PersonnelFileId == record.PersonnelFileId)
+                    .Select(profile => profile.EmployeeCode)
+                    .FirstOrDefault(),
+                record.OvertimeTypeCodeSnapshot,
+                record.OvertimeTypeNameSnapshot,
+                record.FactorApplied,
+                record.DurationDecimalHours,
+                record.PayrollTypeCode,
+                record.PayrollPeriodLabel,
+                record.AssignedPositionPublicId
+            })
+            .ToArrayAsync(cancellationToken);
+
+        // Derive the cost center from the plaza at export time (join to the employment assignment, D-12 — the
+        // record persists no monetary/cost-center snapshot). Resolved in two in-memory lookups over the small set.
+        var assignmentPublicIds = rows.Select(row => row.AssignedPositionPublicId).Distinct().ToArray();
+        var costCenterByAssignment = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(assignment => assignmentPublicIds.Contains(assignment.PublicId))
+            .Select(assignment => new { assignment.PublicId, assignment.CostCenterPublicId })
+            .ToDictionaryAsync(assignment => assignment.PublicId, assignment => assignment.CostCenterPublicId, cancellationToken);
+
+        var costCenterPublicIds = costCenterByAssignment.Values
+            .Where(value => value is not null)
+            .Select(value => value!.Value)
+            .Distinct()
+            .ToArray();
+        var costCenterNameById = await dbContext.CostCenters
+            .AsNoTracking()
+            .Where(costCenter => costCenterPublicIds.Contains(costCenter.PublicId))
+            .Select(costCenter => new { costCenter.PublicId, costCenter.Name })
+            .ToDictionaryAsync(costCenter => costCenter.PublicId, costCenter => costCenter.Name, cancellationToken);
+
+        return rows
+            .Select(row =>
+            {
+                var costCenterName = string.Empty;
+                if (costCenterByAssignment.TryGetValue(row.AssignedPositionPublicId, out var costCenterPublicId)
+                    && costCenterPublicId is { } value
+                    && costCenterNameById.TryGetValue(value, out var name))
+                {
+                    costCenterName = name;
+                }
+
+                return new InsumoPlanillaHoraExtraExportRow(
+                    row.EmployeeFullName,
+                    row.EmployeeCode,
+                    row.OvertimeTypeCodeSnapshot,
+                    row.OvertimeTypeNameSnapshot,
+                    row.FactorApplied,
+                    row.DurationDecimalHours,
+                    row.PayrollTypeCode,
+                    row.PayrollPeriodLabel,
+                    costCenterName);
+            })
+            .ToArray();
+    }
+
+    /// <summary>The AUTORIZADA, active overtime records of the tenant (optionally scoped to a payroll type) — the
+    /// pending set shared by the pending tray and the payroll input, so they cuadran by construction. An applied
+    /// record is APLICADA (not AUTORIZADA) and an annulled/rejected one is inactive, so both are excluded here.</summary>
+    private IQueryable<PersonnelFileOvertimeRecord> PendingOvertimeRecords(Guid tenantId, string? payrollTypeCode)
+    {
+        var query = dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(record => record.TenantId == tenantId
+                && record.IsActive
+                && record.StatusCode == OvertimeRecordStatuses.Autorizada);
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayrollType = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(record => record.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        return query;
+    }
+
+    /// <summary>The company-scoped overtime filter shared by the bandeja + export + totals (member-init intermediate
+    /// projection so EF composes the Where/GroupBy over it reliably). Applies EVERY filter EXCEPT the status codes
+    /// (the caller applies those separately, so the StatusCounts always span every status).</summary>
+    private IQueryable<OvertimeRecordQueryRow> FilteredOvertimeRecords(Guid tenantId, IOvertimeRecordFilters filters)
+    {
+        var query =
+            from record in dbContext.Set<PersonnelFileOvertimeRecord>().AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on record.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.Set<PersonnelFileEmployeeProfile>().AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where record.TenantId == tenantId
+            select new OvertimeRecordQueryRow
+            {
+                Record = record,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (filters.EmployeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (filters.OvertimeTypePublicId is { } overtimeTypePublicId)
+        {
+            query = query.Where(row => row.Record.OvertimeTypePublicId == overtimeTypePublicId);
+        }
+
+        if (filters.JustificationTypePublicId is { } justificationTypePublicId)
+        {
+            query = query.Where(row => row.Record.JustificationTypePublicId == justificationTypePublicId);
+        }
+
+        if (filters.FromWorkDate is { } from)
+        {
+            query = query.Where(row => row.Record.WorkDate >= from);
+        }
+
+        if (filters.ToWorkDate is { } to)
+        {
+            query = query.Where(row => row.Record.WorkDate <= to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.PayrollTypeCode))
+        {
+            var normalizedPayrollType = filters.PayrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Record.PayrollTypeCode == normalizedPayrollType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.PayrollPeriod))
+        {
+            var normalizedPeriod = filters.PayrollPeriod.Trim();
+            query = query.Where(row => row.Record.PayrollPeriodLabel == normalizedPeriod);
+        }
+
+        if (filters.RequesterFilePublicId is { } requesterFilePublicId)
+        {
+            query = query.Where(row => row.Record.RequesterFilePublicId == requesterFilePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.OriginChannel))
+        {
+            var normalizedChannel = filters.OriginChannel.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Record.OriginChannel == normalizedChannel);
+        }
+
+        if (filters.AssignedPositionPublicId is { } assignedPositionPublicId)
+        {
+            query = query.Where(row => row.Record.AssignedPositionPublicId == assignedPositionPublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var pattern = $"%{filters.Search.Trim()}%";
+            query = query.Where(row =>
+                EF.Functions.ILike(row.EmployeeFullName, pattern)
+                || EF.Functions.ILike(row.Record.OvertimeTypeNameSnapshot, pattern)
+                || EF.Functions.ILike(row.Record.JustificationNameSnapshot, pattern));
+        }
+
+        return query;
+    }
+
+    private static IQueryable<OvertimeRecordQueryRow> ApplyOvertimeStatusCodes(
+        IQueryable<OvertimeRecordQueryRow> query,
+        IReadOnlyCollection<string>? statusCodes)
+    {
+        if (statusCodes is null || statusCodes.Count == 0)
+        {
+            return query;
+        }
+
+        var normalized = statusCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim().ToUpperInvariant())
+            .ToArray();
+        return normalized.Length == 0
+            ? query
+            : query.Where(row => normalized.Contains(row.Record.StatusCode));
+    }
+
+    private sealed class OvertimeRecordQueryRow
+    {
+        public PersonnelFileOvertimeRecord Record { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
     }
 
     public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(

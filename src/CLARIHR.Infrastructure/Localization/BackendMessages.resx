@@ -2659,4 +2659,7 @@
   <data name="OVERTIME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>The apply-period batch could not be completed because of a conflicting overtime record: {0}.</value>
   </data>
+  <data name="OVERTIME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
+    <value>A payroll type and a payroll period are required to export the overtime payroll input.</value>
+  </data>
 </root>

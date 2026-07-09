@@ -2659,4 +2659,7 @@
   <data name="OVERTIME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>El lote de aplicación por periodo no pudo completarse por un registro de hora extra en conflicto: {0}.</value>
   </data>
+  <data name="OVERTIME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
+    <value>Se requieren un tipo de planilla y un periodo para exportar el insumo de planilla de horas extras.</value>
+  </data>
 </root>

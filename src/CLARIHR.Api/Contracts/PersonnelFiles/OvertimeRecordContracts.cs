@@ -95,3 +95,26 @@ public sealed record ApplyOvertimePeriodRequest(
 public sealed record QueryOvertimeRecordPendingRequest(
     string? PayrollTypeCode,
     bool? OnlyOverdue);
+
+/// <summary>
+/// Body for the company-wide overtime advanced search (RF-011 / §0.16). Every filter is optional; when
+/// <c>StatusCodes</c> is empty every status is listed (the StatusCounts always span every status). The response
+/// carries the paginated items, the per-status counts, the global total HOURS and the totals-by-type buckets
+/// (<c>{overtimeTypeCode, overtimeTypeName, count, totalHours}</c>). Totals are EN HORAS — the module carries no
+/// money; there is NO dimensional groupBy. <c>OriginChannel</c> filters by the dual channel (<c>RRHH</c>/<c>PORTAL</c>).
+/// </summary>
+public sealed record QueryOvertimeRecordsRequest(
+    IReadOnlyCollection<string>? StatusCodes,
+    Guid? EmployeeId,
+    Guid? OvertimeTypePublicId,
+    Guid? JustificationTypePublicId,
+    DateOnly? FromWorkDate,
+    DateOnly? ToWorkDate,
+    string? PayrollTypeCode,
+    string? PayrollPeriod,
+    Guid? RequesterFilePublicId,
+    string? OriginChannel,
+    Guid? AssignedPositionPublicId,
+    string? Search,
+    int? PageNumber,
+    int? PageSize);

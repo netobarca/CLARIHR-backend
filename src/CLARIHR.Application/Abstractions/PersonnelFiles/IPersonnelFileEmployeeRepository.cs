@@ -1575,4 +1575,43 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         string? payrollTypeCode,
         CancellationToken cancellationToken);
+
+    // ── Overtime bandeja + exports (REQ-007 PR-5) ──────────────────────────────────────────────────────
+
+    /// <summary>The company-wide overtime bandeja page (RF-011): paginated + filtered items, per-status counts
+    /// (over the full non-status filter, so every status is represented), the global total decimal HOURS of the
+    /// filtered set and the totals-by-type buckets (a <c>GroupBy</c> over <c>duration_decimal_hours</c>). The totals
+    /// cuadran: Σ <c>TotalsByType.TotalHours</c> == <c>TotalHours</c> (§0.16 — hours, not money).</summary>
+    Task<OvertimeRecordBandejaResponse> QueryOvertimeRecordsAsync(
+        QueryOvertimeRecordsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The overtime bandeja export rows (same filters as the bandeja; capped at <c>MaxRows + 1</c> so the
+    /// caller can detect the synchronous-limit overflow → 413).</summary>
+    Task<IReadOnlyCollection<HoraExtraExportRow>> GetOvertimeRecordExportRowsAsync(
+        ExportOvertimeRecordsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The pending / overdue tray export rows (RF-012): the AUTORIZADA overtime records without an active
+    /// application (optionally filtered by payroll type / only the overdue), each marked overdue against
+    /// <paramref name="today"/>. Capped at <c>MaxRows + 1</c> for the 413 overflow.</summary>
+    Task<IReadOnlyCollection<HoraExtraPendienteExportRow>> GetOvertimeRecordPendingExportRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        bool onlyOverdue,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
+    /// <summary>The payroll-input rows (§0.16): the pending (AUTORIZADA, active, unapplied, elapsed, NOT compensated)
+    /// overtime records of a MANDATORY payroll type + period, with the cost center derived from the plaza (join to
+    /// the employment assignment, D-12). Cuadra against the pending tray of the same filter (excludes annulled +
+    /// applied + compensated + future). Capped at <c>MaxRows + 1</c> for the 413.</summary>
+    Task<IReadOnlyCollection<InsumoPlanillaHoraExtraExportRow>> GetOvertimeRecordPayrollInputRowsAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        string payrollPeriod,
+        DateOnly today,
+        int? maxRows,
+        CancellationToken cancellationToken);
 }
