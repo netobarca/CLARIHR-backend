@@ -1205,6 +1205,19 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    /// <summary>The employee's VIGENTE recurring incomes (tracked) to finalize when a settlement is issued
+    /// (FinalizeBySettlement, REQ-005 §3.5); empty when none. The employee's cyclic incomes end when settled.</summary>
+    Task<IReadOnlyCollection<PersonnelFileRecurringIncome>> GetVigenteRecurringIncomesForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The employee's recurring incomes closed by a specific settlement (tracked) to reopen when that
+    /// settlement is annulled (ReopenFromSettlement, REQ-005 §3.5); empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileRecurringIncome>> GetRecurringIncomesClosedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken);
+
     /// <summary>Raw plan + applied-installment-number data of a recurring income (AsNoTracking) for the derived
     /// schedule projection; null when the income is not on the file.</summary>
     Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(

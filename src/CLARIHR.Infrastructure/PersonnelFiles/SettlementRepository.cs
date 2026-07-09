@@ -203,8 +203,10 @@ internal sealed class SettlementRepository(
         // but ONLY when this settlement's plaza is the employee's principal plaza: the fund is per-employee while
         // the settlement is per-plaza, so restricting to the principal avoids a double suggestion on multi-plaza
         // retirements. No positive balance → null → the engine emits no line (retrocompatible).
+        var isPrincipalPlaza = await IsPrincipalPlazaAsync(personnelFileId, assignedPositionPublicId, cancellationToken);
+
         CompensatoryTimeContext? compensatoryTime = null;
-        if (await IsPrincipalPlazaAsync(personnelFileId, assignedPositionPublicId, cancellationToken))
+        if (isPrincipalPlaza)
         {
             var compensatoryBalance = await compensatoryTimeRepository.GetBalanceAsync(personnelFileId, cancellationToken);
             if (compensatoryBalance > 0m)
@@ -213,6 +215,42 @@ internal sealed class SettlementRepository(
                     compensatoryBalance,
                     preference?.CompensatoryTimeStandardDailyHours ?? 8m,
                     preference?.CompensatoryTimeSettlementRateFactor ?? 1.00m);
+            }
+        }
+
+        // Cyclic incomes with PAGAR_SALDO feed the INGRESO_CICLICO_PENDIENTE settlement SUGGESTION (REQ-005 §3.5):
+        // the amount is KNOWN (the plan balance = total − Σ applied installments), so it travels through the
+        // existing SuggestedItems channel as an editable/excludable manual line — NOT an engine-calculated line.
+        // Restricted to the principal plaza (per-employee fund vs per-plaza settlement → no double suggestion on
+        // multi-plaza retirements, same criterion as compensatory time). No positive balance → no suggestion.
+        if (isPrincipalPlaza)
+        {
+            var pendingCyclicIncomes = await dbContext.Set<PersonnelFileRecurringIncome>()
+                .AsNoTracking()
+                .Where(item => item.PersonnelFileId == personnelFileId
+                    && item.StatusCode == RecurringIncomeStatuses.Vigente
+                    && item.SettlementActionCode == RecurringIncomeSettlementActions.PagarSaldo)
+                .Select(item => new
+                {
+                    item.Reference,
+                    item.ConceptNameSnapshot,
+                    item.TotalAmount,
+                    AppliedSum = item.Installments
+                        .Where(inst => inst.IsActive && inst.StatusCode == RecurringIncomeInstallmentStatuses.Aplicada)
+                        .Sum(inst => (decimal?)inst.Amount) ?? 0m,
+                })
+                .ToListAsync(cancellationToken);
+            foreach (var income in pendingCyclicIncomes)
+            {
+                var remaining = (income.TotalAmount ?? 0m) - income.AppliedSum;
+                if (remaining > 0m)
+                {
+                    suggested.Add(new SettlementSuggestedItemDto(
+                        SettlementConceptCodes.IngresoCiclicoPendiente,
+                        income.Reference ?? income.ConceptNameSnapshot,
+                        remaining,
+                        null));
+                }
             }
         }
 

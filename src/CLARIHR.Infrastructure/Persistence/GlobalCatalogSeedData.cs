@@ -1091,6 +1091,9 @@ internal static class GlobalCatalogSeedData
         CreateSettlementConceptSeed(-9844L, "SV", "ISSS_PATRONAL", "ISSS patronal", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 7.50m, 200),
         CreateSettlementConceptSeed(-9845L, "SV", "AFP_PATRONAL", "AFP patronal", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 8.75m, 210),
         CreateSettlementConceptSeed(-9846L, "SV", "INCAF", "INCAF (ex-INSAFORP)", SettlementConceptClass.PagoPatronal, false, false, false, SettlementExemptionRule.Ninguna, null, true, 1.00m, 220),
+        // Ingreso cíclico pendiente (REQ-005): sugerencia manual editable con monto conocido (saldo del plan);
+        // IsSystemCalculated=false → línea manual sugerida (no la calcula el motor), como OTRO_INGRESO.
+        CreateSettlementConceptSeed(-9888L, "SV", "INGRESO_CICLICO_PENDIENTE", "Ingreso cíclico pendiente", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, false, null, 95),
     ];
 
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>

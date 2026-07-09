@@ -1013,6 +1013,16 @@ internal sealed class IssueSettlementCommandHandler(
         action.BindToPersonnelFile(personnelFile!.Id);
         action.SetTenantId(personnelFile.TenantId);
         _ = await employeeRepository.AddPersonnelActionAsync(action, cancellationToken);
+
+        // REQ-005 §3.5: a settled employee's cyclic incomes end. Finalize the VIGENTE recurring incomes in the same
+        // transaction (idempotent; stamps ClosedBySettlementPublicId so annulment can reopen exactly these).
+        var cyclicToFinalize = await employeeRepository.GetVigenteRecurringIncomesForSettlementAsync(
+            personnelFile.Id, cancellationToken);
+        foreach (var income in cyclicToFinalize)
+        {
+            income.FinalizeBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -1037,6 +1047,7 @@ internal sealed class IssueSettlementCommandHandler(
 internal sealed class AnnulSettlementCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
     ISettlementRepository settlementRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
@@ -1087,6 +1098,15 @@ internal sealed class AnnulSettlementCommandHandler(
         }
 
         settlement.Annul(currentUserId, dateTimeProvider.UtcNow, command.Reason);
+
+        // REQ-005 §3.5: reopen exactly the recurring incomes this settlement finalized (symmetric with the issue hook).
+        var cyclicToReopen = await employeeRepository.GetRecurringIncomesClosedBySettlementAsync(
+            personnelFile.Id, settlement.PublicId, cancellationToken);
+        foreach (var income in cyclicToReopen)
+        {
+            income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
