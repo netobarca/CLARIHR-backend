@@ -279,6 +279,88 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
                 .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.OrdinalIgnoreCase));
     }
 
+    public async Task<MovementsCatalogLabels> GetMovementsCatalogLabelsAsync(CancellationToken cancellationToken)
+    {
+        // Labels for the movements breakdowns always come from the catalogs, never hardcoded (aclaración №12).
+        // Only SV items are seeded today (same Fase-2 caveat as the range/action catalogs).
+        var categoryItems = await dbContext.Set<RetirementCategoryCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+        var reasonItems = await dbContext.Set<RetirementReasonCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+        var statusItems = await dbContext.Set<SettlementStatusCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+
+        return new MovementsCatalogLabels(
+            ToLabelDictionary(categoryItems.Select(item => (item.Code, item.Name))),
+            ToLabelDictionary(reasonItems.Select(item => (item.Code, item.Name))),
+            ToLabelDictionary(statusItems.Select(item => (item.Code, item.Name))));
+    }
+
+    public async Task<IReadOnlyCollection<Guid>> GetCompletedExitInterviewFilePublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> separationFilePublicIds,
+        CancellationToken cancellationToken)
+    {
+        if (separationFilePublicIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        // The numerator of the coverage ratio: separation files with a COMPLETED (Submitted) exit interview.
+        // The submission stores the internal PersonnelFileId, so we join to resolve the public id. Anonymous
+        // submissions have a null PersonnelFileId and never match.
+        var publicIds = separationFilePublicIds.Distinct().ToArray();
+        return await (
+            from submission in dbContext.Set<ExitInterviewSubmission>().AsNoTracking()
+            where submission.TenantId == tenantId
+                && submission.Status == ExitInterviewSubmissionStatus.Submitted
+                && submission.PersonnelFileId != null
+            join file in dbContext.Set<PersonnelFile>().AsNoTracking()
+                on submission.PersonnelFileId equals file.Id
+            where publicIds.Contains(file.PublicId)
+            select file.PublicId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetSettlementStatusCountsAsync(
+        Guid tenantId,
+        int year,
+        int? month,
+        CancellationToken cancellationToken)
+    {
+        var start = new DateTime(year, month ?? 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = month.HasValue ? start.AddMonths(1) : start.AddYears(1);
+
+        // Real settlements only (scenarios carry a null status) whose RetirementDate falls in the period, grouped
+        // by StatusCode. Counts only — no Amount/NetPay projected (aclaración №8).
+        var grouped = await dbContext.Set<PersonnelFileSettlement>()
+            .AsNoTracking()
+            .Where(settlement => settlement.TenantId == tenantId
+                && settlement.Kind == SettlementKind.Liquidacion
+                && settlement.RetirementDate >= start
+                && settlement.RetirementDate < end)
+            .GroupBy(settlement => settlement.StatusCode!)
+            .Select(group => new { StatusCode = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+
+        return grouped.ToDictionary(entry => entry.StatusCode, entry => entry.Count, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string> ToLabelDictionary(IEnumerable<(string Code, string Name)> items) =>
+        items
+            .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.OrdinalIgnoreCase);
+
     private async Task<RowBundle> BuildRowBundleAsync(Guid tenantId, DimensionLookups lookups, CancellationToken cancellationToken)
     {
         var employees = await dbContext.Set<PersonnelFile>()

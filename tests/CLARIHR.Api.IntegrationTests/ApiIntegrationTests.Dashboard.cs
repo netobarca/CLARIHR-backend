@@ -30,8 +30,10 @@ public sealed partial class ApiIntegrationTests
         string employeeCode,
         string institutionalEmail,
         string? payrollTypeCode = null,
-        Guid? costCenterPublicId = null)
+        Guid? costCenterPublicId = null,
+        DateTime? hireDate = null)
     {
+        var effectiveHireDate = hireDate ?? DashboardHireDate;
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -57,7 +59,7 @@ public sealed partial class ApiIntegrationTests
         dbContext.Set<PersonnelFile>().Add(file);
         await dbContext.SaveChangesAsync();
 
-        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", DashboardHireDate, minimumMonthlyWage: null);
+        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", effectiveHireDate, minimumMonthlyWage: null);
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);
@@ -71,7 +73,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: costCenterPublicId,
-            startDate: DashboardHireDate,
+            startDate: effectiveHireDate,
             endDate: null,
             isPrimary: true,
             isActive: true,
@@ -478,6 +480,223 @@ public sealed partial class ApiIntegrationTests
             TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
         var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/dashboard/overview");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // ---- REQ-004 PR-4: movements section (bajas/altas/neto/rotación/cobertura/liquidaciones) ----
+
+    private async Task RetireDashboardEmployeeAsync(
+        Guid tenantId,
+        Guid filePublicId,
+        string categoryCode,
+        string reasonCode,
+        DateTime retirementDate)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var profile = await dbContext.Set<PersonnelFileEmployeeProfile>()
+            .IgnoreQueryFilters()
+            .Where(item => item.PersonnelFile.PublicId == filePublicId)
+            .FirstAsync();
+        profile.ApplyRetirement(categoryCode, reasonCode, retirementNotes: null, retirementDate);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task ReverseDashboardRetirementAsync(Guid tenantId, Guid filePublicId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var profile = await dbContext.Set<PersonnelFileEmployeeProfile>()
+            .IgnoreQueryFilters()
+            .Where(item => item.PersonnelFile.PublicId == filePublicId)
+            .FirstAsync();
+        // A reversal clears RetirementDate → the baja leaves the movements series/ratios (aclaración №4).
+        profile.ClearRetirement("ACTIVO");
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedSettlementAsync(
+        Guid tenantId,
+        Guid actorUserId,
+        Guid filePublicId,
+        string? statusCode,
+        DateTime retirementDate,
+        bool scenario = false)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var fileId = await dbContext.Set<PersonnelFile>()
+            .IgnoreQueryFilters()
+            .Where(file => file.PublicId == filePublicId)
+            .Select(file => file.Id)
+            .FirstAsync();
+
+        var plazaStart = retirementDate.AddYears(-1);
+        var settlement = scenario
+            ? PersonnelFileSettlement.CreateScenario(
+                Guid.NewGuid(), "Plaza", plazaStart, null, null, retirementDate,
+                "VOLUNTARIA", "Renuncia voluntaria", "MEJOR_OFERTA_SALARIAL", "Mejor oferta salarial",
+                filePublicId, "Solicitante", retirementDate, null, actorUserId, "USD")
+            : PersonnelFileSettlement.CreateSettlement(
+                Guid.NewGuid(), Guid.NewGuid(), "Plaza", plazaStart, null, null, retirementDate,
+                "VOLUNTARIA", "Renuncia voluntaria", "MEJOR_OFERTA_SALARIAL", "Mejor oferta salarial",
+                filePublicId, "Solicitante", retirementDate, null, actorUserId, "USD");
+
+        if (!scenario && statusCode == SettlementStatuses.Anulada)
+        {
+            settlement.Annul(actorUserId, DateTime.UtcNow, "annul for test");
+        }
+
+        settlement.BindToPersonnelFile(fileId);
+        settlement.SetTenantId(tenantId);
+        dbContext.Set<PersonnelFileSettlement>().Add(settlement);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedCompletedExitInterviewAsync(
+        Guid tenantId,
+        Guid actorUserId,
+        Guid filePublicId,
+        string reasonCode,
+        string categoryCode)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var fileId = await dbContext.Set<PersonnelFile>()
+            .IgnoreQueryFilters()
+            .Where(file => file.PublicId == filePublicId)
+            .Select(file => file.Id)
+            .FirstAsync();
+
+        var form = ExitInterviewForm.Create("Movements coverage form", null, isAnonymous: false);
+        form.SetTenantId(tenantId);
+        dbContext.Set<ExitInterviewForm>().Add(form);
+        await dbContext.SaveChangesAsync();
+
+        var submission = ExitInterviewSubmission.Create(
+            form.Id, form.Version, isAnonymous: false, fileId, actorUserId,
+            reasonCode, categoryCode, separationType: null, positionSlotPublicId: null, plazaSnapshot: null, period: "2026-05");
+        // The "completed" state is ExitInterviewSubmissionStatus.Submitted (verified: Draft/Submitted/Archived).
+        submission.MarkSubmitted(DateTime.UtcNow, totalScore: 80m);
+        submission.SetTenantId(tenantId);
+        dbContext.Set<ExitInterviewSubmission>().Add(submission);
+        await dbContext.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Dashboard_Movements_ReturnsSeriesRotationCoverageAndSettlements()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        // 2 hires in Feb 2026.
+        _ = await SeedDashboardEmployeeAsync(scenario.TenantId, "Ana", "Alta1", "MOV-A", "ana.mov@empresa.test", hireDate: new DateTime(2026, 2, 10, 0, 0, 0, DateTimeKind.Utc));
+        _ = await SeedDashboardEmployeeAsync(scenario.TenantId, "Bea", "Alta2", "MOV-B", "bea.mov@empresa.test", hireDate: new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc));
+
+        // 2 separations in May 2026 (hired long before), 1 reverted retirement (must NOT count as a baja).
+        var cid = await SeedDashboardEmployeeAsync(scenario.TenantId, "Cid", "Baja1", "MOV-C", "cid.mov@empresa.test");
+        var dan = await SeedDashboardEmployeeAsync(scenario.TenantId, "Dan", "Baja2", "MOV-D", "dan.mov@empresa.test");
+        var eva = await SeedDashboardEmployeeAsync(scenario.TenantId, "Eva", "Revertida", "MOV-E", "eva.mov@empresa.test");
+
+        var mayC = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
+        var mayD = new DateTime(2026, 5, 25, 0, 0, 0, DateTimeKind.Utc);
+        await RetireDashboardEmployeeAsync(scenario.TenantId, cid, "VOLUNTARIA", "MEJOR_OFERTA_SALARIAL", mayC);
+        await RetireDashboardEmployeeAsync(scenario.TenantId, dan, "INVOLUNTARIA", "BAJO_DESEMPENO", mayD);
+        await RetireDashboardEmployeeAsync(scenario.TenantId, eva, "VOLUNTARIA", "MOTIVOS_PERSONALES", new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        await ReverseDashboardRetirementAsync(scenario.TenantId, eva); // reversal → RetirementDate cleared
+
+        // Coverage: Cid has a completed exit interview; Dan does not → 1/2 = 50 %.
+        await SeedCompletedExitInterviewAsync(scenario.TenantId, scenario.ActorUserId, cid, "MEJOR_OFERTA_SALARIAL", "VOLUNTARIA");
+
+        // Settlements in the period: 1 BORRADOR + 1 ANULADA + 1 scenario (excluded — null status).
+        await SeedSettlementAsync(scenario.TenantId, scenario.ActorUserId, cid, SettlementStatuses.Borrador, mayC);
+        await SeedSettlementAsync(scenario.TenantId, scenario.ActorUserId, dan, SettlementStatuses.Anulada, mayD);
+        await SeedSettlementAsync(scenario.TenantId, scenario.ActorUserId, cid, statusCode: null, mayC, scenario: true);
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files/dashboard/movements?year=2026");
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+
+        Assert.Equal(2026, root.GetProperty("year").GetInt32());
+
+        // hires: Feb 2026 → 2, total 2.
+        var hires = root.GetProperty("hires");
+        Assert.Equal(2, hires.GetProperty("total").GetInt32());
+        Assert.Equal(2, hires.GetProperty("byMonth").EnumerateArray().Single(m => m.GetProperty("month").GetInt32() == 2).GetProperty("count").GetInt32());
+
+        // separations: May 2026 → 2 (the reverted baja is excluded), byCategory/byReason labelled from the catalogs.
+        var separations = root.GetProperty("separations");
+        Assert.Equal(2, separations.GetProperty("series").GetProperty("total").GetInt32());
+        Assert.Equal(2, separations.GetProperty("series").GetProperty("byMonth").EnumerateArray().Single(m => m.GetProperty("month").GetInt32() == 5).GetProperty("count").GetInt32());
+        Assert.Equal(1, ReadBreakdown(separations, "byCategory").Single(i => i.Key == "VOLUNTARIA").Count);
+        Assert.Equal("Renuncia voluntaria", ReadBreakdown(separations, "byCategory").Single(i => i.Key == "VOLUNTARIA").Label);
+        Assert.Equal(1, ReadBreakdown(separations, "byCategory").Single(i => i.Key == "INVOLUNTARIA").Count);
+        Assert.Equal(1, ReadBreakdown(separations, "byReason").Single(i => i.Key == "MEJOR_OFERTA_SALARIAL").Count);
+        Assert.Equal("Mejor oferta salarial", ReadBreakdown(separations, "byReason").Single(i => i.Key == "MEJOR_OFERTA_SALARIAL").Label);
+        // The reverted employee's reason (MOTIVOS_PERSONALES) never appears — the reversal removed it from the series.
+        Assert.DoesNotContain(ReadBreakdown(separations, "byReason"), i => i.Key == "MOTIVOS_PERSONALES");
+
+        // net: Feb +2, May −2, total 0.
+        var net = root.GetProperty("net");
+        Assert.Equal(2, net.GetProperty("byMonth").EnumerateArray().Single(m => m.GetProperty("month").GetInt32() == 2).GetProperty("count").GetInt32());
+        Assert.Equal(-2, net.GetProperty("byMonth").EnumerateArray().Single(m => m.GetProperty("month").GetInt32() == 5).GetProperty("count").GetInt32());
+        Assert.Equal(0, net.GetProperty("total").GetInt32());
+
+        // rotation: 2 separations / avg headcount 3 ((3 start + 3 end)/2) = 66.67 %.
+        var rotation = root.GetProperty("rotation");
+        Assert.Equal(2, rotation.GetProperty("separations").GetInt32());
+        Assert.Equal(3m, rotation.GetProperty("averageHeadcount").GetDecimal());
+        Assert.Equal(66.67m, rotation.GetProperty("ratePercent").GetDecimal());
+
+        // exit-interview coverage: 1 completed of 2 separations → 50 %.
+        var coverage = root.GetProperty("exitInterviewCoverage");
+        Assert.Equal(2, coverage.GetProperty("separations").GetInt32());
+        Assert.Equal(1, coverage.GetProperty("completed").GetInt32());
+        Assert.Equal(50.0m, coverage.GetProperty("coveragePercent").GetDecimal());
+
+        // settlementsByStatus: BORRADOR 1 + ANULADA 1 (the scenario is excluded — it carries a null status).
+        var settlements = ReadBreakdown(root, "settlementsByStatus");
+        Assert.Equal(2, settlements.Length);
+        Assert.Equal(1, settlements.Single(i => i.Key == "BORRADOR").Count);
+        Assert.Equal("Borrador", settlements.Single(i => i.Key == "BORRADOR").Label); // label from settlement-statuses
+        Assert.Equal(1, settlements.Single(i => i.Key == "ANULADA").Count);
+
+        // No-amounts contract (aclaración №8): even with real settlements seeded, no monetary field is exposed.
+        Assert.DoesNotContain("\"amount\"", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"currency\"", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Dashboard_Movements_MonthWithoutYear_IsBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files/dashboard/movements?month=3");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("DASHBOARD_MONTH_REQUIRES_YEAR", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Dashboard_Movements_WithoutViewReports_IsForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files/dashboard/movements?year=2026");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

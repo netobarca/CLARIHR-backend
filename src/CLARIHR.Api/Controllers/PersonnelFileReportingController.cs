@@ -343,6 +343,59 @@ public sealed class PersonnelFileReportingController(
     }
 
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/movements")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardMovementsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — movements (bajas/altas/neto/rotación/cobertura/liquidaciones) section",
+        Description = """
+            Activates the bajas and turnover deferred by the base dashboard (RF-010…RF-014). The canonical source
+            of movements is the employee PROFILE, never the actions journal (aclaración №4 / D-03): separations are
+            derived from RetirementDate — a reversal clears it, so a reverted baja leaves the series and ratios —
+            with breakdowns by retirement category and reason; hires are recomputed from HireDate with the SAME
+            criterion as dashboard/hires (which is NOT modified); net = altas − bajas per month; annual turnover =
+            separations ÷ average headcount × 100 (ratePercent null — "N/D" — when the average is 0); exit-interview
+            coverage = separations with a completed submission ÷ separations (null with 0 separations); and real
+            settlements grouped by lifecycle status in the period (COUNTS only). NO monetary fields are returned
+            (aclaración №8). Honors the common dimension filters (year, functionalAreaId, orgUnitId,
+            positionCategoryId, jobProfileId, workCenterId, payrollTypeCode, costCenterId) and the flow `month`
+            filter (month requires an explicit year → 400 DASHBOARD_MONTH_REQUIRES_YEAR; year defaults to the
+            current year). Requires the ViewReports or Read permission (gated in the handler).
+            """)]
+    public async Task<ActionResult<DashboardMovementsResponse>> DashboardMovements(
+        Guid companyId,
+        [FromQuery] int? year = null,
+        [FromQuery] int? month = null,
+        [FromQuery] Guid? functionalAreaId = null,
+        [FromQuery] Guid? orgUnitId = null,
+        [FromQuery] Guid? positionCategoryId = null,
+        [FromQuery] Guid? jobProfileId = null,
+        [FromQuery] Guid? workCenterId = null,
+        [FromQuery] string? payrollTypeCode = null,
+        [FromQuery] Guid? costCenterId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardMovementsQuery(
+                companyId,
+                year,
+                month,
+                functionalAreaId,
+                orgUnitId,
+                positionCategoryId,
+                jobProfileId,
+                workCenterId,
+                payrollTypeCode,
+                costCenterId),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/span-of-control")]
     [Produces("application/json")]
     [ProducesResponseType<DashboardSpanOfControlResponse>(StatusCodes.Status200OK)]

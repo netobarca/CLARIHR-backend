@@ -41112,6 +41112,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/personnel-files/dashboard/movements':
+    get:
+      tags:
+        - Personnel Files
+      summary: 'HR analytics dashboard — movements (bajas/altas/neto/rotación/cobertura/liquidaciones) section'
+      description: "Activates the bajas and turnover deferred by the base dashboard (RF-010…RF-014). The canonical\nsource of movements is the employee PROFILE, never the actions journal (aclaración №4 / D-03):\nseparations are derived from RetirementDate — a reversal clears it, so a reverted baja leaves the\nseries and ratios — with breakdowns by retirement category and reason; hires are recomputed from\nHireDate with the SAME criterion as dashboard/hires (which is NOT modified); net = altas − bajas per\nmonth; annual turnover = separations ÷ average headcount × 100 (ratePercent null — \"N/D\" — when the\naverage is 0); exit-interview coverage = separations with a completed submission ÷ separations (null\nwith 0 separations); and real settlements grouped by lifecycle status in the period (COUNTS only). NO\nmonetary fields are returned (aclaración №8). Honors the common dimension filters plus the flow month\nfilter (month requires an explicit year → 400 DASHBOARD_MONTH_REQUIRES_YEAR; year defaults to the\ncurrent year). Requires the ViewReports or Read permission (gated in the handler)."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: functionalAreaPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgUnitPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: positionCategoryPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: jobProfilePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: workCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMovementsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/personnel-files/dashboard/metadata':
     get:
       tags:
@@ -54861,6 +54943,94 @@ components:
         total:
           type: integer
           format: int32
+      additionalProperties: false
+    DashboardMovementsSeriesMonthResponse:
+      type: object
+      properties:
+        month:
+          type: integer
+          format: int32
+        count:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DashboardMovementsSeriesResponse:
+      type: object
+      properties:
+        byMonth:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardMovementsSeriesMonthResponse'
+        total:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DashboardSeparationsResponse:
+      type: object
+      properties:
+        series:
+          $ref: '#/components/schemas/DashboardMovementsSeriesResponse'
+        byCategory:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        byReason:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+      additionalProperties: false
+    DashboardRotationResponse:
+      type: object
+      properties:
+        separations:
+          type: integer
+          format: int32
+        averageHeadcount:
+          type: number
+          format: double
+        ratePercent:
+          type: number
+          format: double
+          nullable: true
+      additionalProperties: false
+    DashboardExitInterviewCoverageResponse:
+      type: object
+      properties:
+        separations:
+          type: integer
+          format: int32
+        completed:
+          type: integer
+          format: int32
+        coveragePercent:
+          type: number
+          format: double
+          nullable: true
+      additionalProperties: false
+    DashboardMovementsResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        hires:
+          $ref: '#/components/schemas/DashboardMovementsSeriesResponse'
+        separations:
+          $ref: '#/components/schemas/DashboardSeparationsResponse'
+        net:
+          $ref: '#/components/schemas/DashboardMovementsSeriesResponse'
+        rotation:
+          $ref: '#/components/schemas/DashboardRotationResponse'
+        exitInterviewCoverage:
+          $ref: '#/components/schemas/DashboardExitInterviewCoverageResponse'
+        settlementsByStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
       additionalProperties: false
     DashboardPersonnelActionsByDimensionResponse:
       type: object

@@ -195,12 +195,12 @@ internal sealed class GetDashboardMetadataQueryHandler(
             PersonnelFileDashboardRules.RotationFormula));
     }
 
-    // Connectable-section registry (RF-018). PR-3 activates PERSONNEL_ACTIONS; PR-4 will flip MOVEMENTS as it is
-    // built; the rest stay inactive until their module connects. All sections are flow-based → AcceptsMonth = true.
+    // Connectable-section registry (RF-018). PR-3 activated PERSONNEL_ACTIONS; PR-4 activates MOVEMENTS; the rest
+    // stay inactive until their module connects. All sections are flow-based → AcceptsMonth = true.
     private static readonly IReadOnlyCollection<DashboardMetadataSectionResponse> BaseSections =
     [
         new("PERSONNEL_ACTIONS", Active: true, AcceptsMonth: true),    // PR-3: documentary actions section is live
-        new("MOVEMENTS", Active: false, AcceptsMonth: true),           // PR-4 flips to Active
+        new("MOVEMENTS", Active: true, AcceptsMonth: true),            // PR-4: movements section is live
         new("INCAPACIDADES", Active: false, AcceptsMonth: true),       // REQ-001 connects
         new("VACACIONES", Active: false, AcceptsMonth: true),          // REQ-001 connects
         new("RECONOCIMIENTOS", Active: false, AcceptsMonth: true),     // REQ-003 connects

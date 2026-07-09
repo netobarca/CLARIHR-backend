@@ -62,4 +62,33 @@ public interface IPersonnelFileDashboardRepository
     /// catalogs, backing the byType/byStatus breakdown labels (never hardcoded — aclaración №12).
     /// </summary>
     Task<PersonnelActionCatalogLabels> GetPersonnelActionCatalogLabelsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Code → display-name labels for the retirement category (<c>retirement-categories</c>), retirement reason
+    /// (<c>retirement-reasons</c>) and settlement status (<c>settlement-statuses</c>) catalogs, backing the
+    /// movements section's byCategory/byReason/settlementsByStatus labels (never hardcoded — aclaración №12).
+    /// </summary>
+    Task<MovementsCatalogLabels> GetMovementsCatalogLabelsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Of the supplied separation file public ids, the subset whose personnel file has at least one COMPLETED
+    /// (<see cref="CLARIHR.Domain.PersonnelFiles.ExitInterviewSubmissionStatus.Submitted"/>) exit-interview
+    /// submission — the numerator of the exit-interview coverage ratio (RN-15). Anonymous submissions (no file
+    /// link) never match.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> GetCompletedExitInterviewFilePublicIdsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> separationFilePublicIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Count of REAL settlements (scenarios excluded — they carry a null status) grouped by lifecycle
+    /// <c>StatusCode</c> whose RetirementDate falls in <paramref name="year"/> (and <paramref name="month"/>, if
+    /// supplied). Counts only — NO monetary aggregates are read (aclaración №8).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, int>> GetSettlementStatusCountsAsync(
+        Guid tenantId,
+        int year,
+        int? month,
+        CancellationToken cancellationToken);
 }
