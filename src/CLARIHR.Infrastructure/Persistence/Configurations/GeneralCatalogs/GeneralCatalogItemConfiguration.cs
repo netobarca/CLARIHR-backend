@@ -676,3 +676,53 @@ internal sealed class PayrollTypeCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class RecurringIncomeStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringIncomeStatusCatalogItem>
+{
+    public RecurringIncomeStatusCatalogItemConfiguration()
+        : base(
+            "recurring_income_status_catalog_items",
+            "pk_recurring_income_status_catalog_items",
+            "uq_recurring_income_status_catalog_items__public_id",
+            "uq_recurring_income_status_catalog_items__country_code",
+            "ix_recurring_income_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetRecurringIncomeStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class RecurringIncomeSettlementActionCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringIncomeSettlementActionCatalogItem>
+{
+    public RecurringIncomeSettlementActionCatalogItemConfiguration()
+        // Table shortened to "settle_action": the full "recurring_income_settlement_action_catalog_items"
+        // (48 chars) blows the 63-char PostgreSQL identifier limit on BOTH the __country_code (65) and the
+        // __country_active_sort (72) index names. With the shortened table name the country_code index fits
+        // (61) and the sort index still needs the __active_sort shortcut (precedent:
+        // personnel_transaction_status_catalog_items / compensatory_time_operation_catalog_items).
+        : base(
+            "recurring_income_settle_action_catalog_items",
+            "pk_recurring_income_settle_action_catalog_items",
+            "uq_recurring_income_settle_action_catalog_items__public_id",
+            "uq_recurring_income_settle_action_catalog_items__country_code",
+            "ix_recurring_income_settle_action_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetRecurringIncomeSettlementActionCatalogItems())
+    {
+    }
+}
+
+internal sealed class RecurringIncomeTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringIncomeTypeCatalogItem>
+{
+    public RecurringIncomeTypeCatalogItemConfiguration()
+        : base(
+            "recurring_income_type_catalog_items",
+            "pk_recurring_income_type_catalog_items",
+            "uq_recurring_income_type_catalog_items__public_id",
+            "uq_recurring_income_type_catalog_items__country_code",
+            "ix_recurring_income_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetRecurringIncomeTypeCatalogItems())
+    {
+    }
+}

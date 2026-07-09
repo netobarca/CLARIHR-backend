@@ -684,6 +684,38 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9895L, "SV", "OTRO", "Otro", 60),
     ];
 
+    // REQ-005 (planilla ingresos cíclicos · D-14/P-03): the one-decision lifecycle of a recurring income
+    // (register → authorize → apply installments → close). Country-scoped HasData seed (SV); statusCode
+    // validates against this catalog. IDs -9880…-9885 (block -9880…-9899, coordinated with REQ-004
+    // payroll-types -9890…-9895).
+    public static IEnumerable<object> GetRecurringIncomeStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9880L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9881L, "SV", "VIGENTE", "Vigente", 20),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9882L, "SV", "RECHAZADO", "Rechazado", 30),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9883L, "SV", "SUSPENDIDO", "Suspendido", 40),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9884L, "SV", "FINALIZADO", "Finalizado", 50),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_STATUS_CATALOG", -9885L, "SV", "ANULADO", "Anulado", 60),
+    ];
+
+    // REQ-005 (planilla ingresos cíclicos · P-06): what happens to the outstanding plan when the employee is
+    // settled — pay the balance or cancel it. Country-scoped HasData seed (SV); IDs -9886/-9887.
+    public static IEnumerable<object> GetRecurringIncomeSettlementActionCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_INCOME_SETTLEMENT_ACTION_CATALOG", -9886L, "SV", "PAGAR_SALDO", "Pagar saldo al liquidar", 10),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_SETTLEMENT_ACTION_CATALOG", -9887L, "SV", "CANCELAR", "Cancelar al liquidar", 20),
+    ];
+
+    // REQ-005 (planilla ingresos cíclicos · P-02): editable template of recurring-income types (permanent
+    // salary-independent perks). Country-scoped HasData seed (SV); IDs -9896…-9899.
+    public static IEnumerable<object> GetRecurringIncomeTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_INCOME_TYPE_CATALOG", -9896L, "SV", "AYUDA_ALIMENTACION", "Ayuda para alimentación", 10),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_TYPE_CATALOG", -9897L, "SV", "GASTOS_REPRESENTACION", "Gastos de representación", 20),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_TYPE_CATALOG", -9898L, "SV", "COMBUSTIBLE", "Combustible", 30),
+        CreateGeneralCatalogSeed("RECURRING_INCOME_TYPE_CATALOG", -9899L, "SV", "OTRO", "Otro", 40),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

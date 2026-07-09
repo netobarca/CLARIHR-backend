@@ -296,6 +296,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PayrollTypeCatalogItem> PayrollTypeCatalogItems => Set<PayrollTypeCatalogItem>();
 
+    public DbSet<RecurringIncomeStatusCatalogItem> RecurringIncomeStatusCatalogItems => Set<RecurringIncomeStatusCatalogItem>();
+
+    public DbSet<RecurringIncomeSettlementActionCatalogItem> RecurringIncomeSettlementActionCatalogItems => Set<RecurringIncomeSettlementActionCatalogItem>();
+
+    public DbSet<RecurringIncomeTypeCatalogItem> RecurringIncomeTypeCatalogItems => Set<RecurringIncomeTypeCatalogItem>();
+
     public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
 
     public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();

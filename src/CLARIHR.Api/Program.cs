@@ -653,6 +653,29 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Recurring incomes ("planilla ingresos cíclicos" — REQ-005 D-06/P-14). HR-only, no self-service in
+    // Fase 1 (P-11), so — mirroring the settlement policies — the write policy is a RequireAssertion
+    // superset of the precise handler gate while ViewRecurringIncomes stays authn-only (the per-file detail
+    // and the company bandeja gate per-handler via EnsureCanViewRecurringIncomesAsync).
+    // AuthorizeRecurringIncomes deliberately EXCLUDES PersonnelFiles.Admin (separation of duties + double
+    // anti-self — mirrors AuthorizeRetirement); the IAM super-admin (ManageAdministration) remains the
+    // universal fallback. The record controllers that carry these are added in PR-3/PR-4/PR-5.
+    options.AddPolicy(PersonnelFilePolicies.ViewRecurringIncomes, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageRecurringIncomes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageRecurringIncomes,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeRecurringIncomes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeRecurringIncomes,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

@@ -106,7 +106,10 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewDisciplinaryActions", "Ver amonestaciones", "Consulta de las amonestaciones de los expedientes, la bandeja de la empresa y sus exportaciones.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewDisciplinaryActions"),
         new("PersonnelFiles.ManageDisciplinaryActions", "Gestionar amonestaciones", "Registrar, editar y anular amonestaciones (en revision) de los expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageDisciplinaryActions"),
         new("PersonnelFiles.AuthorizeDisciplinaryActions", "Autorizar amonestaciones", "Decidir (aplicar/rechazar) y revocar las amonestaciones de los empleados. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeDisciplinaryActions"),
-        new("PersonnelFiles.ViewTimeAvailability", "Ver disponibilidad de tiempos", "Consulta de la disponibilidad de tiempos (suspensiones y fin de contratos temporales) de la empresa.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewTimeAvailability")
+        new("PersonnelFiles.ViewTimeAvailability", "Ver disponibilidad de tiempos", "Consulta de la disponibilidad de tiempos (suspensiones y fin de contratos temporales) de la empresa.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewTimeAvailability"),
+        new("PersonnelFiles.ViewRecurringIncomes", "Ver ingresos cíclicos", "Consulta de los ingresos cíclicos de los expedientes, la bandeja de la empresa y sus exportaciones (insumo de planilla).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewRecurringIncomes"),
+        new("PersonnelFiles.ManageRecurringIncomes", "Gestionar ingresos cíclicos", "Registrar, editar, suspender, cerrar y anular ingresos cíclicos, y aplicar sus cuotas por periodo.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageRecurringIncomes"),
+        new("PersonnelFiles.AuthorizeRecurringIncomes", "Autorizar ingresos cíclicos", "Decidir (autorizar/rechazar) y revocar los ingresos cíclicos de los empleados. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRecurringIncomes")
     ];
 }
 

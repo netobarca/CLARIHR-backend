@@ -1381,6 +1381,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATORYTIMEOPERATION" => await GetCountryScopedCatalogItemsAsync<CompensatoryTimeOperationCatalogItem>(countryCatalogItemId.Value, "CompensatoryTimeOperation", cancellationToken),
             "PERSONNELTRANSACTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<PersonnelTransactionStatusCatalogItem>(countryCatalogItemId.Value, "PersonnelTransactionStatus", cancellationToken),
             "PAYROLLTYPE" => await GetCountryScopedCatalogItemsAsync<PayrollTypeCatalogItem>(countryCatalogItemId.Value, "PayrollType", cancellationToken),
+            "RECURRINGINCOMESTATUS" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeStatusCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeStatus", cancellationToken),
+            "RECURRINGINCOMESETTLEMENTACTION" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeSettlementActionCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeSettlementAction", cancellationToken),
+            "RECURRINGINCOMETYPE" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeTypeCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeType", cancellationToken),
             _ => []
         };
     }
@@ -1652,6 +1655,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "COMPENSATORYTIMEOPERATION" => await IsCountryScopedCatalogCodeActiveAsync<CompensatoryTimeOperationCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "PERSONNELTRANSACTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<PersonnelTransactionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "PAYROLLTYPE" => await IsCountryScopedCatalogCodeActiveAsync<PayrollTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGINCOMESTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGINCOMESETTLEMENTACTION" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeSettlementActionCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGINCOMETYPE" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

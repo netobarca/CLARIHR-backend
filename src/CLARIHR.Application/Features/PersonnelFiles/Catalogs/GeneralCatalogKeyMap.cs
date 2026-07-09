@@ -74,6 +74,9 @@ public static class GeneralCatalogKeyMap
             ["compensatory-time-operations"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeOperation,
             ["personnel-transaction-statuses"] = PersonnelCurriculumCatalogCategories.PersonnelTransactionStatus,
             ["payroll-types"] = PersonnelCurriculumCatalogCategories.PayrollType,
+            ["recurring-income-statuses"] = PersonnelCurriculumCatalogCategories.RecurringIncomeStatus,
+            ["recurring-income-settlement-actions"] = PersonnelCurriculumCatalogCategories.RecurringIncomeSettlementAction,
+            ["recurring-income-types"] = PersonnelCurriculumCatalogCategories.RecurringIncomeType,
         };
 
     /// <summary>

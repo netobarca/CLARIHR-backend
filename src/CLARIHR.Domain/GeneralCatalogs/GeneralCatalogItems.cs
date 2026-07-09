@@ -974,6 +974,110 @@ public sealed class PayrollTypeCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of recurring-income lifecycle STATUSES (general-catalogs key
+/// <c>recurring-income-statuses</c>) backing the <c>statusCode</c> of a personnel-file recurring income
+/// (REQ-005 · planilla ingresos cíclicos — the one-decision lifecycle EN_REVISION/VIGENTE/RECHAZADO/
+/// SUSPENDIDO/FINALIZADO/ANULADO, D-14/P-03). Mirrors <see cref="PayrollTypeCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class RecurringIncomeStatusCatalogItem : GeneralCatalogItem
+{
+    private RecurringIncomeStatusCatalogItem()
+    {
+    }
+
+    private RecurringIncomeStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringIncomeStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of recurring-income SETTLEMENT ACTIONS (general-catalogs key
+/// <c>recurring-income-settlement-actions</c>) backing the <c>settlementActionCode</c> of a personnel-file
+/// recurring income (REQ-005 · planilla ingresos cíclicos — what happens to the outstanding plan when the
+/// employee is settled: PAGAR_SALDO / CANCELAR, P-06). Mirrors <see cref="PayrollTypeCatalogItem"/>;
+/// seeded for SV.
+/// </summary>
+public sealed class RecurringIncomeSettlementActionCatalogItem : GeneralCatalogItem
+{
+    private RecurringIncomeSettlementActionCatalogItem()
+    {
+    }
+
+    private RecurringIncomeSettlementActionCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringIncomeSettlementActionCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of recurring-income TYPES (general-catalogs key <c>recurring-income-types</c>)
+/// backing the <c>recurringIncomeTypeCode</c> of a personnel-file recurring income (REQ-005 · planilla
+/// ingresos cíclicos — permanent salary-independent perks: ayuda para alimentación, gastos de
+/// representación, combustible…, P-02, an editable template). Mirrors <see cref="PayrollTypeCatalogItem"/>;
+/// seeded for SV.
+/// </summary>
+public sealed class RecurringIncomeTypeCatalogItem : GeneralCatalogItem
+{
+    private RecurringIncomeTypeCatalogItem()
+    {
+    }
+
+    private RecurringIncomeTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringIncomeTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Country-scoped catalog of hobbies (general-catalogs key <c>hobbies</c>) backing the required
 /// <c>hobbyCode</c> of a personnel-file hobby (RF-005, DP-07). Seeded for SV.
 /// </summary>

@@ -273,4 +273,28 @@ public static class PersonnelFilePolicies
     /// super-admin).
     /// </summary>
     public const string ViewTimeAvailability = "PersonnelFiles.ViewTimeAvailability";
+
+    /// <summary>
+    /// Read policy for recurring-income sub-resources ("planilla ingresos cíclicos" — REQ-005). HR-only with
+    /// no self-service in Fase 1 (P-11), so it is a RequireAssertion superset of the precise
+    /// EnsureCanViewRecurringIncomesAsync handler gate (ViewRecurringIncomes / Admin / IAM super-admin),
+    /// like ViewSettlements would be if it had no self branch.
+    /// </summary>
+    public const string ViewRecurringIncomes = "PersonnelFiles.ViewRecurringIncomes";
+
+    /// <summary>
+    /// Write policy for recurring-income sub-resources (register/edit/suspend/close/annul — REQ-005). HR-only
+    /// (no self-service, P-11), so it is a RequireAssertion superset of the precise
+    /// EnsureCanManageRecurringIncomesAsync handler gate (the dedicated permission, or Admin / IAM
+    /// super-admin), like ManageSettlements. Deciding/revoking is the dedicated
+    /// <see cref="AuthorizeRecurringIncomes"/> grant.
+    /// </summary>
+    public const string ManageRecurringIncomes = "PersonnelFiles.ManageRecurringIncomes";
+
+    /// <summary>
+    /// Write policy for deciding/revoking a recurring income (REQ-005 D-06/P-14). RequireAssertion over the
+    /// dedicated AuthorizeRecurringIncomes grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 }

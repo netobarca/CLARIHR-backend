@@ -339,6 +339,28 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string ViewTimeAvailability = "PersonnelFiles.ViewTimeAvailability";
 
+    /// <summary>
+    /// Dedicated permission to read recurring incomes ("planilla ingresos cíclicos" — REQ-005 D-06/P-14): the
+    /// per-file detail, the company bandeja and the payroll-input exports. HR-only with no self-service in
+    /// Fase 1 (P-11); Admin is a superset.
+    /// </summary>
+    public const string ViewRecurringIncomes = "PersonnelFiles.ViewRecurringIncomes";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/suspend/close/annul (EN_REVISION and the operational lifecycle)
+    /// recurring incomes and to apply their installments (REQ-005 D-06/P-14). Admin is a superset.
+    /// Deciding/revoking a recurring income requires the dedicated <see cref="AuthorizeRecurringIncomes"/>
+    /// grant (double anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageRecurringIncomes = "PersonnelFiles.ManageRecurringIncomes";
+
+    /// <summary>
+    /// Dedicated permission to decide (authorize/reject) and revoke a recurring income (REQ-005 D-06/P-14).
+    /// Like <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
+
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

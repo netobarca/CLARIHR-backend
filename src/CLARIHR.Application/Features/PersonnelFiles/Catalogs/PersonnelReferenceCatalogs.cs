@@ -132,6 +132,9 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string CompensatoryTimeOperation = "CompensatoryTimeOperation";
     public const string PersonnelTransactionStatus = "PersonnelTransactionStatus";
     public const string PayrollType = "PayrollType";
+    public const string RecurringIncomeStatus = "RecurringIncomeStatus";
+    public const string RecurringIncomeSettlementAction = "RecurringIncomeSettlementAction";
+    public const string RecurringIncomeType = "RecurringIncomeType";
 }
 
 internal static class PersonnelCurriculumCatalogValidation
