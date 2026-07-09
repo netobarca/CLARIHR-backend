@@ -2518,4 +2518,34 @@
   <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>El ingreso eventual no está en un estado que permita esta operación.</value>
   </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto de compensación no es un concepto activo válido para el país de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de planilla no es válido para el catálogo activo.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_COST_CENTER_MISSING" xml:space="preserve">
+    <value>La plaza asignada no tiene centro de costo configurado; se requiere un centro de costo para un ingreso eventual.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza asignada no es una plaza válida de este empleado.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_REQUESTER_INVALID" xml:space="preserve">
+    <value>El solicitante no es un expediente válido de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_INCOME_DATE_IN_FUTURE" xml:space="preserve">
+    <value>La fecha del ingreso no puede estar en el futuro.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_STATUS_INVALID" xml:space="preserve">
+    <value>El estado destino no es un destino de resolución válido para el catálogo activo.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota de decisión para rechazar un ingreso eventual.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de anulación.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto, el registrador o el solicitante no pueden decidir ni revocar el ingreso eventual.</value>
+  </data>
 </root>

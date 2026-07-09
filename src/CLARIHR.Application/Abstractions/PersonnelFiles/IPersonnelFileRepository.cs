@@ -301,6 +301,29 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
+    /// <summary>
+    /// Resolves a compensation-concept type by code for the company's country (REQ-006), returning its name +
+    /// activity + nature + base-salary flag so the one-time-income handler can run the pure
+    /// <c>OneTimeIncomeRules.ValidateConcept</c> (Nature = Ingreso, not base salary). Returns null when the code
+    /// is not found for the country. Fail-safe default (null) so hand-written test doubles need not implement it;
+    /// the production repository overrides it.
+    /// </summary>
+    Task<OneTimeIncomeConceptLookup?> GetOneTimeIncomeConceptAsync(
+        Guid companyId,
+        string conceptTypeCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<OneTimeIncomeConceptLookup?>(null);
+
+    /// <summary>
+    /// Resolves the company's default currency code (<c>CompanyPreference.CurrencyCode</c>, REQ-006) so the
+    /// one-time-income handler can default it when the request omits it. Fail-safe default (null) so hand-written
+    /// test doubles need not implement it; the production repository overrides it.
+    /// </summary>
+    Task<string?> GetCompanyDefaultCurrencyCodeAsync(
+        Guid companyId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(

@@ -198,6 +198,19 @@ public sealed class OneTimeIncomeRulesTests
     }
 
     [Fact]
+    public void ValidateValue_ComputedAmountOmitted_DerivesAmount()
+    {
+        // The request may omit the amount for a computed value; the server derives it (plan §0.11, HU-002).
+        var result = OneTimeIncomeRules.ValidateValue(
+            isFixedValue: false, calculationMethod: OneTimeIncomeCalculationMethods.QuantityTimesValue,
+            quantity: 10m, unitValue: 2.50m, multiplier: 1.5m, percentage: null, baseAmount: null,
+            amount: null);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(37.50m, result.ExpectedAmount);
+    }
+
+    [Fact]
     public void ValidateValue_ComputedAmountMismatch_FailsWithExpectedBreakdown()
     {
         var result = OneTimeIncomeRules.ValidateValue(

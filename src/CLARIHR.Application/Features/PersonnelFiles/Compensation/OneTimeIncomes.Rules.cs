@@ -1,7 +1,73 @@
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles.Compensation;
+
+/// <summary>
+/// Dedicated handler-level errors for one-time incomes (REQ-006 §3.3 CRUD + resolution + re-imputation). Each code
+/// requires an EN + ES resource entry (parity: <c>BackendMessageLocalizationTests</c>). The value-coherence /
+/// concept / transition codes are produced by the pure <see cref="OneTimeIncomeRules"/> and already localized
+/// (PR-2); these cover the cross-aggregate (catalog / plaza / cost-center / requester) checks and the
+/// decision-flow guards that need a database or the request context. Field-level validation (required codes,
+/// positive value) is the validator's job (400) and is NOT here.
+/// </summary>
+internal static class OneTimeIncomeErrors
+{
+    public static readonly Error ConceptInvalid = new(
+        "ONE_TIME_INCOME_CONCEPT_INVALID",
+        "The compensation concept is not a valid active concept for the company's country.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PayrollTypeInvalid = new(
+        "ONE_TIME_INCOME_PAYROLL_TYPE_INVALID",
+        "The payroll type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error CostCenterMissing = new(
+        "ONE_TIME_INCOME_COST_CENTER_MISSING",
+        "The assigned position has no cost center configured; a cost center is required for a one-time income.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AssignedPositionInvalid = new(
+        "ONE_TIME_INCOME_ASSIGNED_POSITION_INVALID",
+        "The assigned position is not a valid plaza of this employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error RequesterInvalid = new(
+        "ONE_TIME_INCOME_REQUESTER_INVALID",
+        "The requester is not a valid personnel file of the company.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error IncomeDateInFuture = new(
+        "ONE_TIME_INCOME_INCOME_DATE_IN_FUTURE",
+        "The income date cannot be in the future.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StatusInvalid = new(
+        "ONE_TIME_INCOME_STATUS_INVALID",
+        "The target status is not a valid resolution target for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error DecisionNoteRequired = new(
+        "ONE_TIME_INCOME_DECISION_NOTE_REQUIRED",
+        "A decision note is required to reject a one-time income.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AnnulmentReasonRequired = new(
+        "ONE_TIME_INCOME_ANNULMENT_REASON_REQUIRED",
+        "An annulment reason is required.", ErrorType.UnprocessableEntity);
+
+    // Separation of duties (TRIPLE anti-self, aclaración №6): neither the subject employee, the registrar nor the
+    // requester (its linked login) may decide or revoke the one-time income. 403 (Forbidden).
+    public static readonly Error SelfApprovalForbidden = new(
+        "ONE_TIME_INCOME_SELF_APPROVAL_FORBIDDEN",
+        "The subject employee, the registrar or the requester cannot decide or revoke the one-time income.", ErrorType.Forbidden);
+
+    // Shares the code the pure rules already localize (RN-01/RN-02); the handler pre-checks the state before the
+    // domain mutator so an invalid transition returns a clean 422 instead of a 500.
+    public static readonly Error StateRuleViolation = new(
+        OneTimeIncomeRules.StateRuleViolationCode,
+        "The one-time income is not in a state that allows this operation.", ErrorType.UnprocessableEntity);
+
+    // Dedicated code for the re-imputation ("enviar a otro periodo", RF-005): only an AUTORIZADO income can be
+    // re-targeted — a distinct, actionable 422 (vs the generic state violation).
+    public static readonly Error NotRetargetable = new(
+        OneTimeIncomeRules.NotRetargetableCode,
+        "Only an authorized one-time income can be re-targeted to another payroll period.", ErrorType.UnprocessableEntity);
+}
 
 /// <summary>A generic pass/fail rule outcome carrying the bilingual <c>extensions.code</c> when it fails.</summary>
 public readonly record struct OneTimeIncomeRuleResult(bool IsValid, string? ErrorCode)
@@ -185,8 +251,11 @@ public static class OneTimeIncomeRules
             return OneTimeIncomeValueValidation.Failure(computation.ErrorCode!);
         }
 
+        // The amount is DERIVED from the components (the server is the source of truth, №11): the request may omit
+        // it. When it IS supplied it is cross-checked against the computed value after rounding (mismatch → 422 with
+        // the expected breakdown); when omitted the computed value stands (plan §0.11, HU-002).
         var expected = computation.Amount!.Value;
-        if (amount is not { } provided || Round2(provided) != expected)
+        if (amount is { } provided && Round2(provided) != expected)
         {
             return OneTimeIncomeValueValidation.Failure(AmountMismatchCode, expected);
         }

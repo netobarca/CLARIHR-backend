@@ -1712,6 +1712,35 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<OneTimeIncomeConceptLookup?> GetOneTimeIncomeConceptAsync(
+        Guid companyId,
+        string conceptTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCode = conceptTypeCode.Trim().ToUpperInvariant();
+        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return null;
+        }
+
+        return await dbContext.Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountry.CountryCatalogItemId
+                && item.NormalizedCode == normalizedCode)
+            .Select(item => new OneTimeIncomeConceptLookup(item.Name, item.IsActive, item.Nature, item.IsBaseSalary))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<string?> GetCompanyDefaultCurrencyCodeAsync(
+        Guid companyId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<CLARIHR.Domain.Preferences.CompanyPreference>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == companyId)
+            .Select(item => (string?)item.CurrencyCode)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken)
     {
         var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();

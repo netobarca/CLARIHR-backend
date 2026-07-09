@@ -384,6 +384,19 @@ public sealed class PersonnelFileOneTimeIncome : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>
+    /// Soft-deletes an EN_REVISION draft (RF-002/CRUD): deactivates the record without a terminal transition, so
+    /// a never-authorized draft can be discarded. Only an EN_REVISION income may be deleted; an authorized income
+    /// is revoked (<see cref="Annul"/>), never soft-deleted.
+    /// </summary>
+    public void Deactivate()
+    {
+        EnsureStatus(OneTimeIncomeStatuses.EnRevision, "deleted");
+
+        IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     /// <summary>Re-targets the payroll destination (payroll type + period + label + end date) while AUTORIZADO.</summary>
     public void RetargetPeriod(
         string payrollTypeCode,

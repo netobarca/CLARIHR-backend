@@ -3762,6 +3762,132 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOneTimeIncome entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileOneTimeIncome>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.IncomeDate)
+            .ThenByDescending(item => item.PublicId)
+            .Select(OneTimeIncomeMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> GetOneTimeIncomesAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.IncomeDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(OneTimeIncomeMapping.ToResponse).ToArray();
+    }
+
+    public async Task<OneTimeIncomeResponse?> GetOneTimeIncomeAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFilePublicId && x.PublicId == oneTimeIncomePublicId,
+                cancellationToken);
+        return item is null ? null : OneTimeIncomeMapping.ToResponse(item);
+    }
+
+    public Task<PersonnelFileOneTimeIncome?> GetOneTimeIncomeEntityAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileOneTimeIncome>()
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId
+                    && x.PublicId == oneTimeIncomePublicId
+                    && x.PersonnelFile.PublicId == personnelFilePublicId,
+                cancellationToken);
+
+    public async Task<OneTimeIncomePlazaResolution> ResolveOneTimeIncomePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileInternalId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary, item.CostCenterPublicId })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return OneTimeIncomePlazaResolution.NotFound;
+        }
+
+        var chosen = assignedPositionPublicId is { } requested && requested != Guid.Empty
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : assignments.Where(item => item.IsActive && item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.Where(item => item.IsActive).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        if (chosen is null)
+        {
+            return OneTimeIncomePlazaResolution.NotFound;
+        }
+
+        string? costCenterName = null;
+        if (chosen.CostCenterPublicId is { } costCenterPublicId)
+        {
+            costCenterName = await dbContext.CostCenters
+                .AsNoTracking()
+                .Where(item => item.PublicId == costCenterPublicId)
+                .Select(item => item.Name)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return new OneTimeIncomePlazaResolution(true, chosen.PublicId, chosen.CostCenterPublicId, costCenterName);
+    }
+
+    public Task<bool> IsOneTimeIncomeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileEmployeeProfile>()
+            .AsNoTracking()
+            .AnyAsync(
+                profile => profile.PersonnelFileId == personnelFileInternalId
+                    && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                cancellationToken);
+
+    public async Task<OneTimeIncomeRequesterLookup?> GetOneTimeIncomeRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var requester = await dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(file => file.TenantId == tenantId && file.PublicId == requesterFilePublicId)
+            .Select(file => new { file.PublicId, file.FirstName, file.LastName, file.IsActive, file.LinkedUserPublicId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return requester is null
+            ? null
+            : new OneTimeIncomeRequesterLookup(
+                requester.PublicId,
+                $"{requester.FirstName} {requester.LastName}".Trim(),
+                requester.IsActive,
+                requester.LinkedUserPublicId);
+    }
+
     public async Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(
         long personnelFileInternalId,
         Guid tenantId,

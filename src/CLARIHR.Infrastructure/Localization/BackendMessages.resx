@@ -2518,4 +2518,34 @@
   <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The one-time income is not in a state that allows this operation.</value>
   </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_INVALID" xml:space="preserve">
+    <value>The compensation concept is not a valid active concept for the company's country.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>The payroll type is not valid for the active catalog.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_COST_CENTER_MISSING" xml:space="preserve">
+    <value>The assigned position has no cost center configured; a cost center is required for a one-time income.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position is not a valid plaza of this employee.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_REQUESTER_INVALID" xml:space="preserve">
+    <value>The requester is not a valid personnel file of the company.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_INCOME_DATE_IN_FUTURE" xml:space="preserve">
+    <value>The income date cannot be in the future.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_STATUS_INVALID" xml:space="preserve">
+    <value>The target status is not a valid resolution target for the active catalog.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A decision note is required to reject a one-time income.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee, the registrar or the requester cannot decide or revoke the one-time income.</value>
+  </data>
 </root>

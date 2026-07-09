@@ -1300,4 +1300,64 @@ public interface IPersonnelFileEmployeeRepository
     /// </summary>
     Task AcquireOneTimeIncomeMutationLockAsync(Guid oneTimeIncomePublicId, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    /// <summary>
+    /// Adds a one-time income (idioma post-fix, aclaración №3): stages the entity and returns the file's one-time
+    /// incomes including the just-added (not-yet-saved) one, so the create handler can pick the created record for
+    /// its response. The unit of work commits afterwards.
+    /// </summary>
+    Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOneTimeIncome entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns every one-time income of the personnel file (most recent income date first).</summary>
+    Task<IReadOnlyCollection<OneTimeIncomeResponse>> GetOneTimeIncomesAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns a single one-time income by public id (or null when it is not on the file).</summary>
+    Task<OneTimeIncomeResponse?> GetOneTimeIncomeAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the TRACKED one-time income aggregate (for a domain mutation): the write handlers apply the domain
+    /// transition (pre-validated so the guards never throw) and the unit of work commits. Returns null when the
+    /// income is not on the file / tenant.
+    /// </summary>
+    Task<PersonnelFileOneTimeIncome?> GetOneTimeIncomeEntityAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the plaza + cost center of a one-time income (P-15): when <paramref name="assignedPositionPublicId"/>
+    /// is supplied it must be an assignment of the employee; otherwise the principal plaza is resolved (same
+    /// criterion as settlement/vacations — IsPrimary among the active ones, oldest StartDate, then oldest active,
+    /// then oldest). The cost center is DERIVED from the resolved plaza; its name is snapshotted. Returns
+    /// <see cref="OneTimeIncomePlazaResolution.Found"/> = false when no plaza can be resolved.
+    /// </summary>
+    Task<OneTimeIncomePlazaResolution> ResolveOneTimeIncomePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>True when the personnel file's employee profile is RETIRADO (write-locked; EMPLOYEE_PROFILE_RETIRED_LOCKED).</summary>
+    Task<bool> IsOneTimeIncomeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Requester lookup for the trío (№10) + the TRIPLE anti-self pata (c) (№6): the display name, activity and
+    /// linked login of a personnel file of the company by public id. Returns null when the requester file is not
+    /// found in the tenant.
+    /// </summary>
+    Task<OneTimeIncomeRequesterLookup?> GetOneTimeIncomeRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
 }
