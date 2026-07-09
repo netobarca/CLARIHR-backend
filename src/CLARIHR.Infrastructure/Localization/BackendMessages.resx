@@ -2335,4 +2335,31 @@
   <data name="validation.message.decision_must_be_aplicar_or_rechazar" xml:space="preserve">
     <value>Decision must be APLICAR or RECHAZAR.</value>
   </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_INVALID" xml:space="preserve">
+    <value>The disciplinary-action type does not exist or is inactive for the company.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_INVALID" xml:space="preserve">
+    <value>The disciplinary-action cause does not exist or is inactive for the company.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_INCIDENT_DATE_IN_FUTURE" xml:space="preserve">
+    <value>The disciplinary-action incident date cannot be in the future.</value>
+  </data>
+  <data name="SUSPENSION_NOT_ALLOWED_FOR_TYPE" xml:space="preserve">
+    <value>Suspension dates cannot travel on a disciplinary-action type that does not apply suspension.</value>
+  </data>
+  <data name="SUSPENSION_DATES_REQUIRED" xml:space="preserve">
+    <value>A disciplinary-action type that applies suspension requires both suspension dates.</value>
+  </data>
+  <data name="SUSPENSION_RANGE_INVALID" xml:space="preserve">
+    <value>The suspension start date cannot be after the end date.</value>
+  </data>
+  <data name="SUSPENSION_OVERLAP" xml:space="preserve">
+    <value>The suspension range overlaps another applied suspension of the employee.</value>
+  </data>
+  <data name="DEDUCTION_AMOUNT_REQUIRED" xml:space="preserve">
+    <value>A payroll deduction requires an amount greater than zero.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee or the registrar cannot decide or revoke the disciplinary action.</value>
+  </data>
 </root>

@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.PersonnelTransactions;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.EmployeeRelations;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
@@ -182,6 +183,166 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
 
     public void AddDisciplinaryActionDocument(PersonnelFileDisciplinaryActionDocument entity) =>
         dbContext.PersonnelFileDisciplinaryActionDocuments.Add(entity);
+
+    public async Task<IReadOnlyCollection<PersonnelFileDisciplinaryActionResponse>> GetDisciplinaryActionResponsesAsync(
+        Guid personnelFilePublicId, bool onlyApplied, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.PersonnelFileDisciplinaryActions
+            .AsNoTracking()
+            .Include(item => item.DisciplinaryActionType)
+            .Include(item => item.DisciplinaryActionCause)
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId
+                && (!onlyApplied || item.StatusCode == PersonnelTransactionStatuses.Aplicada))
+            .OrderByDescending(item => item.IncidentDate)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapDisciplinaryAction).ToArray();
+    }
+
+    public async Task<PersonnelFileDisciplinaryActionResponse?> GetDisciplinaryActionResponseAsync(
+        Guid personnelFilePublicId, Guid disciplinaryActionPublicId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.PersonnelFileDisciplinaryActions
+            .AsNoTracking()
+            .Include(item => item.DisciplinaryActionType)
+            .Include(item => item.DisciplinaryActionCause)
+            .SingleOrDefaultAsync(
+                item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == disciplinaryActionPublicId,
+                cancellationToken);
+        return item is null ? null : MapDisciplinaryAction(item);
+    }
+
+    public Task<DisciplinaryActionTypeRef?> ResolveActiveDisciplinaryActionTypeAsync(
+        Guid tenantId, Guid disciplinaryActionTypePublicId, CancellationToken cancellationToken) =>
+        dbContext.Set<DisciplinaryActionType>()
+            .AsNoTracking()
+            .Where(type => type.TenantId == tenantId && type.PublicId == disciplinaryActionTypePublicId && type.IsActive)
+            .Select(type => new DisciplinaryActionTypeRef(type.Id, type.Name, type.AppliesSuspension))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<DisciplinaryActionCauseRef?> ResolveActiveDisciplinaryActionCauseAsync(
+        Guid tenantId, Guid disciplinaryActionCausePublicId, CancellationToken cancellationToken) =>
+        dbContext.Set<DisciplinaryActionCause>()
+            .AsNoTracking()
+            .Where(cause => cause.TenantId == tenantId && cause.PublicId == disciplinaryActionCausePublicId && cause.IsActive)
+            .Select(cause => new DisciplinaryActionCauseRef(cause.Id, cause.Name, cause.DeductionConceptTypeCode))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<EgressConceptRef?> ResolveActiveEgressConceptAsync(
+        Guid tenantId, string conceptCode, CancellationToken cancellationToken)
+    {
+        var normalizedCode = conceptCode.Trim().ToUpperInvariant();
+
+        // Resolve the tenant's country, then require an ACTIVE egreso concept with that normalized code in the
+        // country-scoped compensation-concept-types catalog (mirrors DisciplinaryActionCauseRepository —
+        // DEDUCTION_CONCEPT_INVALID). Returns the name so the record can snapshot it at Apply.
+        var companyCountryId = await dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == tenantId)
+            .Select(company => (long?)company.CountryCatalogItemId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (companyCountryId is null)
+        {
+            return null;
+        }
+
+        return await dbContext.CompensationConceptTypeCatalogItems
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountryId.Value
+                && item.IsActive
+                && item.Nature == CompensationNature.Egreso
+                && item.NormalizedCode == normalizedCode)
+            .Select(item => new EgressConceptRef(item.Code, item.Name))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<string?> GetDisciplinaryActionCauseConceptCodeAsync(long disciplinaryActionCauseId, CancellationToken cancellationToken) =>
+        dbContext.Set<DisciplinaryActionCause>()
+            .AsNoTracking()
+            .Where(cause => cause.Id == disciplinaryActionCauseId)
+            .Select(cause => cause.DeductionConceptTypeCode)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<DisciplinaryActionDocumentResponse>> GetDisciplinaryActionDocumentsAsync(
+        Guid disciplinaryActionPublicId, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.PersonnelFileDisciplinaryActionDocuments
+            .AsNoTracking()
+            .Include(document => document.DocumentTypeCatalogItem)
+            .Where(document => document.DisciplinaryAction.PublicId == disciplinaryActionPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapDisciplinaryActionDocument).ToArray();
+    }
+
+    public async Task<DisciplinaryActionDocumentResponse?> GetDisciplinaryActionDocumentAsync(
+        Guid disciplinaryActionPublicId, Guid documentPublicId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.PersonnelFileDisciplinaryActionDocuments
+            .AsNoTracking()
+            .Include(document => document.DocumentTypeCatalogItem)
+            .SingleOrDefaultAsync(
+                document => document.DisciplinaryAction.PublicId == disciplinaryActionPublicId && document.PublicId == documentPublicId,
+                cancellationToken);
+        return item is null ? null : MapDisciplinaryActionDocument(item);
+    }
+
+    public Task<PersonnelFileDisciplinaryActionDocument?> GetDisciplinaryActionDocumentEntityAsync(
+        Guid disciplinaryActionPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileDisciplinaryActionDocuments
+            .SingleOrDefaultAsync(
+                document => document.DisciplinaryAction.PublicId == disciplinaryActionPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static PersonnelFileDisciplinaryActionResponse MapDisciplinaryAction(PersonnelFileDisciplinaryAction item) =>
+        new(
+            item.PublicId,
+            item.DisciplinaryActionType!.PublicId,
+            item.TypeNameSnapshot,
+            item.TypeAppliedSuspension,
+            item.DisciplinaryActionCause!.PublicId,
+            item.CauseNameSnapshot,
+            item.IncidentDate,
+            item.FactsDetail,
+            item.HasPayrollDeduction,
+            item.DeductionAmount,
+            item.CurrencyCode,
+            item.DeductionConceptTypeCode,
+            item.DeductionConceptNameSnapshot,
+            item.SuspensionStartDate,
+            item.SuspensionEndDate,
+            item.SuspensionDays,
+            item.AssignedPositionPublicId,
+            item.RegisteredByUserId,
+            item.StatusCode,
+            item.DecidedByUserId,
+            item.DecidedUtc,
+            item.DecisionNote,
+            item.AnnulmentReason,
+            item.AnnulledByUserId,
+            item.AnnulledUtc,
+            item.PersonnelActionPublicId,
+            item.SuspensionActionPublicId,
+            item.Notes,
+            item.IsActive,
+            item.ConcurrencyToken,
+            item.CreatedUtc,
+            item.ModifiedUtc);
+
+    private static DisciplinaryActionDocumentResponse MapDisciplinaryActionDocument(PersonnelFileDisciplinaryActionDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.Observations,
+            document.IsActive,
+            document.ConcurrencyToken);
 
     public Task<bool> HasOverlappingSuspensionAsync(
         long personnelFileId,

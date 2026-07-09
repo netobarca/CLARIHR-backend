@@ -7,6 +7,21 @@ namespace CLARIHR.Application.Abstractions.PersonnelFiles;
 public sealed record RecognitionTypeRef(long InternalId, string Name);
 
 /// <summary>
+/// Resolved active disciplinary-action-type master reference (internal id + name to snapshot + the
+/// <c>AppliesSuspension</c> flag snapshotted at creation — RN-05/PR-2).
+/// </summary>
+public sealed record DisciplinaryActionTypeRef(long InternalId, string Name, bool AppliesSuspension);
+
+/// <summary>
+/// Resolved active disciplinary-action-cause master reference (internal id + name to snapshot + the cause's
+/// optional default egreso concept code — the "referencia editable, default de la causa" of aclaración №5).
+/// </summary>
+public sealed record DisciplinaryActionCauseRef(long InternalId, string Name, string? DeductionConceptTypeCode);
+
+/// <summary>Resolved active egreso compensation concept (normalized code + name to snapshot at Apply).</summary>
+public sealed record EgressConceptRef(string Code, string Name);
+
+/// <summary>
 /// Persistence port of the "otras transacciones de personal" module — recognitions and disciplinary actions
 /// (REQ-003 PR-2/PR-3). It wires the tracked-entity loaders the decision/revocation handlers need, the
 /// recognition read projections (with the self-service APLICADA filter, D-13), the linked personnel-action
@@ -71,6 +86,47 @@ public interface IPersonnelTransactionRepository
     void AddDisciplinaryAction(PersonnelFileDisciplinaryAction entity);
 
     void AddDisciplinaryActionDocument(PersonnelFileDisciplinaryActionDocument entity);
+
+    // ── Disciplinary-action read projections (PR-4) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Disciplinary actions of the file mapped to the wire. When <paramref name="onlyApplied"/> is true the
+    /// projection returns only APLICADA records — the self-service employee's view (D-13). Newest first.
+    /// </summary>
+    Task<IReadOnlyCollection<PersonnelFileDisciplinaryActionResponse>> GetDisciplinaryActionResponsesAsync(
+        Guid personnelFilePublicId, bool onlyApplied, CancellationToken cancellationToken);
+
+    Task<PersonnelFileDisciplinaryActionResponse?> GetDisciplinaryActionResponseAsync(
+        Guid personnelFilePublicId, Guid disciplinaryActionPublicId, CancellationToken cancellationToken);
+
+    /// <summary>Resolves the active disciplinary-action-type master of the tenant (422 DISCIPLINARY_ACTION_TYPE_INVALID otherwise).</summary>
+    Task<DisciplinaryActionTypeRef?> ResolveActiveDisciplinaryActionTypeAsync(
+        Guid tenantId, Guid disciplinaryActionTypePublicId, CancellationToken cancellationToken);
+
+    /// <summary>Resolves the active disciplinary-action-cause master of the tenant (422 DISCIPLINARY_ACTION_CAUSE_INVALID otherwise).</summary>
+    Task<DisciplinaryActionCauseRef?> ResolveActiveDisciplinaryActionCauseAsync(
+        Guid tenantId, Guid disciplinaryActionCausePublicId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves an ACTIVE egreso (<c>Nature = Egreso</c>) compensation concept of the tenant's country by
+    /// normalized code, returning its name to snapshot. Null when the code is unknown, inactive or not an
+    /// egreso concept (422 DEDUCTION_CONCEPT_INVALID). Shares the channel used by the cause master (PR-1).
+    /// </summary>
+    Task<EgressConceptRef?> ResolveActiveEgressConceptAsync(
+        Guid tenantId, string conceptCode, CancellationToken cancellationToken);
+
+    /// <summary>The cause master's current default egreso concept code (the record freezes it at Apply — aclaración №5).</summary>
+    Task<string?> GetDisciplinaryActionCauseConceptCodeAsync(long disciplinaryActionCauseId, CancellationToken cancellationToken);
+
+    // ── Disciplinary-action documents (PR-4) ──────────────────────────────────────────────────────
+    Task<IReadOnlyCollection<DisciplinaryActionDocumentResponse>> GetDisciplinaryActionDocumentsAsync(
+        Guid disciplinaryActionPublicId, CancellationToken cancellationToken);
+
+    Task<DisciplinaryActionDocumentResponse?> GetDisciplinaryActionDocumentAsync(
+        Guid disciplinaryActionPublicId, Guid documentPublicId, CancellationToken cancellationToken);
+
+    Task<PersonnelFileDisciplinaryActionDocument?> GetDisciplinaryActionDocumentEntityAsync(
+        Guid disciplinaryActionPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken);
 
     // ── Suspension overlap (RN-18) ────────────────────────────────────────────────────────────────
 

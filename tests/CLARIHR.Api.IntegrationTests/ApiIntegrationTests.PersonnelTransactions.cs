@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Compensation;
 using CLARIHR.Domain.EmployeeRelations;
 using CLARIHR.Domain.Files;
 using CLARIHR.Domain.PersonnelFiles;
@@ -399,5 +401,319 @@ public sealed partial class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, reject.StatusCode);
         using var doc = JsonDocument.Parse(await reject.Content.ReadAsStringAsync());
         Assert.Equal("RECHAZADA", doc.RootElement.GetProperty("statusCode").GetString());
+    }
+
+    // ── Disciplinary actions (REQ-003 PR-4) ──────────────────────────────────────────────────────────
+
+    private async Task<Guid> SeedDisciplinaryActionTypeAsync(Guid tenantId, string code, string name, bool appliesSuspension)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var type = DisciplinaryActionType.Create(code, name, appliesSuspension, 10);
+        type.SetTenantId(tenantId);
+        dbContext.Set<DisciplinaryActionType>().Add(type);
+        await dbContext.SaveChangesAsync();
+        return type.PublicId;
+    }
+
+    private async Task<Guid> SeedDisciplinaryActionCauseAsync(Guid tenantId, string code, string name, string? deductionConceptTypeCode)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var cause = DisciplinaryActionCause.Create(code, name, deductionConceptTypeCode, 10);
+        cause.SetTenantId(tenantId);
+        dbContext.Set<DisciplinaryActionCause>().Add(cause);
+        await dbContext.SaveChangesAsync();
+        return cause.PublicId;
+    }
+
+    private async Task<string> SeedCompensationConceptAsync(Guid tenantId, string code, string name, CompensationNature nature)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var countryId = await dbContext.Companies
+            .Where(company => company.PublicId == tenantId)
+            .Select(company => company.CountryCatalogItemId)
+            .SingleAsync();
+
+        var concept = CompensationConceptTypeCatalogItem.Create(
+            countryId,
+            "SV",
+            code,
+            name,
+            nature,
+            isStatutory: false,
+            defaultDeductionClass: nature == CompensationNature.Egreso ? DeductionClass.Interno : null,
+            defaultCalculationType: CompensationCalculationType.Fixed,
+            defaultCalculationBaseCode: null,
+            defaultEmployeeRate: null,
+            defaultEmployerRate: null,
+            contributionCap: null,
+            isBaseSalary: false,
+            isActive: true,
+            sortOrder: 500);
+        dbContext.CompensationConceptTypeCatalogItems.Add(concept);
+        await dbContext.SaveChangesAsync();
+        return code;
+    }
+
+    private static object DisciplinaryActionBody(
+        Guid typeId,
+        Guid causeId,
+        string incidentDate = "2026-04-28",
+        bool hasPayrollDeduction = false,
+        decimal? deductionAmount = null,
+        string? currencyCode = null,
+        string? deductionConceptTypeCode = null,
+        string? suspensionStartDate = null,
+        string? suspensionEndDate = null) =>
+        new
+        {
+            disciplinaryActionTypePublicId = typeId,
+            disciplinaryActionCausePublicId = causeId,
+            incidentDate,
+            factsDetail = "Faltó tres días sin aviso.",
+            hasPayrollDeduction,
+            deductionAmount,
+            currencyCode,
+            deductionConceptTypeCode,
+            suspensionStartDate,
+            suspensionEndDate,
+            assignedPositionPublicId = (Guid?)null,
+            notes = (string?)null
+        };
+
+    private static async Task<(Guid DisciplinaryActionId, Guid Token)> CreateDisciplinaryActionAsync(
+        HttpClient client, Guid employeeId, object body)
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/personnel-files/{employeeId}/disciplinary-actions", body);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.Created == response.StatusCode, $"Create failed: {(int)response.StatusCode} {payload}");
+        using var doc = JsonDocument.Parse(payload);
+        return (
+            doc.RootElement.GetProperty("disciplinaryActionPublicId").GetGuid(),
+            doc.RootElement.GetProperty("concurrencyToken").GetGuid());
+    }
+
+    private static async Task<HttpResponseMessage> PatchDisciplinaryActionAsync(
+        HttpClient client, Guid employeeId, Guid disciplinaryActionId, string action, Guid token, object body)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/personnel-files/{employeeId}/disciplinary-actions/{disciplinaryActionId}/{action}")
+        {
+            Content = JsonContent.Create(body)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{token}\"");
+        return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_ApplyWithSuspensionAndDeduction_JournalsBothEntriesAndSnapshotsConcept()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var authorizerClient = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var conceptCode = await SeedCompensationConceptAsync(scenario.TenantId, "DESC_DISCIPLINARIO", "Descuento disciplinario", CompensationNature.Egreso);
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "SUSPENSION_SIN_GOCE", "Suspensión sin goce", appliesSuspension: true);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "INASISTENCIA", "Inasistencia injustificada", conceptCode);
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Diana", "Disciplina", "EMP-DA-A", "diana.da.a@empresa.test");
+
+        var (disciplinaryActionId, token) = await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(
+            typeId, causeId, hasPayrollDeduction: true, deductionAmount: 25m, currencyCode: "USD",
+            suspensionStartDate: "2026-05-10", suspensionEndDate: "2026-05-12"));
+
+        // EN_REVISION with the derived suspension days and no journal entries yet.
+        using (var doc = JsonDocument.Parse(await (await managerClient.GetAsync($"/api/v1/personnel-files/{employeeId}/disciplinary-actions/{disciplinaryActionId}")).Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("EN_REVISION", doc.RootElement.GetProperty("statusCode").GetString());
+            Assert.Equal(3, doc.RootElement.GetProperty("suspensionDays").GetInt32());
+            Assert.Equal(JsonValueKind.Null, doc.RootElement.GetProperty("personnelActionPublicId").ValueKind);
+        }
+
+        var applied = await PatchDisciplinaryActionAsync(authorizerClient, employeeId, disciplinaryActionId, "decision", token,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, applied.StatusCode);
+
+        Guid amonestacionActionId;
+        Guid suspensionActionId;
+        using (var doc = JsonDocument.Parse(await applied.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("APLICADA", doc.RootElement.GetProperty("statusCode").GetString());
+            Assert.Equal("DESC_DISCIPLINARIO", doc.RootElement.GetProperty("deductionConceptTypeCode").GetString());
+            Assert.Equal("Descuento disciplinario", doc.RootElement.GetProperty("deductionConceptNameSnapshot").GetString());
+            amonestacionActionId = doc.RootElement.GetProperty("personnelActionPublicId").GetGuid();
+            suspensionActionId = doc.RootElement.GetProperty("suspensionActionPublicId").GetGuid();
+        }
+
+        // Both entries are journaled: AMONESTACION (with the deduction amount) + SUSPENSION (with the range).
+        using (var doc = JsonDocument.Parse(await (await managerClient.GetAsync($"/api/v1/personnel-files/{employeeId}/personnel-actions")).Content.ReadAsStringAsync()))
+        {
+            var items = doc.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            var amonestacion = items.Single(item => item.GetProperty("personnelActionPublicId").GetGuid() == amonestacionActionId);
+            Assert.Equal("AMONESTACION", amonestacion.GetProperty("actionTypeCode").GetString());
+            Assert.Equal("APLICADA", amonestacion.GetProperty("actionStatusCode").GetString());
+            Assert.Equal(25m, amonestacion.GetProperty("amount").GetDecimal());
+
+            var suspension = items.Single(item => item.GetProperty("personnelActionPublicId").GetGuid() == suspensionActionId);
+            Assert.Equal("SUSPENSION", suspension.GetProperty("actionTypeCode").GetString());
+            Assert.Equal("APLICADA", suspension.GetProperty("actionStatusCode").GetString());
+            Assert.NotEqual(JsonValueKind.Null, suspension.GetProperty("effectiveFromUtc").ValueKind);
+            Assert.NotEqual(JsonValueKind.Null, suspension.GetProperty("effectiveToUtc").ValueKind);
+        }
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_SuspensionDatesOnNonSuspensionType_AreRejected()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "ESCRITA", "Amonestación escrita", appliesSuspension: false);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "CONDUCTA", "Conducta indebida", deductionConceptTypeCode: null);
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Nora", "NoSuspende", "EMP-DA-B", "nora.da.b@empresa.test");
+
+        var response = await managerClient.PostAsJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/disciplinary-actions",
+            DisciplinaryActionBody(typeId, causeId, suspensionStartDate: "2026-05-10", suspensionEndDate: "2026-05-12"));
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "SUSPENSION_NOT_ALLOWED_FOR_TYPE");
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_OverlappingSuspension_IsRejectedUnderLock()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var authorizerClient = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "SUSPENSION_SIN_GOCE", "Suspensión sin goce", appliesSuspension: true);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "INASISTENCIA", "Inasistencia injustificada", deductionConceptTypeCode: null);
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Olga", "Overlap", "EMP-DA-C", "olga.da.c@empresa.test");
+
+        var (firstId, firstToken) = await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(
+            typeId, causeId, suspensionStartDate: "2026-05-10", suspensionEndDate: "2026-05-15"));
+        var firstApply = await PatchDisciplinaryActionAsync(authorizerClient, employeeId, firstId, "decision", firstToken,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, firstApply.StatusCode);
+
+        // A second suspension overlapping the applied one cannot be applied (RN-18, re-checked under the lock).
+        var (secondId, secondToken) = await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(
+            typeId, causeId, suspensionStartDate: "2026-05-12", suspensionEndDate: "2026-05-18"));
+        var secondApply = await PatchDisciplinaryActionAsync(authorizerClient, employeeId, secondId, "decision", secondToken,
+            new { decision = "APLICAR", note = (string?)null });
+        await AssertProblemDetailsAsync(secondApply, HttpStatusCode.UnprocessableEntity, "SUSPENSION_OVERLAP");
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_RevokeApplied_AnnulsBothLinkedEntries()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var authorizerClient = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "SUSPENSION_SIN_GOCE", "Suspensión sin goce", appliesSuspension: true);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "INASISTENCIA", "Inasistencia injustificada", deductionConceptTypeCode: null);
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Rene", "Revoca", "EMP-DA-D", "rene.da.d@empresa.test");
+
+        var (disciplinaryActionId, token) = await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(
+            typeId, causeId, suspensionStartDate: "2026-05-10", suspensionEndDate: "2026-05-12"));
+        var applied = await PatchDisciplinaryActionAsync(authorizerClient, employeeId, disciplinaryActionId, "decision", token,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, applied.StatusCode);
+
+        Guid appliedToken;
+        Guid amonestacionActionId;
+        Guid suspensionActionId;
+        using (var doc = JsonDocument.Parse(await applied.Content.ReadAsStringAsync()))
+        {
+            appliedToken = doc.RootElement.GetProperty("concurrencyToken").GetGuid();
+            amonestacionActionId = doc.RootElement.GetProperty("personnelActionPublicId").GetGuid();
+            suspensionActionId = doc.RootElement.GetProperty("suspensionActionPublicId").GetGuid();
+        }
+
+        var revoked = await PatchDisciplinaryActionAsync(authorizerClient, employeeId, disciplinaryActionId, "annulment", appliedToken,
+            new { reason = "Registrada por error." });
+        Assert.Equal(HttpStatusCode.OK, revoked.StatusCode);
+        using (var doc = JsonDocument.Parse(await revoked.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("ANULADA", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        // BOTH linked entries (AMONESTACION + SUSPENSION) are ANULADA.
+        using (var doc = JsonDocument.Parse(await (await managerClient.GetAsync($"/api/v1/personnel-files/{employeeId}/personnel-actions")).Content.ReadAsStringAsync()))
+        {
+            var items = doc.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal("ANULADA", items.Single(item => item.GetProperty("personnelActionPublicId").GetGuid() == amonestacionActionId).GetProperty("actionStatusCode").GetString());
+            Assert.Equal("ANULADA", items.Single(item => item.GetProperty("personnelActionPublicId").GetGuid() == suspensionActionId).GetProperty("actionStatusCode").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_DeductionWithoutAmountOrIngressConcept_AreRejected()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+
+        var ingressCode = await SeedCompensationConceptAsync(scenario.TenantId, "BONO_INGRESO", "Bono de ingreso", CompensationNature.Ingreso);
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "ESCRITA", "Amonestación escrita", appliesSuspension: false);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "DANO", "Daño a bienes", deductionConceptTypeCode: null);
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Delia", "Descuento", "EMP-DA-E", "delia.da.e@empresa.test");
+
+        // A deduction flag without an amount is rejected (RN-06).
+        var noAmount = await managerClient.PostAsJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/disciplinary-actions",
+            DisciplinaryActionBody(typeId, causeId, hasPayrollDeduction: true, deductionAmount: null));
+        await AssertProblemDetailsAsync(noAmount, HttpStatusCode.UnprocessableEntity, "DEDUCTION_AMOUNT_REQUIRED");
+
+        // An income (ingreso) concept on the input is rejected as a non-egreso concept.
+        var ingress = await managerClient.PostAsJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/disciplinary-actions",
+            DisciplinaryActionBody(typeId, causeId, hasPayrollDeduction: true, deductionAmount: 10m, currencyCode: "USD", deductionConceptTypeCode: ingressCode));
+        await AssertProblemDetailsAsync(ingress, HttpStatusCode.UnprocessableEntity, "DEDUCTION_CONCEPT_INVALID");
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_RegistrarOrSubjectDecides_IsForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var subjectUserId = Guid.NewGuid();
+        var managerUserId = scenario.ActorUserId;
+
+        // The registrar also holds the authorize grant (so the 403 comes from the anti-self rule, not RBAC).
+        using var registrarClient = factory.CreateClientFor(RecognitionContext(
+            scenario, managerUserId, PersonnelFilePermissionCodes.Admin, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+        using var subjectClient = factory.CreateClientFor(RecognitionContext(scenario, subjectUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var typeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "ESCRITA", "Amonestación escrita", appliesSuspension: false);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "TARDANZA", "Llegadas tardías", deductionConceptTypeCode: null);
+        var employeeId = await SeedRecognitionEmployeeAsync(
+            scenario.TenantId, "Selso", "Sujeto", "EMP-DA-F", "selso.da.f@empresa.test", linkedUserPublicId: subjectUserId);
+
+        var (disciplinaryActionId, token) = await CreateDisciplinaryActionAsync(registrarClient, employeeId, DisciplinaryActionBody(typeId, causeId));
+
+        // The registrar cannot decide their own registration.
+        var byRegistrar = await PatchDisciplinaryActionAsync(registrarClient, employeeId, disciplinaryActionId, "decision", token,
+            new { decision = "APLICAR", note = (string?)null });
+        await AssertProblemDetailsAsync(byRegistrar, HttpStatusCode.Forbidden, "DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN");
+
+        // The subject employee cannot decide their own disciplinary action.
+        var bySubject = await PatchDisciplinaryActionAsync(subjectClient, employeeId, disciplinaryActionId, "decision", token,
+            new { decision = "APLICAR", note = (string?)null });
+        await AssertProblemDetailsAsync(bySubject, HttpStatusCode.Forbidden, "DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN");
     }
 }

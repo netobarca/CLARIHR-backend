@@ -49627,6 +49627,549 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions':
+    get:
+      tags:
+        - Personnel Files
+      summary: List a personnel file's disciplinary actions
+      description: "Returns the disciplinary actions of the personnel file with their one-decision lifecycle. Access requires the `ViewDisciplinaryActions` permission or the employee reading their own disciplinary actions — the employee only ever sees their APLICADA disciplinary actions (REQ-003 D-13)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Register a disciplinary action
+      description: "Registers a disciplinary action (EN_REVISION) with no personnel-action entry yet. HR-only (`ManageDisciplinaryActions`). The incident date must be ≤ today; the suspension block is only allowed on a type that applies suspension (RN-05); a payroll deduction requires a positive amount (RN-06). The type and cause are validated against the active company masters."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDisciplinaryActionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a disciplinary action by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: Edit a disciplinary action's declarative fields
+      description: "Updates an EN_REVISION disciplinary action (RN-01, manager-only). Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisciplinaryActionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}/decision':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Decide a disciplinary action (APLICAR / RECHAZAR)
+      description: "The single decision (RN-01/RN-02). `APLICAR` → APLICADA and journals an `AMONESTACION` personnel action (plus a `SUSPENSION` entry when the suspension block travels) in the same transaction, re-checking the suspension overlap under a per-employee lock (`422 SUSPENSION_OVERLAP`) and freezing the deduction concept; `RECHAZAR` → RECHAZADA and requires a `note`. Requires the dedicated `AuthorizeDisciplinaryActions` grant (Admin excluded); the subject employee and the registrar cannot decide (double anti-self, `403 DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN`). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisciplinaryActionDecisionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul or revoke a disciplinary action
+      description: "Annuls an EN_REVISION disciplinary action (trámite withdrawal — `ManageDisciplinaryActions`) or revokes an APLICADA one (revocation — the dedicated `AuthorizeDisciplinaryActions` grant + double anti-self; annuls the linked `AMONESTACION` and `SUSPENSION` entries in the same transaction). The `reason` is mandatory. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisciplinaryActionAnnulmentRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDisciplinaryActionResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}/documents':
+    get:
+      tags:
+        - Personnel Files
+      summary: List the supporting documents of a disciplinary action
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DisciplinaryActionDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: Attach a supporting document to a disciplinary action
+      description: "Links an already-uploaded file (two-step upload flow, `purpose = DisciplinaryActionDocument`) to the disciplinary action. Manager-only (D-05). A file uploaded with another purpose yields `400 files.invalid_purpose`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDisciplinaryActionDocumentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionDocumentResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}/documents/{documentPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a disciplinary action document by id
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplinaryActionDocumentResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: Remove a supporting document from a disciplinary action
+      description: "Soft-deletes the attachment and marks its backing blob for cleanup. Manager-only (D-05). Requires the document's current `concurrencyToken` in the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/disciplinary-actions/{disciplinaryActionPublicId}/documents/{documentPublicId}/read-url':
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a time-limited download URL for a disciplinary action document
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disciplinaryActionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: documentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetDisciplinaryActionDocumentReadUrlResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -66901,6 +67444,264 @@ components:
           nullable: true
       additionalProperties: false
     GetRecognitionDocumentReadUrlResponse:
+      type: object
+      properties:
+        readUrl:
+          type: string
+        expiresUtc:
+          type: string
+          format: date-time
+      additionalProperties: false
+    PersonnelFileDisciplinaryActionResponse:
+      type: object
+      properties:
+        disciplinaryActionPublicId:
+          type: string
+          format: uuid
+        disciplinaryActionTypePublicId:
+          type: string
+          format: uuid
+        typeNameSnapshot:
+          type: string
+        typeAppliedSuspension:
+          type: boolean
+        disciplinaryActionCausePublicId:
+          type: string
+          format: uuid
+        causeNameSnapshot:
+          type: string
+        incidentDate:
+          type: string
+          format: date
+        factsDetail:
+          type: string
+        hasPayrollDeduction:
+          type: boolean
+        deductionAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        deductionConceptNameSnapshot:
+          type: string
+          nullable: true
+        suspensionStartDate:
+          type: string
+          format: date
+          nullable: true
+        suspensionEndDate:
+          type: string
+          format: date
+          nullable: true
+        suspensionDays:
+          type: integer
+          format: int32
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        registeredByUserId:
+          type: string
+        statusCode:
+          type: string
+          description: 'EN_REVISION | APLICADA | RECHAZADA | ANULADA'
+        decidedByUserId:
+          type: string
+          nullable: true
+        decidedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        decisionNote:
+          type: string
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        annulledByUserId:
+          type: string
+          nullable: true
+        annulledUtc:
+          type: string
+          format: date-time
+          nullable: true
+        personnelActionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        suspensionActionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+    AddDisciplinaryActionRequest:
+      type: object
+      properties:
+        disciplinaryActionTypePublicId:
+          type: string
+          format: uuid
+        disciplinaryActionCausePublicId:
+          type: string
+          format: uuid
+        incidentDate:
+          type: string
+          format: date
+        factsDetail:
+          type: string
+        hasPayrollDeduction:
+          type: boolean
+        deductionAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        suspensionStartDate:
+          type: string
+          format: date
+          nullable: true
+        suspensionEndDate:
+          type: string
+          format: date
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      additionalProperties: false
+    UpdateDisciplinaryActionRequest:
+      type: object
+      properties:
+        disciplinaryActionTypePublicId:
+          type: string
+          format: uuid
+        disciplinaryActionCausePublicId:
+          type: string
+          format: uuid
+        incidentDate:
+          type: string
+          format: date
+        factsDetail:
+          type: string
+        hasPayrollDeduction:
+          type: boolean
+        deductionAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        suspensionStartDate:
+          type: string
+          format: date
+          nullable: true
+        suspensionEndDate:
+          type: string
+          format: date
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      additionalProperties: false
+    DisciplinaryActionDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          description: 'APLICAR | RECHAZAR'
+        note:
+          type: string
+          nullable: true
+      additionalProperties: false
+    DisciplinaryActionAnnulmentRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    DisciplinaryActionDocumentResponse:
+      type: object
+      properties:
+        documentPublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeName:
+          type: string
+          nullable: true
+        filePublicId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int32
+        observations:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+      additionalProperties: false
+    AddDisciplinaryActionDocumentRequest:
+      type: object
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+      additionalProperties: false
+    GetDisciplinaryActionDocumentReadUrlResponse:
       type: object
       properties:
         readUrl:

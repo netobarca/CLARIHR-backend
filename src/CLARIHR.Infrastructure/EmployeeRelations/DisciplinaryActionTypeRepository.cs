@@ -32,10 +32,16 @@ internal sealed class DisciplinaryActionTypeRepository(ApplicationDbContext dbCo
                     (!excludingDisciplinaryActionTypeId.HasValue || type.PublicId != excludingDisciplinaryActionTypeId.Value),
             cancellationToken);
 
-    // PR-1 has no disciplinary-action record table yet (M2/PR-2), so nothing can reference a type — the
-    // real reference probe is wired in PR-4 once that table exists.
+    // REQ-003 PR-4: the disciplinary-actions table now exists — a type is in use when an active disciplinary
+    // action of the tenant references it (logical inactivation is then blocked with DISCIPLINARY_ACTION_TYPE_IN_USE).
     public Task<bool> IsInUseAsync(Guid tenantId, Guid disciplinaryActionTypeId, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
+        dbContext.Set<Domain.PersonnelFiles.PersonnelFileDisciplinaryAction>()
+            .AsNoTracking()
+            .AnyAsync(
+                action => action.TenantId == tenantId
+                    && action.IsActive
+                    && action.DisciplinaryActionType!.PublicId == disciplinaryActionTypeId,
+                cancellationToken);
 
     public async Task<PagedResponse<DisciplinaryActionTypeListItemResponse>> SearchAsync(
         Guid tenantId,

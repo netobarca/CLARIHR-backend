@@ -34,10 +34,16 @@ internal sealed class DisciplinaryActionCauseRepository(ApplicationDbContext dbC
                     (!excludingDisciplinaryActionCauseId.HasValue || cause.PublicId != excludingDisciplinaryActionCauseId.Value),
             cancellationToken);
 
-    // PR-1 has no disciplinary-action record table yet (M2/PR-2), so nothing can reference a cause — the
-    // real reference probe is wired in PR-4 once that table exists.
+    // REQ-003 PR-4: the disciplinary-actions table now exists — a cause is in use when an active disciplinary
+    // action of the tenant references it (logical inactivation is then blocked with DISCIPLINARY_ACTION_CAUSE_IN_USE).
     public Task<bool> IsInUseAsync(Guid tenantId, Guid disciplinaryActionCauseId, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
+        dbContext.Set<Domain.PersonnelFiles.PersonnelFileDisciplinaryAction>()
+            .AsNoTracking()
+            .AnyAsync(
+                action => action.TenantId == tenantId
+                    && action.IsActive
+                    && action.DisciplinaryActionCause!.PublicId == disciplinaryActionCauseId,
+                cancellationToken);
 
     public async Task<bool> IsDeductionConceptValidAsync(
         Guid tenantId,

@@ -2335,4 +2335,31 @@
   <data name="validation.message.decision_must_be_aplicar_or_rechazar" xml:space="preserve">
     <value>La decisión debe ser APLICAR o RECHAZAR.</value>
   </data>
+  <data name="DISCIPLINARY_ACTION_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de amonestación no existe o está inactivo para la empresa.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_CAUSE_INVALID" xml:space="preserve">
+    <value>La causa de amonestación no existe o está inactiva para la empresa.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_INCIDENT_DATE_IN_FUTURE" xml:space="preserve">
+    <value>La fecha de la falta de la amonestación no puede ser futura.</value>
+  </data>
+  <data name="SUSPENSION_NOT_ALLOWED_FOR_TYPE" xml:space="preserve">
+    <value>No se pueden enviar fechas de suspensión en un tipo de amonestación que no aplica suspensión.</value>
+  </data>
+  <data name="SUSPENSION_DATES_REQUIRED" xml:space="preserve">
+    <value>Un tipo de amonestación que aplica suspensión requiere ambas fechas de suspensión.</value>
+  </data>
+  <data name="SUSPENSION_RANGE_INVALID" xml:space="preserve">
+    <value>La fecha de inicio de la suspensión no puede ser posterior a la fecha de fin.</value>
+  </data>
+  <data name="SUSPENSION_OVERLAP" xml:space="preserve">
+    <value>El rango de suspensión se solapa con otra suspensión aplicada del empleado.</value>
+  </data>
+  <data name="DEDUCTION_AMOUNT_REQUIRED" xml:space="preserve">
+    <value>Un descuento de planilla requiere un monto mayor que cero.</value>
+  </data>
+  <data name="DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto o quien registró no pueden decidir ni revocar la amonestación.</value>
+  </data>
 </root>
