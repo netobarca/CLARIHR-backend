@@ -2620,4 +2620,34 @@
   <data name="OVERTIME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>El registro de hora extra no está en un estado que permita esta operación.</value>
   </data>
+  <data name="OVERTIME_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de hora extra no es un tipo activo válido de la empresa.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_INVALID" xml:space="preserve">
+    <value>El tipo de justificación de hora extra no es un tipo activo válido de la empresa.</value>
+  </data>
+  <data name="OVERTIME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de planilla no es válido para el catálogo activo.</value>
+  </data>
+  <data name="OVERTIME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza asignada no es una plaza válida de este empleado.</value>
+  </data>
+  <data name="OVERTIME_REQUESTER_INVALID" xml:space="preserve">
+    <value>El solicitante no es un expediente de personal válido de la empresa.</value>
+  </data>
+  <data name="OVERTIME_STATUS_INVALID" xml:space="preserve">
+    <value>El estado destino no es un destino de resolución válido para el catálogo activo.</value>
+  </data>
+  <data name="OVERTIME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota de decisión para rechazar un registro de hora extra.</value>
+  </data>
+  <data name="OVERTIME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de anulación.</value>
+  </data>
+  <data name="OVERTIME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto, el registrador o el solicitante no pueden decidir ni revocar el registro de hora extra.</value>
+  </data>
+  <data name="OVERTIME_SELF_SERVICE_DISABLED" xml:space="preserve">
+    <value>El autoservicio de horas extras del empleado no está habilitado para esta empresa.</value>
+  </data>
 </root>

@@ -13,6 +13,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Overtime;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
 
@@ -1384,6 +1385,248 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
         if (!(await authorizationService.EnsureCanViewOneTimeIncomesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess)
         {
             return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    // ── Overtime records (REQ-007) — dual channel HR + employee portal ─────────────────────────────────
+
+    /// <summary>
+    /// Manage gate for overtime records (REQ-007 P-01): enforces the dedicated
+    /// <c>PersonnelFiles.ManageOvertimeRecords</c> permission (or Admin / IAM super-admin). Used by the Manage-only
+    /// re-imputation. Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers
+    /// pass <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageOvertimeRecordsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageOvertimeRecordsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Decision/revocation gate for overtime records (REQ-007 P-01/P-06): enforces the dedicated
+    /// <c>PersonnelFiles.AuthorizeOvertimeRecords</c> permission (or IAM super-admin) — <c>PersonnelFiles.Admin</c>
+    /// is deliberately EXCLUDED (separation of duties, mirrors AuthorizeRetirement). The TRIPLE anti-self checks
+    /// (subject / registrar / requester) are enforced in the handler.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForAuthorizeOvertimeRecordsAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanAuthorizeOvertimeRecordsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Create gate for overtime records (REQ-007 P-01 dual channel): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageOvertimeRecords</c> permission (or Admin) — HR registers on any file (origin RRHH) —
+    /// OR the caller is the employee self-registering on their OWN file when the company self-service preference is
+    /// enabled (origin PORTAL). A self caller with the preference OFF gets an actionable
+    /// <c>OVERTIME_SELF_SERVICE_DISABLED</c>; a non-self, non-manager caller gets 403. Returns <c>IsManager</c> so
+    /// the handler derives the origin channel + the requester (the trío file vs the subject employee).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File, bool IsManager)> LoadForCreateOwnOrManageOvertimeAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null, false);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null,
+                false);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageOvertimeRecordsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (canManageByRole)
+        {
+            return (null, personnelFile, true);
+        }
+
+        var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+            && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+            && linkedUserPublicId == callerUserPublicId;
+        if (!isSelf)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null, false);
+        }
+
+        // Self-service is gated by the company preference (default off, P-01): a self caller with it off gets a
+        // distinct, actionable 403 rather than the generic Forbidden of a non-self caller.
+        var preferences = await personnelFileRepository.GetOvertimePreferencesAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (!preferences.SelfServiceEnabled)
+        {
+            return (Result<TResponse>.Failure(OvertimeRecordErrors.SelfServiceDisabled), null, false);
+        }
+
+        return (null, personnelFile, false);
+    }
+
+    /// <summary>
+    /// Edit/annul gate for overtime records (REQ-007): the caller has the dedicated
+    /// <c>PersonnelFiles.ManageOvertimeRecords</c> permission (or Admin) — HR edits any record — OR the caller is
+    /// the employee acting on their OWN file. The record-level guard (PORTAL origin + EN_REVISION status) is applied
+    /// by the handler once the record is loaded. Returns <c>IsManager</c> so the handler enforces the self-only
+    /// portal-draft restriction. Unlike create, this does NOT re-check the self-service preference (an already
+    /// registered draft can be edited/withdrawn even if the preference is later disabled).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File, bool IsManager)> LoadForManageOrOwnOvertimeAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null, false);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null,
+                false);
+        }
+
+        var canManageByRole = (await authorizationService.EnsureCanManageOvertimeRecordsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (canManageByRole)
+        {
+            return (null, personnelFile, true);
+        }
+
+        var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+            && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+            && linkedUserPublicId == callerUserPublicId;
+        if (!isSelf)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null, false);
+        }
+
+        return (null, personnelFile, false);
+    }
+
+    /// <summary>
+    /// Read gate for overtime sub-resources (REQ-007 P-12): the caller has the dedicated
+    /// <c>ViewOvertimeRecords</c> permission (or Admin), OR the caller is the employee reading their own records
+    /// (self-service). Without the permission and without being the owner the caller gets 403. Requires a completed
+    /// employee.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForOvertimeReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewOvertimeRecordsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+            }
         }
 
         if (!personnelFile.IsCompletedEmployee)

@@ -2620,4 +2620,34 @@
   <data name="OVERTIME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The overtime record is not in a state that allows this operation.</value>
   </data>
+  <data name="OVERTIME_TYPE_INVALID" xml:space="preserve">
+    <value>The overtime type is not a valid active type of the company.</value>
+  </data>
+  <data name="OVERTIME_JUSTIFICATION_INVALID" xml:space="preserve">
+    <value>The overtime justification type is not a valid active type of the company.</value>
+  </data>
+  <data name="OVERTIME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>The payroll type is not valid for the active catalog.</value>
+  </data>
+  <data name="OVERTIME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position is not a valid plaza of this employee.</value>
+  </data>
+  <data name="OVERTIME_REQUESTER_INVALID" xml:space="preserve">
+    <value>The requester is not a valid personnel file of the company.</value>
+  </data>
+  <data name="OVERTIME_STATUS_INVALID" xml:space="preserve">
+    <value>The target status is not a valid resolution target for the active catalog.</value>
+  </data>
+  <data name="OVERTIME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A decision note is required to reject an overtime record.</value>
+  </data>
+  <data name="OVERTIME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required.</value>
+  </data>
+  <data name="OVERTIME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee, the registrar or the requester cannot decide or revoke the overtime record.</value>
+  </data>
+  <data name="OVERTIME_SELF_SERVICE_DISABLED" xml:space="preserve">
+    <value>Employee self-service for overtime records is not enabled for this company.</value>
+  </data>
 </root>

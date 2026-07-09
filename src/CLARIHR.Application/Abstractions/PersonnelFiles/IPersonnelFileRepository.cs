@@ -324,6 +324,17 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
+    /// <summary>
+    /// Resolves the company overtime preferences (REQ-007 P-01/P-05): whether the employee self-service portal
+    /// channel is enabled and the optional daily cap in minutes. A company without a preference row defaults to
+    /// <c>(false, null)</c>. Fail-safe default so hand-written test doubles need not implement it; the production
+    /// repository overrides it.
+    /// </summary>
+    Task<OvertimeCompanyPreferences> GetOvertimePreferencesAsync(
+        Guid companyId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new OvertimeCompanyPreferences(false, null));
+
     Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(

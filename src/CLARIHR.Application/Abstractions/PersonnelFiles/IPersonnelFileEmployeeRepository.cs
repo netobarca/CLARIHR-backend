@@ -1464,4 +1464,72 @@ public interface IPersonnelFileEmployeeRepository
     /// </summary>
     Task AcquireOvertimeRecordMutationLockAsync(Guid overtimeRecordPublicId, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    /// <summary>Adds a new overtime record and returns the file's records (idioma post-fix: Add + AsNoTracking
+    /// re-query + Append the in-memory entity; the handler owns the SaveChanges).</summary>
+    Task<IReadOnlyCollection<OvertimeRecordResponse>> AddOvertimeRecordAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOvertimeRecord entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>The overtime records of a file (most recent work date first) for the list read.</summary>
+    Task<IReadOnlyCollection<OvertimeRecordResponse>> GetOvertimeRecordsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>A single overtime record projection (null when it is not on the file).</summary>
+    Task<OvertimeRecordResponse?> GetOvertimeRecordAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The TRACKED overtime record (for a lifecycle mutation); null when it is not found.</summary>
+    Task<PersonnelFileOvertimeRecord?> GetOvertimeRecordEntityAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves the plaza of an overtime record (D-12): the requested assignment, or the principal plaza
+    /// when omitted; <see cref="OvertimePlazaResolution.NotFound"/> when the employee has no matching assignment.</summary>
+    Task<OvertimePlazaResolution> ResolveOvertimePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company overtime-type master by public id (code + name + reference factor + activity);
+    /// null when it is not a type of the tenant.</summary>
+    Task<OvertimeTypeLookup?> GetOvertimeTypeLookupAsync(
+        Guid overtimeTypePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company overtime justification-type master by public id (code + name + activity); null
+    /// when it is not a type of the tenant.</summary>
+    Task<OvertimeJustificationLookup?> GetOvertimeJustificationLookupAsync(
+        Guid justificationTypePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves the requester file's display name + activity + linked login (the trío snapshot + the
+    /// TRIPLE anti-self pata c); null when it is not a personnel file of the tenant.</summary>
+    Task<OvertimeRequesterLookup?> GetOvertimeRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The sum of the day's active overtime minutes (EN_REVISION + AUTORIZADA + APLICADA) for the file +
+    /// work date, optionally excluding a record being edited — feeds the daily-cap accumulation (P-05/№12).</summary>
+    Task<int> GetActiveOvertimeMinutesForDayAsync(
+        long personnelFileInternalId,
+        DateOnly workDate,
+        Guid tenantId,
+        Guid? excludeRecordPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>True when the file's employment profile is RETIRADO (a retired file is locked for new records).</summary>
+    Task<bool> IsOvertimeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken);
 }

@@ -7,6 +7,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.Overtime;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Infrastructure.Persistence;
@@ -3780,6 +3781,163 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             new object[] { OvertimeRecordMutationLockClassId, objectKey },
             cancellationToken);
     }
+
+    public async Task<IReadOnlyCollection<OvertimeRecordResponse>> AddOvertimeRecordAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOvertimeRecord entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileOvertimeRecord>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.WorkDate)
+            .ThenByDescending(item => item.PublicId)
+            .Select(OvertimeRecordMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<OvertimeRecordResponse>> GetOvertimeRecordsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.WorkDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(OvertimeRecordMapping.ToResponse).ToArray();
+    }
+
+    public async Task<OvertimeRecordResponse?> GetOvertimeRecordAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFilePublicId && x.PublicId == overtimeRecordPublicId,
+                cancellationToken);
+        return item is null ? null : OvertimeRecordMapping.ToResponse(item);
+    }
+
+    public Task<PersonnelFileOvertimeRecord?> GetOvertimeRecordEntityAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileOvertimeRecord>()
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId
+                    && x.PublicId == overtimeRecordPublicId
+                    && x.PersonnelFile.PublicId == personnelFilePublicId,
+                cancellationToken);
+
+    public async Task<OvertimePlazaResolution> ResolveOvertimePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileInternalId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return OvertimePlazaResolution.NotFound;
+        }
+
+        var chosen = assignedPositionPublicId is { } requested && requested != Guid.Empty
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : assignments.Where(item => item.IsActive && item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.Where(item => item.IsActive).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        return chosen is null
+            ? OvertimePlazaResolution.NotFound
+            : new OvertimePlazaResolution(true, chosen.PublicId);
+    }
+
+    public Task<OvertimeTypeLookup?> GetOvertimeTypeLookupAsync(
+        Guid overtimeTypePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<OvertimeType>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == overtimeTypePublicId)
+            .Select(item => new OvertimeTypeLookup(item.PublicId, item.Code, item.Name, item.DefaultFactor, item.IsActive))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<OvertimeJustificationLookup?> GetOvertimeJustificationLookupAsync(
+        Guid justificationTypePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<OvertimeJustificationType>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == justificationTypePublicId)
+            .Select(item => new OvertimeJustificationLookup(item.PublicId, item.Code, item.Name, item.IsActive))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<OvertimeRequesterLookup?> GetOvertimeRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var requester = await dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(file => file.TenantId == tenantId && file.PublicId == requesterFilePublicId)
+            .Select(file => new { file.PublicId, file.FirstName, file.LastName, file.IsActive, file.LinkedUserPublicId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return requester is null
+            ? null
+            : new OvertimeRequesterLookup(
+                requester.PublicId,
+                $"{requester.FirstName} {requester.LastName}".Trim(),
+                requester.IsActive,
+                requester.LinkedUserPublicId);
+    }
+
+    public async Task<int> GetActiveOvertimeMinutesForDayAsync(
+        long personnelFileInternalId,
+        DateOnly workDate,
+        Guid tenantId,
+        Guid? excludeRecordPublicId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
+                && item.PersonnelFileId == personnelFileInternalId
+                && item.WorkDate == workDate
+                && (item.StatusCode == OvertimeRecordStatuses.EnRevision
+                    || item.StatusCode == OvertimeRecordStatuses.Autorizada
+                    || item.StatusCode == OvertimeRecordStatuses.Aplicada));
+
+        if (excludeRecordPublicId is { } excluded)
+        {
+            query = query.Where(item => item.PublicId != excluded);
+        }
+
+        return await query.SumAsync(item => (item.DurationHours * 60) + item.DurationMinutes, cancellationToken);
+    }
+
+    public Task<bool> IsOvertimeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileEmployeeProfile>()
+            .AsNoTracking()
+            .AnyAsync(
+                profile => profile.PersonnelFileId == personnelFileInternalId
+                    && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                cancellationToken);
 
     public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(
         long personnelFileInternalId,

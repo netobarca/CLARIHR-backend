@@ -25,6 +25,54 @@ internal static class OvertimeRecordErrors
     public static readonly Error NotRetargetable = new(
         OvertimeRecordRules.NotRetargetableCode,
         "Only an authorized overtime record can be re-targeted to another payroll period.", ErrorType.UnprocessableEntity);
+
+    // ── Cross-aggregate resolution / snapshot checks (need a database) ──────────────────────────────────
+
+    public static readonly Error OvertimeTypeInvalid = new(
+        "OVERTIME_TYPE_INVALID",
+        "The overtime type is not a valid active type of the company.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error JustificationInvalid = new(
+        "OVERTIME_JUSTIFICATION_INVALID",
+        "The overtime justification type is not a valid active type of the company.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PayrollTypeInvalid = new(
+        "OVERTIME_PAYROLL_TYPE_INVALID",
+        "The payroll type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AssignedPositionInvalid = new(
+        "OVERTIME_ASSIGNED_POSITION_INVALID",
+        "The assigned position is not a valid plaza of this employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error RequesterInvalid = new(
+        "OVERTIME_REQUESTER_INVALID",
+        "The requester is not a valid personnel file of the company.", ErrorType.UnprocessableEntity);
+
+    // ── Decision-flow guards ────────────────────────────────────────────────────────────────────────────
+
+    public static readonly Error StatusInvalid = new(
+        "OVERTIME_STATUS_INVALID",
+        "The target status is not a valid resolution target for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error DecisionNoteRequired = new(
+        "OVERTIME_DECISION_NOTE_REQUIRED",
+        "A decision note is required to reject an overtime record.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AnnulmentReasonRequired = new(
+        "OVERTIME_ANNULMENT_REASON_REQUIRED",
+        "An annulment reason is required.", ErrorType.UnprocessableEntity);
+
+    // Separation of duties (TRIPLE anti-self, aclaración №6): neither the subject employee, the registrar nor the
+    // requester (its linked login) may decide or revoke the overtime record. 403 (Forbidden).
+    public static readonly Error SelfApprovalForbidden = new(
+        "OVERTIME_SELF_APPROVAL_FORBIDDEN",
+        "The subject employee, the registrar or the requester cannot decide or revoke the overtime record.", ErrorType.Forbidden);
+
+    // Portal self-service channel (P-01): the employee tried to self-register but the company preference is off. A
+    // distinct, actionable 403 (vs the generic Forbidden of a non-self caller).
+    public static readonly Error SelfServiceDisabled = new(
+        "OVERTIME_SELF_SERVICE_DISABLED",
+        "Employee self-service for overtime records is not enabled for this company.", ErrorType.Forbidden);
 }
 
 /// <summary>A generic pass/fail rule outcome carrying the bilingual <c>extensions.code</c> when it fails.</summary>

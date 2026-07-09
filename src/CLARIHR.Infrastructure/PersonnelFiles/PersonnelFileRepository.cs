@@ -1743,6 +1743,21 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .Select(item => (string?)item.CurrencyCode)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<OvertimeCompanyPreferences> GetOvertimePreferencesAsync(
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        var preferences = await dbContext.Set<CLARIHR.Domain.Preferences.CompanyPreference>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == companyId)
+            .Select(item => new { item.OvertimeSelfServiceEnabled, item.OvertimeMaxDailyMinutes })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return preferences is null
+            ? new OvertimeCompanyPreferences(false, null)
+            : new OvertimeCompanyPreferences(preferences.OvertimeSelfServiceEnabled ?? false, preferences.OvertimeMaxDailyMinutes);
+    }
+
     public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken)
     {
         var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
