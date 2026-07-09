@@ -2377,4 +2377,37 @@
   <data name="DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>The subject employee or the registrar cannot decide or revoke the disciplinary action.</value>
   </data>
+  <data name="RECURRING_INCOME_PLAN_VALUE_INVALID" xml:space="preserve">
+    <value>The installment value must be greater than zero.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_INDEFINITE_WITH_LIMITS" xml:space="preserve">
+    <value>An indefinite recurring income cannot carry an installment count or total amount.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_FINITE_WITHOUT_LIMITS" xml:space="preserve">
+    <value>A finite recurring income requires an installment count or a total amount.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_COUNT_INVALID" xml:space="preserve">
+    <value>The installment count must be at least one.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_TOTAL_INVALID" xml:space="preserve">
+    <value>The total amount must be greater than zero.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_INCOHERENT" xml:space="preserve">
+    <value>The installment value, count and total amount are not coherent.</value>
+  </data>
+  <data name="RECURRING_INCOME_SETTLEMENT_ACTION_INDEFINITE" xml:space="preserve">
+    <value>An indefinite recurring income cannot pay a balance on settlement; it must be cancelled.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only a VIGENTE recurring income can apply installments.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_SEQUENCE_INVALID" xml:space="preserve">
+    <value>The installment number must be the next expected one in the plan sequence.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_EXCEEDS_PLAN" xml:space="preserve">
+    <value>The installment number cannot exceed the finite plan count.</value>
+  </data>
+  <data name="RECURRING_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The recurring income is not in a state that allows this operation.</value>
+  </data>
 </root>

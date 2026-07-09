@@ -1129,4 +1129,16 @@ public interface IPersonnelFileEmployeeRepository
         Guid personnelFileId,
         Guid curricularCompetencyPublicId,
         CancellationToken cancellationToken);
+
+    // ── Recurring incomes (REQ-005) ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Serializes the balance-mutating writes (installment application / annulment) of a single recurring
+    /// income with a transaction-scoped PostgreSQL advisory lock keyed on its public id, closing the
+    /// check-then-act TOCTOU on the strict installment sequence (RF-006/RF-008, aclaración №9). Must run inside
+    /// an open transaction (the handler opens one); the lock releases on commit/rollback. The default is a no-op
+    /// (test fakes have no PostgreSQL); the EF repository takes the real advisory lock.
+    /// </summary>
+    Task AcquireRecurringIncomeMutationLockAsync(Guid recurringIncomePublicId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

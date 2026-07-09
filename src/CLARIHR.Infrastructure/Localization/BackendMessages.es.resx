@@ -2377,4 +2377,37 @@
   <data name="DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>El empleado sujeto o quien registró no pueden decidir ni revocar la amonestación.</value>
   </data>
+  <data name="RECURRING_INCOME_PLAN_VALUE_INVALID" xml:space="preserve">
+    <value>El valor de la cuota debe ser mayor que cero.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_INDEFINITE_WITH_LIMITS" xml:space="preserve">
+    <value>Un ingreso cíclico indefinido no puede llevar número de cuotas ni monto total.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_FINITE_WITHOUT_LIMITS" xml:space="preserve">
+    <value>Un ingreso cíclico finito requiere el número de cuotas o el monto total.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_COUNT_INVALID" xml:space="preserve">
+    <value>El número de cuotas debe ser al menos uno.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_TOTAL_INVALID" xml:space="preserve">
+    <value>El monto total debe ser mayor que cero.</value>
+  </data>
+  <data name="RECURRING_INCOME_PLAN_INCOHERENT" xml:space="preserve">
+    <value>El valor de la cuota, el número de cuotas y el monto total no son coherentes.</value>
+  </data>
+  <data name="RECURRING_INCOME_SETTLEMENT_ACTION_INDEFINITE" xml:space="preserve">
+    <value>Un ingreso cíclico indefinido no puede pagar saldo al liquidar; debe cancelarse.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un ingreso cíclico VIGENTE puede aplicar cuotas.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_SEQUENCE_INVALID" xml:space="preserve">
+    <value>El número de cuota debe ser el siguiente esperado en la secuencia del plan.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_EXCEEDS_PLAN" xml:space="preserve">
+    <value>El número de cuota no puede exceder el número de cuotas del plan finito.</value>
+  </data>
+  <data name="RECURRING_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El ingreso cíclico no está en un estado que permita esta operación.</value>
+  </data>
 </root>

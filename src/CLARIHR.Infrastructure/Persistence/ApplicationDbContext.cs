@@ -409,6 +409,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileCompensatoryTimeAbsence> PersonnelFileCompensatoryTimeAbsences => Set<PersonnelFileCompensatoryTimeAbsence>();
 
+    public DbSet<PersonnelFileRecurringIncome> PersonnelFileRecurringIncomes => Set<PersonnelFileRecurringIncome>();
+
+    public DbSet<PersonnelFileRecurringIncomeInstallment> PersonnelFileRecurringIncomeInstallments => Set<PersonnelFileRecurringIncomeInstallment>();
+
     public DbSet<PersonnelFileRecognition> PersonnelFileRecognitions => Set<PersonnelFileRecognition>();
 
     public DbSet<PersonnelFileRecognitionDocument> PersonnelFileRecognitionDocuments => Set<PersonnelFileRecognitionDocument>();

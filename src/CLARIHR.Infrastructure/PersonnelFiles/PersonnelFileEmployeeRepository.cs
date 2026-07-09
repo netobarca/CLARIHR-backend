@@ -3726,4 +3726,21 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.SourceReference,
             item.SourceSyncedUtc,
             item.ConcurrencyToken);
+
+    // ── Recurring incomes (REQ-005) ────────────────────────────────────────────────────────────────
+
+    // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the
+    // recurring-income public id so every installment application/annulment of one income contends on the same
+    // lock. Executed on the context's current transaction (the handler opens one), pg_advisory_xact_lock holds
+    // until that transaction commits/rolls back, serializing the strict installment sequence (RF-006/RF-008).
+    private const int RecurringIncomeMutationLockClassId = 0x52_49_4E_43; // "RINC" — recurring income
+
+    public Task AcquireRecurringIncomeMutationLockAsync(Guid recurringIncomePublicId, CancellationToken cancellationToken)
+    {
+        var objectKey = BitConverter.ToInt32(recurringIncomePublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { RecurringIncomeMutationLockClassId, objectKey },
+            cancellationToken);
+    }
 }
