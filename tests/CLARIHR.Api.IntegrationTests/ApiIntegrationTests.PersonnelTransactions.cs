@@ -891,4 +891,168 @@ public sealed partial class ApiIntegrationTests
             $"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/payroll-input/export?format=json");
         await AssertProblemDetailsAsync(missingRange, HttpStatusCode.UnprocessableEntity, "PERSONNEL_TRANSACTION_RANGE_REQUIRED");
     }
+
+    // ── PR-6: time-availability query + export (§3.11 / RF-013) ────────────────────────────────────
+
+    private async Task SeedEmploymentAssignmentAsync(
+        Guid tenantId, Guid filePublicId, string contractTypeCode, DateTime endDate)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var fileInternalId = await dbContext.Set<PersonnelFile>()
+            .IgnoreQueryFilters()
+            .Where(item => item.PublicId == filePublicId).Select(item => item.Id).SingleAsync();
+
+        var assignment = PersonnelFileEmploymentAssignment.Create(
+            assignmentTypeCode: "NOMBRAMIENTO",
+            contractTypeCode: contractTypeCode,
+            workdayCode: null,
+            payrollTypeCode: null,
+            positionSlotPublicId: null,
+            orgUnitPublicId: null,
+            workCenterPublicId: null,
+            costCenterPublicId: null,
+            startDate: new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            endDate: endDate,
+            isPrimary: true,
+            isActive: true,
+            notes: null);
+        assignment.BindToPersonnelFile(fileInternalId);
+        assignment.SetTenantId(tenantId);
+        dbContext.Set<PersonnelFileEmploymentAssignment>().Add(assignment);
+        await dbContext.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task TimeAvailability_Query_UnifiesSuspensionsAndTemporaryContractEndsWithStableContract()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+        var viewerUserId = Guid.NewGuid();
+        var strangerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var authorizerClient = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+        using var viewerClient = factory.CreateClientFor(RecognitionContext(scenario, viewerUserId, PersonnelFilePermissionCodes.ViewTimeAvailability));
+        using var strangerClient = factory.CreateClientFor(RecognitionContext(scenario, strangerUserId, PersonnelFilePermissionCodes.ViewRecognitions));
+
+        var suspType = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "SUSPENSION_SIN_GOCE", "Suspensión sin goce", appliesSuspension: true);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "INASISTENCIA", "Inasistencia injustificada", deductionConceptTypeCode: null);
+
+        // Employee A: APLICADA suspension 2026-05-28 → 2026-06-03 (partially intersects the 2026-06-01..15 range).
+        var employeeA = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Ana", "Suspendida", "EMP-TA-A", "ana.ta.a@empresa.test");
+        var (daA, daAToken) = await CreateDisciplinaryActionAsync(managerClient, employeeA, DisciplinaryActionBody(
+            suspType, causeId, incidentDate: "2026-05-28", suspensionStartDate: "2026-05-28", suspensionEndDate: "2026-06-03"));
+        var daAApply = await PatchDisciplinaryActionAsync(authorizerClient, employeeA, daA, "decision", daAToken,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, daAApply.StatusCode);
+
+        // Employee B: active TEMPORARY contract (PLAZO_FIJO, IsTemporary=true) ending 2026-06-10 (inside the range).
+        var employeeB = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Bruno", "Temporal", "EMP-TA-B", "bruno.ta.b@empresa.test");
+        await SeedEmploymentAssignmentAsync(scenario.TenantId, employeeB, "PLAZO_FIJO", new DateTime(2026, 6, 10, 0, 0, 0, DateTimeKind.Utc));
+
+        // Employee C: active INDEFINIDO contract ending 2026-06-12 (in range but NOT temporary → excluded).
+        var employeeC = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Carla", "Indefinida", "EMP-TA-C", "carla.ta.c@empresa.test");
+        await SeedEmploymentAssignmentAsync(scenario.TenantId, employeeC, "INDEFINIDO", new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc));
+
+        // Query the full range with the dedicated ViewTimeAvailability permission.
+        var query = await viewerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/query",
+            new { startDate = "2026-06-01", endDate = "2026-06-15" });
+        Assert.Equal(HttpStatusCode.OK, query.StatusCode);
+        using (var doc = JsonDocument.Parse(await query.Content.ReadAsStringAsync()))
+        {
+            var root = doc.RootElement;
+            Assert.Equal(2, root.GetProperty("totalCount").GetInt32());
+
+            // activeSources always advertises the two F1 families.
+            var activeSources = root.GetProperty("activeSources").EnumerateArray().Select(item => item.GetString()).ToArray();
+            Assert.Contains("SUSPENSION", activeSources);
+            Assert.Contains("FIN_CONTRATO_TEMPORAL", activeSources);
+
+            var counts = root.GetProperty("categoryCounts");
+            Assert.Equal(1, counts.GetProperty("SUSPENSION").GetInt32());
+            Assert.Equal(1, counts.GetProperty("FIN_CONTRATO_TEMPORAL").GetInt32());
+
+            var rows = root.GetProperty("rows").EnumerateArray().ToArray();
+            Assert.Equal(2, rows.Length);
+
+            // Source 1: the suspension appears with its REAL dates (not clamped to the range) and days from the record.
+            var suspension = rows.Single(row => row.GetProperty("categoryCode").GetString() == "SUSPENSION");
+            Assert.Equal(employeeA, suspension.GetProperty("personnelFilePublicId").GetGuid());
+            Assert.Equal("2026-05-28", suspension.GetProperty("startDate").GetString());
+            Assert.Equal("2026-06-03", suspension.GetProperty("endDate").GetString());
+            Assert.Equal(7, suspension.GetProperty("days").GetInt32());
+            Assert.Equal("EMPLOYEE_RELATIONS", suspension.GetProperty("sourceModule").GetString());
+            Assert.Equal(daA, suspension.GetProperty("referencePublicId").GetGuid());
+
+            // Source 2: the temporary contract end is a single-day row (days=1, statusCode VIGENTE, EMPLOYMENT).
+            var contractEnd = rows.Single(row => row.GetProperty("categoryCode").GetString() == "FIN_CONTRATO_TEMPORAL");
+            Assert.Equal(employeeB, contractEnd.GetProperty("personnelFilePublicId").GetGuid());
+            Assert.Equal("2026-06-10", contractEnd.GetProperty("startDate").GetString());
+            Assert.Equal("2026-06-10", contractEnd.GetProperty("endDate").GetString());
+            Assert.Equal(1, contractEnd.GetProperty("days").GetInt32());
+            Assert.Equal("VIGENTE", contractEnd.GetProperty("statusCode").GetString());
+            Assert.Equal("EMPLOYMENT", contractEnd.GetProperty("sourceModule").GetString());
+
+            // Employee C (INDEFINIDO) never appears.
+            Assert.DoesNotContain(rows, row => row.GetProperty("personnelFilePublicId").GetGuid() == employeeC);
+        }
+
+        // categoryCodes filter → only SUSPENSION rows; FIN_CONTRATO_TEMPORAL excluded.
+        var filtered = await viewerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/query",
+            new { startDate = "2026-06-01", endDate = "2026-06-15", categoryCodes = new[] { "SUSPENSION" } });
+        Assert.Equal(HttpStatusCode.OK, filtered.StatusCode);
+        using (var doc = JsonDocument.Parse(await filtered.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(1, doc.RootElement.GetProperty("totalCount").GetInt32());
+            Assert.Equal(1, doc.RootElement.GetProperty("categoryCounts").GetProperty("SUSPENSION").GetInt32());
+            Assert.False(doc.RootElement.GetProperty("categoryCounts").TryGetProperty("FIN_CONTRATO_TEMPORAL", out _));
+            Assert.All(
+                doc.RootElement.GetProperty("rows").EnumerateArray(),
+                row => Assert.Equal("SUSPENSION", row.GetProperty("categoryCode").GetString()));
+        }
+
+        // Missing range → 422 TIME_AVAILABILITY_RANGE_REQUIRED.
+        var missingRange = await viewerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/query", new { });
+        await AssertProblemDetailsAsync(missingRange, HttpStatusCode.UnprocessableEntity, "TIME_AVAILABILITY_RANGE_REQUIRED");
+
+        // Incoherent range (start > end) → 422 TIME_AVAILABILITY_RANGE_INVALID.
+        var invalidRange = await viewerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/query",
+            new { startDate = "2026-06-15", endDate = "2026-06-01" });
+        await AssertProblemDetailsAsync(invalidRange, HttpStatusCode.UnprocessableEntity, "TIME_AVAILABILITY_RANGE_INVALID");
+
+        // A user without ViewTimeAvailability (only ViewRecognitions) → 403.
+        var forbidden = await strangerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/query",
+            new { startDate = "2026-06-01", endDate = "2026-06-15" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        // Export xlsx → 200 + spreadsheet content-type + non-empty body.
+        var exportXlsx = await viewerClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/export?format=xlsx&startDate=2026-06-01&endDate=2026-06-15");
+        Assert.Equal(HttpStatusCode.OK, exportXlsx.StatusCode);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            exportXlsx.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await exportXlsx.Content.ReadAsByteArrayAsync());
+
+        // Export json → the 2 rows with Spanish headers.
+        var exportJson = await viewerClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/time-availability/export?format=json&startDate=2026-06-01&endDate=2026-06-15");
+        Assert.Equal(HttpStatusCode.OK, exportJson.StatusCode);
+        using (var doc = JsonDocument.Parse(await exportJson.Content.ReadAsStringAsync()))
+        {
+            var rows = doc.RootElement.EnumerateArray().ToArray();
+            Assert.Equal(2, rows.Length);
+            Assert.All(rows, row => Assert.True(row.TryGetProperty("Categoria", out _)));
+            Assert.Contains(rows, row => row.GetProperty("Fuente").GetString() == "EMPLOYEE_RELATIONS");
+            Assert.Contains(rows, row => row.GetProperty("Fuente").GetString() == "EMPLOYMENT");
+        }
+    }
 }

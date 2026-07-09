@@ -29,3 +29,19 @@ public sealed record QueryDisciplinaryActionsRequest(
     bool? IncludeAnnulled,
     int? PageNumber,
     int? PageSize);
+
+/// <summary>
+/// Body for the company-wide time-availability query (REQ-003 §3.11 / RF-013). The date range
+/// (<c>StartDate</c>/<c>EndDate</c>) is MANDATORY — a missing bound → 422 <c>TIME_AVAILABILITY_RANGE_REQUIRED</c>,
+/// an incoherent range → 422 <c>TIME_AVAILABILITY_RANGE_INVALID</c>. Optional filters: <c>PersonnelFilePublicId</c>
+/// (one employee), <c>CategoryCodes</c> (SUSPENSION / FIN_CONTRATO_TEMPORAL — omit for all) and
+/// <c>OrgUnitPublicId</c>. Paged 1..100.
+/// </summary>
+public sealed record TimeAvailabilityQueryRequest(
+    DateOnly? StartDate,
+    DateOnly? EndDate,
+    Guid? PersonnelFilePublicId,
+    IReadOnlyCollection<string>? CategoryCodes,
+    Guid? OrgUnitPublicId,
+    int? PageNumber,
+    int? PageSize);

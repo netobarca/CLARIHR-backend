@@ -2329,6 +2329,12 @@
   <data name="PERSONNEL_TRANSACTION_RANGE_REQUIRED" xml:space="preserve">
     <value>A valid start-date and end-date range is required for the payroll input export.</value>
   </data>
+  <data name="TIME_AVAILABILITY_RANGE_REQUIRED" xml:space="preserve">
+    <value>A start-date and end-date range is required for the time-availability query.</value>
+  </data>
+  <data name="TIME_AVAILABILITY_RANGE_INVALID" xml:space="preserve">
+    <value>The time-availability range is invalid: the start date must be on or before the end date.</value>
+  </data>
   <data name="DECISION_NOTE_REQUIRED" xml:space="preserve">
     <value>A note is required to reject the transaction.</value>
   </data>

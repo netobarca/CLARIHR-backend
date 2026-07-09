@@ -2,7 +2,9 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.PersonnelTransactions;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.EmployeeRelations;
+using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -785,5 +787,204 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
         public DateOnly? SuspensionEndDate { get; init; }
 
         public int? SuspensionDays { get; init; }
+    }
+
+    // ── Time-availability sources (PR-6, §3.11) ───────────────────────────────────────────────────
+
+    public async Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetSuspensionAvailabilityRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken)
+    {
+        // Source 1: APLICADA disciplinary actions whose real suspension block intersects the window (inclusive —
+        // RN-15). Left-join the profile (employee code) and the position slot (name). The tenant query filter
+        // already scopes to the company; the payload is minimal (no cause/facts/amounts — P-10).
+        var query =
+            from action in dbContext.PersonnelFileDisciplinaryActions.AsNoTracking()
+            where action.StatusCode == PersonnelTransactionStatuses.Aplicada
+                && action.SuspensionStartDate != null
+                && action.SuspensionEndDate != null
+                && action.SuspensionStartDate <= window.End
+                && action.SuspensionEndDate >= window.Start
+            join file in dbContext.PersonnelFiles.AsNoTracking() on action.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            join slotEntry in dbContext.PositionSlots.AsNoTracking()
+                on action.AssignedPositionPublicId equals slotEntry.PublicId into slotGroup
+            from slot in slotGroup.DefaultIfEmpty()
+            select new SuspensionAvailabilityRow
+            {
+                PersonnelFileId = file.Id,
+                PersonnelFilePublicId = file.PublicId,
+                EmployeeName = file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                PositionPublicId = action.AssignedPositionPublicId,
+                PositionName = slot != null ? slot.Title : null,
+                SuspensionStartDate = action.SuspensionStartDate!.Value,
+                SuspensionEndDate = action.SuspensionEndDate!.Value,
+                SuspensionDays = action.SuspensionDays,
+                ReferencePublicId = action.PublicId,
+            };
+
+        if (filters.PersonnelFilePublicId is { } employeePublicId)
+        {
+            query = query.Where(row => row.PersonnelFilePublicId == employeePublicId);
+        }
+
+        if (filters.OrgUnitPublicId is { } orgUnitPublicId)
+        {
+            query = query.Where(row => dbContext.PersonnelFileEmploymentAssignments
+                .Any(assignment => assignment.PersonnelFileId == row.PersonnelFileId
+                    && assignment.IsActive
+                    && assignment.OrgUnitPublicId == orgUnitPublicId));
+        }
+
+        var rows = await query.ToListAsync(cancellationToken);
+        return rows
+            .Select(row => new TimeAvailabilityRowResponse(
+                row.PersonnelFilePublicId,
+                row.EmployeeName,
+                row.EmployeeCode,
+                row.PositionPublicId,
+                row.PositionName,
+                TimeAvailabilityCategories.Suspension,
+                row.SuspensionStartDate,
+                row.SuspensionEndDate,
+                row.SuspensionDays ?? (row.SuspensionEndDate.DayNumber - row.SuspensionStartDate.DayNumber + 1),
+                PersonnelTransactionStatuses.Aplicada,
+                TimeAvailabilitySourceModules.EmployeeRelations,
+                row.ReferencePublicId))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetTemporaryContractEndRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken)
+    {
+        // Source 2: resolve the tenant's country, gather its TEMPORARY contract-type normalized codes, then find
+        // active assignments carrying one of those codes whose EndDate falls in the window (aclaración №7). The
+        // two-step gather avoids a function-in-join-key against the country-scoped contract-type catalog.
+        var companyCountryId = await dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == companyId)
+            .Select(company => (long?)company.CountryCatalogItemId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (companyCountryId is null)
+        {
+            return [];
+        }
+
+        var temporaryCodes = await dbContext.Set<ContractTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountryId.Value && item.IsTemporary)
+            .Select(item => item.NormalizedCode)
+            .ToListAsync(cancellationToken);
+        if (temporaryCodes.Count == 0)
+        {
+            return [];
+        }
+
+        // The assignment end_date is a timestamptz normalized to UTC midnight, so compare against the window
+        // bounds as UTC midnights (inclusive on both ends → EndDate ∈ [Start, End]).
+        var startUtc = DateTime.SpecifyKind(window.Start.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var endUtc = DateTime.SpecifyKind(window.End.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+
+        var query =
+            from assignment in dbContext.PersonnelFileEmploymentAssignments.AsNoTracking()
+            where assignment.IsActive
+                && assignment.ContractTypeCode != null
+                && assignment.EndDate != null
+                && assignment.EndDate >= startUtc
+                && assignment.EndDate <= endUtc
+                && temporaryCodes.Contains(assignment.ContractTypeCode!.ToUpper())
+            join file in dbContext.PersonnelFiles.AsNoTracking() on assignment.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            join slotEntry in dbContext.PositionSlots.AsNoTracking()
+                on assignment.PositionSlotPublicId equals slotEntry.PublicId into slotGroup
+            from slot in slotGroup.DefaultIfEmpty()
+            select new TemporaryContractEndRow
+            {
+                PersonnelFilePublicId = file.PublicId,
+                EmployeeName = file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                OrgUnitPublicId = assignment.OrgUnitPublicId,
+                PositionPublicId = assignment.PositionSlotPublicId,
+                PositionName = slot != null ? slot.Title : null,
+                EndDate = assignment.EndDate!.Value,
+                ReferencePublicId = assignment.PublicId,
+            };
+
+        if (filters.PersonnelFilePublicId is { } employeePublicId)
+        {
+            query = query.Where(row => row.PersonnelFilePublicId == employeePublicId);
+        }
+
+        if (filters.OrgUnitPublicId is { } orgUnitPublicId)
+        {
+            query = query.Where(row => row.OrgUnitPublicId == orgUnitPublicId);
+        }
+
+        var rows = await query.ToListAsync(cancellationToken);
+        return rows
+            .Select(row =>
+            {
+                var endDate = DateOnly.FromDateTime(row.EndDate);
+                return new TimeAvailabilityRowResponse(
+                    row.PersonnelFilePublicId,
+                    row.EmployeeName,
+                    row.EmployeeCode,
+                    row.PositionPublicId,
+                    row.PositionName,
+                    TimeAvailabilityCategories.TemporaryContractEnd,
+                    endDate,
+                    endDate,
+                    1,
+                    "VIGENTE",
+                    TimeAvailabilitySourceModules.Employment,
+                    row.ReferencePublicId);
+            })
+            .ToArray();
+    }
+
+    private sealed class SuspensionAvailabilityRow
+    {
+        public long PersonnelFileId { get; init; }
+
+        public Guid PersonnelFilePublicId { get; init; }
+
+        public string EmployeeName { get; init; } = string.Empty;
+
+        public string? EmployeeCode { get; init; }
+
+        public Guid? PositionPublicId { get; init; }
+
+        public string? PositionName { get; init; }
+
+        public DateOnly SuspensionStartDate { get; init; }
+
+        public DateOnly SuspensionEndDate { get; init; }
+
+        public int? SuspensionDays { get; init; }
+
+        public Guid ReferencePublicId { get; init; }
+    }
+
+    private sealed class TemporaryContractEndRow
+    {
+        public Guid PersonnelFilePublicId { get; init; }
+
+        public string EmployeeName { get; init; } = string.Empty;
+
+        public string? EmployeeCode { get; init; }
+
+        public Guid? OrgUnitPublicId { get; init; }
+
+        public Guid? PositionPublicId { get; init; }
+
+        public string? PositionName { get; init; }
+
+        public DateTime EndDate { get; init; }
+
+        public Guid ReferencePublicId { get; init; }
     }
 }

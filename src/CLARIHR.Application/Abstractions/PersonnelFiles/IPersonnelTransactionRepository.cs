@@ -183,4 +183,29 @@ public interface IPersonnelTransactionRepository
     /// </summary>
     Task<IReadOnlyCollection<InsumoPlanillaExportRow>> GetPayrollInputRowsAsync(
         ExportPayrollInputQuery query, CancellationToken cancellationToken);
+
+    // ── Time-availability sources (PR-6, §3.11) ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Source 1 of the time-availability query — SUSPENSIONS (aclaración №6): the APLICADA disciplinary actions
+    /// whose real suspension block INTERSECTS <paramref name="window"/> (inclusive:
+    /// <c>suspensionStart ≤ window.End &amp;&amp; suspensionEnd ≥ window.Start</c>, RN-15). Minimal payload (P-10):
+    /// no cause/facts/amounts — <c>categoryCode = SUSPENSION</c>, <c>days = SuspensionDays</c>,
+    /// <c>sourceModule = EMPLOYEE_RELATIONS</c>, <c>referencePublicId</c> = the disciplinary action. Applies the
+    /// employee and org-unit filters.
+    /// </summary>
+    Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetSuspensionAvailabilityRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Source 2 of the time-availability query — END OF TEMPORARY CONTRACTS (aclaración №7): active assignments
+    /// whose <c>ContractTypeCode</c> resolves (by normalized code + tenant country, same criterion as the
+    /// contract-type projection) to a catalog item with <c>IsTemporary = true</c> and whose <c>EndDate</c> falls
+    /// in <paramref name="window"/>. Derived row (no module record): <c>startDate = endDate = EndDate</c>,
+    /// <c>days = 1</c>, <c>statusCode = VIGENTE</c>, <c>categoryCode = FIN_CONTRATO_TEMPORAL</c>,
+    /// <c>sourceModule = EMPLOYMENT</c>, <c>referencePublicId</c> = the assignment/plaza. Applies the employee and
+    /// org-unit filters.
+    /// </summary>
+    Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetTemporaryContractEndRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken);
 }

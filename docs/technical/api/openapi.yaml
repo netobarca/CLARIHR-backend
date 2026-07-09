@@ -27884,6 +27884,142 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/time-availability/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide time-availability planning view
+      description: "Returns a paginated list of the company's availability rows for a MANDATORY date range: unpaid SUSPENSIONS (from the applied disciplinary actions, real dates) and the end of TEMPORARY CONTRACTS (active assignments whose contract type is temporary and whose end date falls in the range). Each row carries a minimal payload (no cause/facts/amounts — P-10) plus the source module and a back-reference. The response includes per-category counts and `activeSources[]` (the two F1 families). A missing range → 422 `TIME_AVAILABILITY_RANGE_REQUIRED`; an incoherent range → 422 `TIME_AVAILABILITY_RANGE_INVALID`. Ordered by start date ascending, employee as tie-break. Requires `ViewTimeAvailability`."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeAvailabilityQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeAvailabilityQueryResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/time-availability/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the time-availability planning view to Excel/CSV/JSON
+      description: "Exports the time-availability rows (same MANDATORY range and filters as the query) to `xlsx`, `csv` or `json` with the employee, position, category, dates, days, status and source. A missing/incoherent range → 422. Requires `ViewTimeAvailability`. Synchronous download capped at the configured row limit (413 if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            nullable: true
+        - name: personnelFilePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: categoryCodes
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: orgUnitPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/vacation-periods':
     get:
       tags:
@@ -58584,6 +58720,99 @@ components:
           type: integer
           format: int32
           nullable: true
+    TimeAvailabilityQueryRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        personnelFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryCodes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        orgUnitPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    TimeAvailabilityRowResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        positionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        positionName:
+          type: string
+          nullable: true
+        categoryCode:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        days:
+          type: integer
+          format: int32
+        statusCode:
+          type: string
+        sourceModule:
+          type: string
+        referencePublicId:
+          type: string
+          format: uuid
+    TimeAvailabilityQueryResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeAvailabilityRowResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        categoryCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        activeSources:
+          type: array
+          items:
+            type: string
     AddCompensatoryTimeCreditDocumentRequest:
       type: object
       properties:
