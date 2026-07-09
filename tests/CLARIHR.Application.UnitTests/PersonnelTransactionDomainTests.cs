@@ -12,6 +12,8 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class PersonnelTransactionDomainTests
 {
     private static readonly DateOnly Event = new(2026, 5, 1);
+    private static readonly Guid RegistrarUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid AuthorizerUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     // ── Recognition: Create / Update ─────────────────────────────────────────────────────────────────
 
@@ -43,7 +45,7 @@ public sealed class PersonnelTransactionDomainTests
     public void RecognitionUpdate_AfterApply_Throws()
     {
         var recognition = CreateRecognition();
-        recognition.Apply("user-authorizer", DateTime.UtcNow, Guid.NewGuid());
+        recognition.Apply(AuthorizerUserId, DateTime.UtcNow, Guid.NewGuid());
 
         Assert.Throws<InvalidOperationException>(() =>
             recognition.Update(1, "Felicitación", Event, "edited", null, null, null, null));
@@ -58,11 +60,11 @@ public sealed class PersonnelTransactionDomainTests
         var entry = Guid.NewGuid();
         var previousToken = recognition.ConcurrencyToken;
 
-        recognition.Apply("user-authorizer", DateTime.UtcNow, entry);
+        recognition.Apply(AuthorizerUserId, DateTime.UtcNow, entry);
 
         Assert.Equal(PersonnelTransactionStatuses.Aplicada, recognition.StatusCode);
         Assert.Equal(entry, recognition.PersonnelActionPublicId);
-        Assert.Equal("user-authorizer", recognition.DecidedByUserId);
+        Assert.Equal(AuthorizerUserId, recognition.DecidedByUserId);
         Assert.NotEqual(previousToken, recognition.ConcurrencyToken);
     }
 
@@ -70,21 +72,21 @@ public sealed class PersonnelTransactionDomainTests
     public void RecognitionApply_EmptyEntryPublicId_Throws()
     {
         var recognition = CreateRecognition();
-        Assert.Throws<ArgumentException>(() => recognition.Apply("user-authorizer", DateTime.UtcNow, Guid.Empty));
+        Assert.Throws<ArgumentException>(() => recognition.Apply(AuthorizerUserId, DateTime.UtcNow, Guid.Empty));
     }
 
     [Fact]
     public void RecognitionReject_RequiresNote()
     {
         var recognition = CreateRecognition();
-        Assert.Throws<ArgumentException>(() => recognition.Reject("user-authorizer", DateTime.UtcNow, "  "));
+        Assert.Throws<ArgumentException>(() => recognition.Reject(AuthorizerUserId, DateTime.UtcNow, "  "));
     }
 
     [Fact]
     public void RecognitionReject_WithNote_MovesToRechazada()
     {
         var recognition = CreateRecognition();
-        recognition.Reject("user-authorizer", DateTime.UtcNow, "no procede");
+        recognition.Reject(AuthorizerUserId, DateTime.UtcNow, "no procede");
 
         Assert.Equal(PersonnelTransactionStatuses.Rechazada, recognition.StatusCode);
         Assert.Equal("no procede", recognition.DecisionNote);
@@ -95,11 +97,11 @@ public sealed class PersonnelTransactionDomainTests
     public void RecognitionAnnul_FromApplied_RequiresReason_AndMovesToAnulada()
     {
         var recognition = CreateRecognition();
-        recognition.Apply("user-authorizer", DateTime.UtcNow, Guid.NewGuid());
+        recognition.Apply(AuthorizerUserId, DateTime.UtcNow, Guid.NewGuid());
 
-        Assert.Throws<ArgumentException>(() => recognition.Annul("  ", "user-authorizer", DateTime.UtcNow));
+        Assert.Throws<ArgumentException>(() => recognition.Annul("  ", AuthorizerUserId, DateTime.UtcNow));
 
-        recognition.Annul("revocada por apelación", "user-authorizer", DateTime.UtcNow);
+        recognition.Annul("revocada por apelación", AuthorizerUserId, DateTime.UtcNow);
         Assert.Equal(PersonnelTransactionStatuses.Anulada, recognition.StatusCode);
         Assert.Equal("revocada por apelación", recognition.AnnulmentReason);
         Assert.False(recognition.IsActive);
@@ -109,9 +111,9 @@ public sealed class PersonnelTransactionDomainTests
     public void RecognitionAnnul_FromRejected_Throws()
     {
         var recognition = CreateRecognition();
-        recognition.Reject("user-authorizer", DateTime.UtcNow, "no procede");
+        recognition.Reject(AuthorizerUserId, DateTime.UtcNow, "no procede");
 
-        Assert.Throws<InvalidOperationException>(() => recognition.Annul("x", "user-authorizer", DateTime.UtcNow));
+        Assert.Throws<InvalidOperationException>(() => recognition.Annul("x", AuthorizerUserId, DateTime.UtcNow));
     }
 
     // ── Disciplinary action: Create snapshots + suspension days ──────────────────────────────────────
@@ -178,7 +180,7 @@ public sealed class PersonnelTransactionDomainTests
         var entry = Guid.NewGuid();
         var suspensionEntry = Guid.NewGuid();
 
-        action.Apply("user-authorizer", DateTime.UtcNow, entry, suspensionEntry, "descuento_interno", "Descuento interno");
+        action.Apply(AuthorizerUserId, DateTime.UtcNow, entry, suspensionEntry, "descuento_interno", "Descuento interno");
 
         Assert.Equal(PersonnelTransactionStatuses.Aplicada, action.StatusCode);
         Assert.Equal(entry, action.PersonnelActionPublicId);
@@ -192,7 +194,7 @@ public sealed class PersonnelTransactionDomainTests
     {
         var action = CreateDisciplinary(typeAppliedSuspension: false, suspensionStart: null, suspensionEnd: null);
 
-        action.Apply("user-authorizer", DateTime.UtcNow, Guid.NewGuid(), null, null, null);
+        action.Apply(AuthorizerUserId, DateTime.UtcNow, Guid.NewGuid(), null, null, null);
 
         Assert.Equal(PersonnelTransactionStatuses.Aplicada, action.StatusCode);
         Assert.Null(action.SuspensionActionPublicId);
@@ -203,9 +205,9 @@ public sealed class PersonnelTransactionDomainTests
     public void DisciplinaryAnnul_FromApplied_MovesToAnulada()
     {
         var action = CreateDisciplinary(typeAppliedSuspension: false, suspensionStart: null, suspensionEnd: null);
-        action.Apply("user-authorizer", DateTime.UtcNow, Guid.NewGuid(), null, null, null);
+        action.Apply(AuthorizerUserId, DateTime.UtcNow, Guid.NewGuid(), null, null, null);
 
-        action.Annul("revocada", "user-authorizer", DateTime.UtcNow);
+        action.Annul("revocada", AuthorizerUserId, DateTime.UtcNow);
 
         Assert.Equal(PersonnelTransactionStatuses.Anulada, action.StatusCode);
         Assert.False(action.IsActive);
@@ -248,7 +250,7 @@ public sealed class PersonnelTransactionDomainTests
             amount: amount,
             currencyCode: amount is null ? null : "USD",
             assignedPositionPublicId: null,
-            registeredByUserId: "user-hr",
+            registeredByUserId: RegistrarUserId,
             notes: null);
 
     private static PersonnelFileDisciplinaryAction CreateDisciplinary(
@@ -271,6 +273,6 @@ public sealed class PersonnelTransactionDomainTests
             suspensionStartDate: suspensionStart,
             suspensionEndDate: suspensionEnd,
             assignedPositionPublicId: null,
-            registeredByUserId: "user-hr",
+            registeredByUserId: RegistrarUserId,
             notes: null);
 }

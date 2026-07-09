@@ -32,8 +32,8 @@ public sealed record RecognitionListItemResponse(
     decimal? Amount,
     string? CurrencyCode,
     string StatusCode,
-    string RegisteredByUserId,
-    string? DecidedByUserId,
+    Guid RegisteredByUserId,
+    Guid? DecidedByUserId,
     DateTime? DecidedUtc,
     DateTime RegisteredUtc)
 {
@@ -146,8 +146,8 @@ public sealed record DisciplinaryActionListItemResponse(
     DateOnly? SuspensionEndDate,
     int? SuspensionDays,
     string StatusCode,
-    string RegisteredByUserId,
-    string? DecidedByUserId,
+    Guid RegisteredByUserId,
+    Guid? DecidedByUserId,
     DateTime? DecidedUtc,
     DateTime RegisteredUtc)
 {

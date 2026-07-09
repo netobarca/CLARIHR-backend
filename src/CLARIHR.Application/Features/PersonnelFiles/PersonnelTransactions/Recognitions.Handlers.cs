@@ -84,6 +84,7 @@ internal sealed class AddPersonnelFileRecognitionCommandHandler(
             return Result<PersonnelFileRecognitionResponse>.Failure(RecognitionErrors.TypeInvalid);
         }
 
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
         var entity = PersonnelFileRecognition.Create(
             typeRef.InternalId,
             typeRef.Name,
@@ -92,7 +93,7 @@ internal sealed class AddPersonnelFileRecognitionCommandHandler(
             item.Amount,
             item.CurrencyCode,
             item.AssignedPositionPublicId,
-            currentUserService.UserId ?? string.Empty,
+            currentUserId,
             item.Notes);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(tenantId);
@@ -256,7 +257,7 @@ internal sealed class DecidePersonnelFileRecognitionCommandHandler(
 
         // Double anti-self-approval (RN-02): neither the subject employee nor the registrar may decide.
         if (PersonnelTransactionRules.IsSelfDecision(
-                personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId, currentUserService.UserId ?? string.Empty))
+                personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId.ToString(), currentUserService.UserId ?? string.Empty))
         {
             return Result<PersonnelFileRecognitionResponse>.Failure(RecognitionErrors.SelfApprovalForbidden);
         }
@@ -276,6 +277,7 @@ internal sealed class DecidePersonnelFileRecognitionCommandHandler(
         }
 
         var nowUtc = dateTimeProvider.UtcNow;
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -297,11 +299,11 @@ internal sealed class DecidePersonnelFileRecognitionCommandHandler(
                 action.SetTenantId(tenantId);
                 _ = await employeeRepository.AddPersonnelActionAsync(action, cancellationToken);
 
-                entity.Apply(currentUserService.UserId ?? string.Empty, nowUtc, action.PublicId);
+                entity.Apply(currentUserId, nowUtc, action.PublicId);
             }
             else
             {
-                entity.Reject(currentUserService.UserId ?? string.Empty, nowUtc, command.Note!);
+                entity.Reject(currentUserId, nowUtc, command.Note!);
             }
 
             TouchPersonnelFile(personnelFile);
@@ -393,7 +395,7 @@ internal sealed class AnnulPersonnelFileRecognitionCommandHandler(
             }
 
             if (PersonnelTransactionRules.IsSelfDecision(
-                    personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId, currentUserService.UserId ?? string.Empty))
+                    personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId.ToString(), currentUserService.UserId ?? string.Empty))
             {
                 return Result<PersonnelFileRecognitionResponse>.Failure(RecognitionErrors.SelfApprovalForbidden);
             }
@@ -404,6 +406,7 @@ internal sealed class AnnulPersonnelFileRecognitionCommandHandler(
         }
 
         var nowUtc = dateTimeProvider.UtcNow;
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -415,7 +418,7 @@ internal sealed class AnnulPersonnelFileRecognitionCommandHandler(
                 action?.Annul();
             }
 
-            entity.Annul(command.Reason, currentUserService.UserId ?? string.Empty, nowUtc);
+            entity.Annul(command.Reason, currentUserId, nowUtc);
             TouchPersonnelFile(personnelFile);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 

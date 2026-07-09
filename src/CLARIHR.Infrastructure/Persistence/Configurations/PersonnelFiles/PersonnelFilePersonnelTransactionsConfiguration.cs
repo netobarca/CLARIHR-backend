@@ -32,18 +32,15 @@ internal sealed class PersonnelFileRecognitionConfiguration
         builder.Property(item => item.CurrencyCode).HasColumnName("currency_code")
             .HasMaxLength(PersonnelFileRecognition.MaxCurrencyCodeLength);
         builder.Property(item => item.AssignedPositionPublicId).HasColumnName("assigned_position_public_id");
-        builder.Property(item => item.RegisteredByUserId).HasColumnName("registered_by_user_id")
-            .HasMaxLength(PersonnelFileRecognition.MaxRegisteredByUserIdLength).IsRequired();
+        builder.Property(item => item.RegisteredByUserId).HasColumnName("registered_by_user_id").IsRequired();
         builder.Property(item => item.StatusCode).HasColumnName("status_code").HasMaxLength(80).IsRequired();
-        builder.Property(item => item.DecidedByUserId).HasColumnName("decided_by_user_id")
-            .HasMaxLength(PersonnelFileRecognition.MaxRegisteredByUserIdLength);
+        builder.Property(item => item.DecidedByUserId).HasColumnName("decided_by_user_id");
         builder.Property(item => item.DecidedUtc).HasColumnName("decided_utc");
         builder.Property(item => item.DecisionNote).HasColumnName("decision_note")
             .HasMaxLength(PersonnelFileRecognition.MaxDecisionNoteLength);
         builder.Property(item => item.AnnulmentReason).HasColumnName("annulment_reason")
             .HasMaxLength(PersonnelFileRecognition.MaxAnnulmentReasonLength);
-        builder.Property(item => item.AnnulledByUserId).HasColumnName("annulled_by_user_id")
-            .HasMaxLength(PersonnelFileRecognition.MaxRegisteredByUserIdLength);
+        builder.Property(item => item.AnnulledByUserId).HasColumnName("annulled_by_user_id");
         builder.Property(item => item.AnnulledUtc).HasColumnName("annulled_utc");
         builder.Property(item => item.PersonnelActionPublicId).HasColumnName("personnel_action_public_id");
         builder.Property(item => item.Notes).HasColumnName("notes")
@@ -165,18 +162,15 @@ internal sealed class PersonnelFileDisciplinaryActionConfiguration
         builder.Property(item => item.SuspensionEndDate).HasColumnName("suspension_end_date");
         builder.Property(item => item.SuspensionDays).HasColumnName("suspension_days");
         builder.Property(item => item.AssignedPositionPublicId).HasColumnName("assigned_position_public_id");
-        builder.Property(item => item.RegisteredByUserId).HasColumnName("registered_by_user_id")
-            .HasMaxLength(PersonnelFileDisciplinaryAction.MaxRegisteredByUserIdLength).IsRequired();
+        builder.Property(item => item.RegisteredByUserId).HasColumnName("registered_by_user_id").IsRequired();
         builder.Property(item => item.StatusCode).HasColumnName("status_code").HasMaxLength(80).IsRequired();
-        builder.Property(item => item.DecidedByUserId).HasColumnName("decided_by_user_id")
-            .HasMaxLength(PersonnelFileDisciplinaryAction.MaxRegisteredByUserIdLength);
+        builder.Property(item => item.DecidedByUserId).HasColumnName("decided_by_user_id");
         builder.Property(item => item.DecidedUtc).HasColumnName("decided_utc");
         builder.Property(item => item.DecisionNote).HasColumnName("decision_note")
             .HasMaxLength(PersonnelFileDisciplinaryAction.MaxDecisionNoteLength);
         builder.Property(item => item.AnnulmentReason).HasColumnName("annulment_reason")
             .HasMaxLength(PersonnelFileDisciplinaryAction.MaxAnnulmentReasonLength);
-        builder.Property(item => item.AnnulledByUserId).HasColumnName("annulled_by_user_id")
-            .HasMaxLength(PersonnelFileDisciplinaryAction.MaxRegisteredByUserIdLength);
+        builder.Property(item => item.AnnulledByUserId).HasColumnName("annulled_by_user_id");
         builder.Property(item => item.AnnulledUtc).HasColumnName("annulled_utc");
         builder.Property(item => item.PersonnelActionPublicId).HasColumnName("personnel_action_public_id");
         builder.Property(item => item.SuspensionActionPublicId).HasColumnName("suspension_action_public_id");

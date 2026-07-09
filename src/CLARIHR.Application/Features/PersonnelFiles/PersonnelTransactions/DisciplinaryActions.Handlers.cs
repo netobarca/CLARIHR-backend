@@ -117,6 +117,7 @@ internal sealed class AddPersonnelFileDisciplinaryActionCommandHandler(
             return Result<PersonnelFileDisciplinaryActionResponse>.Failure(conceptError);
         }
 
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
         var entity = PersonnelFileDisciplinaryAction.Create(
             typeRef.InternalId,
             typeRef.Name,
@@ -131,7 +132,7 @@ internal sealed class AddPersonnelFileDisciplinaryActionCommandHandler(
             item.SuspensionStartDate,
             item.SuspensionEndDate,
             item.AssignedPositionPublicId,
-            currentUserService.UserId ?? string.Empty,
+            currentUserId,
             item.Notes);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(tenantId);
@@ -329,7 +330,7 @@ internal sealed class DecidePersonnelFileDisciplinaryActionCommandHandler(
 
         // Double anti-self-approval (RN-02): neither the subject employee nor the registrar may decide.
         if (PersonnelTransactionRules.IsSelfDecision(
-                personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId, currentUserService.UserId ?? string.Empty))
+                personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId.ToString(), currentUserService.UserId ?? string.Empty))
         {
             return Result<PersonnelFileDisciplinaryActionResponse>.Failure(DisciplinaryActionErrors.SelfApprovalForbidden);
         }
@@ -370,6 +371,7 @@ internal sealed class DecidePersonnelFileDisciplinaryActionCommandHandler(
         }
 
         var nowUtc = dateTimeProvider.UtcNow;
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
         var hasSuspension = isApply && entity is { SuspensionStartDate: { } start, SuspensionEndDate: { } end };
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -425,11 +427,11 @@ internal sealed class DecidePersonnelFileDisciplinaryActionCommandHandler(
                     suspensionPublicId = suspension.PublicId;
                 }
 
-                entity.Apply(currentUserService.UserId ?? string.Empty, nowUtc, amonestacion.PublicId, suspensionPublicId, conceptCode, conceptName);
+                entity.Apply(currentUserId, nowUtc, amonestacion.PublicId, suspensionPublicId, conceptCode, conceptName);
             }
             else
             {
-                entity.Reject(currentUserService.UserId ?? string.Empty, nowUtc, command.Note!);
+                entity.Reject(currentUserId, nowUtc, command.Note!);
             }
 
             TouchPersonnelFile(personnelFile);
@@ -521,7 +523,7 @@ internal sealed class AnnulPersonnelFileDisciplinaryActionCommandHandler(
             }
 
             if (PersonnelTransactionRules.IsSelfDecision(
-                    personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId, currentUserService.UserId ?? string.Empty))
+                    personnelFile.LinkedUserPublicId?.ToString(), entity.RegisteredByUserId.ToString(), currentUserService.UserId ?? string.Empty))
             {
                 return Result<PersonnelFileDisciplinaryActionResponse>.Failure(DisciplinaryActionErrors.SelfApprovalForbidden);
             }
@@ -532,6 +534,7 @@ internal sealed class AnnulPersonnelFileDisciplinaryActionCommandHandler(
         }
 
         var nowUtc = dateTimeProvider.UtcNow;
+        _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -553,7 +556,7 @@ internal sealed class AnnulPersonnelFileDisciplinaryActionCommandHandler(
                 }
             }
 
-            entity.Annul(command.Reason, currentUserService.UserId ?? string.Empty, nowUtc);
+            entity.Annul(command.Reason, currentUserId, nowUtc);
             TouchPersonnelFile(personnelFile);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 

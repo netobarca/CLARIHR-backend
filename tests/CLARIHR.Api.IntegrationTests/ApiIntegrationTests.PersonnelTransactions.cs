@@ -92,7 +92,7 @@ public sealed partial class ApiIntegrationTests
     }
 
     private async Task<(Guid RecognitionId, Guid Token)> SeedRecognitionRecordAsync(
-        Guid tenantId, Guid filePublicId, Guid recognitionTypePublicId, string registeredByUserId)
+        Guid tenantId, Guid filePublicId, Guid recognitionTypePublicId, Guid registeredByUserId)
     {
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -390,7 +390,7 @@ public sealed partial class ApiIntegrationTests
         await AssertProblemDetailsAsync(create, HttpStatusCode.UnprocessableEntity, "EMPLOYEE_PROFILE_RETIRED_LOCKED");
 
         // A pending recognition seeded directly can be rejected but not applied on a retired profile.
-        var (recognitionId, token) = await SeedRecognitionRecordAsync(scenario.TenantId, employeeId, typeId, managerUserId.ToString());
+        var (recognitionId, token) = await SeedRecognitionRecordAsync(scenario.TenantId, employeeId, typeId, managerUserId);
 
         var apply = await PatchRecognitionAsync(authorizerClient, employeeId, recognitionId, "decision", token,
             new { decision = "APLICAR", note = (string?)null });

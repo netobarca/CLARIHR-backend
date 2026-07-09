@@ -420,12 +420,19 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
     public async Task<IReadOnlyCollection<ReconocimientoExportRow>> GetRecognitionExportRowsAsync(
         ExportRecognitionsQuery query, CancellationToken cancellationToken)
     {
-        var filtered = ApplyRecognitionItemStatusFilter(
+        var ordered = ApplyRecognitionItemStatusFilter(
                 FilteredRecognitions(query.EmployeeId, query.RecognitionTypeCode, query.FromDate, query.ToDate),
                 query.StatusCode, query.IncludeAnnulled)
             .OrderByDescending(row => row.Recognition.EventDate)
-            .ThenByDescending(row => row.Recognition.CreatedUtc)
-            .Select(row => new ReconocimientoExportRow(
+            .ThenByDescending(row => row.Recognition.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? ordered.Take(maxRows + 1) : ordered;
+
+        // Materialize the user ids as Guids, then format them to text in-memory (the export columns are string
+        // identifiers for the file; Guid.ToString() has no SQL translation, so it must run after the query).
+        var rows = await limited
+            .Select(row => new
+            {
                 row.EmployeeFullName,
                 row.EmployeeCode,
                 row.Recognition.TypeNameSnapshot,
@@ -437,10 +444,25 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
                 row.Recognition.RegisteredByUserId,
                 row.Recognition.DecidedByUserId,
                 row.Recognition.DecidedUtc,
-                row.Recognition.CreatedUtc));
+                row.Recognition.CreatedUtc,
+            })
+            .ToArrayAsync(cancellationToken);
 
-        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
-        return await limited.ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new ReconocimientoExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.TypeNameSnapshot,
+                row.EventDate,
+                row.Detail,
+                row.Amount,
+                row.CurrencyCode,
+                row.StatusCode,
+                row.RegisteredByUserId.ToString(),
+                row.DecidedByUserId?.ToString(),
+                row.DecidedUtc,
+                row.CreatedUtc))
+            .ToArray();
     }
 
     private IQueryable<RecognitionQueryRow> FilteredRecognitions(
@@ -544,13 +566,20 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
     public async Task<IReadOnlyCollection<AmonestacionExportRow>> GetDisciplinaryActionExportRowsAsync(
         ExportDisciplinaryActionsQuery query, CancellationToken cancellationToken)
     {
-        var filtered = ApplyDisciplinaryActionItemStatusFilter(
+        var ordered = ApplyDisciplinaryActionItemStatusFilter(
                 FilteredDisciplinaryActions(
                     query.EmployeeId, query.DisciplinaryActionTypeCode, query.CauseCode, query.FromDate, query.ToDate),
                 query.StatusCode, query.IncludeAnnulled)
             .OrderByDescending(row => row.DisciplinaryAction.IncidentDate)
-            .ThenByDescending(row => row.DisciplinaryAction.CreatedUtc)
-            .Select(row => new AmonestacionExportRow(
+            .ThenByDescending(row => row.DisciplinaryAction.CreatedUtc);
+
+        var limited = query.MaxRows is { } maxRows ? ordered.Take(maxRows + 1) : ordered;
+
+        // Materialize the user ids as Guids, then format them to text in-memory (the export columns are string
+        // identifiers for the file; Guid.ToString() has no SQL translation, so it must run after the query).
+        var rows = await limited
+            .Select(row => new
+            {
                 row.EmployeeFullName,
                 row.EmployeeCode,
                 row.DisciplinaryAction.TypeNameSnapshot,
@@ -568,10 +597,31 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
                 row.DisciplinaryAction.RegisteredByUserId,
                 row.DisciplinaryAction.DecidedByUserId,
                 row.DisciplinaryAction.DecidedUtc,
-                row.DisciplinaryAction.CreatedUtc));
+                row.DisciplinaryAction.CreatedUtc,
+            })
+            .ToArrayAsync(cancellationToken);
 
-        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
-        return await limited.ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new AmonestacionExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.TypeNameSnapshot,
+                row.CauseNameSnapshot,
+                row.IncidentDate,
+                row.FactsDetail,
+                row.HasPayrollDeduction,
+                row.DeductionAmount,
+                row.DeductionConceptNameSnapshot,
+                row.CurrencyCode,
+                row.SuspensionStartDate,
+                row.SuspensionEndDate,
+                row.SuspensionDays,
+                row.StatusCode,
+                row.RegisteredByUserId.ToString(),
+                row.DecidedByUserId?.ToString(),
+                row.DecidedUtc,
+                row.CreatedUtc))
+            .ToArray();
     }
 
     public async Task<IReadOnlyCollection<InsumoPlanillaExportRow>> GetPayrollInputRowsAsync(

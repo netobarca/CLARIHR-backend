@@ -21,7 +21,6 @@ public sealed class PersonnelFileRecognition : TenantEntity
     public const int MaxTypeNameSnapshotLength = 200;
     public const int MaxDetailLength = 1000;
     public const int MaxCurrencyCodeLength = 10;
-    public const int MaxRegisteredByUserIdLength = 100;
     public const int MaxDecisionNoteLength = 1000;
     public const int MaxAnnulmentReasonLength = 1000;
     public const int MaxNotesLength = 1000;
@@ -38,7 +37,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
         decimal? amount,
         string? currencyCode,
         Guid? assignedPositionPublicId,
-        string registeredByUserId,
+        Guid registeredByUserId,
         string? notes)
     {
         PublicId = Guid.NewGuid();
@@ -48,10 +47,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
 
         ApplyDetails(recognitionTypeId, typeNameSnapshot, eventDate, detail, amount, currencyCode, assignedPositionPublicId, notes);
 
-        RegisteredByUserId = Truncate(
-            PersonnelFileNormalization.Clean(registeredByUserId, nameof(registeredByUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(registeredByUserId));
+        RegisteredByUserId = registeredByUserId;
     }
 
     public long PersonnelFileId { get; private set; }
@@ -76,12 +72,12 @@ public sealed class PersonnelFileRecognition : TenantEntity
 
     public Guid? AssignedPositionPublicId { get; private set; }
 
-    public string RegisteredByUserId { get; private set; } = string.Empty;
+    public Guid RegisteredByUserId { get; private set; }
 
     public string StatusCode { get; private set; } = PersonnelTransactionStatuses.EnRevision;
 
     // ── Decision (who applied/rejected, when, with the reject note — RN-07) ──────────────────────────
-    public string? DecidedByUserId { get; private set; }
+    public Guid? DecidedByUserId { get; private set; }
 
     public DateTime? DecidedUtc { get; private set; }
 
@@ -90,7 +86,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
     // ── Annulment / revocation (mandatory reason — RN-07) ────────────────────────────────────────────
     public string? AnnulmentReason { get; private set; }
 
-    public string? AnnulledByUserId { get; private set; }
+    public Guid? AnnulledByUserId { get; private set; }
 
     public DateTime? AnnulledUtc { get; private set; }
 
@@ -117,7 +113,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
         decimal? amount,
         string? currencyCode,
         Guid? assignedPositionPublicId,
-        string registeredByUserId,
+        Guid registeredByUserId,
         string? notes) =>
         new(recognitionTypeId, typeNameSnapshot, eventDate, detail, amount, currencyCode, assignedPositionPublicId, registeredByUserId, notes);
 
@@ -139,7 +135,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
     }
 
     /// <summary>Applies the recognition (EN_REVISION → APLICADA); captures the generated entry's public id (RN-03).</summary>
-    public void Apply(string byUserId, DateTime atUtc, Guid personnelActionPublicId)
+    public void Apply(Guid byUserId, DateTime atUtc, Guid personnelActionPublicId)
     {
         EnsureEditable();
 
@@ -149,17 +145,14 @@ public sealed class PersonnelFileRecognition : TenantEntity
         }
 
         StatusCode = PersonnelTransactionStatuses.Aplicada;
-        DecidedByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        DecidedByUserId = byUserId;
         DecidedUtc = atUtc;
         PersonnelActionPublicId = personnelActionPublicId;
         ConcurrencyToken = Guid.NewGuid();
     }
 
     /// <summary>Rejects the recognition (EN_REVISION → RECHAZADA); the note is mandatory (RN-07).</summary>
-    public void Reject(string byUserId, DateTime atUtc, string note)
+    public void Reject(Guid byUserId, DateTime atUtc, string note)
     {
         EnsureEditable();
 
@@ -168,10 +161,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
             MaxDecisionNoteLength,
             nameof(note));
         StatusCode = PersonnelTransactionStatuses.Rechazada;
-        DecidedByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        DecidedByUserId = byUserId;
         DecidedUtc = atUtc;
         IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
@@ -181,7 +171,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
     /// Annuls the record (terminal) from EN_REVISION (trámite withdrawal) or APLICADA (revocation); the reason
     /// is mandatory (RN-07). The caller annuls the linked entry via <c>PersonnelFilePersonnelAction.Annul()</c>.
     /// </summary>
-    public void Annul(string reason, string byUserId, DateTime atUtc)
+    public void Annul(string reason, Guid byUserId, DateTime atUtc)
     {
         if (!PersonnelTransactionStatuses.Vigentes.Contains(StatusCode))
         {
@@ -192,10 +182,7 @@ public sealed class PersonnelFileRecognition : TenantEntity
             PersonnelFileNormalization.Clean(reason, nameof(reason)),
             MaxAnnulmentReasonLength,
             nameof(reason));
-        AnnulledByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        AnnulledByUserId = byUserId;
         AnnulledUtc = atUtc;
         StatusCode = PersonnelTransactionStatuses.Anulada;
         IsActive = false;
@@ -291,7 +278,6 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
     public const int MaxCurrencyCodeLength = 10;
     public const int MaxDeductionConceptTypeCodeLength = 80;
     public const int MaxDeductionConceptNameSnapshotLength = 200;
-    public const int MaxRegisteredByUserIdLength = 100;
     public const int MaxDecisionNoteLength = 1000;
     public const int MaxAnnulmentReasonLength = 1000;
     public const int MaxNotesLength = 1000;
@@ -314,7 +300,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
         DateOnly? suspensionStartDate,
         DateOnly? suspensionEndDate,
         Guid? assignedPositionPublicId,
-        string registeredByUserId,
+        Guid registeredByUserId,
         string? notes)
     {
         PublicId = Guid.NewGuid();
@@ -338,10 +324,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
             assignedPositionPublicId,
             notes);
 
-        RegisteredByUserId = Truncate(
-            PersonnelFileNormalization.Clean(registeredByUserId, nameof(registeredByUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(registeredByUserId));
+        RegisteredByUserId = registeredByUserId;
     }
 
     public long PersonnelFileId { get; private set; }
@@ -391,12 +374,12 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
 
     public Guid? AssignedPositionPublicId { get; private set; }
 
-    public string RegisteredByUserId { get; private set; } = string.Empty;
+    public Guid RegisteredByUserId { get; private set; }
 
     public string StatusCode { get; private set; } = PersonnelTransactionStatuses.EnRevision;
 
     // ── Decision / annulment (same as recognition) ───────────────────────────────────────────────────
-    public string? DecidedByUserId { get; private set; }
+    public Guid? DecidedByUserId { get; private set; }
 
     public DateTime? DecidedUtc { get; private set; }
 
@@ -404,7 +387,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
 
     public string? AnnulmentReason { get; private set; }
 
-    public string? AnnulledByUserId { get; private set; }
+    public Guid? AnnulledByUserId { get; private set; }
 
     public DateTime? AnnulledUtc { get; private set; }
 
@@ -442,7 +425,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
         DateOnly? suspensionStartDate,
         DateOnly? suspensionEndDate,
         Guid? assignedPositionPublicId,
-        string registeredByUserId,
+        Guid registeredByUserId,
         string? notes) =>
         new(
             disciplinaryActionTypeId,
@@ -505,7 +488,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
     /// <paramref name="conceptName"/> only when the deduction travels.
     /// </summary>
     public void Apply(
-        string byUserId,
+        Guid byUserId,
         DateTime atUtc,
         Guid personnelActionPublicId,
         Guid? suspensionActionPublicId,
@@ -525,10 +508,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
         }
 
         StatusCode = PersonnelTransactionStatuses.Aplicada;
-        DecidedByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        DecidedByUserId = byUserId;
         DecidedUtc = atUtc;
         PersonnelActionPublicId = personnelActionPublicId;
         SuspensionActionPublicId = suspensionActionPublicId;
@@ -544,7 +524,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
     }
 
     /// <summary>Rejects the disciplinary action (EN_REVISION → RECHAZADA); the note is mandatory (RN-07).</summary>
-    public void Reject(string byUserId, DateTime atUtc, string note)
+    public void Reject(Guid byUserId, DateTime atUtc, string note)
     {
         EnsureEditable();
 
@@ -553,10 +533,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
             MaxDecisionNoteLength,
             nameof(note));
         StatusCode = PersonnelTransactionStatuses.Rechazada;
-        DecidedByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        DecidedByUserId = byUserId;
         DecidedUtc = atUtc;
         IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
@@ -566,7 +543,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
     /// Annuls the record (terminal) from EN_REVISION (trámite withdrawal) or APLICADA (revocation); the reason
     /// is mandatory (RN-07). The caller annuls the linked entries via <c>PersonnelFilePersonnelAction.Annul()</c>.
     /// </summary>
-    public void Annul(string reason, string byUserId, DateTime atUtc)
+    public void Annul(string reason, Guid byUserId, DateTime atUtc)
     {
         if (!PersonnelTransactionStatuses.Vigentes.Contains(StatusCode))
         {
@@ -577,10 +554,7 @@ public sealed class PersonnelFileDisciplinaryAction : TenantEntity
             PersonnelFileNormalization.Clean(reason, nameof(reason)),
             MaxAnnulmentReasonLength,
             nameof(reason));
-        AnnulledByUserId = Truncate(
-            PersonnelFileNormalization.Clean(byUserId, nameof(byUserId)),
-            MaxRegisteredByUserIdLength,
-            nameof(byUserId));
+        AnnulledByUserId = byUserId;
         AnnulledUtc = atUtc;
         StatusCode = PersonnelTransactionStatuses.Anulada;
         IsActive = false;

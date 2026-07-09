@@ -58527,10 +58527,12 @@ components:
           nullable: true
         statusCode:
           type: string
-        registeredByUserId:
+        registeredByUserPublicId:
           type: string
-        decidedByUserId:
+          format: uuid
+        decidedByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         decidedUtc:
           type: string
@@ -58652,10 +58654,12 @@ components:
           nullable: true
         statusCode:
           type: string
-        registeredByUserId:
+        registeredByUserPublicId:
           type: string
-        decidedByUserId:
+          format: uuid
+        decidedByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         decidedUtc:
           type: string
@@ -68069,13 +68073,15 @@ components:
           type: string
           format: uuid
           nullable: true
-        registeredByUserId:
+        registeredByUserPublicId:
           type: string
+          format: uuid
         statusCode:
           type: string
           description: 'EN_REVISION | APLICADA | RECHAZADA | ANULADA'
-        decidedByUserId:
+        decidedByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         decidedUtc:
           type: string
@@ -68087,8 +68093,9 @@ components:
         annulmentReason:
           type: string
           nullable: true
-        annulledByUserId:
+        annulledByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         annulledUtc:
           type: string
@@ -68291,13 +68298,15 @@ components:
           type: string
           format: uuid
           nullable: true
-        registeredByUserId:
+        registeredByUserPublicId:
           type: string
+          format: uuid
         statusCode:
           type: string
           description: 'EN_REVISION | APLICADA | RECHAZADA | ANULADA'
-        decidedByUserId:
+        decidedByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         decidedUtc:
           type: string
@@ -68309,8 +68318,9 @@ components:
         annulmentReason:
           type: string
           nullable: true
-        annulledByUserId:
+        annulledByUserPublicId:
           type: string
+          format: uuid
           nullable: true
         annulledUtc:
           type: string
