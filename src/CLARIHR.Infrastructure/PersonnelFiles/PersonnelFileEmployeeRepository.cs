@@ -3763,6 +3763,24 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    // ── Overtime records (REQ-007) ─────────────────────────────────────────────────────────────────
+
+    // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the
+    // overtime-record public id so every application registration/annulment (or per-period batch) of one record
+    // contends on the same lock. Executed on the context's current transaction (the handler opens one),
+    // pg_advisory_xact_lock holds until that transaction commits/rolls back, serializing the
+    // at-most-one-active-application rule (RN-06/№11).
+    private const int OvertimeRecordMutationLockClassId = 0x4F_54_52_43; // "OTRC" — overtime record
+
+    public Task AcquireOvertimeRecordMutationLockAsync(Guid overtimeRecordPublicId, CancellationToken cancellationToken)
+    {
+        var objectKey = BitConverter.ToInt32(overtimeRecordPublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { OvertimeRecordMutationLockClassId, objectKey },
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(
         long personnelFileInternalId,
         Guid tenantId,

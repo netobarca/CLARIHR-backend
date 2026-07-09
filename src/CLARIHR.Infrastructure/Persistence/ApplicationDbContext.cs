@@ -421,6 +421,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileOneTimeIncomeApplication> PersonnelFileOneTimeIncomeApplications => Set<PersonnelFileOneTimeIncomeApplication>();
 
+    public DbSet<PersonnelFileOvertimeRecord> PersonnelFileOvertimeRecords => Set<PersonnelFileOvertimeRecord>();
+
+    public DbSet<PersonnelFileOvertimeRecordApplication> PersonnelFileOvertimeRecordApplications => Set<PersonnelFileOvertimeRecordApplication>();
+
     public DbSet<PersonnelFileRecognition> PersonnelFileRecognitions => Set<PersonnelFileRecognition>();
 
     public DbSet<PersonnelFileRecognitionDocument> PersonnelFileRecognitionDocuments => Set<PersonnelFileRecognitionDocument>();

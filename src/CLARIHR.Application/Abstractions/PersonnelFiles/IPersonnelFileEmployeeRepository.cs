@@ -1452,4 +1452,16 @@ public interface IPersonnelFileEmployeeRepository
         string payrollPeriod,
         int? maxRows,
         CancellationToken cancellationToken);
+
+    // ── Overtime records (REQ-007) ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Serializes the application-mutating writes (register / annul the single application, per-period batch) of a
+    /// single overtime record with a transaction-scoped PostgreSQL advisory lock keyed on its public id, closing
+    /// the check-then-act TOCTOU on the at-most-one-active-application rule (RF-011/RF-013, RN-06/№11). Must run
+    /// inside an open transaction (the handler opens one); the lock releases on commit/rollback. The default is a
+    /// no-op (test fakes have no PostgreSQL); the EF repository takes the real advisory lock.
+    /// </summary>
+    Task AcquireOvertimeRecordMutationLockAsync(Guid overtimeRecordPublicId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

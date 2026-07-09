@@ -2581,4 +2581,43 @@
   <data name="ONE_TIME_INCOME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
     <value>Se requieren un tipo de planilla y un periodo para exportar el insumo de planilla de ingresos eventuales.</value>
   </data>
+  <data name="OVERTIME_DURATION_HOURS_INVALID" xml:space="preserve">
+    <value>Las horas de la duración deben ser cero o mayores.</value>
+  </data>
+  <data name="OVERTIME_DURATION_MINUTES_INVALID" xml:space="preserve">
+    <value>Los minutos de la duración deben estar entre 0 y 59.</value>
+  </data>
+  <data name="OVERTIME_DURATION_EMPTY" xml:space="preserve">
+    <value>La duración total de la hora extra debe ser mayor que cero.</value>
+  </data>
+  <data name="OVERTIME_FACTOR_INVALID" xml:space="preserve">
+    <value>El factor aplicado y el factor del tipo deben ser mayores que cero.</value>
+  </data>
+  <data name="OVERTIME_FACTOR_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota cuando el factor aplicado difiere del factor del tipo.</value>
+  </data>
+  <data name="OVERTIME_DAILY_CAP_EXCEEDED" xml:space="preserve">
+    <value>La hora extra supera el tope diario del empleado para la fecha de la jornada.</value>
+  </data>
+  <data name="OVERTIME_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un registro de hora extra AUTORIZADA puede aplicarse.</value>
+  </data>
+  <data name="OVERTIME_ALREADY_APPLIED" xml:space="preserve">
+    <value>El registro de hora extra ya tiene una aplicación activa.</value>
+  </data>
+  <data name="OVERTIME_WORK_DATE_NOT_ELAPSED" xml:space="preserve">
+    <value>Un registro de hora extra con fecha futura no puede aplicarse hasta que la fecha haya transcurrido.</value>
+  </data>
+  <data name="OVERTIME_WORK_DATE_TOO_FAR" xml:space="preserve">
+    <value>La fecha de la jornada está demasiado lejos en el futuro.</value>
+  </data>
+  <data name="OVERTIME_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Solo un registro de hora extra AUTORIZADA puede redirigir su destino de planilla.</value>
+  </data>
+  <data name="OVERTIME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Solo un registro de hora extra APLICADA puede revertir su aplicación.</value>
+  </data>
+  <data name="OVERTIME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El registro de hora extra no está en un estado que permita esta operación.</value>
+  </data>
 </root>

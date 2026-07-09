@@ -2581,4 +2581,43 @@
   <data name="ONE_TIME_INCOME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
     <value>A payroll type and a payroll period are required to export the one-time-income payroll input.</value>
   </data>
+  <data name="OVERTIME_DURATION_HOURS_INVALID" xml:space="preserve">
+    <value>The duration hours must be zero or greater.</value>
+  </data>
+  <data name="OVERTIME_DURATION_MINUTES_INVALID" xml:space="preserve">
+    <value>The duration minutes must be between 0 and 59.</value>
+  </data>
+  <data name="OVERTIME_DURATION_EMPTY" xml:space="preserve">
+    <value>The total overtime duration must be greater than zero.</value>
+  </data>
+  <data name="OVERTIME_FACTOR_INVALID" xml:space="preserve">
+    <value>The applied factor and the type factor must be greater than zero.</value>
+  </data>
+  <data name="OVERTIME_FACTOR_NOTE_REQUIRED" xml:space="preserve">
+    <value>An override note is required when the applied factor differs from the type factor.</value>
+  </data>
+  <data name="OVERTIME_DAILY_CAP_EXCEEDED" xml:space="preserve">
+    <value>The overtime exceeds the employee's daily cap for the work date.</value>
+  </data>
+  <data name="OVERTIME_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only an AUTORIZADA overtime record can be applied.</value>
+  </data>
+  <data name="OVERTIME_ALREADY_APPLIED" xml:space="preserve">
+    <value>The overtime record already has an active application.</value>
+  </data>
+  <data name="OVERTIME_WORK_DATE_NOT_ELAPSED" xml:space="preserve">
+    <value>An overtime record with a future work date cannot be applied until the date has elapsed.</value>
+  </data>
+  <data name="OVERTIME_WORK_DATE_TOO_FAR" xml:space="preserve">
+    <value>The work date is too far in the future.</value>
+  </data>
+  <data name="OVERTIME_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Only an AUTORIZADA overtime record can have its payroll destination re-targeted.</value>
+  </data>
+  <data name="OVERTIME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Only an APLICADA overtime record can have its application reverted.</value>
+  </data>
+  <data name="OVERTIME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The overtime record is not in a state that allows this operation.</value>
+  </data>
 </root>
