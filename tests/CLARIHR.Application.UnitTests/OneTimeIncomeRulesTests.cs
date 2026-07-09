@@ -577,6 +577,22 @@ public sealed class OneTimeIncomeRulesTests
         Assert.True(missingInSpanish.Length == 0, $"Missing in BackendMessages.es.resx: {string.Join(", ", missingInSpanish)}");
     }
 
+    // ── PR-4 application handler error codes are bilingual (EN + ES) ────────────────────────────────
+
+    [Theory]
+    [InlineData("ONE_TIME_INCOME_APPLICATION_NOT_FOUND")]
+    [InlineData("ONE_TIME_INCOME_APPLICATION_PAYROLL_PERIOD_INVALID")]
+    [InlineData("ONE_TIME_INCOME_APPLY_PERIOD_CONFLICT")]
+    public void ApplicationHandlerErrorCodes_ArePresentInBothResourceCatalogs(string code)
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var englishKeys = LoadResourceKeys(Path.Combine(repositoryRoot, "src", "CLARIHR.Infrastructure", "Localization", "BackendMessages.resx"));
+        var spanishKeys = LoadResourceKeys(Path.Combine(repositoryRoot, "src", "CLARIHR.Infrastructure", "Localization", "BackendMessages.es.resx"));
+
+        Assert.True(englishKeys.Contains(code), $"Missing in BackendMessages.resx: {code}");
+        Assert.True(spanishKeys.Contains(code), $"Missing in BackendMessages.es.resx: {code}");
+    }
+
     // ── Builders ───────────────────────────────────────────────────────────────────────────────────
 
     private static PersonnelFileOneTimeIncomeApplication Apply(PersonnelFileOneTimeIncome income) =>

@@ -1360,4 +1360,45 @@ public interface IPersonnelFileEmployeeRepository
         Guid requesterFilePublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
+
+    // ── One-time-income applications (REQ-006 PR-4) ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads the TRACKED one-time income WITH its applications (for a unitary application / annulment under the
+    /// advisory lock). Scoped to the tenant + income public id; returns null when it is not found. Do NOT pre-load
+    /// the income tracked before the lock — call this as the FIRST tracking load so it reflects any committed
+    /// concurrent application.
+    /// </summary>
+    Task<PersonnelFileOneTimeIncome?> GetTrackedOneTimeIncomeWithApplicationsAsync(
+        Guid oneTimeIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The application history of a one-time income (APLICADA + ANULADA, most recent activity first);
+    /// null when the income is not on the file.</summary>
+    Task<IReadOnlyCollection<OneTimeIncomeApplicationResponse>?> GetOneTimeIncomeApplicationsAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company payroll-period instance for an application imputation (§0.13, FK real); null
+    /// when it is not a period of the tenant.</summary>
+    Task<OneTimeIncomePayrollPeriodResolution?> ResolveOneTimeIncomePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>An AsNoTracking snapshot of the tenant's AUTORIZADO one-time incomes of a payroll type without an
+    /// active application, ordered by internal id (anti-deadlock ordering for the apply-period batch).</summary>
+    Task<IReadOnlyList<OneTimeIncomeBatchCandidate>> GetOneTimeIncomeApplyPeriodCandidatesAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken);
+
+    /// <summary>The tenant's AUTORIZADO one-time incomes without an active application for the pending/overdue tray
+    /// (optionally filtered by payroll type), with the employee identity and value/destination snapshot.</summary>
+    Task<IReadOnlyList<OneTimeIncomePendingData>> GetOneTimeIncomePendingRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        CancellationToken cancellationToken);
 }

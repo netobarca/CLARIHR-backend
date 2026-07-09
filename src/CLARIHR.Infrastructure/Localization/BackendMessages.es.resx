@@ -2515,6 +2515,15 @@
   <data name="ONE_TIME_INCOME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
     <value>Solo un ingreso eventual APLICADO puede revertir su aplicación.</value>
   </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la aplicación activa en este ingreso eventual.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>El periodo de planilla no es un periodo activo válido para la empresa.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>El lote de aplicación por periodo no pudo completarse por un ingreso eventual en conflicto: {0}.</value>
+  </data>
   <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>El ingreso eventual no está en un estado que permita esta operación.</value>
   </data>

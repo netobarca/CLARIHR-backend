@@ -68,3 +68,37 @@ public sealed record ResolveOneTimeIncomeRequest(string TargetStatusCode, string
 
 /// <summary>Body for the authorizer revocation of an AUTORIZADO income (reason mandatory).</summary>
 public sealed record RevokeOneTimeIncomeRequest(string Reason);
+
+/// <summary>
+/// Body for registering the single application of an AUTORIZADO one-time income (RF-011). The amount does NOT
+/// travel (it is the income's own amount). <c>AppliedDate</c> defaults to today when omitted;
+/// <c>PayrollPeriodPublicId</c> (optional) imputes the application to a company payroll-period instance (validated
+/// active, FK real) — when omitted the application inherits the income's declared destination. The income's
+/// <c>concurrencyToken</c> travels in the <c>If-Match</c> header.
+/// </summary>
+public sealed record ApplyOneTimeIncomeApplicationRequest(
+    DateOnly? AppliedDate,
+    Guid? PayrollPeriodPublicId,
+    string? Notes);
+
+/// <summary>Body for annulling (reverting) the active application of a one-time income (RF-013); the reason is mandatory.</summary>
+public sealed record AnnulOneTimeIncomeApplicationRequest(string Reason);
+
+/// <summary>
+/// Body for the company-wide apply-period batch (RF-012): applies every AUTORIZADO one-time income of
+/// <c>PayrollTypeCode</c> — including the "atrasados". Provide a <c>PayrollPeriodPublicId</c> (FK real; its id +
+/// label are snapshotted onto the applications) or a bare <c>PayrollPeriodLabel</c> to override the destination for
+/// every applied income; omit both to default each application to its income's declared destination.
+/// <c>ExcludedIncomePublicIds</c> postpones incomes.
+/// </summary>
+public sealed record ApplyOneTimeIncomePeriodRequest(
+    string PayrollTypeCode,
+    Guid? PayrollPeriodPublicId,
+    string? PayrollPeriodLabel,
+    IReadOnlyCollection<Guid>? ExcludedIncomePublicIds);
+
+/// <summary>Body for the pending/overdue tray (RF-012): the AUTORIZADO one-time incomes without an active
+/// application, optionally filtered by payroll type and/or only the overdue ones.</summary>
+public sealed record QueryOneTimeIncomePendingRequest(
+    string? PayrollTypeCode,
+    bool? OnlyOverdue);

@@ -25575,6 +25575,289 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/one-time-incomes/{oneTimeIncomePublicId}/applications':
+    get:
+      tags:
+        - Personnel Files
+      summary: "List a one-time income's application history"
+      description: "Returns the application history of the income (both the active `APLICADA` and the past `ANULADA`, most recent activity first). Requires the `ViewOneTimeIncomes` permission (HR-only)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: oneTimeIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OneTimeIncomeApplicationResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: "Apply a one-time income"
+      description: "Registers the single application of an `AUTORIZADO` income (RF-011); the income becomes `APLICADO`. The amount is the income's own (it does NOT travel); the payroll period (optional) defaults to the income's declared destination and, when supplied, is validated + snapshotted (FK real). HR-only (`ManageOneTimeIncomes`). Requires the `If-Match` header with the income's current `concurrencyToken`; the income's refreshed token is returned in the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: oneTimeIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyOneTimeIncomeApplicationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneTimeIncomeApplicationResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/one-time-incomes/{oneTimeIncomePublicId}/applications/{applicationPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Revert (annul) a one-time income's application"
+      description: "Annuls the active application (`APLICADA` -> `ANULADA`); the `reason` is mandatory (RF-013). The income reopens (`APLICADO` -> `AUTORIZADO`) so it can be re-applied or revoked. HR-only. Requires the `If-Match` header with the income's current `concurrencyToken`; the refreshed token is returned in the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: oneTimeIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: applicationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulOneTimeIncomeApplicationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneTimeIncomeApplicationResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/apply-period':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Apply the AUTORIZADO one-time incomes of a payroll period"
+      description: "Applies, ATOMICALLY, every `AUTORIZADO` one-time income of the company of the given `payrollTypeCode` (RF-012) - including the atrasados whose declared period already passed. Provide a `payrollPeriodPublicId` (FK real; its id/label are snapshotted) or a bare `payrollPeriodLabel` to override the destination; omit both to default each application to its income's declared destination. `excludedIncomePublicIds` postpones incomes. Any conflict rolls the whole batch back (422). HR-only (`ManageOneTimeIncomes`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyOneTimeIncomePeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneTimeIncomeApplyPeriodResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/one-time-incomes/pending/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the pending/overdue one-time incomes tray"
+      description: "Returns the company's `AUTORIZADO` one-time incomes without an active application (RF-012) - the ones still to be applied - each marked `isOverdue` when its declared payroll-period end date already passed. Optionally filter by `payrollTypeCode` and/or `onlyOverdue`. HR-only (`ViewOneTimeIncomes`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryOneTimeIncomePendingRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneTimeIncomePendingResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/recurring-incomes':
     get:
       tags:
@@ -65426,6 +65709,171 @@ components:
       properties:
         reason:
           type: string
+    OneTimeIncomeApplicationResponse:
+      type: object
+      properties:
+        applicationPublicId:
+          type: string
+          format: uuid
+        appliedDate:
+          type: string
+          format: date
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        statusCode:
+          type: string
+        appliedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        settlementPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        annulledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulledUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    OneTimeIncomeApplicationResult:
+      type: object
+      properties:
+        application:
+          $ref: '#/components/schemas/OneTimeIncomeApplicationResponse'
+        oneTimeIncomeStatusCode:
+          type: string
+        oneTimeIncomeConcurrencyToken:
+          type: string
+          format: uuid
+    OneTimeIncomeApplyPeriodResult:
+      type: object
+      properties:
+        aplicados:
+          type: integer
+          format: int32
+        pospuestos:
+          type: integer
+          format: int32
+    OneTimeIncomePendingRow:
+      type: object
+      properties:
+        oneTimeIncomePublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        incomeDate:
+          type: string
+          format: date
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        amount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+        isOverdue:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    OneTimeIncomePendingResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneTimeIncomePendingRow'
+        totalCount:
+          type: integer
+          format: int32
+        overdueCount:
+          type: integer
+          format: int32
+    ApplyOneTimeIncomeApplicationRequest:
+      type: object
+      properties:
+        appliedDate:
+          type: string
+          format: date
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    AnnulOneTimeIncomeApplicationRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    ApplyOneTimeIncomePeriodRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        excludedIncomePublicIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+    QueryOneTimeIncomePendingRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+          nullable: true
+        onlyOverdue:
+          type: boolean
+          nullable: true
     RecurringIncomeResponse:
       type: object
       properties:

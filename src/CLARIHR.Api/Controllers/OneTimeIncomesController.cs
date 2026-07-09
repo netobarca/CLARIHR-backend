@@ -206,6 +206,88 @@ public sealed class OneTimeIncomesController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/one-time-incomes/{oneTimeIncomePublicId:guid}/applications")]
+    [Produces("application/json")]
+    [ProducesResponseType<IReadOnlyCollection<OneTimeIncomeApplicationResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a one-time income's application history",
+        Description = """
+            Returns the application history of the income (both the active `APLICADA` and the past `ANULADA`, most
+            recent activity first). Requires the `ViewOneTimeIncomes` permission (HR-only).
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<OneTimeIncomeApplicationResponse>>> GetOneTimeIncomeApplications(
+        Guid publicId,
+        Guid oneTimeIncomePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetOneTimeIncomeApplicationsQuery(publicId, oneTimeIncomePublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/one-time-incomes/{oneTimeIncomePublicId:guid}/applications")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OneTimeIncomeApplicationResult>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Apply a one-time income",
+        Description = """
+            Registers the single application of an `AUTORIZADO` income (RF-011); the income becomes `APLICADO`. The
+            amount is the income's own (it does NOT travel); the payroll period (optional) defaults to the income's
+            declared destination and, when supplied, is validated + snapshotted (FK real). HR-only
+            (`ManageOneTimeIncomes`). Requires the `If-Match` header with the income's current `concurrencyToken`;
+            the income's refreshed token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<OneTimeIncomeApplicationResult>> ApplyOneTimeIncome(
+        Guid publicId,
+        Guid oneTimeIncomePublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyOneTimeIncomeApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyOneTimeIncomeApplicationCommand(
+                publicId, oneTimeIncomePublicId, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToCreatedResult(
+            result,
+            _ => $"/api/v1/personnel-files/{publicId}/one-time-incomes/{oneTimeIncomePublicId}/applications",
+            value => value.OneTimeIncomeConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/one-time-incomes/{oneTimeIncomePublicId:guid}/applications/{applicationPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OneTimeIncomeApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Revert (annul) a one-time income's application",
+        Description = """
+            Annuls the active application (`APLICADA` → `ANULADA`); the `reason` is mandatory (RF-013). The income
+            reopens (`APLICADO` → `AUTORIZADO`) so it can be re-applied or revoked. HR-only. Requires the `If-Match`
+            header with the income's current `concurrencyToken`; the refreshed token is returned in the `ETag`
+            header.
+            """)]
+    public async Task<ActionResult<OneTimeIncomeApplicationResult>> AnnulOneTimeIncomeApplication(
+        Guid publicId,
+        Guid oneTimeIncomePublicId,
+        Guid applicationPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulOneTimeIncomeApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulOneTimeIncomeApplicationCommand(
+                publicId, oneTimeIncomePublicId, applicationPublicId, request.Reason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.OneTimeIncomeConcurrencyToken);
+    }
+
     private static OneTimeIncomeInput ToInput(AddOneTimeIncomeRequest request) =>
         new(
             request.IncomeDate,

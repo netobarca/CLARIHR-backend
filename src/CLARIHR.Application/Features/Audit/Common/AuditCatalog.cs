@@ -222,6 +222,7 @@ public static class AuditEventTypes
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
+    public const string OneTimeIncomeApplicationsApplied = "ONE_TIME_INCOME_APPLICATIONS_APPLIED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -437,7 +438,8 @@ public static class AuditEventTypes
         EmployeeRelationsTemplateLoaded,
         VacationPeriodsGenerated,
         VacationPlanSaved,
-        RecurringIncomeInstallmentsApplied
+        RecurringIncomeInstallmentsApplied,
+        OneTimeIncomeApplicationsApplied
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

@@ -3888,6 +3888,175 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 requester.LinkedUserPublicId);
     }
 
+    // ── One-time-income applications (REQ-006 PR-4) ─────────────────────────────────────────────────
+
+    public Task<PersonnelFileOneTimeIncome?> GetTrackedOneTimeIncomeWithApplicationsAsync(
+        Guid oneTimeIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileOneTimeIncome>()
+            .Include(income => income.Applications)
+            .SingleOrDefaultAsync(
+                income => income.TenantId == tenantId && income.PublicId == oneTimeIncomePublicId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<OneTimeIncomeApplicationResponse>?> GetOneTimeIncomeApplicationsAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeIncomePublicId,
+        CancellationToken cancellationToken)
+    {
+        var incomeInternalId = await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == oneTimeIncomePublicId)
+            .Select(item => item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (incomeInternalId == 0)
+        {
+            return null;
+        }
+
+        var rows = await dbContext.Set<PersonnelFileOneTimeIncomeApplication>()
+            .AsNoTracking()
+            .Where(application => application.OneTimeIncomeId == incomeInternalId)
+            .OrderByDescending(application => application.CreatedUtc)
+            .ThenByDescending(application => application.PublicId)
+            .Select(application => new
+            {
+                application.PublicId,
+                application.AppliedDate,
+                application.PayrollTypeCode,
+                application.PayrollPeriodPublicId,
+                application.PayrollPeriodLabel,
+                application.OriginCode,
+                application.StatusCode,
+                application.AppliedByUserId,
+                application.SettlementPublicId,
+                application.AnnulmentReason,
+                application.AnnulledByUserId,
+                application.AnnulledUtc,
+                application.Notes,
+                application.ConcurrencyToken
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new OneTimeIncomeApplicationResponse(
+                row.PublicId,
+                row.AppliedDate,
+                row.PayrollTypeCode,
+                row.PayrollPeriodPublicId,
+                row.PayrollPeriodLabel,
+                row.OriginCode,
+                row.StatusCode,
+                row.AppliedByUserId == Guid.Empty ? null : row.AppliedByUserId,
+                row.SettlementPublicId,
+                row.AnnulmentReason,
+                row.AnnulledByUserId,
+                row.AnnulledUtc,
+                row.Notes,
+                row.ConcurrencyToken))
+            .ToArray();
+    }
+
+    public async Task<OneTimeIncomePayrollPeriodResolution?> ResolveOneTimeIncomePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken)
+    {
+        var period = await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollPeriodPublicId)
+            .Select(item => new { item.Id, item.Label, item.IsActive })
+            .SingleOrDefaultAsync(cancellationToken);
+        return period is null
+            ? null
+            : new OneTimeIncomePayrollPeriodResolution(period.Id, period.Label, period.IsActive);
+    }
+
+    public async Task<IReadOnlyList<OneTimeIncomeBatchCandidate>> GetOneTimeIncomeApplyPeriodCandidatesAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(income => income.TenantId == tenantId
+                && income.IsActive
+                && income.StatusCode == OneTimeIncomeStatuses.Autorizado
+                && income.PayrollTypeCode == payrollTypeCode)
+            .OrderBy(income => income.Id)
+            .Select(income => new
+            {
+                income.Id,
+                income.PublicId,
+                income.PayrollPeriodPublicId,
+                income.PayrollPeriodLabel
+            })
+            .ToArrayAsync(cancellationToken);
+        return candidates
+            .Select(candidate => new OneTimeIncomeBatchCandidate(
+                candidate.Id,
+                candidate.PublicId,
+                candidate.PayrollPeriodPublicId,
+                candidate.PayrollPeriodLabel))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<OneTimeIncomePendingData>> GetOneTimeIncomePendingRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(income => income.TenantId == tenantId
+                && income.IsActive
+                && income.StatusCode == OneTimeIncomeStatuses.Autorizado);
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            query = query.Where(income => income.PayrollTypeCode == payrollTypeCode);
+        }
+
+        var rows = await query
+            .OrderBy(income => income.IncomeDate)
+            .ThenBy(income => income.Id)
+            .Select(income => new
+            {
+                income.PublicId,
+                FilePublicId = income.PersonnelFile.PublicId,
+                income.PersonnelFile.FirstName,
+                income.PersonnelFile.LastName,
+                income.IncomeDate,
+                income.ConceptTypeCode,
+                income.ConceptNameSnapshot,
+                income.Amount,
+                income.CurrencyCode,
+                income.PayrollTypeCode,
+                income.PayrollPeriodPublicId,
+                income.PayrollPeriodLabel,
+                income.PayrollPeriodEndDate,
+                income.ConcurrencyToken
+            })
+            .ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new OneTimeIncomePendingData(
+                row.PublicId,
+                row.FilePublicId,
+                $"{row.FirstName} {row.LastName}".Trim(),
+                row.IncomeDate,
+                row.ConceptTypeCode,
+                row.ConceptNameSnapshot,
+                row.Amount,
+                row.CurrencyCode,
+                row.PayrollTypeCode,
+                row.PayrollPeriodPublicId,
+                row.PayrollPeriodLabel,
+                row.PayrollPeriodEndDate,
+                row.ConcurrencyToken))
+            .ToArray();
+    }
+
     public async Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(
         long personnelFileInternalId,
         Guid tenantId,

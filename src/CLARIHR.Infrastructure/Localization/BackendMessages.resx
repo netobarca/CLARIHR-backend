@@ -2515,6 +2515,15 @@
   <data name="ONE_TIME_INCOME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
     <value>Only an APLICADO one-time income can have its application reverted.</value>
   </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>The active application was not found on this one-time income.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period is not a valid active period for the company.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>The apply-period batch could not be completed because of a conflicting one-time income: {0}.</value>
+  </data>
   <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The one-time income is not in a state that allows this operation.</value>
   </data>
