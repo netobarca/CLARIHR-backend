@@ -26142,6 +26142,1874 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records':
+    get:
+      tags:
+        - Personnel Files
+      summary: "List a personnel file's overtime records"
+      description: "Returns the overtime records (\"horas extras del empleado\", REQ-007) of the personnel file. Passes with the `ViewOvertimeRecords` permission OR when the caller is the employee reading their own records (self-read, P-12). Each item carries its own `concurrencyToken` for the `If-Match` header of subsequent writes."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OvertimeRecordResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: "Register an overtime record"
+      description: "Creates an overtime record in status `EN_REVISION` and returns it with `201 Created`. DUAL channel (P-01): the caller has `ManageOvertimeRecords` (origin `RRHH`, the requester trio is mandatory) OR is the employee self-registering on their own file when the company self-service preference is enabled (origin `PORTAL`, the requester is the subject employee; preference off -> 403 `OVERTIME_SELF_SERVICE_DISABLED`). The overtime type + justification type are resolved against the company masters (active; inactive -> 422) and snapshotted; the applied factor defaults to the type's reference factor (an override needs a note, P-06 -> `OVERTIME_FACTOR_NOTE_REQUIRED`); the h:m duration yields the decimal hours; a work date more than 366 days ahead -> 422 `OVERTIME_WORK_DATE_TOO_FAR`; the daily cap (P-05) blocks with 422 `OVERTIME_DAILY_CAP_EXCEEDED`; the plaza is optional (principal when omitted); the payroll type is validated against the catalog. The `ETag` header carries the initial `concurrencyToken`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddOvertimeRecordRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Get a personnel file overtime record by id"
+      description: "Returns a single overtime record. Passes with the `ViewOvertimeRecords` permission OR the employee self-read (P-12). The `concurrencyToken` is required in the `If-Match` header of subsequent writes."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: "Replace an overtime record's header and shift"
+      description: "Replaces the business fields (shift + motive + plaza + requester + destination) of an `EN_REVISION` overtime record (RN-02; an authorized record is no longer editable). The caller has `ManageOvertimeRecords` (any record) OR is the employee editing their OWN `EN_REVISION` record registered through the portal (origin `PORTAL`). Requires the `If-Match` header with the current `concurrencyToken`; the new token is returned in the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeRecordRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: "Discard (soft-delete) an EN_REVISION overtime record draft"
+      description: "Soft-deletes an `EN_REVISION` draft (sets it inactive; an authorized record is revoked or annulled instead). The caller has `ManageOvertimeRecords` OR is the employee discarding their OWN portal `EN_REVISION` draft. Requires the `If-Match` header. Returns the parent personnel file's refreshed concurrency token."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Annul an EN_REVISION overtime record"
+      description: "Annuls (retiro del tramite) an `EN_REVISION` record (-> `ANULADA`, terminal); the `reason` is mandatory. The caller has `ManageOvertimeRecords` OR is the employee withdrawing their OWN portal `EN_REVISION` record. An `AUTORIZADA` record is revoked by the authorizer instead. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulOvertimeRecordRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/period':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Re-target an AUTORIZADA overtime record to another payroll period"
+      description: "Re-imputes (\"enviar a otro periodo\", RF-005) the payroll destination (payroll type + period + label + end date) of an `AUTORIZADA` record WITHOUT touching its hours/factor. HR-only (`ManageOvertimeRecords`, no self-service). Only an `AUTORIZADA` record can be re-targeted (else 422 `OVERTIME_NOT_RETARGETABLE`). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetargetOvertimeRecordPeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/resolution':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Authorize or reject an overtime record"
+      description: "Authorizer resolution of an `EN_REVISION` record: `targetStatusCode` = `AUTORIZADA` (authorize) or `RECHAZADA` (reject - note MANDATORY, terminal). Requires the dedicated `AuthorizeOvertimeRecords` grant (`PersonnelFiles.Admin` does NOT imply it). Separation of duties (TRIPLE anti-self): neither the subject employee, the registrar nor the requester may resolve (403 `OVERTIME_SELF_APPROVAL_FORBIDDEN`). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveOvertimeRecordRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/revocation':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Revoke an AUTORIZADA overtime record"
+      description: "Authorizer revocation of an `AUTORIZADA` record (-> `ANULADA`, terminal); the `reason` is mandatory. Requires the dedicated `AuthorizeOvertimeRecords` grant. Separation of duties (TRIPLE anti-self): neither the subject employee, the registrar nor the requester may revoke (403 `OVERTIME_SELF_APPROVAL_FORBIDDEN`). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeOvertimeRecordRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/applications':
+    get:
+      tags:
+        - Personnel Files
+      summary: "List an overtime record's application history"
+      description: "Returns the application history of the record (both the active `APLICADA` and the past `ANULADA`, most recent activity first). Passes with the `ViewOvertimeRecords` permission OR the employee self-read (P-12)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OvertimeRecordApplicationResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: "Apply an overtime record"
+      description: "Registers the single application of an `AUTORIZADA` record (RF-011); the record becomes `APLICADA`. The record's work date must have elapsed - a future organized shift returns 422 `OVERTIME_WORK_DATE_NOT_ELAPSED`. The hours are the record's own (they do NOT travel); the payroll period (optional) defaults to the record's declared destination and, when supplied, is validated + snapshotted (FK real). HR-only (`ManageOvertimeRecords`). Requires the `If-Match` header with the record's current `concurrencyToken`; the record's refreshed token is returned in the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyOvertimeRecordApplicationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordApplicationResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/applications/{applicationPublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Revert (annul) an overtime record's application"
+      description: "Annuls the active application (`APLICADA` -> `ANULADA`); the `reason` is mandatory (RF-013). The record reopens (`APLICADA` -> `AUTORIZADA`) so it can be re-applied or revoked. HR-only. Requires the `If-Match` header with the record's current `concurrencyToken`; the refreshed token is returned in the `ETag` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeRecordPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: applicationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulOvertimeRecordApplicationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordApplicationResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/apply-period':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Apply the AUTORIZADA overtime records of a payroll period"
+      description: "Applies, ATOMICALLY, every `AUTORIZADA` overtime record of the company of the given `payrollTypeCode` (RF-012) whose work date has elapsed - including the atrasados whose declared period already passed; future organized shifts are excluded. Provide a `payrollPeriodPublicId` (FK real; its id/label are snapshotted onto the applications) or a bare `payrollPeriodLabel` to override the destination; omit both to default each application to its record's declared destination. `excludedRecordPublicIds` postpones records (they stay AUTORIZADA for the next run). Any conflict rolls the whole batch back (422 `OVERTIME_APPLY_PERIOD_CONFLICT`). HR-only (`ManageOvertimeRecords`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyOvertimePeriodRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeApplyPeriodResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/pending/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the pending/overdue overtime records tray"
+      description: "Returns the company's `AUTORIZADA` overtime records without an active application (RF-012) - the ones still to be applied - each marked `isOverdue` when its declared payroll-period end date already passed. Optionally filter by `payrollTypeCode` and/or `onlyOverdue`. HR-only (`ViewOvertimeRecords`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryOvertimeRecordPendingRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordPendingResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the company-wide overtime bandeja (advanced search)"
+      description: "Returns a paginated, filterable list of the company's overtime records (RF-011: by `statusCodes[]`, `employeeId`, `overtimeTypePublicId`, `justificationTypePublicId`, `fromWorkDate`/`toWorkDate`, `payrollTypeCode`, `payrollPeriod`, `requesterFilePublicId`, `originChannel` (RRHH/PORTAL), `assignedPositionPublicId`, `search`), plus per-status counts (span every status), the global total HOURS of the filtered set and the totals-by-type buckets (`{overtimeTypeCode, overtimeTypeName, count, totalHours}` - a GroupBy over the decimal hours; Sum totalHours == TotalHours). Totals are EN HORAS - the module carries no money (unlike the REQ-006 groupBy); there is NO dimensional groupBy. HR-only (`ViewOvertimeRecords`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryOvertimeRecordsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecordBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the overtime bandeja to Excel/CSV/JSON"
+      description: "Exports the filtered overtime records (same filters as the bandeja) to `xlsx`, `csv` or `json` with the shift, type, factor, decimal hours, channel, destination, requester, status and the registrar / decider ids. HR-only (`ViewOvertimeRecords`). Synchronous download capped at the configured row limit (`413` if exceeded)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: statusCodes
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: overtimeTypePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: justificationTypePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: fromWorkDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toWorkDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: payrollPeriod
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: requesterFilePublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: originChannel
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: assignedPositionPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/pending/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the pending / overdue overtime records to Excel/CSV/JSON"
+      description: "Exports the pending / overdue tray (the AUTORIZADA overtime records without an active application, RF-012) to `xlsx`, `csv` or `json`, each marked `Vencido` when its declared payroll-period end date already passed. Optionally filter by `payrollTypeCode` and/or `onlyOverdue`. HR-only (`ViewOvertimeRecords`). Synchronous download capped (`413`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: onlyOverdue
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-records/payroll-input/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the overtime payroll input for an external payroll system"
+      description: "Exports the pending (AUTORIZADA, not yet applied, elapsed, NOT compensated) overtime records of a MANDATORY `payrollTypeCode` + `payrollPeriod` (matched against the declared period label) - one row per record with the employee, overtime type, factor, decimal hours, payroll type, period and the cost center derived from the plaza (D-12). Cuadra against the pending tray of the same filter (excludes annulled + applied + compensated + future). A missing payroll type or period yields `400` `OVERTIME_PAYROLL_INPUT_FILTER_REQUIRED`. HR-only (`ViewOvertimeRecords`). Synchronous download capped (`413`)."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: payrollPeriod
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-types':
+    get:
+      tags:
+        - Overtime Types
+      summary: "List overtime types for a company"
+      description: "Returns a paginated list of the company's overtime types (\"tipos de hora extra\", REQ-007 - the master ships with a seeded template with reference factors), filterable by `isActive` and free-text `q` over the code and name. Each type carries its `defaultFactor` (the reference multiplier applied to the base hour) and an optional `payrollEffectDescription`. The owning company is validated against the authenticated tenant. Requires the `ViewOvertimeConfiguration` permission (Manage implies it). Set `includeAllowedActions=true` to receive per-item read/manage flags."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Overtime Types
+      summary: "Create an overtime type"
+      description: "Creates an overtime type under the company and returns `201 Created` with the `Location` header and the `ETag` header carrying its initial `concurrencyToken`. The `defaultFactor` (reference multiplier applied to the base hour) must be greater than zero. Requires the `ManageOvertimeConfiguration` permission. A duplicate active code yields `409 OVERTIME_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOvertimeTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-types/{publicId}':
+    get:
+      tags:
+        - Overtime Types
+      summary: "Get an overtime type by id"
+      description: "Returns a single overtime type by its public id. The owning company is resolved from the authenticated tenant; a non-existent id yields `404 OVERTIME_TYPE_NOT_FOUND`, while an id that belongs to another tenant yields `403 TENANT_MISMATCH`. Requires the `ViewOvertimeConfiguration` permission. The current `concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Overtime Types
+      summary: "Update an overtime type"
+      description: "Replaces the editable fields of an overtime type (code, name, default factor, payroll-effect description, sort order). Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header; a missing/malformed header yields `400` and a stale token yields `409 CONCURRENCY_CONFLICT`. A duplicate active code yields `409 OVERTIME_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-types/{publicId}/activation':
+    patch:
+      tags:
+        - Overtime Types
+      summary: "Activate an overtime type"
+      description: "Reactivates an inactive overtime type. Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header (missing -> `400`, stale -> `409`). If another active type already uses the same code, activation yields `409 OVERTIME_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-types/{publicId}/inactivation':
+    patch:
+      tags:
+        - Overtime Types
+      summary: "Inactivate an overtime type"
+      description: "Deactivates (soft-delete) an overtime type. A type referenced by an active record yields `422 OVERTIME_TYPE_IN_USE`. Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header (missing -> `400`, stale -> `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-justification-types':
+    get:
+      tags:
+        - Overtime Justification Types
+      summary: "List overtime justification types for a company"
+      description: "Returns a paginated list of the company's overtime justification types (\"tipos de justificacion de hora extra\", REQ-007 - the master ships with a seeded template), filterable by `isActive` and free-text `q` over the code and name. The owning company is validated against the authenticated tenant. Requires the `ViewOvertimeConfiguration` permission (Manage implies it). Set `includeAllowedActions=true` to receive per-item read/manage flags."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Overtime Justification Types
+      summary: "Create an overtime justification type"
+      description: "Creates an overtime justification type under the company and returns `201 Created` with the `Location` and `ETag` headers. Requires the `ManageOvertimeConfiguration` permission. A duplicate active code yields `409 OVERTIME_JUSTIFICATION_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOvertimeJustificationTypeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-justification-types/{publicId}':
+    get:
+      tags:
+        - Overtime Justification Types
+      summary: "Get an overtime justification type by id"
+      description: "Returns a single overtime justification type by its public id. The owning company is resolved from the authenticated tenant; a non-existent id yields `404 OVERTIME_JUSTIFICATION_TYPE_NOT_FOUND`, while an id that belongs to another tenant yields `403 TENANT_MISMATCH`. Requires the `ViewOvertimeConfiguration` permission. The current `concurrencyToken` is emitted as the `ETag` header on mutations."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Overtime Justification Types
+      summary: "Update an overtime justification type"
+      description: "Replaces the editable fields of an overtime justification type (code, name, description, sort order). Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header; a missing/malformed header yields `400` and a stale token yields `409 CONCURRENCY_CONFLICT`. A duplicate active code yields `409 OVERTIME_JUSTIFICATION_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeJustificationTypeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-justification-types/{publicId}/activation':
+    patch:
+      tags:
+        - Overtime Justification Types
+      summary: "Activate an overtime justification type"
+      description: "Reactivates an inactive overtime justification type. Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header (missing -> `400`, stale -> `409`). If another active type already uses the same code, activation yields `409 OVERTIME_JUSTIFICATION_TYPE_CODE_TAKEN`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/overtime-justification-types/{publicId}/inactivation':
+    patch:
+      tags:
+        - Overtime Justification Types
+      summary: "Inactivate an overtime justification type"
+      description: "Deactivates (soft-delete) an overtime justification type. A type referenced by an active record yields `422 OVERTIME_JUSTIFICATION_TYPE_IN_USE`. Requires the `ManageOvertimeConfiguration` permission and the current `concurrencyToken` in the `If-Match` header (missing -> `400`, stale -> `409`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeJustificationTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyId}/overtime-configuration/load-template':
+    post:
+      tags:
+        - Overtime Configuration
+      summary: "Load the El Salvador overtime configuration template"
+      description: "Applies the El Salvador template to the company's overtime configuration masters: the 4 overtime types (reference factors HED 2.00 / HEN 2.50 / HEDF 4.00 / HENF 5.00 of Anexo A.2 - confirm with the accountant before running in production, the factors are editable) and the 6 justification types. Idempotent by normalized code: rows the company already has are never overwritten (even when edited or inactive) and are reported as skipped; only the missing template rows are created. Requires the `ManageOvertimeConfiguration` permission. Returns `200 OK` with the created/skipped summary."
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeTemplateSeedResultResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/recurring-incomes':
     get:
       tags:
@@ -66331,6 +68199,846 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/OneTimeIncomeGroupResponse'
+    OvertimeRecordResponse:
+      type: object
+      properties:
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+        workDate:
+          type: string
+          format: date
+        overtimeTypePublicId:
+          type: string
+          format: uuid
+        overtimeTypeCodeSnapshot:
+          type: string
+        overtimeTypeNameSnapshot:
+          type: string
+        typeFactorSnapshot:
+          type: number
+          format: double
+        factorApplied:
+          type: number
+          format: double
+        factorOverrideNote:
+          type: string
+          nullable: true
+        durationHours:
+          type: integer
+          format: int32
+        durationMinutes:
+          type: integer
+          format: int32
+        durationDecimalHours:
+          type: number
+          format: double
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        justificationTypePublicId:
+          type: string
+          format: uuid
+        justificationCodeSnapshot:
+          type: string
+        justificationNameSnapshot:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        originChannel:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        requesterFilePublicId:
+          type: string
+          format: uuid
+        requesterNameSnapshot:
+          type: string
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+        statusCode:
+          type: string
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        decisionNote:
+          type: string
+          nullable: true
+        annulledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulledUtc:
+          type: string
+          format: date-time
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        annulledBySettlementPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        appliedBySettlementPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        compensatedByCreditPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    AddOvertimeRecordRequest:
+      type: object
+      properties:
+        workDate:
+          type: string
+          format: date
+        overtimeTypePublicId:
+          type: string
+          format: uuid
+        factorApplied:
+          type: number
+          format: double
+          nullable: true
+        factorOverrideNote:
+          type: string
+          nullable: true
+        durationHours:
+          type: integer
+          format: int32
+        durationMinutes:
+          type: integer
+          format: int32
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        justificationTypePublicId:
+          type: string
+          format: uuid
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+    UpdateOvertimeRecordRequest:
+      type: object
+      properties:
+        workDate:
+          type: string
+          format: date
+        overtimeTypePublicId:
+          type: string
+          format: uuid
+        factorApplied:
+          type: number
+          format: double
+          nullable: true
+        factorOverrideNote:
+          type: string
+          nullable: true
+        durationHours:
+          type: integer
+          format: int32
+        durationMinutes:
+          type: integer
+          format: int32
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+        justificationTypePublicId:
+          type: string
+          format: uuid
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+    AnnulOvertimeRecordRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    RetargetOvertimeRecordPeriodRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+    ResolveOvertimeRecordRequest:
+      type: object
+      properties:
+        targetStatusCode:
+          type: string
+        note:
+          type: string
+          nullable: true
+    RevokeOvertimeRecordRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    OvertimeRecordApplicationResponse:
+      type: object
+      properties:
+        applicationPublicId:
+          type: string
+          format: uuid
+        appliedDate:
+          type: string
+          format: date
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        statusCode:
+          type: string
+        appliedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        settlementPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        annulledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulledUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    OvertimeRecordApplicationResult:
+      type: object
+      properties:
+        application:
+          $ref: '#/components/schemas/OvertimeRecordApplicationResponse'
+        overtimeRecordStatusCode:
+          type: string
+        overtimeRecordConcurrencyToken:
+          type: string
+          format: uuid
+    ApplyOvertimeRecordApplicationRequest:
+      type: object
+      properties:
+        appliedDate:
+          type: string
+          format: date
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    AnnulOvertimeRecordApplicationRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    OvertimeApplyPeriodResult:
+      type: object
+      properties:
+        aplicados:
+          type: integer
+          format: int32
+        pospuestos:
+          type: integer
+          format: int32
+    ApplyOvertimePeriodRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        excludedRecordPublicIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+    QueryOvertimeRecordPendingRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+          nullable: true
+        onlyOverdue:
+          type: boolean
+          nullable: true
+    OvertimeRecordPendingRow:
+      type: object
+      properties:
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        workDate:
+          type: string
+          format: date
+        overtimeTypeCodeSnapshot:
+          type: string
+        overtimeTypeNameSnapshot:
+          type: string
+        durationDecimalHours:
+          type: number
+          format: double
+        factorApplied:
+          type: number
+          format: double
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+        isOverdue:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    OvertimeRecordPendingResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRecordPendingRow'
+        totalCount:
+          type: integer
+          format: int32
+        overdueCount:
+          type: integer
+          format: int32
+    QueryOvertimeRecordsRequest:
+      type: object
+      properties:
+        statusCodes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        employeeId:
+          type: string
+          format: uuid
+          nullable: true
+        overtimeTypePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        justificationTypePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        fromWorkDate:
+          type: string
+          format: date
+          nullable: true
+        toWorkDate:
+          type: string
+          format: date
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriod:
+          type: string
+          nullable: true
+        requesterFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        originChannel:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        search:
+          type: string
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+    OvertimeRecordListItemResponse:
+      type: object
+      properties:
+        overtimeRecordPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        workDate:
+          type: string
+          format: date
+        overtimeTypePublicId:
+          type: string
+          format: uuid
+        overtimeTypeCodeSnapshot:
+          type: string
+        overtimeTypeNameSnapshot:
+          type: string
+        typeFactorSnapshot:
+          type: number
+          format: double
+        factorApplied:
+          type: number
+          format: double
+        durationHours:
+          type: integer
+          format: int32
+        durationMinutes:
+          type: integer
+          format: int32
+        durationDecimalHours:
+          type: number
+          format: double
+        justificationTypePublicId:
+          type: string
+          format: uuid
+        justificationCodeSnapshot:
+          type: string
+        justificationNameSnapshot:
+          type: string
+        originChannel:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        requesterFilePublicId:
+          type: string
+          format: uuid
+        requesterNameSnapshot:
+          type: string
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+        payrollPeriodEndDate:
+          type: string
+          format: date
+          nullable: true
+        statusCode:
+          type: string
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+    OvertimeTotalsByTypeResponse:
+      type: object
+      properties:
+        overtimeTypeCode:
+          type: string
+        overtimeTypeName:
+          type: string
+        count:
+          type: integer
+          format: int32
+        totalHours:
+          type: number
+          format: double
+    OvertimeRecordBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRecordListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        totalHours:
+          type: number
+          format: double
+        totalsByType:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeTotalsByTypeResponse'
+    CreateOvertimeTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        defaultFactor:
+          type: number
+          format: double
+        payrollEffectDescription:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+    UpdateOvertimeTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        defaultFactor:
+          type: number
+          format: double
+        payrollEffectDescription:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+    OvertimeTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        defaultFactor:
+          type: number
+          format: double
+        payrollEffectDescription:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    OvertimeTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    OvertimeTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        defaultFactor:
+          type: number
+          format: double
+        payrollEffectDescription:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    CreateOvertimeJustificationTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+    UpdateOvertimeJustificationTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          default: 0
+    OvertimeJustificationTypeListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    OvertimeJustificationTypeListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeJustificationTypeListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    OvertimeJustificationTypeResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    OvertimeTemplateSeedResultResponse:
+      type: object
+      properties:
+        overtimeTypesCreated:
+          type: integer
+          format: int32
+        overtimeJustificationTypesCreated:
+          type: integer
+          format: int32
+        overtimeTypesSkipped:
+          type: integer
+          format: int32
+        overtimeJustificationTypesSkipped:
+          type: integer
+          format: int32
+        totalCreated:
+          type: integer
+          format: int32
+        totalSkipped:
+          type: integer
+          format: int32
     RecurringIncomeResponse:
       type: object
       properties:
