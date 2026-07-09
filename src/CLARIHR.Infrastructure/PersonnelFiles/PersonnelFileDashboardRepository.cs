@@ -225,6 +225,60 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<ActionFactRow>> GetPersonnelActionFactsAsync(
+        Guid tenantId,
+        int year,
+        int? month,
+        bool includeAllStatuses,
+        CancellationToken cancellationToken)
+    {
+        var start = new DateTime(year, month ?? 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = month.HasValue ? start.AddMonths(1) : start.AddYears(1);
+
+        // Filter by (TenantId, ActionDateUtc) — served by ix_personnel_file_personnel_actions_tenant_action_date
+        // (PR-1), whose INCLUDE columns (action_type_code/action_status_code/is_system_generated/personnel_file_id)
+        // cover the journal side of this projection. The full status universe is returned regardless of
+        // includeAllStatuses because byStatus must span every status (RN-04); the APLICADA items split is applied
+        // by PersonnelActionsDashboardRules. The file public id (joined from personnel_files) is the join key to
+        // the dimensional row bundle. No monetary fields are projected (aclaración №8).
+        return await dbContext.Set<PersonnelFilePersonnelAction>()
+            .AsNoTracking()
+            .Where(action => action.TenantId == tenantId
+                && action.ActionDateUtc >= start
+                && action.ActionDateUtc < end)
+            .Select(action => new ActionFactRow(
+                action.ActionTypeCode,
+                action.ActionStatusCode,
+                action.ActionDateUtc,
+                action.IsSystemGenerated,
+                action.PersonnelFile.PublicId))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<PersonnelActionCatalogLabels> GetPersonnelActionCatalogLabelsAsync(CancellationToken cancellationToken)
+    {
+        // Only SV items are seeded today (same Fase-2 caveat as the range/payroll-type catalogs); labels always
+        // come from the catalog, never hardcoded (aclaración №12).
+        var typeItems = await dbContext.Set<ActionTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+        var statusItems = await dbContext.Set<ActionStatusCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+
+        return new PersonnelActionCatalogLabels(
+            typeItems
+                .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.OrdinalIgnoreCase),
+            statusItems
+                .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.OrdinalIgnoreCase));
+    }
+
     private async Task<RowBundle> BuildRowBundleAsync(Guid tenantId, DimensionLookups lookups, CancellationToken cancellationToken)
     {
         var employees = await dbContext.Set<PersonnelFile>()

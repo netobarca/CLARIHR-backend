@@ -40,4 +40,26 @@ public interface IPersonnelFileDashboardRepository
         Guid tenantId,
         DashboardDimensionFilter filter,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Tenant-wide personnel-action journal facts in the requested window (RF-001): every entry whose
+    /// <c>ActionDateUtc</c> falls in <paramref name="year"/> (and <paramref name="month"/>, if supplied), projected
+    /// AsNoTracking to the minimal <see cref="ActionFactRow"/> (no monetary fields — aclaración №8). Served by
+    /// <c>ix_personnel_file_personnel_actions_tenant_action_date</c> on <c>(tenant_id, action_date_utc)</c>. The
+    /// FULL status universe is always returned because the byStatus breakdown must span every status (RN-04); the
+    /// APLICADA items split is applied downstream in <see cref="PersonnelActionsDashboardRules.SelectItems"/>, so
+    /// <paramref name="includeAllStatuses"/> does not narrow the returned set.
+    /// </summary>
+    Task<IReadOnlyList<ActionFactRow>> GetPersonnelActionFactsAsync(
+        Guid tenantId,
+        int year,
+        int? month,
+        bool includeAllStatuses,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Code → display-name labels for the action type (<c>action-types</c>) and action status (<c>action-statuses</c>)
+    /// catalogs, backing the byType/byStatus breakdown labels (never hardcoded — aclaración №12).
+    /// </summary>
+    Task<PersonnelActionCatalogLabels> GetPersonnelActionCatalogLabelsAsync(CancellationToken cancellationToken);
 }

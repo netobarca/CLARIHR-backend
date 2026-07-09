@@ -41025,6 +41025,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/personnel-files/dashboard/personnel-actions':
+    get:
+      tags:
+        - Personnel Files
+      summary: 'HR analytics dashboard — documentary personnel actions (journal) section'
+      description: "First tenant-wide read of the personnel-action journal (RF-005…RF-009): a 12-month series\n(zeros included) plus breakdowns by type (action-types catalog), status (action-statuses catalog —\nalways over the COMPLETE status universe, RN-04), origin (manual vs automático = IsSystemGenerated)\nand organizational dimension (each action attributed to its employee's CURRENT active-assignment\nunit, D-07). Defaults to the APLICADA population; includeAllStatuses=true widens the items to every\nstatus (the byStatus breakdown is unaffected). Honors the common dimension filters plus the flow\nmonth filter (month requires an explicit year → 400 DASHBOARD_MONTH_REQUIRES_YEAR; year defaults to\nthe current year). NO monetary fields are returned (aclaración №8). Requires the ViewReports or Read\npermission (gated in the handler)."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: includeAllStatuses
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: functionalAreaPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgUnitPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: positionCategoryPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: jobProfilePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: workCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardPersonnelActionsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/personnel-files/dashboard/metadata':
     get:
       tags:
@@ -54753,6 +54840,84 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardBreakdownResponse'
+      additionalProperties: false
+    DashboardActionsSeriesMonthResponse:
+      type: object
+      properties:
+        month:
+          type: integer
+          format: int32
+        count:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DashboardActionsSeriesResponse:
+      type: object
+      properties:
+        byMonth:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardActionsSeriesMonthResponse'
+        total:
+          type: integer
+          format: int32
+      additionalProperties: false
+    DashboardPersonnelActionsByDimensionResponse:
+      type: object
+      properties:
+        orgUnits:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        functionalAreas:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        workCenters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        jobProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        positionCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        payrollTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+      additionalProperties: false
+    DashboardPersonnelActionsResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        includeAllStatuses:
+          type: boolean
+        series:
+          $ref: '#/components/schemas/DashboardActionsSeriesResponse'
+        byType:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        byStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        byOrigin:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
+        byDimension:
+          $ref: '#/components/schemas/DashboardPersonnelActionsByDimensionResponse'
       additionalProperties: false
     DashboardPositionOccupancyResponse:
       type: object

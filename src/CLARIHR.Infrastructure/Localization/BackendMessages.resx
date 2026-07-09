@@ -1633,6 +1633,9 @@
   <data name="PAYROLL_TYPE_INVALID" xml:space="preserve">
     <value>The payroll type code is not valid for the active catalog.</value>
   </data>
+  <data name="DASHBOARD_MONTH_REQUIRES_YEAR" xml:space="preserve">
+    <value>The month filter requires an explicit year.</value>
+  </data>
   <data name="CONTRACT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>The contract type code is not valid for the active catalog.</value>
   </data>

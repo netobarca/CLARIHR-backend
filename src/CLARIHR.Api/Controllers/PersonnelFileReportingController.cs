@@ -289,6 +289,60 @@ public sealed class PersonnelFileReportingController(
     }
 
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/personnel-actions")]
+    [Produces("application/json")]
+    [ProducesResponseType<DashboardPersonnelActionsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [SwaggerOperation(
+        Summary = "HR analytics dashboard — documentary personnel actions (journal) section",
+        Description = """
+            First tenant-wide read of the personnel-action journal (RF-005…RF-009): a 12-month series (zeros
+            included) plus breakdowns by type (action-types catalog), status (action-statuses catalog — always over
+            the COMPLETE status universe, RN-04), origin (manual vs automático = IsSystemGenerated) and
+            organizational dimension (org unit / functional area / work center / job profile / position category /
+            payroll type — each action attributed to its employee's CURRENT active-assignment unit, D-07). Defaults
+            to the APLICADA population; `includeAllStatuses=true` widens the items to every status (the byStatus
+            breakdown is unaffected). Honors the common dimension filters (year, functionalAreaId, orgUnitId,
+            positionCategoryId, jobProfileId, workCenterId, payrollTypeCode, costCenterId) and the flow `month`
+            filter (month requires an explicit year → 400 DASHBOARD_MONTH_REQUIRES_YEAR; year defaults to the
+            current year). NO monetary fields are returned (aclaración №8). Requires the ViewReports or Read
+            permission (gated in the handler).
+            """)]
+    public async Task<ActionResult<DashboardPersonnelActionsResponse>> DashboardPersonnelActions(
+        Guid companyId,
+        [FromQuery] int? year = null,
+        [FromQuery] int? month = null,
+        [FromQuery] bool includeAllStatuses = false,
+        [FromQuery] Guid? functionalAreaId = null,
+        [FromQuery] Guid? orgUnitId = null,
+        [FromQuery] Guid? positionCategoryId = null,
+        [FromQuery] Guid? jobProfileId = null,
+        [FromQuery] Guid? workCenterId = null,
+        [FromQuery] string? payrollTypeCode = null,
+        [FromQuery] Guid? costCenterId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetDashboardPersonnelActionsQuery(
+                companyId,
+                year,
+                month,
+                includeAllStatuses,
+                functionalAreaId,
+                orgUnitId,
+                positionCategoryId,
+                jobProfileId,
+                workCenterId,
+                payrollTypeCode,
+                costCenterId),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/dashboard/span-of-control")]
     [Produces("application/json")]
     [ProducesResponseType<DashboardSpanOfControlResponse>(StatusCodes.Status200OK)]
