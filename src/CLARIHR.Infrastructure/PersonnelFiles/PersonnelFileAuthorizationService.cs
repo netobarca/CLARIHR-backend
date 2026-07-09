@@ -509,6 +509,43 @@ internal sealed class PersonnelFileAuthorizationService(
             RbacPermissionAction.Update,
             cancellationToken);
 
+    public Task<Result> EnsureCanViewOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewOneTimeIncomes.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
+    public Task<Result> EnsureCanManageOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ManageOneTimeIncomes.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Update,
+            cancellationToken);
+
+    // AuthorizeOneTimeIncomes deliberately EXCLUDES PersonnelFiles.Admin (separation of duties, mirrors
+    // AuthorizeRetirement); only the IAM super-admin (ManageAdministration) remains a universal fallback.
+    public Task<Result> EnsureCanAuthorizeOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.AuthorizeOneTimeIncomes.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Update,
+            cancellationToken);
+
     public async Task<bool> HasRehireAuthorizationAsync(Guid companyId, CancellationToken cancellationToken)
     {
         if (!currentUserService.IsAuthenticated || !tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(currentUserService.UserId))

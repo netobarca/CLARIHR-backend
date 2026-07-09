@@ -109,7 +109,10 @@ public static class ProvisioningConstants
         new("PersonnelFiles.ViewTimeAvailability", "Ver disponibilidad de tiempos", "Consulta de la disponibilidad de tiempos (suspensiones y fin de contratos temporales) de la empresa.", PersonnelFilesModuleKey, "PersonnelFiles", "ViewTimeAvailability"),
         new("PersonnelFiles.ViewRecurringIncomes", "Ver ingresos cíclicos", "Consulta de los ingresos cíclicos de los expedientes, la bandeja de la empresa y sus exportaciones (insumo de planilla).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewRecurringIncomes"),
         new("PersonnelFiles.ManageRecurringIncomes", "Gestionar ingresos cíclicos", "Registrar, editar, suspender, cerrar y anular ingresos cíclicos, y aplicar sus cuotas por periodo.", PersonnelFilesModuleKey, "PersonnelFiles", "ManageRecurringIncomes"),
-        new("PersonnelFiles.AuthorizeRecurringIncomes", "Autorizar ingresos cíclicos", "Decidir (autorizar/rechazar) y revocar los ingresos cíclicos de los empleados. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRecurringIncomes")
+        new("PersonnelFiles.AuthorizeRecurringIncomes", "Autorizar ingresos cíclicos", "Decidir (autorizar/rechazar) y revocar los ingresos cíclicos de los empleados. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeRecurringIncomes"),
+        new("PersonnelFiles.ViewOneTimeIncomes", "Ver ingresos eventuales", "Consulta de los ingresos eventuales de los expedientes, la bandeja de la empresa y sus exportaciones (insumo de planilla).", PersonnelFilesModuleKey, "PersonnelFiles", "ViewOneTimeIncomes"),
+        new("PersonnelFiles.ManageOneTimeIncomes", "Gestionar ingresos eventuales", "Registrar, editar y anular ingresos eventuales, y aplicarlos por periodo (unitario o en lote).", PersonnelFilesModuleKey, "PersonnelFiles", "ManageOneTimeIncomes"),
+        new("PersonnelFiles.AuthorizeOneTimeIncomes", "Autorizar ingresos eventuales", "Decidir (autorizar/rechazar) y revocar los ingresos eventuales de los empleados. No implicado por la administracion de expedientes.", PersonnelFilesModuleKey, "PersonnelFiles", "AuthorizeOneTimeIncomes")
     ];
 }
 

@@ -297,4 +297,26 @@ public static class PersonnelFilePolicies
     /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
     /// </summary>
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
+
+    /// <summary>
+    /// Read policy for one-time-income sub-resources ("planilla ingresos eventuales" — REQ-006). HR-only with
+    /// no self-service in Fase 1 (P-11), so it is a RequireAssertion superset of the precise
+    /// EnsureCanViewOneTimeIncomesAsync handler gate (ViewOneTimeIncomes / Admin / IAM super-admin).
+    /// </summary>
+    public const string ViewOneTimeIncomes = "PersonnelFiles.ViewOneTimeIncomes";
+
+    /// <summary>
+    /// Write policy for one-time-income sub-resources (register/edit/annul + apply-by-period — REQ-006).
+    /// HR-only (no self-service, P-11), so it is a RequireAssertion superset of the precise
+    /// EnsureCanManageOneTimeIncomesAsync handler gate (the dedicated permission, or Admin / IAM
+    /// super-admin). Deciding/revoking is the dedicated <see cref="AuthorizeOneTimeIncomes"/> grant.
+    /// </summary>
+    public const string ManageOneTimeIncomes = "PersonnelFiles.ManageOneTimeIncomes";
+
+    /// <summary>
+    /// Write policy for deciding/revoking a one-time income (REQ-006 P-01/P-02). RequireAssertion over the
+    /// dedicated AuthorizeOneTimeIncomes grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizeOneTimeIncomes = "PersonnelFiles.AuthorizeOneTimeIncomes";
 }

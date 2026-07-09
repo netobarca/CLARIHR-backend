@@ -374,5 +374,31 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanAuthorizeRecurringIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for one-time incomes (REQ-006 P-01): the dedicated
+    /// <c>PersonnelFiles.ViewOneTimeIncomes</c> permission, or Admin / IAM super-admin. HR-only, no
+    /// self-service in Fase 1 (P-11).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for one-time incomes (register/edit/annul + apply-by-period — REQ-006 P-01): the dedicated
+    /// <c>PersonnelFiles.ManageOneTimeIncomes</c> permission, or Admin / IAM super-admin (HR-only).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Decision/revocation gate for one-time incomes (REQ-006 P-01/P-02): the dedicated
+    /// <c>PersonnelFiles.AuthorizeOneTimeIncomes</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties, mirrors AuthorizeRetirement).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeOneTimeIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

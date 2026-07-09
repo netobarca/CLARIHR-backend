@@ -716,6 +716,20 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("RECURRING_INCOME_TYPE_CATALOG", -9899L, "SV", "OTRO", "Otro", 40),
     ];
 
+    // REQ-006 (planilla ingresos eventuales · P-01): the authorization lifecycle of a one-time income
+    // (register → authorize/reject → apply → reverse). APLICADO is REVERSIBLE (annulment reopens to
+    // AUTORIZADO), unlike the recurring FINALIZADO. Country-scoped HasData seed (SV); statusCode validates
+    // against this catalog. IDs -9900…-9904 (block -9900…-9909; slack -9905 reserved for the settlement
+    // concept in PR-6, -9906…-9909 free).
+    public static IEnumerable<object> GetOneTimeIncomeStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9900L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9901L, "SV", "AUTORIZADO", "Autorizado", 20),
+        CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9902L, "SV", "RECHAZADO", "Rechazado", 30),
+        CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9903L, "SV", "APLICADO", "Aplicado", 40),
+        CreateGeneralCatalogSeed("ONE_TIME_INCOME_STATUS_CATALOG", -9904L, "SV", "ANULADO", "Anulado", 50),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

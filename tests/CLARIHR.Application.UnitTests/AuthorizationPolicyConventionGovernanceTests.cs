@@ -169,6 +169,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ViewRecurringIncomes,
         PersonnelFilePolicies.ManageRecurringIncomes,
         PersonnelFilePolicies.AuthorizeRecurringIncomes,
+        // Planilla ingresos eventuales (REQ-006 P-01): authn-only View superset + RequireAssertion Manage
+        // (HR-only, no self-service in Fase 1, like ManageRecurringIncomes) + AuthorizeOneTimeIncomes that
+        // deliberately excludes PersonnelFiles.Admin (separation of duties + triple anti-self, mirrors
+        // AuthorizeRetirement). The record controllers that carry these are added in PR-3/PR-4/PR-5.
+        PersonnelFilePolicies.ViewOneTimeIncomes,
+        PersonnelFilePolicies.ManageOneTimeIncomes,
+        PersonnelFilePolicies.AuthorizeOneTimeIncomes,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)

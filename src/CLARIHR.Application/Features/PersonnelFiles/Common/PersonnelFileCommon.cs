@@ -361,6 +361,27 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 
+    /// <summary>
+    /// Dedicated permission to read one-time incomes ("planilla ingresos eventuales" — REQ-006 P-01): the
+    /// per-file detail, the company bandeja and the payroll-input exports. HR-only with no self-service in
+    /// Fase 1 (P-11); Admin is a superset.
+    /// </summary>
+    public const string ViewOneTimeIncomes = "PersonnelFiles.ViewOneTimeIncomes";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/annul (EN_REVISION) one-time incomes and to apply them by period
+    /// (unitary or batch — REQ-006 P-01). Admin is a superset. Deciding/revoking a one-time income requires
+    /// the dedicated <see cref="AuthorizeOneTimeIncomes"/> grant (triple anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageOneTimeIncomes = "PersonnelFiles.ManageOneTimeIncomes";
+
+    /// <summary>
+    /// Dedicated permission to decide (authorize/reject) and revoke a one-time income (REQ-006 P-01/P-02).
+    /// Like <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeOneTimeIncomes = "PersonnelFiles.AuthorizeOneTimeIncomes";
+
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }

@@ -676,6 +676,29 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizeRecurringIncomes,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // One-time incomes ("planilla ingresos eventuales" — REQ-006 P-01). HR-only, no self-service in Fase 1
+    // (P-11), so — mirroring the recurring-income policies — the write policy is a RequireAssertion superset
+    // of the precise handler gate while ViewOneTimeIncomes stays authn-only (the per-file detail and the
+    // company bandeja gate per-handler via EnsureCanViewOneTimeIncomesAsync). AuthorizeOneTimeIncomes
+    // deliberately EXCLUDES PersonnelFiles.Admin (separation of duties + triple anti-self — mirrors
+    // AuthorizeRetirement); the IAM super-admin (ManageAdministration) remains the universal fallback. The
+    // record controllers that carry these are added in PR-3/PR-4/PR-5.
+    options.AddPolicy(PersonnelFilePolicies.ViewOneTimeIncomes, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageOneTimeIncomes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageOneTimeIncomes,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeOneTimeIncomes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeOneTimeIncomes,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
     // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.

@@ -302,6 +302,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RecurringIncomeTypeCatalogItem> RecurringIncomeTypeCatalogItems => Set<RecurringIncomeTypeCatalogItem>();
 
+    public DbSet<OneTimeIncomeStatusCatalogItem> OneTimeIncomeStatusCatalogItems => Set<OneTimeIncomeStatusCatalogItem>();
+
     public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
 
     public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();

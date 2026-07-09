@@ -1078,6 +1078,41 @@ public sealed class RecurringIncomeTypeCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of one-time-income lifecycle STATUSES (general-catalogs key
+/// <c>one-time-income-statuses</c>) backing the <c>statusCode</c> of a personnel-file one-time income
+/// (REQ-006 · planilla ingresos eventuales — the authorization lifecycle EN_REVISION/AUTORIZADO/RECHAZADO/
+/// APLICADO/ANULADO, where APLICADO is reversible; P-01). Mirrors <see cref="RecurringIncomeStatusCatalogItem"/>;
+/// seeded for SV.
+/// </summary>
+public sealed class OneTimeIncomeStatusCatalogItem : GeneralCatalogItem
+{
+    private OneTimeIncomeStatusCatalogItem()
+    {
+    }
+
+    private OneTimeIncomeStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static OneTimeIncomeStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Country-scoped catalog of hobbies (general-catalogs key <c>hobbies</c>) backing the required
 /// <c>hobbyCode</c> of a personnel-file hobby (RF-005, DP-07). Seeded for SV.
 /// </summary>

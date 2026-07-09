@@ -726,3 +726,18 @@ internal sealed class RecurringIncomeTypeCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class OneTimeIncomeStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<OneTimeIncomeStatusCatalogItem>
+{
+    public OneTimeIncomeStatusCatalogItemConfiguration()
+        : base(
+            "one_time_income_status_catalog_items",
+            "pk_one_time_income_status_catalog_items",
+            "uq_one_time_income_status_catalog_items__public_id",
+            "uq_one_time_income_status_catalog_items__country_code",
+            "ix_one_time_income_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetOneTimeIncomeStatusCatalogItems())
+    {
+    }
+}
