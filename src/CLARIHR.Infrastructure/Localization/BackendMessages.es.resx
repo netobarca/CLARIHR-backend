@@ -2410,4 +2410,52 @@
   <data name="RECURRING_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>El ingreso cíclico no está en un estado que permita esta operación.</value>
   </data>
+  <data name="RECURRING_INCOME_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de ingreso cíclico no es válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_INCOME_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto de compensación no es un concepto de ingreso activo válido para el país de la empresa.</value>
+  </data>
+  <data name="RECURRING_INCOME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de planilla no es válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_INCOME_FREQUENCY_INVALID" xml:space="preserve">
+    <value>La frecuencia de las cuotas no es válida para el catálogo de periodos de pago activo.</value>
+  </data>
+  <data name="RECURRING_INCOME_COST_CENTER_MISSING" xml:space="preserve">
+    <value>La plaza no tiene un centro de costo configurado; el centro de costo es obligatorio para un ingreso cíclico.</value>
+  </data>
+  <data name="RECURRING_INCOME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza asignada no es una plaza válida de este empleado.</value>
+  </data>
+  <data name="RECURRING_INCOME_REGISTRATION_DATE_IN_FUTURE" xml:space="preserve">
+    <value>La fecha de registro no puede estar en el futuro.</value>
+  </data>
+  <data name="RECURRING_INCOME_STATUS_INVALID" xml:space="preserve">
+    <value>El estado destino no es un destino de resolución válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_INCOME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota de decisión para rechazar un ingreso cíclico.</value>
+  </data>
+  <data name="RECURRING_INCOME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de anulación.</value>
+  </data>
+  <data name="RECURRING_INCOME_CLOSURE_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de cierre para cerrar manualmente un ingreso cíclico.</value>
+  </data>
+  <data name="RECURRING_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto o el registrador no pueden decidir ni revocar el ingreso cíclico.</value>
+  </data>
+  <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
+    <value>InstallmentValue debe ser mayor que cero.</value>
+  </data>
+  <data name="validation.message.installmentcount_must_be_greater_than_zero" xml:space="preserve">
+    <value>InstallmentCount debe ser mayor que cero.</value>
+  </data>
+  <data name="validation.message.totalamount_must_be_greater_than_zero" xml:space="preserve">
+    <value>TotalAmount debe ser mayor que cero.</value>
+  </data>
+  <data name="validation.message.settlementactioncode_must_be_pagar_saldo_or_cancelar" xml:space="preserve">
+    <value>SettlementActionCode debe ser PAGAR_SALDO o CANCELAR.</value>
+  </data>
 </root>

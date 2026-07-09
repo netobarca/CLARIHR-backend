@@ -288,6 +288,19 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken) =>
         Task.FromResult<(string?, string?)>((null, null));
 
+    /// <summary>
+    /// Resolves the display name of an ACTIVE income compensation-concept type (Nature = Ingreso) by code for the
+    /// company's country, so the recurring-income write handlers can snapshot the concept name (REQ-005). Returns
+    /// null when the code is not found, is inactive, or is not an income concept — the handler then rejects it
+    /// (<c>RECURRING_INCOME_CONCEPT_INVALID</c>). Fail-safe default (null) so hand-written test doubles need not
+    /// implement it; the production repository overrides it.
+    /// </summary>
+    Task<string?> GetActiveIncomeConceptNameAsync(
+        Guid companyId,
+        string conceptTypeCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(

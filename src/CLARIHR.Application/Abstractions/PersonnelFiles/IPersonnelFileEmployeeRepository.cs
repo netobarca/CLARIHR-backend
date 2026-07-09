@@ -1141,4 +1141,54 @@ public interface IPersonnelFileEmployeeRepository
     /// </summary>
     Task AcquireRecurringIncomeMutationLockAsync(Guid recurringIncomePublicId, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    /// <summary>
+    /// Adds a recurring income (idioma post-fix, aclaración №3): stages the entity and returns the file's
+    /// recurring incomes including the just-added (not-yet-saved) one, so the create handler can pick the created
+    /// record for its response. The unit of work commits afterwards.
+    /// </summary>
+    Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRecurringIncome entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns every recurring income of the personnel file (most recent registration first).</summary>
+    Task<IReadOnlyCollection<RecurringIncomeResponse>> GetRecurringIncomesAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns a single recurring income by public id (or null when it is not on the file).</summary>
+    Task<RecurringIncomeResponse?> GetRecurringIncomeAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the TRACKED recurring income aggregate (for a domain mutation): the write handlers apply the domain
+    /// transition (pre-validated so the guards never throw) and the unit of work commits. Returns null when the
+    /// income is not on the file / tenant.
+    /// </summary>
+    Task<PersonnelFileRecurringIncome?> GetRecurringIncomeEntityAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the plaza + cost center of a recurring income (P-15): when <paramref name="assignedPositionPublicId"/>
+    /// is supplied it must be an assignment of the employee; otherwise the principal plaza is resolved (same
+    /// criterion as settlement/vacations — IsPrimary among the active ones, oldest StartDate, then oldest active,
+    /// then oldest). The cost center is DERIVED from the resolved plaza; its name is snapshotted. Returns
+    /// <see cref="RecurringIncomePlazaResolution.Found"/> = false when no plaza can be resolved.
+    /// </summary>
+    Task<RecurringIncomePlazaResolution> ResolveRecurringIncomePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>True when the personnel file's employee profile is RETIRADO (write-locked; EMPLOYEE_PROFILE_RETIRED_LOCKED).</summary>
+    Task<bool> IsRecurringIncomeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken);
 }

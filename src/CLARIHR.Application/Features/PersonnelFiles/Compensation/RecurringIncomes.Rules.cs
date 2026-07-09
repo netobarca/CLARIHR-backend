@@ -1,6 +1,74 @@
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles.Compensation;
+
+/// <summary>
+/// Dedicated handler-level errors for recurring incomes (REQ-005 §3.3 CRUD + resolution). Each code requires an
+/// EN + ES resource entry (parity: <c>BackendMessageLocalizationTests</c>). The plan-coherence / settlement-action
+/// / state-transition codes are produced by the pure <see cref="RecurringIncomeRules"/> and already localized;
+/// these cover the cross-aggregate (catalog / plaza / cost-center) checks and the decision-flow guards that need
+/// a database or the request context. Field-level validation (required codes, positive value, plan shape) is the
+/// validator's job (400) and is NOT here.
+/// </summary>
+internal static class RecurringIncomeErrors
+{
+    public static readonly Error TypeInvalid = new(
+        "RECURRING_INCOME_TYPE_INVALID",
+        "The recurring-income type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error ConceptInvalid = new(
+        "RECURRING_INCOME_CONCEPT_INVALID",
+        "The compensation concept is not a valid active income concept for the company's country.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PayrollTypeInvalid = new(
+        "RECURRING_INCOME_PAYROLL_TYPE_INVALID",
+        "The payroll type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error FrequencyInvalid = new(
+        "RECURRING_INCOME_FREQUENCY_INVALID",
+        "The installment frequency is not valid for the active pay-period catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error CostCenterMissing = new(
+        "RECURRING_INCOME_COST_CENTER_MISSING",
+        "The assigned position has no cost center configured; a cost center is required for a recurring income.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AssignedPositionInvalid = new(
+        "RECURRING_INCOME_ASSIGNED_POSITION_INVALID",
+        "The assigned position is not a valid plaza of this employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error RegistrationDateInFuture = new(
+        "RECURRING_INCOME_REGISTRATION_DATE_IN_FUTURE",
+        "The registration date cannot be in the future.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StatusInvalid = new(
+        "RECURRING_INCOME_STATUS_INVALID",
+        "The target status is not a valid resolution target for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error DecisionNoteRequired = new(
+        "RECURRING_INCOME_DECISION_NOTE_REQUIRED",
+        "A decision note is required to reject a recurring income.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AnnulmentReasonRequired = new(
+        "RECURRING_INCOME_ANNULMENT_REASON_REQUIRED",
+        "An annulment reason is required.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error ClosureReasonRequired = new(
+        "RECURRING_INCOME_CLOSURE_REASON_REQUIRED",
+        "A closure reason is required to close a recurring income manually.", ErrorType.UnprocessableEntity);
+
+    // Shares the code the pure rules already localize (RN-01/RN-02); the handler pre-checks the state before the
+    // domain mutator so an invalid transition returns a clean 422 instead of a 500.
+    public static readonly Error StateRuleViolation = new(
+        RecurringIncomeRules.StateRuleViolationCode,
+        "The recurring income is not in a state that allows this operation.", ErrorType.UnprocessableEntity);
+
+    // Separation of duties (double anti-self, aclaración №6): neither the subject employee nor the registrar
+    // may decide/revoke the recurring income. 403 (Forbidden).
+    public static readonly Error SelfApprovalForbidden = new(
+        "RECURRING_INCOME_SELF_APPROVAL_FORBIDDEN",
+        "The subject employee or the registrar cannot decide or revoke the recurring income.", ErrorType.Forbidden);
+}
 
 /// <summary>
 /// The normalized installment plan of a recurring income. For a finite plan BOTH <see cref="InstallmentCount"/>

@@ -1688,6 +1688,28 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         };
     }
 
+    public async Task<string?> GetActiveIncomeConceptNameAsync(
+        Guid companyId,
+        string conceptTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCode = conceptTypeCode.Trim().ToUpperInvariant();
+        var companyCountry = await GetCompanyCountryLookupAsync(companyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return null;
+        }
+
+        return await dbContext.Set<CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.CountryCatalogItemId == companyCountry.CountryCatalogItemId
+                && item.NormalizedCode == normalizedCode
+                && item.IsActive
+                && item.Nature == CLARIHR.Domain.Common.CompensationNature.Ingreso)
+            .Select(item => (string?)item.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken)
     {
         var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();

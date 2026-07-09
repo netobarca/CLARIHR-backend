@@ -25036,6 +25036,612 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes':
+    get:
+      tags:
+        - Personnel Files
+      summary: "List a personnel file's recurring incomes"
+      description: "Returns the recurring incomes of the personnel file. Requires the `ViewRecurringIncomes` permission (HR-only, no self-service in Fase 1)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecurringIncomeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Personnel Files
+      summary: "Register a recurring income"
+      description: "Creates a recurring income in status `EN_REVISION` and returns it with `201 Created`. HR-only (`ManageRecurringIncomes`). Catalogs (type/concept/payroll/frequency) are validated; the plaza is optional (principal plaza used when omitted) and its cost center is derived (plaza without a cost center -> 422). `PAGAR_SALDO` is invalid for an indefinite plan."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRecurringIncomeRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}':
+    get:
+      tags:
+        - Personnel Files
+      summary: "Get a personnel file recurring income by id"
+      description: "Returns a single recurring income. The `concurrencyToken` is required in the `If-Match` header of subsequent writes."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Personnel Files
+      summary: "Replace a recurring income's header and plan"
+      description: "Replaces the header + installment plan of an `EN_REVISION` recurring income (an authorized income is no longer editable). HR-only. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecurringIncomeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Personnel Files
+      summary: "Discard (soft-delete) an EN_REVISION recurring income draft"
+      description: "Soft-deletes an `EN_REVISION` draft (an authorized income is revoked or closed instead). HR-only. Requires the `If-Match` header. Returns the parent personnel file's refreshed concurrency token."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/suspension':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Suspend or resume a recurring income"
+      description: "Suspends a `VIGENTE` income (`suspend` = true, note optional) or resumes a `SUSPENDIDO` one (`suspend` = false). HR-only. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRecurringIncomeSuspensionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/closure':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Close an indefinite recurring income manually"
+      description: "Closes an INDEFINITE `VIGENTE` income by hand (-> `FINALIZADO`); the `reason` is mandatory. HR-only. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseRecurringIncomeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/annulment':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Annul an EN_REVISION recurring income"
+      description: "Annuls an `EN_REVISION` income (-> `ANULADO`, terminal); the `reason` is mandatory. HR-only. A `VIGENTE` income is revoked by the authorizer instead. Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulRecurringIncomeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/resolution':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Authorize or reject a recurring income"
+      description: "Authorizer resolution of an `EN_REVISION` income: `targetStatusCode` = `VIGENTE` (authorize) or `RECHAZADO` (reject - note mandatory). Requires the dedicated `AuthorizeRecurringIncomes` grant (`PersonnelFiles.Admin` does NOT imply it). Double anti-self: neither the subject employee nor the registrar may resolve (403). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRecurringIncomeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/revocation':
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Revoke a VIGENTE recurring income"
+      description: "Authorizer revocation of a `VIGENTE` income (-> `ANULADO`, terminal); the `reason` is mandatory. Requires the dedicated `AuthorizeRecurringIncomes` grant. Double anti-self (subject / registrar -> 403). Requires the `If-Match` header."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringIncomePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeRecurringIncomeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringIncomeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/personnel-files/{publicId}/economic-aid-requests':
     get:
       tags:
@@ -63388,6 +63994,218 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+    RecurringIncomeResponse:
+      type: object
+      properties:
+        recurringIncomePublicId:
+          type: string
+          format: uuid
+        registrationDate:
+          type: string
+          format: date
+        reference:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        costCenterPublicId:
+          type: string
+          format: uuid
+        costCenterNameSnapshot:
+          type: string
+        installmentStartDate:
+          type: string
+          format: date
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        installmentValue:
+          type: number
+          format: double
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+        statusCode:
+          type: string
+        registeredByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        decisionNote:
+          type: string
+          nullable: true
+        suspendedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        suspensionNote:
+          type: string
+          nullable: true
+        closedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        closureReason:
+          type: string
+          nullable: true
+        closedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    AddRecurringIncomeRequest:
+      type: object
+      properties:
+        registrationDate:
+          type: string
+          format: date
+        reference:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        installmentStartDate:
+          type: string
+          format: date
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        installmentValue:
+          type: number
+          format: double
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+    UpdateRecurringIncomeRequest:
+      type: object
+      properties:
+        registrationDate:
+          type: string
+          format: date
+        reference:
+          type: string
+          nullable: true
+        recurringIncomeTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        installmentStartDate:
+          type: string
+          format: date
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        installmentValue:
+          type: number
+          format: double
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+    SetRecurringIncomeSuspensionRequest:
+      type: object
+      properties:
+        suspend:
+          type: boolean
+        note:
+          type: string
+          nullable: true
+    CloseRecurringIncomeRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    AnnulRecurringIncomeRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    ResolveRecurringIncomeRequest:
+      type: object
+      properties:
+        targetStatusCode:
+          type: string
+        note:
+          type: string
+          nullable: true
+    RevokeRecurringIncomeRequest:
+      type: object
+      properties:
+        reason:
+          type: string
     PersonnelFileEconomicAidRequestResponse:
       type: object
       properties:

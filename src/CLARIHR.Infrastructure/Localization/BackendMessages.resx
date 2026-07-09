@@ -2410,4 +2410,52 @@
   <data name="RECURRING_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>The recurring income is not in a state that allows this operation.</value>
   </data>
+  <data name="RECURRING_INCOME_TYPE_INVALID" xml:space="preserve">
+    <value>The recurring-income type is not valid for the active catalog.</value>
+  </data>
+  <data name="RECURRING_INCOME_CONCEPT_INVALID" xml:space="preserve">
+    <value>The compensation concept is not a valid active income concept for the company's country.</value>
+  </data>
+  <data name="RECURRING_INCOME_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>The payroll type is not valid for the active catalog.</value>
+  </data>
+  <data name="RECURRING_INCOME_FREQUENCY_INVALID" xml:space="preserve">
+    <value>The installment frequency is not valid for the active pay-period catalog.</value>
+  </data>
+  <data name="RECURRING_INCOME_COST_CENTER_MISSING" xml:space="preserve">
+    <value>The assigned position has no cost center configured; a cost center is required for a recurring income.</value>
+  </data>
+  <data name="RECURRING_INCOME_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position is not a valid plaza of this employee.</value>
+  </data>
+  <data name="RECURRING_INCOME_REGISTRATION_DATE_IN_FUTURE" xml:space="preserve">
+    <value>The registration date cannot be in the future.</value>
+  </data>
+  <data name="RECURRING_INCOME_STATUS_INVALID" xml:space="preserve">
+    <value>The target status is not a valid resolution target for the active catalog.</value>
+  </data>
+  <data name="RECURRING_INCOME_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A decision note is required to reject a recurring income.</value>
+  </data>
+  <data name="RECURRING_INCOME_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required.</value>
+  </data>
+  <data name="RECURRING_INCOME_CLOSURE_REASON_REQUIRED" xml:space="preserve">
+    <value>A closure reason is required to close a recurring income manually.</value>
+  </data>
+  <data name="RECURRING_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee or the registrar cannot decide or revoke the recurring income.</value>
+  </data>
+  <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
+    <value>InstallmentValue must be greater than zero.</value>
+  </data>
+  <data name="validation.message.installmentcount_must_be_greater_than_zero" xml:space="preserve">
+    <value>InstallmentCount must be greater than zero.</value>
+  </data>
+  <data name="validation.message.totalamount_must_be_greater_than_zero" xml:space="preserve">
+    <value>TotalAmount must be greater than zero.</value>
+  </data>
+  <data name="validation.message.settlementactioncode_must_be_pagar_saldo_or_cancelar" xml:space="preserve">
+    <value>SettlementActionCode must be PAGAR_SALDO or CANCELAR.</value>
+  </data>
 </root>

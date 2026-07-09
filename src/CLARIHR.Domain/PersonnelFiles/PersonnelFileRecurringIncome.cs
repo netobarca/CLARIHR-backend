@@ -395,6 +395,19 @@ public sealed class PersonnelFileRecurringIncome : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>
+    /// Soft-deletes an EN_REVISION draft (RF-002/CRUD): deactivates the record without a terminal transition, so
+    /// a never-authorized draft can be discarded. Only an EN_REVISION income may be deleted; an authorized income
+    /// is revoked (<see cref="Annul"/>) or closed (<see cref="CloseManually"/>), never soft-deleted.
+    /// </summary>
+    public void Deactivate()
+    {
+        EnsureStatus(RecurringIncomeStatuses.EnRevision, "deleted");
+
+        IsActive = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     /// <summary>Closes an INDEFINITE VIGENTE income by hand (VIGENTE → FINALIZADO); the reason is mandatory (P-06).</summary>
     public void CloseManually(string reason, Guid byUserId, DateTime atUtc)
     {

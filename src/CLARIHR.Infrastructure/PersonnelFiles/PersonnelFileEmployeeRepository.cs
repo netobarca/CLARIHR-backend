@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PersonnelFiles;
@@ -3743,4 +3744,110 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             new object[] { RecurringIncomeMutationLockClassId, objectKey },
             cancellationToken);
     }
+
+    public async Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRecurringIncome entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileRecurringIncome>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.RegistrationDate)
+            .ThenByDescending(item => item.PublicId)
+            .Select(RecurringIncomeMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<RecurringIncomeResponse>> GetRecurringIncomesAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.RegistrationDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(RecurringIncomeMapping.ToResponse).ToArray();
+    }
+
+    public async Task<RecurringIncomeResponse?> GetRecurringIncomeAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFilePublicId && x.PublicId == recurringIncomePublicId,
+                cancellationToken);
+        return item is null ? null : RecurringIncomeMapping.ToResponse(item);
+    }
+
+    public Task<PersonnelFileRecurringIncome?> GetRecurringIncomeEntityAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRecurringIncome>()
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId
+                    && x.PublicId == recurringIncomePublicId
+                    && x.PersonnelFile.PublicId == personnelFilePublicId,
+                cancellationToken);
+
+    public async Task<RecurringIncomePlazaResolution> ResolveRecurringIncomePlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileInternalId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary, item.CostCenterPublicId })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return RecurringIncomePlazaResolution.NotFound;
+        }
+
+        var chosen = assignedPositionPublicId is { } requested && requested != Guid.Empty
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : assignments.Where(item => item.IsActive && item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.Where(item => item.IsActive).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        if (chosen is null)
+        {
+            return RecurringIncomePlazaResolution.NotFound;
+        }
+
+        string? costCenterName = null;
+        if (chosen.CostCenterPublicId is { } costCenterPublicId)
+        {
+            costCenterName = await dbContext.CostCenters
+                .AsNoTracking()
+                .Where(item => item.PublicId == costCenterPublicId)
+                .Select(item => item.Name)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return new RecurringIncomePlazaResolution(true, chosen.PublicId, chosen.CostCenterPublicId, costCenterName);
+    }
+
+    public Task<bool> IsRecurringIncomeProfileRetiredAsync(
+        long personnelFileInternalId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileEmployeeProfile>()
+            .AsNoTracking()
+            .AnyAsync(
+                profile => profile.PersonnelFileId == personnelFileInternalId
+                    && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                cancellationToken);
 }
