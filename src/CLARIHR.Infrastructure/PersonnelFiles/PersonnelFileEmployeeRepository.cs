@@ -3850,4 +3850,223 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 profile => profile.PersonnelFileId == personnelFileInternalId
                     && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
                 cancellationToken);
+
+    // ── Recurring-income installments (REQ-005 PR-4) ────────────────────────────────────────────────
+
+    public Task<PersonnelFileRecurringIncome?> GetTrackedRecurringIncomeWithInstallmentsAsync(
+        Guid recurringIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRecurringIncome>()
+            .Include(income => income.Installments)
+            .SingleOrDefaultAsync(
+                income => income.TenantId == tenantId && income.PublicId == recurringIncomePublicId,
+                cancellationToken);
+
+    public async Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        CancellationToken cancellationToken)
+    {
+        var income = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == recurringIncomePublicId)
+            .Select(item => new
+            {
+                item.Id,
+                item.PublicId,
+                item.StatusCode,
+                item.IsIndefinite,
+                item.InstallmentFrequencyCode,
+                item.InstallmentStartDate,
+                item.InstallmentValue,
+                item.InstallmentCount,
+                item.TotalAmount
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (income is null)
+        {
+            return null;
+        }
+
+        var applied = await dbContext.Set<PersonnelFileRecurringIncomeInstallment>()
+            .AsNoTracking()
+            .Where(installment => installment.RecurringIncomeId == income.Id
+                && installment.StatusCode == RecurringIncomeInstallmentStatuses.Aplicada)
+            .Select(installment => installment.InstallmentNumber)
+            .ToArrayAsync(cancellationToken);
+
+        return new RecurringIncomeScheduleData(
+            income.PublicId,
+            income.StatusCode,
+            income.IsIndefinite,
+            income.InstallmentFrequencyCode,
+            income.InstallmentStartDate,
+            income.InstallmentValue,
+            income.InstallmentCount,
+            income.TotalAmount,
+            applied);
+    }
+
+    public async Task<RecurringIncomeInstallmentHistoryResponse?> GetRecurringIncomeInstallmentHistoryAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var incomeInternalId = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == recurringIncomePublicId)
+            .Select(item => item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (incomeInternalId == 0)
+        {
+            return null;
+        }
+
+        var baseQuery = dbContext.Set<PersonnelFileRecurringIncomeInstallment>()
+            .AsNoTracking()
+            .Where(installment => installment.RecurringIncomeId == incomeInternalId);
+
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        var rows = await baseQuery
+            .OrderByDescending(installment => installment.CreatedUtc)
+            .ThenByDescending(installment => installment.InstallmentNumber)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(installment => new
+            {
+                installment.PublicId,
+                installment.InstallmentNumber,
+                installment.AppliedDate,
+                installment.TheoreticalDueDate,
+                installment.Amount,
+                installment.CurrencyCode,
+                installment.PayrollTypeCode,
+                installment.PayrollPeriodId,
+                installment.PayrollPeriodLabel,
+                installment.OriginCode,
+                installment.StatusCode,
+                installment.AppliedByUserId,
+                installment.AnnulmentReason,
+                installment.AnnulledByUserId,
+                installment.AnnulledUtc,
+                installment.Notes,
+                installment.ConcurrencyToken
+            })
+            .ToArrayAsync(cancellationToken);
+
+        var periodIds = rows.Where(row => row.PayrollPeriodId is not null).Select(row => row.PayrollPeriodId!.Value).Distinct().ToArray();
+        var periodPublicIds = periodIds.Length == 0
+            ? new Dictionary<long, Guid>()
+            : await dbContext.PayrollPeriodDefinitions
+                .AsNoTracking()
+                .Where(period => periodIds.Contains(period.Id))
+                .Select(period => new { period.Id, period.PublicId })
+                .ToDictionaryAsync(period => period.Id, period => period.PublicId, cancellationToken);
+
+        var items = rows
+            .Select(row => new RecurringIncomeInstallmentResponse(
+                row.PublicId,
+                row.InstallmentNumber,
+                row.AppliedDate,
+                row.TheoreticalDueDate,
+                row.Amount,
+                row.CurrencyCode,
+                row.PayrollTypeCode,
+                row.PayrollPeriodId is { } internalId && periodPublicIds.TryGetValue(internalId, out var publicId) ? publicId : null,
+                row.PayrollPeriodLabel,
+                row.OriginCode,
+                row.StatusCode,
+                row.AppliedByUserId == Guid.Empty ? null : row.AppliedByUserId,
+                row.AnnulmentReason,
+                row.AnnulledByUserId,
+                row.AnnulledUtc,
+                row.Notes,
+                row.ConcurrencyToken))
+            .ToArray();
+
+        return new RecurringIncomeInstallmentHistoryResponse(items, pageNumber, pageSize, totalCount);
+    }
+
+    public async Task<RecurringIncomePayrollPeriodResolution?> ResolveRecurringIncomePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken)
+    {
+        var period = await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollPeriodPublicId)
+            .Select(item => new { item.Id, item.Label, item.EndDate, item.IsActive })
+            .SingleOrDefaultAsync(cancellationToken);
+        return period is null
+            ? null
+            : new RecurringIncomePayrollPeriodResolution(period.Id, period.Label, period.EndDate, period.IsActive);
+    }
+
+    public async Task<Guid?> ResolvePayrollPeriodPublicIdAsync(
+        long payrollPeriodInternalId,
+        CancellationToken cancellationToken)
+    {
+        var publicId = await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(item => item.Id == payrollPeriodInternalId)
+            .Select(item => (Guid?)item.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return publicId;
+    }
+
+    public async Task<IReadOnlyList<RecurringIncomeBatchScanItem>> GetRecurringIncomeBatchScanAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var incomes = await dbContext.Set<PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(income => income.TenantId == tenantId
+                && income.StatusCode == RecurringIncomeStatuses.Vigente
+                && income.PayrollTypeCode == payrollTypeCode)
+            .OrderBy(income => income.Id)
+            .Select(income => new
+            {
+                income.Id,
+                income.PublicId,
+                income.IsIndefinite,
+                income.InstallmentFrequencyCode,
+                income.InstallmentStartDate,
+                income.InstallmentValue,
+                income.InstallmentCount,
+                income.TotalAmount
+            })
+            .ToArrayAsync(cancellationToken);
+        if (incomes.Length == 0)
+        {
+            return [];
+        }
+
+        var incomeIds = incomes.Select(income => income.Id).ToArray();
+        var appliedByIncome = (await dbContext.Set<PersonnelFileRecurringIncomeInstallment>()
+                .AsNoTracking()
+                .Where(installment => incomeIds.Contains(installment.RecurringIncomeId)
+                    && installment.StatusCode == RecurringIncomeInstallmentStatuses.Aplicada)
+                .Select(installment => new { installment.RecurringIncomeId, installment.InstallmentNumber })
+                .ToArrayAsync(cancellationToken))
+            .GroupBy(installment => installment.RecurringIncomeId)
+            .ToDictionary(group => group.Key, group => group.Select(installment => installment.InstallmentNumber).ToArray());
+
+        return incomes
+            .Select(income => new RecurringIncomeBatchScanItem(
+                income.Id,
+                income.PublicId,
+                income.IsIndefinite,
+                income.InstallmentFrequencyCode,
+                income.InstallmentStartDate,
+                income.InstallmentValue,
+                income.InstallmentCount,
+                income.TotalAmount,
+                appliedByIncome.TryGetValue(income.Id, out var numbers) ? numbers : []))
+            .ToArray();
+    }
 }

@@ -301,6 +301,24 @@ public static class RecurringIncomeRules
         return projection;
     }
 
+    /// <summary>
+    /// The theoretical due date of installment <paramref name="installmentNumber"/> (1-based):
+    /// <c>start + frequency×(n−1)</c> (MENSUAL = +1 month, QUINCENAL = +15 days, SEMANAL = +7 days,
+    /// UNICA = the start date). Exposed so the installment-application handler can snapshot the due date of
+    /// the NEXT installment without materializing the whole projection (an indefinite plan's next number can
+    /// exceed the projection horizon).
+    /// </summary>
+    public static DateOnly TheoreticalDueDateFor(string frequencyCode, DateOnly installmentStartDate, int installmentNumber)
+    {
+        if (installmentNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(installmentNumber), "The installment number must be greater than or equal to one.");
+        }
+
+        var normalizedFrequency = (frequencyCode ?? string.Empty).Trim().ToUpperInvariant();
+        return DueDateFor(normalizedFrequency, installmentStartDate, installmentNumber);
+    }
+
     /// <summary>The next expected installment number: the smallest positive integer not already applied.</summary>
     public static int NextInstallmentNumber(IReadOnlySet<int> appliedNumbers)
     {

@@ -56,3 +56,28 @@ public sealed record ResolveRecurringIncomeRequest(string TargetStatusCode, stri
 
 /// <summary>Body for the authorizer revocation of a VIGENTE income (reason mandatory).</summary>
 public sealed record RevokeRecurringIncomeRequest(string Reason);
+
+/// <summary>
+/// Body for applying the NEXT installment of a VIGENTE recurring income (RF-006). The installment number and
+/// amount are derived by the rules (not editable, P-04). <c>AppliedDate</c> defaults to today when omitted;
+/// <c>PayrollPeriodPublicId</c> (optional) imputes the installment to a company payroll-period instance (validated
+/// active). The income's <c>concurrencyToken</c> travels in the <c>If-Match</c> header.
+/// </summary>
+public sealed record ApplyRecurringIncomeInstallmentRequest(
+    DateOnly? AppliedDate,
+    Guid? PayrollPeriodPublicId,
+    string? Notes);
+
+/// <summary>Body for annulling an applied installment (RF-008); the reason is mandatory.</summary>
+public sealed record AnnulRecurringIncomeInstallmentRequest(string Reason);
+
+/// <summary>
+/// Body for the company-wide apply-period batch (RF-007): applies every due installment of the VIGENTE incomes of
+/// <c>PayrollTypeCode</c> up to the cutoff. Provide a <c>PayrollPeriodPublicId</c> (its end date is the cutoff and
+/// its id/label are snapshotted) or a bare <c>CutoffDate</c>. <c>ExcludedIncomePublicIds</c> postpones incomes.
+/// </summary>
+public sealed record ApplyRecurringIncomePeriodRequest(
+    string PayrollTypeCode,
+    Guid? PayrollPeriodPublicId,
+    DateOnly? CutoffDate,
+    IReadOnlyCollection<Guid>? ExcludedIncomePublicIds);

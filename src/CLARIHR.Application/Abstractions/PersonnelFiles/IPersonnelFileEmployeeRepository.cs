@@ -1191,4 +1191,53 @@ public interface IPersonnelFileEmployeeRepository
     Task<bool> IsRecurringIncomeProfileRetiredAsync(
         long personnelFileInternalId,
         CancellationToken cancellationToken);
+
+    // ── Recurring-income installments (REQ-005 PR-4) ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads the TRACKED recurring income WITH its installments (for an installment application / annulment
+    /// under the advisory lock). Scoped to the tenant + income public id; returns null when it is not found.
+    /// Do NOT pre-load the income tracked before the lock — call this as the FIRST tracking load so it reflects
+    /// any committed concurrent application.
+    /// </summary>
+    Task<PersonnelFileRecurringIncome?> GetTrackedRecurringIncomeWithInstallmentsAsync(
+        Guid recurringIncomePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Raw plan + applied-installment-number data of a recurring income (AsNoTracking) for the derived
+    /// schedule projection; null when the income is not on the file.</summary>
+    Task<RecurringIncomeScheduleData?> GetRecurringIncomeScheduleDataAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>A page of a recurring income's installment history (APLICADA + ANULADA, most recent activity
+    /// first, payroll-period public id resolved); null when the income is not on the file.</summary>
+    Task<RecurringIncomeInstallmentHistoryResponse?> GetRecurringIncomeInstallmentHistoryAsync(
+        Guid personnelFilePublicId,
+        Guid recurringIncomePublicId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company payroll-period instance for an installment imputation (§0.13); null when it is
+    /// not a period of the tenant.</summary>
+    Task<RecurringIncomePayrollPeriodResolution?> ResolveRecurringIncomePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves the public id of a payroll-period instance by its internal id (for the installment
+    /// response); null when it no longer exists.</summary>
+    Task<Guid?> ResolvePayrollPeriodPublicIdAsync(
+        long payrollPeriodInternalId,
+        CancellationToken cancellationToken);
+
+    /// <summary>An AsNoTracking snapshot of the tenant's VIGENTE recurring incomes of a payroll type, ordered by
+    /// internal id (anti-deadlock ordering for the apply-period batch), each with its applied installment numbers.</summary>
+    Task<IReadOnlyList<RecurringIncomeBatchScanItem>> GetRecurringIncomeBatchScanAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken);
 }

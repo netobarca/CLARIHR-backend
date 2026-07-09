@@ -220,6 +220,111 @@ public sealed class RecurringIncomesController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}/schedule")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringIncomeScheduleResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a recurring income's theoretical installment schedule",
+        Description = """
+            Returns the DERIVED installment schedule of the income (never persisted, D-07): the theoretical
+            installments (applied + projected + overdue) with amounts, the running balance and completion. Requires
+            the `ViewRecurringIncomes` permission (HR-only).
+            """)]
+    public async Task<ActionResult<RecurringIncomeScheduleResponse>> GetRecurringIncomeSchedule(
+        Guid publicId,
+        Guid recurringIncomePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetRecurringIncomeScheduleQuery(publicId, recurringIncomePublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}/installments")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringIncomeInstallmentHistoryResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a recurring income's installment history",
+        Description = """
+            Returns the paginated installment history of the income (both `APLICADA` and `ANULADA`, most recent
+            activity first). Requires the `ViewRecurringIncomes` permission (HR-only).
+            """)]
+    public async Task<ActionResult<RecurringIncomeInstallmentHistoryResponse>> GetRecurringIncomeInstallments(
+        Guid publicId,
+        Guid recurringIncomePublicId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetRecurringIncomeInstallmentsQuery(publicId, recurringIncomePublicId, pageNumber, pageSize),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}/installments")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringIncomeInstallmentApplicationResult>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Apply the next installment of a recurring income",
+        Description = """
+            Applies the NEXT installment of a `VIGENTE` income (RF-006). The installment number and amount are
+            derived by the rules and are NOT editable (P-04); the plan finalizes (`FINALIZADO`) when the last
+            installment lands. HR-only (`ManageRecurringIncomes`). Requires the `If-Match` header with the income's
+            current `concurrencyToken`; the income's refreshed token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<RecurringIncomeInstallmentApplicationResult>> ApplyRecurringIncomeInstallment(
+        Guid publicId,
+        Guid recurringIncomePublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyRecurringIncomeInstallmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyRecurringIncomeInstallmentCommand(
+                publicId, recurringIncomePublicId, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToCreatedResult(
+            result,
+            _ => $"/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/installments",
+            value => value.RecurringIncomeConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}/installments/{installmentPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringIncomeInstallmentApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Annul an applied installment",
+        Description = """
+            Annuls an applied installment (`APLICADA` → `ANULADA`); the `reason` is mandatory (RF-008). When the
+            annulment leaves a finite plan incomplete, the income reopens (`FINALIZADO` → `VIGENTE`) so the number
+            can be re-applied. HR-only. Requires the `If-Match` header with the income's current `concurrencyToken`;
+            the refreshed token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<RecurringIncomeInstallmentApplicationResult>> AnnulRecurringIncomeInstallment(
+        Guid publicId,
+        Guid recurringIncomePublicId,
+        Guid installmentPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulRecurringIncomeInstallmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulRecurringIncomeInstallmentCommand(
+                publicId, recurringIncomePublicId, installmentPublicId, request.Reason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.RecurringIncomeConcurrencyToken);
+    }
+
     private static RecurringIncomeInput ToInput(AddRecurringIncomeRequest request) =>
         new(
             request.RegistrationDate,

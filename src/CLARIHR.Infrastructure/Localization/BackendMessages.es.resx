@@ -2446,6 +2446,21 @@
   <data name="RECURRING_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>El empleado sujeto o el registrador no pueden decidir ni revocar el ingreso cíclico.</value>
   </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la cuota en este ingreso cíclico.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>El periodo de planilla no es un periodo activo válido para la empresa.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para anular una cuota.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_PLAN_COMPLETE" xml:space="preserve">
+    <value>El plan de cuotas ya está completo; no hay más cuotas por aplicar.</value>
+  </data>
+  <data name="RECURRING_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>El lote de aplicación por periodo no pudo completarse por una cuota en conflicto: {0}.</value>
+  </data>
   <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
     <value>InstallmentValue debe ser mayor que cero.</value>
   </data>
@@ -2457,5 +2472,8 @@
   </data>
   <data name="validation.message.settlementactioncode_must_be_pagar_saldo_or_cancelar" xml:space="preserve">
     <value>SettlementActionCode debe ser PAGAR_SALDO o CANCELAR.</value>
+  </data>
+  <data name="validation.message.either_a_payroll_period_or_a_cutoff_date_is_required_for_the_apply_period_batch" xml:space="preserve">
+    <value>Se requiere un periodo de planilla o una fecha de corte para el lote de aplicación por periodo.</value>
   </data>
 </root>

@@ -242,6 +242,35 @@ public sealed class RecurringIncomeRulesTests
         Assert.Equal(start, projection[0].TheoreticalDueDate);
     }
 
+    // ── TheoreticalDueDateFor (PR-4) — the single-installment due-date helper used by the applier ──────
+
+    [Theory]
+    [InlineData("MENSUAL", 1, 2026, 1, 15)]
+    [InlineData("MENSUAL", 3, 2026, 3, 15)]
+    [InlineData("QUINCENAL", 2, 2026, 1, 30)]
+    [InlineData("SEMANAL", 3, 2026, 1, 29)]
+    [InlineData("UNICA", 5, 2026, 1, 15)]
+    public void TheoreticalDueDateFor_MatchesTheCadence(string frequency, int number, int year, int month, int day)
+    {
+        var start = new DateOnly(2026, 1, 15);
+
+        var due = RecurringIncomeRules.TheoreticalDueDateFor(frequency, start, number);
+
+        Assert.Equal(new DateOnly(year, month, day), due);
+    }
+
+    [Fact]
+    public void TheoreticalDueDateFor_MonthlyBeyondProjectionHorizon_KeepsStepping()
+    {
+        // An indefinite plan's next installment number can exceed the 12-installment projection horizon; the
+        // helper still steps monthly (installment 15 = start + 14 months).
+        var start = new DateOnly(2026, 1, 10);
+
+        var due = RecurringIncomeRules.TheoreticalDueDateFor(RecurringIncomeFrequencies.Mensual, start, 15);
+
+        Assert.Equal(new DateOnly(2027, 3, 10), due);
+    }
+
     [Fact]
     public void BuildProjection_MarksPastUnappliedInstallmentsOverdue()
     {

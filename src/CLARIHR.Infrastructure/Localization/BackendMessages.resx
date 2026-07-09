@@ -2446,6 +2446,21 @@
   <data name="RECURRING_INCOME_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
     <value>The subject employee or the registrar cannot decide or revoke the recurring income.</value>
   </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_NOT_FOUND" xml:space="preserve">
+    <value>The installment was not found on this recurring income.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period is not a valid active period for the company.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required to annul an installment.</value>
+  </data>
+  <data name="RECURRING_INCOME_INSTALLMENT_PLAN_COMPLETE" xml:space="preserve">
+    <value>The installment plan is already complete; there are no more installments to apply.</value>
+  </data>
+  <data name="RECURRING_INCOME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>The apply-period batch could not be completed because of a conflicting installment: {0}.</value>
+  </data>
   <data name="validation.message.installmentvalue_must_be_greater_than_zero" xml:space="preserve">
     <value>InstallmentValue must be greater than zero.</value>
   </data>
@@ -2457,5 +2472,8 @@
   </data>
   <data name="validation.message.settlementactioncode_must_be_pagar_saldo_or_cancelar" xml:space="preserve">
     <value>SettlementActionCode must be PAGAR_SALDO or CANCELAR.</value>
+  </data>
+  <data name="validation.message.either_a_payroll_period_or_a_cutoff_date_is_required_for_the_apply_period_batch" xml:space="preserve">
+    <value>Either a payroll period or a cutoff date is required for the apply-period batch.</value>
   </data>
 </root>
