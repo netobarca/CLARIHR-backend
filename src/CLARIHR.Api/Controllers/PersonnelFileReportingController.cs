@@ -204,9 +204,12 @@ public sealed class PersonnelFileReportingController(
             breakdowns by category (record type, employment status, contract type, position category,
             functional area, org unit, work center), age and seniority distributions (parametrizable ranges),
             marital status, expediente freshness (updated vs outdated — D-08), HR-staff-per-100 ratio (D-06)
-            and position occupancy (plazas ocupadas/vacantes — D-13). Honors the common dimension filters
-            (year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId) and the
-            includeInactive toggle (D-03). Requires the ViewReports or Read permission (gated in the handler).
+            and position occupancy (plazas ocupadas/vacantes — D-13), plus the distribution by contractual
+            payroll type (byPayrollType — bucket "Sin dato" for unclassified plazas). Honors the common dimension
+            filters (year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId, plus the
+            REQ-004 payrollTypeCode and costCenterId) and the includeInactive toggle (D-03). The month filter is
+            accepted but only affects the flow sections (personnel-actions/movements); snapshots ignore it.
+            Requires the ViewReports or Read permission (gated in the handler).
             """)]
     public async Task<ActionResult<DashboardOverviewResponse>> DashboardOverview(
         Guid companyId,
@@ -217,6 +220,9 @@ public sealed class PersonnelFileReportingController(
         [FromQuery] Guid? jobProfileId = null,
         [FromQuery] Guid? workCenterId = null,
         [FromQuery] bool includeInactive = false,
+        [FromQuery] string? payrollTypeCode = null,
+        [FromQuery] Guid? costCenterId = null,
+        [FromQuery] int? month = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -228,7 +234,10 @@ public sealed class PersonnelFileReportingController(
                 positionCategoryId,
                 jobProfileId,
                 workCenterId,
-                includeInactive),
+                includeInactive,
+                payrollTypeCode,
+                costCenterId,
+                month),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -257,6 +266,9 @@ public sealed class PersonnelFileReportingController(
         [FromQuery] Guid? positionCategoryId = null,
         [FromQuery] Guid? jobProfileId = null,
         [FromQuery] Guid? workCenterId = null,
+        [FromQuery] string? payrollTypeCode = null,
+        [FromQuery] Guid? costCenterId = null,
+        [FromQuery] int? month = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -267,7 +279,10 @@ public sealed class PersonnelFileReportingController(
                 orgUnitId,
                 positionCategoryId,
                 jobProfileId,
-                workCenterId),
+                workCenterId,
+                payrollTypeCode,
+                costCenterId,
+                month),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -295,6 +310,9 @@ public sealed class PersonnelFileReportingController(
         [FromQuery] Guid? jobProfileId = null,
         [FromQuery] Guid? workCenterId = null,
         [FromQuery] bool includeInactive = false,
+        [FromQuery] string? payrollTypeCode = null,
+        [FromQuery] Guid? costCenterId = null,
+        [FromQuery] int? month = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -305,7 +323,10 @@ public sealed class PersonnelFileReportingController(
                 positionCategoryId,
                 jobProfileId,
                 workCenterId,
-                includeInactive),
+                includeInactive,
+                payrollTypeCode,
+                costCenterId,
+                month),
             cancellationToken);
 
         return this.ToActionResult(result);

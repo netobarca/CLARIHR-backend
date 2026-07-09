@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Reporting;
+using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
@@ -49,12 +50,24 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             .Select(item => new { item.HrFunctionalAreaCode, item.FileUpToDateThresholdMonths })
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Payroll-type catalog labels back the `byPayrollType` breakdown (aclaración №12 — labels from the
+        // catalog, never hardcoded). Only SV items are seeded today (same Fase-2 caveat as the range catalogs).
+        var payrollTypes = await dbContext.Set<PayrollTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Code, item.Name })
+            .ToArrayAsync(cancellationToken);
+        var payrollTypeLabels = payrollTypes
+            .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.OrdinalIgnoreCase);
+
         return new DashboardDataSet(
             bundle.Rows,
             ageRanges,
             seniorityRanges,
             preference?.HrFunctionalAreaCode,
-            preference?.FileUpToDateThresholdMonths);
+            preference?.FileUpToDateThresholdMonths,
+            payrollTypeLabels);
     }
 
     public async Task<DashboardMetadata> GetDashboardMetadataAsync(Guid tenantId, CancellationToken cancellationToken)
@@ -234,7 +247,15 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
         var profiles = await dbContext.Set<PersonnelFileEmployeeProfile>()
             .AsNoTracking()
             .Where(profile => profile.TenantId == tenantId)
-            .Select(profile => new { profile.PersonnelFileId, profile.HireDate, profile.EmploymentStatusCode, profile.RetirementDate })
+            .Select(profile => new
+            {
+                profile.PersonnelFileId,
+                profile.HireDate,
+                profile.EmploymentStatusCode,
+                profile.RetirementDate,
+                profile.RetirementCategoryCode,
+                profile.RetirementReasonCode
+            })
             .ToArrayAsync(cancellationToken);
         var profileByFileId = profiles.ToDictionary(profile => profile.PersonnelFileId);
 
@@ -249,7 +270,9 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
                 assignment.OrgUnitPublicId,
                 assignment.WorkCenterPublicId,
                 assignment.PositionSlotPublicId,
-                assignment.ContractTypeCode
+                assignment.ContractTypeCode,
+                assignment.PayrollTypeCode,
+                assignment.CostCenterPublicId
             })
             .ToArrayAsync(cancellationToken);
         var assignmentByFileId = assignments
@@ -287,6 +310,11 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             Guid? workCenterPublicId = assignment?.WorkCenterPublicId;
             string? workCenterName = workCenterPublicId.HasValue && lookups.WorkCentersByPublicId.TryGetValue(workCenterPublicId.Value, out var workCenter)
                 ? workCenter.Name
+                : null;
+
+            Guid? costCenterPublicId = assignment?.CostCenterPublicId;
+            string? costCenterName = costCenterPublicId.HasValue && lookups.CostCenterNamesByPublicId.TryGetValue(costCenterPublicId.Value, out var costCenter)
+                ? costCenter
                 : null;
 
             Guid? jobProfilePublicId = null;
@@ -329,7 +357,12 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
                 jobProfilePublicId,
                 jobProfileTitle,
                 positionCategoryId,
-                positionCategoryName));
+                positionCategoryName,
+                assignment?.PayrollTypeCode,
+                costCenterPublicId,
+                costCenterName,
+                profile?.RetirementCategoryCode,
+                profile?.RetirementReasonCode));
 
             slotByFileId[employee.PublicId] = slotPublicId;
             nameByFileId[employee.PublicId] = employee.FullName;
@@ -387,6 +420,16 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             .ToArrayAsync(cancellationToken);
         var categoriesById = categories.ToDictionary(category => category.Id, category => (PublicId: category.PublicId, Name: category.Name));
 
+        // Cost-center names resolved in memory like the other dimensions (the assignment stores CostCenterPublicId).
+        var costCenters = await dbContext.Set<CostCenter>()
+            .AsNoTracking()
+            .Where(center => center.TenantId == tenantId)
+            .Select(center => new { center.PublicId, center.Name })
+            .ToArrayAsync(cancellationToken);
+        var costCenterNamesByPublicId = costCenters
+            .GroupBy(center => center.PublicId)
+            .ToDictionary(group => group.Key, group => group.First().Name);
+
         var slots = await dbContext.Set<PositionSlot>()
             .AsNoTracking()
             .Where(slot => slot.TenantId == tenantId)
@@ -420,6 +463,7 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             workCentersById,
             jobProfilesById,
             categoriesById,
+            costCenterNamesByPublicId,
             slotInfos.ToDictionary(slot => slot.PublicId),
             slotInfos.ToDictionary(slot => slot.Id),
             slotInfos);
@@ -451,6 +495,7 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
         IReadOnlyDictionary<long, (Guid PublicId, string Name)> WorkCentersById,
         IReadOnlyDictionary<long, JobProfileInfo> JobProfilesById,
         IReadOnlyDictionary<long, (Guid PublicId, string Name)> PositionCategoriesById,
+        IReadOnlyDictionary<Guid, string> CostCenterNamesByPublicId,
         IReadOnlyDictionary<Guid, SlotInfo> SlotsByPublicId,
         IReadOnlyDictionary<long, SlotInfo> SlotsById,
         IReadOnlyList<SlotInfo> Slots);

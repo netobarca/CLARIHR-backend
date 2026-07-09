@@ -14,6 +14,13 @@ public static class PersonnelFileDashboardRules
     public const string UnknownLabel = "Sin dato";
 
     /// <summary>
+    /// Descriptive rotation formula the dashboard metadata advertises for the frontend (D-08/RN-10). The movements
+    /// section (PR-4) computes it; PR-2 only declares it. Average headcount 0 → tasa "N/D".
+    /// </summary>
+    public const string RotationFormula =
+        "rotación = (bajas del período ÷ headcount promedio) × 100; headcount promedio = (activos al inicio + activos al fin) ÷ 2; si el promedio es 0 la tasa es N/D";
+
+    /// <summary>
     /// Snapshot reference date: with a year filter we approximate "at the close of that year" (Dec 31);
     /// otherwise the current date. Snapshots over a past year are approximate (no historical headcount snapshots — R-02).
     /// </summary>
@@ -109,12 +116,13 @@ public static class PersonnelFileDashboardRules
             return false;
         }
 
-        return true;
+        return MatchesPayrollTypeAndCostCenter(row, filter);
     }
 
     /// <summary>
-    /// Dimension-only predicate (área/unidad/tipo-puesto/puesto/centro), ignoring the active/year logic. Used by
-    /// indicators that scope by event date rather than current-state (e.g. altas by hire date — D-02).
+    /// Dimension-only predicate (área/unidad/tipo-puesto/puesto/centro + tipo-planilla/centro-costo), ignoring the
+    /// active/year logic. Used by indicators that scope by event date rather than current-state (e.g. altas by hire
+    /// date — D-02).
     /// </summary>
     public static bool MatchesDimensions(EmployeeDimensionRow row, DashboardDimensionFilter filter)
     {
@@ -143,8 +151,51 @@ public static class PersonnelFileDashboardRules
             return false;
         }
 
+        return MatchesPayrollTypeAndCostCenter(row, filter);
+    }
+
+    /// <summary>
+    /// REQ-004 PR-2: the two new common filters that scope EVERY endpoint (aclaración №6). Payroll type is compared
+    /// case-insensitively (stored codes are already normalized); cost center matches the plaza's assigned centre.
+    /// <c>Month</c> is intentionally NOT applied here — it is a flow-only filter consumed by PR-3/PR-4.
+    /// </summary>
+    private static bool MatchesPayrollTypeAndCostCenter(EmployeeDimensionRow row, DashboardDimensionFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.PayrollTypeCode)
+            && !string.Equals(row.PayrollTypeCode, filter.PayrollTypeCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (filter.CostCenterId.HasValue && row.CostCenterPublicId != filter.CostCenterId)
+        {
+            return false;
+        }
+
         return true;
     }
+
+    /// <summary>
+    /// Groups rows by a catalog-code selector (e.g. payrollTypeCode), resolving each label from
+    /// <paramref name="labelsByCode"/> (never hardcoded — aclaración №12). Rows with no code fall into the
+    /// <see cref="UnassignedKey"/> bucket labelled <see cref="UnknownLabel"/> ("Sin dato"); a code missing from the
+    /// catalog falls back to the raw code as its label. Ordered by descending count, then label.
+    /// </summary>
+    public static IReadOnlyCollection<DashboardBreakdownResponse> BuildBreakdownByCode(
+        IReadOnlyCollection<EmployeeDimensionRow> rows,
+        Func<EmployeeDimensionRow, string?> codeSelector,
+        IReadOnlyDictionary<string, string> labelsByCode) =>
+        rows
+            .GroupBy(row => codeSelector(row) ?? UnassignedKey)
+            .Select(group => new DashboardBreakdownResponse(
+                group.Key,
+                group.Key == UnassignedKey
+                    ? UnknownLabel
+                    : (labelsByCode.TryGetValue(group.Key, out var label) ? label : group.Key),
+                group.Count()))
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     /// <summary>Returns the code of the first range whose [lower, upper] (inclusive; null upper = open) contains the value.</summary>
     public static string? BucketByRange(int value, IReadOnlyCollection<RangeBucket> ranges)

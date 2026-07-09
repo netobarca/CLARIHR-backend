@@ -108,6 +108,99 @@ public sealed class PersonnelFileDashboardRulesTests
         Assert.True(PersonnelFileDashboardRules.MatchesDimensions(inactive, Filter(includeInactive: false)));
     }
 
+    // ---- REQ-004 PR-2: new common filters (payroll type + cost center) ----
+
+    [Fact]
+    public void MatchesFilter_FiltersByPayrollTypeCaseInsensitively()
+    {
+        var row = Row(payrollTypeCode: "MENSUAL");
+
+        Assert.True(PersonnelFileDashboardRules.MatchesFilter(row, Filter(payrollTypeCode: "mensual"), AsOf));
+        Assert.False(PersonnelFileDashboardRules.MatchesFilter(row, Filter(payrollTypeCode: "QUINCENAL"), AsOf));
+        // A row with no payroll type is excluded when the filter demands one.
+        Assert.False(PersonnelFileDashboardRules.MatchesFilter(Row(), Filter(payrollTypeCode: "MENSUAL"), AsOf));
+    }
+
+    [Fact]
+    public void MatchesFilter_FiltersByCostCenter()
+    {
+        var costCenterId = Guid.NewGuid();
+        var row = Row(costCenterPublicId: costCenterId);
+
+        Assert.True(PersonnelFileDashboardRules.MatchesFilter(row, Filter(costCenterId: costCenterId), AsOf));
+        Assert.False(PersonnelFileDashboardRules.MatchesFilter(row, Filter(costCenterId: Guid.NewGuid()), AsOf));
+    }
+
+    [Fact]
+    public void MatchesDimensions_AppliesPayrollTypeAndCostCenter()
+    {
+        var costCenterId = Guid.NewGuid();
+        var row = Row(payrollTypeCode: "MENSUAL", costCenterPublicId: costCenterId);
+
+        Assert.True(PersonnelFileDashboardRules.MatchesDimensions(row, Filter(payrollTypeCode: "MENSUAL", costCenterId: costCenterId)));
+        Assert.False(PersonnelFileDashboardRules.MatchesDimensions(row, Filter(payrollTypeCode: "SEMANAL")));
+    }
+
+    [Fact]
+    public void MatchesFilter_MonthIsIgnoredBySnapshot()
+    {
+        var row = Row();
+
+        // Month is a flow-only filter; snapshot predicates never consider it.
+        Assert.True(PersonnelFileDashboardRules.MatchesFilter(row, Filter(month: 3), AsOf));
+        Assert.True(PersonnelFileDashboardRules.MatchesDimensions(row, Filter(month: 3)));
+    }
+
+    // ---- REQ-004 PR-2: byPayrollType breakdown ----
+
+    [Fact]
+    public void BuildBreakdownByCode_GroupsWithCatalogLabelsAndUnassignedBucket()
+    {
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["MENSUAL"] = "Mensual",
+            ["QUINCENAL"] = "Quincenal",
+        };
+        var rows = new[]
+        {
+            Row(payrollTypeCode: "MENSUAL"),
+            Row(payrollTypeCode: "MENSUAL"),
+            Row(payrollTypeCode: "QUINCENAL"),
+            Row(payrollTypeCode: null),
+        };
+
+        var breakdown = PersonnelFileDashboardRules
+            .BuildBreakdownByCode(rows, row => row.PayrollTypeCode, labels)
+            .ToArray();
+
+        // Ordered by descending count: MENSUAL (2) first, then QUINCENAL (1) and the UNASSIGNED bucket (1).
+        Assert.Equal("MENSUAL", breakdown[0].Key);
+        Assert.Equal("Mensual", breakdown[0].Label);
+        Assert.Equal(2, breakdown[0].Count);
+
+        var unassigned = Assert.Single(breakdown, item => item.Key == PersonnelFileDashboardRules.UnassignedKey);
+        Assert.Equal(PersonnelFileDashboardRules.UnknownLabel, unassigned.Label); // "Sin dato"
+        Assert.Equal(1, unassigned.Count);
+
+        var quincenal = Assert.Single(breakdown, item => item.Key == "QUINCENAL");
+        Assert.Equal("Quincenal", quincenal.Label);
+    }
+
+    [Fact]
+    public void BuildBreakdownByCode_FallsBackToRawCodeWhenNotCatalogued()
+    {
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var rows = new[] { Row(payrollTypeCode: "LEGACY_CODE") };
+
+        var breakdown = PersonnelFileDashboardRules
+            .BuildBreakdownByCode(rows, row => row.PayrollTypeCode, labels)
+            .ToArray();
+
+        var only = Assert.Single(breakdown);
+        Assert.Equal("LEGACY_CODE", only.Key);
+        Assert.Equal("LEGACY_CODE", only.Label); // no catalog entry → raw code is the label
+    }
+
     private static DashboardDimensionFilter Filter(
         int? year = null,
         Guid? functionalAreaId = null,
@@ -115,12 +208,17 @@ public sealed class PersonnelFileDashboardRulesTests
         Guid? positionCategoryId = null,
         Guid? jobProfileId = null,
         Guid? workCenterId = null,
-        bool includeInactive = false) =>
-        new(year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId, includeInactive);
+        bool includeInactive = false,
+        string? payrollTypeCode = null,
+        Guid? costCenterId = null,
+        int? month = null) =>
+        new(year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId, includeInactive, payrollTypeCode, costCenterId, month);
 
     private static EmployeeDimensionRow Row(
         bool isActive = true,
-        Guid? orgUnitId = null) =>
+        Guid? orgUnitId = null,
+        string? payrollTypeCode = null,
+        Guid? costCenterPublicId = null) =>
         new(
             FileId: Guid.NewGuid(),
             IsActive: isActive,
@@ -143,5 +241,7 @@ public sealed class PersonnelFileDashboardRulesTests
             JobProfileId: null,
             JobProfileTitle: null,
             PositionCategoryId: null,
-            PositionCategoryName: null);
+            PositionCategoryName: null,
+            PayrollTypeCode: payrollTypeCode,
+            CostCenterPublicId: costCenterPublicId);
 }

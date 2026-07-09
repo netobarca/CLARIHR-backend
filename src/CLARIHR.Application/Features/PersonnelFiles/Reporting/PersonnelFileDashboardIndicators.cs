@@ -21,7 +21,10 @@ public sealed record GetDashboardHiresQuery(
     Guid? OrgUnitId,
     Guid? PositionCategoryId,
     Guid? JobProfileId,
-    Guid? WorkCenterId)
+    Guid? WorkCenterId,
+    string? PayrollTypeCode = null,
+    Guid? CostCenterId = null,
+    int? Month = null)
     : IQuery<DashboardHiresResponse>
 {
     public DashboardDimensionFilter ToFilter() => new(
@@ -31,7 +34,10 @@ public sealed record GetDashboardHiresQuery(
         PositionCategoryId,
         JobProfileId,
         WorkCenterId,
-        IncludeInactive: true);
+        IncludeInactive: true,
+        PayrollTypeCode,
+        CostCenterId,
+        Month);
 }
 
 internal sealed class GetDashboardHiresQueryHandler(
@@ -83,7 +89,10 @@ public sealed record GetDashboardSpanOfControlQuery(
     Guid? PositionCategoryId,
     Guid? JobProfileId,
     Guid? WorkCenterId,
-    bool IncludeInactive)
+    bool IncludeInactive,
+    string? PayrollTypeCode = null,
+    Guid? CostCenterId = null,
+    int? Month = null)
     : IQuery<DashboardSpanOfControlResponse>
 {
     public DashboardDimensionFilter ToFilter() => new(
@@ -93,7 +102,10 @@ public sealed record GetDashboardSpanOfControlQuery(
         PositionCategoryId,
         JobProfileId,
         WorkCenterId,
-        IncludeInactive);
+        IncludeInactive,
+        PayrollTypeCode,
+        CostCenterId,
+        Month);
 }
 
 internal sealed class GetDashboardSpanOfControlQueryHandler(
@@ -134,11 +146,27 @@ internal sealed class GetDashboardSpanOfControlQueryHandler(
 
 public sealed record DashboardRangeResponse(string Code, string Label, int LowerBound, int? UpperBound);
 
+/// <summary>
+/// REQ-004 PR-2 (additive): a connectable analytical section (RF-018 — mirror of <c>activeSources[]</c>). PR-2
+/// declares the base registry with every section <c>active:false</c>; PR-3 activates <c>PERSONNEL_ACTIONS</c> and
+/// PR-4 activates <c>MOVEMENTS</c> as each is built. <see cref="AcceptsMonth"/> tells the frontend whether the
+/// section honors the <c>month</c> flow filter.
+/// </summary>
+public sealed record DashboardMetadataSectionResponse(string Key, bool Active, bool AcceptsMonth);
+
+/// <summary>REQ-004 PR-2 (additive): a common dashboard filter the frontend may apply, with its enabled flag.</summary>
+public sealed record DashboardMetadataFilterResponse(string Key, bool Enabled);
+
 public sealed record DashboardMetadataResponse(
     IReadOnlyCollection<DashboardRangeResponse> AgeRanges,
     IReadOnlyCollection<DashboardRangeResponse> SeniorityRanges,
     int FileUpToDateThresholdMonths,
-    string? HrFunctionalAreaCode);
+    string? HrFunctionalAreaCode,
+    // REQ-004 PR-2 (additive) — declares the connectable sections, the common filters (incl. the 3 new ones)
+    // and the rotation formula the frontend renders (populated by the movements section in PR-4).
+    IReadOnlyCollection<DashboardMetadataSectionResponse> Sections,
+    IReadOnlyCollection<DashboardMetadataFilterResponse> Filters,
+    string RotationFormula);
 
 public sealed record GetDashboardMetadataQuery(Guid CompanyId) : IQuery<DashboardMetadataResponse>;
 
@@ -161,8 +189,41 @@ internal sealed class GetDashboardMetadataQueryHandler(
             metadata.AgeRanges.Select(Map).ToArray(),
             metadata.SeniorityRanges.Select(Map).ToArray(),
             metadata.FileUpToDateThresholdMonths ?? PersonnelFileDashboardRules.DefaultFileUpToDateThresholdMonths,
-            metadata.HrFunctionalAreaCode));
+            metadata.HrFunctionalAreaCode,
+            BaseSections,
+            Filters,
+            PersonnelFileDashboardRules.RotationFormula));
     }
+
+    // Connectable-section registry (RF-018). PR-2 declares them all inactive; PR-3/PR-4 flip the flow sections'
+    // Active flag as each is built. All sections are flow-based → AcceptsMonth = true.
+    private static readonly IReadOnlyCollection<DashboardMetadataSectionResponse> BaseSections =
+    [
+        new("PERSONNEL_ACTIONS", Active: false, AcceptsMonth: true),   // PR-3 flips to Active
+        new("MOVEMENTS", Active: false, AcceptsMonth: true),           // PR-4 flips to Active
+        new("INCAPACIDADES", Active: false, AcceptsMonth: true),       // REQ-001 connects
+        new("VACACIONES", Active: false, AcceptsMonth: true),          // REQ-001 connects
+        new("RECONOCIMIENTOS", Active: false, AcceptsMonth: true),     // REQ-003 connects
+        new("AMONESTACIONES", Active: false, AcceptsMonth: true),      // REQ-003 connects
+        new("TIEMPO_COMPENSATORIO", Active: false, AcceptsMonth: true) // REQ-002 connects
+    ];
+
+    // Common dimension filters (keys = the WIRE query-parameter names the frontend sends — Guid `xxxId` params are
+    // rewritten to `xxxPublicId` by PublicContractBindingMetadataProvider). The three new REQ-004 filters are
+    // payrollTypeCode, costCenterPublicId and month; month is enabled but only the flow sections consume it.
+    private static readonly IReadOnlyCollection<DashboardMetadataFilterResponse> Filters =
+    [
+        new("year", Enabled: true),
+        new("functionalAreaPublicId", Enabled: true),
+        new("orgUnitPublicId", Enabled: true),
+        new("positionCategoryPublicId", Enabled: true),
+        new("jobProfilePublicId", Enabled: true),
+        new("workCenterPublicId", Enabled: true),
+        new("includeInactive", Enabled: true),
+        new("payrollTypeCode", Enabled: true),
+        new("costCenterPublicId", Enabled: true),
+        new("month", Enabled: true)
+    ];
 
     private static DashboardRangeResponse Map(RangeBucket range) =>
         new(range.Code, range.Label, range.LowerBound, range.UpperBound);

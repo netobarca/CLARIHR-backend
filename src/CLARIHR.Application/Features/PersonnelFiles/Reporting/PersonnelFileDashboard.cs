@@ -10,7 +10,13 @@ namespace CLARIHR.Application.Features.PersonnelFiles.Reporting;
 // rules bucketize/aggregate; the handler shapes the response. See the technical plan §3.1.
 // ----------------------------------------------------------------------------------------------------
 
-/// <summary>Common dimension filter applied to every dashboard indicator (año/área/unidad/tipo-puesto/puesto/centro).</summary>
+/// <summary>
+/// Common dimension filter applied to every dashboard indicator (año/área/unidad/tipo-puesto/puesto/centro).
+/// REQ-004 PR-2 adds three OPTIONAL fields: <see cref="PayrollTypeCode"/> and <see cref="CostCenterId"/> scope
+/// EVERY endpoint (they live in the common filter — aclaración №6), while <see cref="Month"/> is stored here but
+/// consumed ONLY by the flow queries (personnel-actions/movements — PR-3/PR-4); the snapshot indicators
+/// (overview/span) ignore it and the metadata merely DECLARES it.
+/// </summary>
 public sealed record DashboardDimensionFilter(
     int? Year,
     Guid? FunctionalAreaId,
@@ -18,12 +24,20 @@ public sealed record DashboardDimensionFilter(
     Guid? PositionCategoryId,
     Guid? JobProfileId,
     Guid? WorkCenterId,
-    bool IncludeInactive);
+    bool IncludeInactive,
+    string? PayrollTypeCode = null,
+    Guid? CostCenterId = null,
+    int? Month = null);
 
 /// <summary>A parametrizable range bucket (edad/antigüedad) resolved from a country-scoped catalog; null upper = open.</summary>
 public sealed record RangeBucket(string Code, string Label, int LowerBound, int? UpperBound);
 
-/// <summary>One Employee personnel file flattened with the dimensions of its active-primary assignment.</summary>
+/// <summary>
+/// One Employee personnel file flattened with the dimensions of its active-primary assignment. REQ-004 PR-2
+/// appends the plaza's <see cref="PayrollTypeCode"/> and <see cref="CostCenterPublicId"/>/<see cref="CostCenterName"/>
+/// (cost-center name resolved in memory like the other dimensions) and the profile's retirement
+/// <see cref="RetirementCategoryCode"/>/<see cref="RetirementReasonCode"/> (the seed for the movements breakdowns).
+/// </summary>
 public sealed record EmployeeDimensionRow(
     Guid FileId,
     bool IsActive,
@@ -46,15 +60,25 @@ public sealed record EmployeeDimensionRow(
     Guid? JobProfileId,
     string? JobProfileTitle,
     Guid? PositionCategoryId,
-    string? PositionCategoryName);
+    string? PositionCategoryName,
+    string? PayrollTypeCode = null,
+    Guid? CostCenterPublicId = null,
+    string? CostCenterName = null,
+    string? RetirementCategoryCode = null,
+    string? RetirementReasonCode = null);
 
-/// <summary>The one-round-trip dataset the dashboard handler aggregates over.</summary>
+/// <summary>
+/// The one-round-trip dataset the dashboard handler aggregates over. <see cref="PayrollTypeLabels"/> (code →
+/// display name from the <c>payroll-types</c> catalog) backs the <c>byPayrollType</c> breakdown labels — labels
+/// always come from the catalog, never hardcoded (aclaración №12).
+/// </summary>
 public sealed record DashboardDataSet(
     IReadOnlyCollection<EmployeeDimensionRow> Rows,
     IReadOnlyCollection<RangeBucket> AgeRanges,
     IReadOnlyCollection<RangeBucket> SeniorityRanges,
     string? HrFunctionalAreaCode,
-    int? FileUpToDateThresholdMonths);
+    int? FileUpToDateThresholdMonths,
+    IReadOnlyDictionary<string, string> PayrollTypeLabels);
 
 /// <summary>Lightweight dashboard metadata: the parametrizable range catalogs + resolved company settings.</summary>
 public sealed record DashboardMetadata(
@@ -97,7 +121,9 @@ public sealed record DashboardOverviewResponse(
     IReadOnlyCollection<DashboardBreakdownResponse> ByMaritalStatus,
     DashboardFileFreshnessResponse FileFreshness,
     DashboardHrRatioResponse HrRatio,
-    DashboardPositionOccupancyResponse PositionOccupancy);
+    DashboardPositionOccupancyResponse PositionOccupancy,
+    // REQ-004 PR-2 (additive): distribution by contractual payroll type; bucket UNASSIGNED = "Sin dato".
+    IReadOnlyCollection<DashboardBreakdownResponse> ByPayrollType);
 
 // ----------------------------------------------------------------------------------------------------
 // Query + handler
@@ -111,7 +137,10 @@ public sealed record GetDashboardOverviewQuery(
     Guid? PositionCategoryId,
     Guid? JobProfileId,
     Guid? WorkCenterId,
-    bool IncludeInactive)
+    bool IncludeInactive,
+    string? PayrollTypeCode = null,
+    Guid? CostCenterId = null,
+    int? Month = null)
     : IQuery<DashboardOverviewResponse>
 {
     public DashboardDimensionFilter ToFilter() => new(
@@ -121,7 +150,10 @@ public sealed record GetDashboardOverviewQuery(
         PositionCategoryId,
         JobProfileId,
         WorkCenterId,
-        IncludeInactive);
+        IncludeInactive,
+        PayrollTypeCode,
+        CostCenterId,
+        Month);
 }
 
 internal sealed class GetDashboardOverviewQueryHandler(
@@ -182,7 +214,8 @@ internal sealed class GetDashboardOverviewQueryHandler(
             Breakdown(rows, row => row.MaritalStatus, row => row.MaritalStatus),
             new DashboardFileFreshnessResponse(upToDate, total - upToDate, thresholdMonths),
             new DashboardHrRatioResponse(hrHeadcount, total, ratioPer100, hrConfigured),
-            new DashboardPositionOccupancyResponse(occupancy.MaxPositions, occupancy.Occupied, occupancy.Vacant));
+            new DashboardPositionOccupancyResponse(occupancy.MaxPositions, occupancy.Occupied, occupancy.Vacant),
+            PersonnelFileDashboardRules.BuildBreakdownByCode(rows, row => row.PayrollTypeCode, dataSet.PayrollTypeLabels));
 
         return Result<DashboardOverviewResponse>.Success(response);
     }

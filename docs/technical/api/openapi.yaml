@@ -40822,6 +40822,20 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
       responses:
         '200':
           description: OK
@@ -40890,6 +40904,20 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
       responses:
         '200':
           description: OK
@@ -40958,6 +40986,20 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
       responses:
         '200':
           description: OK
@@ -54627,6 +54669,34 @@ components:
         hrFunctionalAreaCode:
           type: string
           nullable: true
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardMetadataSectionResponse'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardMetadataFilterResponse'
+        rotationFormula:
+          type: string
+      additionalProperties: false
+    DashboardMetadataSectionResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        active:
+          type: boolean
+        acceptsMonth:
+          type: boolean
+      additionalProperties: false
+    DashboardMetadataFilterResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        enabled:
+          type: boolean
       additionalProperties: false
     DashboardOverviewResponse:
       type: object
@@ -54679,6 +54749,10 @@ components:
           $ref: '#/components/schemas/DashboardHrRatioResponse'
         positionOccupancy:
           $ref: '#/components/schemas/DashboardPositionOccupancyResponse'
+        byPayrollType:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownResponse'
       additionalProperties: false
     DashboardPositionOccupancyResponse:
       type: object
