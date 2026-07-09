@@ -3745,6 +3745,23 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    // ── One-time incomes (REQ-006) ─────────────────────────────────────────────────────────────────
+
+    // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the
+    // one-time-income public id so every application registration/annulment of one income contends on the same
+    // lock. Executed on the context's current transaction (the handler opens one), pg_advisory_xact_lock holds
+    // until that transaction commits/rolls back, serializing the at-most-one-active-application rule (RN-06).
+    private const int OneTimeIncomeMutationLockClassId = 0x4F_54_49_4E; // "OTIN" — one-time income
+
+    public Task AcquireOneTimeIncomeMutationLockAsync(Guid oneTimeIncomePublicId, CancellationToken cancellationToken)
+    {
+        var objectKey = BitConverter.ToInt32(oneTimeIncomePublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { OneTimeIncomeMutationLockClassId, objectKey },
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<RecurringIncomeResponse>> AddRecurringIncomeAsync(
         long personnelFileInternalId,
         Guid tenantId,

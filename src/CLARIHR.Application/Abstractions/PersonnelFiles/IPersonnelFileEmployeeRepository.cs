@@ -1288,4 +1288,16 @@ public interface IPersonnelFileEmployeeRepository
         DateOnly endDate,
         int? maxRows,
         CancellationToken cancellationToken);
+
+    // ── One-time incomes (REQ-006) ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Serializes the application-mutating writes (register / annul the single application) of a one-time income
+    /// with a transaction-scoped PostgreSQL advisory lock keyed on its public id, closing the check-then-act
+    /// TOCTOU on the at-most-one-active-application rule (RF-011/RF-013, RN-06). Must run inside an open
+    /// transaction (the handler opens one); the lock releases on commit/rollback. The default is a no-op (test
+    /// fakes have no PostgreSQL); the EF repository takes the real advisory lock.
+    /// </summary>
+    Task AcquireOneTimeIncomeMutationLockAsync(Guid oneTimeIncomePublicId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

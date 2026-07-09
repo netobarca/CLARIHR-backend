@@ -2479,4 +2479,43 @@
   <data name="validation.message.either_a_payroll_period_or_a_cutoff_date_is_required_for_the_apply_period_batch" xml:space="preserve">
     <value>Se requiere un periodo de planilla o una fecha de corte para el lote de aplicación por periodo.</value>
   </data>
+  <data name="ONE_TIME_INCOME_VALUE_METHOD_REQUIRED" xml:space="preserve">
+    <value>Se requiere un método de cálculo cuando el valor no es fijo.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_METHOD_INVALID" xml:space="preserve">
+    <value>El método de cálculo debe ser CANTIDAD_POR_VALOR o PORCENTAJE_SOBRE_BASE.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_COMPONENTS_INVALID" xml:space="preserve">
+    <value>Los componentes del valor no corresponden al método de cálculo o no son positivos.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_FIXED_WITH_COMPONENTS" xml:space="preserve">
+    <value>Un ingreso eventual de valor fijo no puede llevar método de cálculo ni componentes.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_AMOUNT_INVALID" xml:space="preserve">
+    <value>Un ingreso eventual de valor fijo requiere un monto mayor que cero.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_AMOUNT_MISMATCH" xml:space="preserve">
+    <value>El monto declarado no coincide con el monto calculado a partir de los componentes del valor.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_NOT_INCOME" xml:space="preserve">
+    <value>El concepto de compensación no es un concepto de ingreso activo válido para el país de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_IS_BASE_SALARY" xml:space="preserve">
+    <value>Un concepto de salario base no puede usarse para un ingreso eventual.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un ingreso eventual AUTORIZADO puede aplicarse.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ALREADY_APPLIED" xml:space="preserve">
+    <value>El ingreso eventual ya tiene una aplicación activa.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Solo un ingreso eventual AUTORIZADO puede redirigir su destino de planilla.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Solo un ingreso eventual APLICADO puede revertir su aplicación.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El ingreso eventual no está en un estado que permita esta operación.</value>
+  </data>
 </root>

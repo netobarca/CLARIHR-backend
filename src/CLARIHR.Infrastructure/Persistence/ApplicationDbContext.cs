@@ -415,6 +415,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileRecurringIncomeInstallment> PersonnelFileRecurringIncomeInstallments => Set<PersonnelFileRecurringIncomeInstallment>();
 
+    public DbSet<PersonnelFileOneTimeIncome> PersonnelFileOneTimeIncomes => Set<PersonnelFileOneTimeIncome>();
+
+    public DbSet<PersonnelFileOneTimeIncomeApplication> PersonnelFileOneTimeIncomeApplications => Set<PersonnelFileOneTimeIncomeApplication>();
+
     public DbSet<PersonnelFileRecognition> PersonnelFileRecognitions => Set<PersonnelFileRecognition>();
 
     public DbSet<PersonnelFileRecognitionDocument> PersonnelFileRecognitionDocuments => Set<PersonnelFileRecognitionDocument>();

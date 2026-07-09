@@ -2479,4 +2479,43 @@
   <data name="validation.message.either_a_payroll_period_or_a_cutoff_date_is_required_for_the_apply_period_batch" xml:space="preserve">
     <value>Either a payroll period or a cutoff date is required for the apply-period batch.</value>
   </data>
+  <data name="ONE_TIME_INCOME_VALUE_METHOD_REQUIRED" xml:space="preserve">
+    <value>A calculation method is required when the value is not fixed.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_METHOD_INVALID" xml:space="preserve">
+    <value>The calculation method must be CANTIDAD_POR_VALOR or PORCENTAJE_SOBRE_BASE.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_COMPONENTS_INVALID" xml:space="preserve">
+    <value>The value components do not match the calculation method or are not positive.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_FIXED_WITH_COMPONENTS" xml:space="preserve">
+    <value>A fixed-value one-time income cannot carry a calculation method or components.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_VALUE_AMOUNT_INVALID" xml:space="preserve">
+    <value>A fixed-value one-time income requires an amount greater than zero.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_AMOUNT_MISMATCH" xml:space="preserve">
+    <value>The declared amount does not match the amount computed from the value components.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_NOT_INCOME" xml:space="preserve">
+    <value>The compensation concept is not a valid active income concept for the company's country.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_CONCEPT_IS_BASE_SALARY" xml:space="preserve">
+    <value>A base-salary concept cannot be used for a one-time income.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only an AUTORIZADO one-time income can be applied.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_ALREADY_APPLIED" xml:space="preserve">
+    <value>The one-time income already has an active application.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Only an AUTORIZADO one-time income can have its payroll destination re-targeted.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Only an APLICADO one-time income can have its application reverted.</value>
+  </data>
+  <data name="ONE_TIME_INCOME_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The one-time income is not in a state that allows this operation.</value>
+  </data>
 </root>
