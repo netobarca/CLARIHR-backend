@@ -34,8 +34,16 @@ internal sealed class RecognitionTypeRepository(ApplicationDbContext dbContext) 
 
     // PR-1 has no recognition record table yet (M2/PR-2), so nothing can reference a type — the real
     // reference probe is wired in PR-3 once that table exists.
+    // REQ-003 PR-3: the recognitions table now exists — a type is in use when an active recognition of the
+    // tenant references it (logical inactivation is then blocked with RECOGNITION_TYPE_IN_USE).
     public Task<bool> IsInUseAsync(Guid tenantId, Guid recognitionTypeId, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
+        dbContext.Set<Domain.PersonnelFiles.PersonnelFileRecognition>()
+            .AsNoTracking()
+            .AnyAsync(
+                recognition => recognition.TenantId == tenantId
+                    && recognition.IsActive
+                    && recognition.RecognitionType!.PublicId == recognitionTypeId,
+                cancellationToken);
 
     public async Task<PagedResponse<RecognitionTypeListItemResponse>> SearchAsync(
         Guid tenantId,

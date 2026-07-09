@@ -1192,6 +1192,88 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         return (null, personnelFile);
     }
+
+    /// <summary>
+    /// Manage gate for recognitions (REQ-003 D-05): the dedicated <c>PersonnelFiles.ManageRecognitions</c>
+    /// permission (or Admin). Used by create/edit and the EN_REVISION annulment — HR-only, no self-service.
+    /// Item-level optimistic concurrency is enforced by each command's own If-Match token, so callers pass
+    /// <see cref="Guid.Empty"/> here.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageRecognitionsAsync<TResponse>(
+        Guid personnelFileId,
+        Guid concurrencyToken,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageRecognitionsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+        }
+
+        return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Gate for the AUTHORIZER actions on a recognition — the single decision (APLICAR/RECHAZAR) and the
+    /// revocation of an APLICADA (REQ-003 D-05): the dedicated <c>PersonnelFiles.AuthorizeRecognitions</c>
+    /// permission or the IAM super-admin. <c>PersonnelFiles.Admin</c> is deliberately EXCLUDED (separation of
+    /// duties, mirrors AuthorizeRetirement). The double anti-self-approval check is applied by the handler.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForAuthorizeRecognitionsAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanAuthorizeRecognitionsAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
 }
 
 internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFileEmployeeCommandHandlerBase
@@ -1551,6 +1633,59 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
         }
 
         return (null, personnelFile);
+    }
+
+    /// <summary>
+    /// Read gate for recognition sub-resources (REQ-003 D-05/D-13): the caller has the dedicated
+    /// <c>ViewRecognitions</c> permission (or Admin), OR the caller is the employee reading their own
+    /// recognitions (self-service). Without the permission and without being the owner the caller gets 403
+    /// (no masking). Requires a completed employee. Returns <c>RestrictToApplied</c> = true when the caller was
+    /// authorized only by the self branch, so the query handler surfaces exclusively APLICADA records to the
+    /// employee (the trays and intermediate states never travel to them — D-13).
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File, bool RestrictToApplied)> LoadCompletedEmployeeForRecognitionReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        ICurrentUserService currentUserService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null, false);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null,
+                false);
+        }
+
+        var canViewByRole = (await authorizationService.EnsureCanViewRecognitionsAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        if (!canViewByRole)
+        {
+            var isSelf = personnelFile.LinkedUserPublicId is { } linkedUserPublicId
+                && Guid.TryParse(currentUserService.UserId, out var callerUserPublicId)
+                && linkedUserPublicId == callerUserPublicId;
+            if (!isSelf)
+            {
+                return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null, false);
+            }
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null, false);
+        }
+
+        return (null, personnelFile, !canViewByRole);
     }
 
 }

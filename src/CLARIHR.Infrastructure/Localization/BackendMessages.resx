@@ -2311,4 +2311,28 @@
   <data name="EMPLOYEE_RELATIONS_CONFIGURATION_FORBIDDEN" xml:space="preserve">
     <value>You do not have permission to access employee-relations configuration administration.</value>
   </data>
+  <data name="RECOGNITION_TYPE_INVALID" xml:space="preserve">
+    <value>The recognition type does not exist or is inactive for the company.</value>
+  </data>
+  <data name="RECOGNITION_EVENT_DATE_IN_FUTURE" xml:space="preserve">
+    <value>The recognition event date cannot be in the future.</value>
+  </data>
+  <data name="RECOGNITION_AMOUNT_INVALID" xml:space="preserve">
+    <value>The recognition amount must be greater than zero and carry a currency when it travels.</value>
+  </data>
+  <data name="RECOGNITION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee or the registrar cannot decide or revoke the recognition.</value>
+  </data>
+  <data name="PERSONNEL_TRANSACTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The transaction is not in a state that allows this operation.</value>
+  </data>
+  <data name="DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A note is required to reject the transaction.</value>
+  </data>
+  <data name="ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>A reason is required to annul or revoke the transaction.</value>
+  </data>
+  <data name="validation.message.decision_must_be_aplicar_or_rechazar" xml:space="preserve">
+    <value>Decision must be APLICAR or RECHAZAR.</value>
+  </data>
 </root>

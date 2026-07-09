@@ -1,4 +1,6 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.PersonnelTransactions;
+using CLARIHR.Domain.EmployeeRelations;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +41,126 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
 
     public void AddRecognitionDocument(PersonnelFileRecognitionDocument entity) =>
         dbContext.PersonnelFileRecognitionDocuments.Add(entity);
+
+    public async Task<IReadOnlyCollection<PersonnelFileRecognitionResponse>> GetRecognitionResponsesAsync(
+        Guid personnelFilePublicId, bool onlyApplied, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.PersonnelFileRecognitions
+            .AsNoTracking()
+            .Include(item => item.RecognitionType)
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId
+                && (!onlyApplied || item.StatusCode == PersonnelTransactionStatuses.Aplicada))
+            .OrderByDescending(item => item.EventDate)
+            .ThenByDescending(item => item.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapRecognition).ToArray();
+    }
+
+    public async Task<PersonnelFileRecognitionResponse?> GetRecognitionResponseAsync(
+        Guid personnelFilePublicId, Guid recognitionPublicId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.PersonnelFileRecognitions
+            .AsNoTracking()
+            .Include(item => item.RecognitionType)
+            .SingleOrDefaultAsync(
+                item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == recognitionPublicId,
+                cancellationToken);
+        return item is null ? null : MapRecognition(item);
+    }
+
+    public Task<RecognitionTypeRef?> ResolveActiveRecognitionTypeAsync(
+        Guid tenantId, Guid recognitionTypePublicId, CancellationToken cancellationToken) =>
+        dbContext.Set<RecognitionType>()
+            .AsNoTracking()
+            .Where(type => type.TenantId == tenantId && type.PublicId == recognitionTypePublicId && type.IsActive)
+            .Select(type => new RecognitionTypeRef(type.Id, type.Name))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<bool> IsProfileRetiredAsync(long personnelFileId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileEmployeeProfiles
+            .AsNoTracking()
+            .AnyAsync(
+                profile => profile.PersonnelFileId == personnelFileId
+                    && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
+                cancellationToken);
+
+    public Task<PersonnelFilePersonnelAction?> GetPersonnelActionEntityAsync(
+        long personnelFileId, Guid personnelActionPublicId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFilePersonnelActions
+            .SingleOrDefaultAsync(
+                action => action.PersonnelFileId == personnelFileId && action.PublicId == personnelActionPublicId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<RecognitionDocumentResponse>> GetRecognitionDocumentsAsync(
+        Guid recognitionPublicId, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.PersonnelFileRecognitionDocuments
+            .AsNoTracking()
+            .Include(document => document.DocumentTypeCatalogItem)
+            .Where(document => document.Recognition.PublicId == recognitionPublicId && document.IsActive)
+            .OrderByDescending(document => document.CreatedUtc)
+            .ToListAsync(cancellationToken);
+        return items.Select(MapRecognitionDocument).ToArray();
+    }
+
+    public async Task<RecognitionDocumentResponse?> GetRecognitionDocumentAsync(
+        Guid recognitionPublicId, Guid documentPublicId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.PersonnelFileRecognitionDocuments
+            .AsNoTracking()
+            .Include(document => document.DocumentTypeCatalogItem)
+            .SingleOrDefaultAsync(
+                document => document.Recognition.PublicId == recognitionPublicId && document.PublicId == documentPublicId,
+                cancellationToken);
+        return item is null ? null : MapRecognitionDocument(item);
+    }
+
+    public Task<PersonnelFileRecognitionDocument?> GetRecognitionDocumentEntityAsync(
+        Guid recognitionPublicId, Guid documentPublicId, Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.PersonnelFileRecognitionDocuments
+            .SingleOrDefaultAsync(
+                document => document.Recognition.PublicId == recognitionPublicId
+                    && document.PublicId == documentPublicId
+                    && document.TenantId == tenantId,
+                cancellationToken);
+
+    private static PersonnelFileRecognitionResponse MapRecognition(PersonnelFileRecognition item) =>
+        new(
+            item.PublicId,
+            item.RecognitionType!.PublicId,
+            item.TypeNameSnapshot,
+            item.EventDate,
+            item.Detail,
+            item.Amount,
+            item.CurrencyCode,
+            item.AssignedPositionPublicId,
+            item.RegisteredByUserId,
+            item.StatusCode,
+            item.DecidedByUserId,
+            item.DecidedUtc,
+            item.DecisionNote,
+            item.AnnulmentReason,
+            item.AnnulledByUserId,
+            item.AnnulledUtc,
+            item.PersonnelActionPublicId,
+            item.Notes,
+            item.IsActive,
+            item.ConcurrencyToken,
+            item.CreatedUtc,
+            item.ModifiedUtc);
+
+    private static RecognitionDocumentResponse MapRecognitionDocument(PersonnelFileRecognitionDocument document) =>
+        new(
+            document.PublicId,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.PublicId : (Guid?)null,
+            document.DocumentTypeCatalogItem != null ? document.DocumentTypeCatalogItem.Name : null,
+            document.FilePublicId,
+            document.FileName,
+            document.ContentType,
+            document.SizeBytes,
+            document.Observations,
+            document.IsActive,
+            document.ConcurrencyToken);
 
     public Task<PersonnelFileDisciplinaryAction?> GetDisciplinaryActionEntityAsync(
         Guid personnelFilePublicId, Guid disciplinaryActionPublicId, CancellationToken cancellationToken) =>

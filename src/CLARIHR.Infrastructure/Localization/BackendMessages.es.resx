@@ -2311,4 +2311,28 @@
   <data name="EMPLOYEE_RELATIONS_CONFIGURATION_FORBIDDEN" xml:space="preserve">
     <value>No tiene permiso para acceder a la administración de configuración de relaciones laborales.</value>
   </data>
+  <data name="RECOGNITION_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de reconocimiento no existe o está inactivo para la empresa.</value>
+  </data>
+  <data name="RECOGNITION_EVENT_DATE_IN_FUTURE" xml:space="preserve">
+    <value>La fecha del hecho del reconocimiento no puede ser futura.</value>
+  </data>
+  <data name="RECOGNITION_AMOUNT_INVALID" xml:space="preserve">
+    <value>El monto del reconocimiento debe ser mayor que cero e incluir la moneda cuando se envía.</value>
+  </data>
+  <data name="RECOGNITION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto o quien registró no pueden decidir ni revocar el reconocimiento.</value>
+  </data>
+  <data name="PERSONNEL_TRANSACTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La transacción no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota para rechazar la transacción.</value>
+  </data>
+  <data name="ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para anular o revocar la transacción.</value>
+  </data>
+  <data name="validation.message.decision_must_be_aplicar_or_rechazar" xml:space="preserve">
+    <value>La decisión debe ser APLICAR o RECHAZAR.</value>
+  </data>
 </root>
