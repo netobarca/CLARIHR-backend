@@ -49,6 +49,13 @@ internal static class EmploymentAssignmentErrors
         "EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID",
         "The assignment type code is not valid for the active catalog.",
         ErrorType.UnprocessableEntity);
+
+    // REQ-004: the optional payrollTypeCode (contractual pay modality) must resolve to an ACTIVE item of the
+    // country-scoped payroll-types catalog when supplied. Distinct from contractTypeCode (contract nature).
+    public static readonly Error PayrollTypeCodeInvalid = new(
+        "PAYROLL_TYPE_INVALID",
+        "The payroll type code is not valid for the active catalog.",
+        ErrorType.UnprocessableEntity);
 }
 
 /// <summary>

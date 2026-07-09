@@ -153,6 +153,29 @@ internal static class EmploymentAssignmentCommandSupport
 
         return null;
     }
+
+    /// <summary>
+    /// Validates the plaza's payroll (planilla) type: when <paramref name="payrollTypeCode"/> is supplied it must
+    /// resolve to an ACTIVE item of the country-scoped <c>payroll-types</c> catalog (REQ-004, aclaración №3).
+    /// Returns <see cref="EmploymentAssignmentErrors.PayrollTypeCodeInvalid"/> (422) when invalid, or null when
+    /// valid / not set. Scope is <c>payrollTypeCode</c> only — other codes (e.g. <c>contractTypeCode</c>) keep
+    /// their existing length-only validation.
+    /// </summary>
+    public static async Task<Error?> ValidatePayrollTypeCodeAsync(
+        IPersonnelFileRepository personnelFileRepository,
+        Guid tenantId,
+        string? payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode)
+            && !await personnelFileRepository.CatalogCodeIsActiveAsync(
+                tenantId, PersonnelCurriculumCatalogCategories.PayrollType, payrollTypeCode, cancellationToken))
+        {
+            return EmploymentAssignmentErrors.PayrollTypeCodeInvalid;
+        }
+
+        return null;
+    }
 }
 
 internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
@@ -200,6 +223,13 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
             personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, item.AssignmentTypeCode, cancellationToken))
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        var payrollTypeError = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, item.PayrollTypeCode, cancellationToken);
+        if (payrollTypeError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
         }
 
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
@@ -359,6 +389,13 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
         }
 
+        var payrollTypeError = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, command.Item.PayrollTypeCode, cancellationToken);
+        if (payrollTypeError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
+        }
+
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
             personnelFileRepository, personnelFile.TenantId, personnelFile.PublicId, command.Item.PaymentMethodCode, command.Item.PaymentBankAccountPublicId, cancellationToken);
         if (bankAccountError is not null)
@@ -515,6 +552,13 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
             personnelFile.TenantId, PersonnelCurriculumCatalogCategories.AssignmentType, state.AssignmentTypeCode, cancellationToken))
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(EmploymentAssignmentErrors.TypeCodeInvalid);
+        }
+
+        var payrollTypeError = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, state.PayrollTypeCode, cancellationToken);
+        if (payrollTypeError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
         }
 
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(

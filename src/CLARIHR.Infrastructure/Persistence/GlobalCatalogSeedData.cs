@@ -670,6 +670,20 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("PERSONNEL_TRANSACTION_STATUS_CATALOG", -9878L, "SV", "ANULADA", "Anulada", 40),
     ];
 
+    // REQ-004 (tablero de acciones de personal · A.2): payroll (planilla) type of an employment assignment.
+    // IDs relocated from the plan's tentative -9520…-9525 (those collide with ECONOMIC_AID_TYPE_CATALOG) to
+    // the free -9890…-9895 block. Country-scoped HasData seed (SV); the assignment payrollTypeCode validates
+    // against this catalog (422 PAYROLL_TYPE_INVALID).
+    public static IEnumerable<object> GetPayrollTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9890L, "SV", "MENSUAL", "Mensual", 10),
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9891L, "SV", "QUINCENAL", "Quincenal", 20),
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9892L, "SV", "SEMANAL", "Semanal", 30),
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9893L, "SV", "POR_DIA", "Por día", 40),
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9894L, "SV", "POR_OBRA", "Por obra", 50),
+        CreateGeneralCatalogSeed("PAYROLL_TYPE_CATALOG", -9895L, "SV", "OTRO", "Otro", 60),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),

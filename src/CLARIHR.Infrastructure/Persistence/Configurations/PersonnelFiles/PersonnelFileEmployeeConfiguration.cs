@@ -245,6 +245,14 @@ internal sealed class PersonnelFilePersonnelActionConfiguration : IEntityTypeCon
             .HasDatabaseName("ix_personnel_file_personnel_actions__tenant_file_action_date");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.ActionTypeCode, item.ActionStatusCode })
             .HasDatabaseName("ix_personnel_file_personnel_actions__tenant_file_type_status");
+
+        // REQ-004 (tablero de acciones de personal · aclaración №5): the tenant-wide journal aggregation filters
+        // by (tenant_id, action_date_utc) — the existing indexes all prepend personnel_file_id and cannot serve
+        // it. Covering INCLUDE columns let the count/breakdown passes read straight from the index. Name is 54
+        // chars (< 63-char PostgreSQL identifier limit).
+        builder.HasIndex(item => new { item.TenantId, item.ActionDateUtc })
+            .IncludeProperties(item => new { item.ActionTypeCode, item.ActionStatusCode, item.IsSystemGenerated, item.PersonnelFileId })
+            .HasDatabaseName("ix_personnel_file_personnel_actions_tenant_action_date");
     }
 }
 

@@ -940,6 +940,40 @@ public sealed class ActionStatusCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of payroll (planilla) types (general-catalogs key <c>payroll-types</c>) backing the
+/// optional <c>payrollTypeCode</c> of an employment assignment — the contractual pay modality
+/// (MENSUAL/QUINCENAL/SEMANAL/…), distinct from <see cref="ContractTypeCatalogItem"/> (the contract nature).
+/// Mirrors <see cref="ActionTypeCatalogItem"/>; seeded for SV (REQ-004 · tablero de acciones de personal).
+/// </summary>
+public sealed class PayrollTypeCatalogItem : GeneralCatalogItem
+{
+    private PayrollTypeCatalogItem()
+    {
+    }
+
+    private PayrollTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PayrollTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Country-scoped catalog of hobbies (general-catalogs key <c>hobbies</c>) backing the required
 /// <c>hobbyCode</c> of a personnel-file hobby (RF-005, DP-07). Seeded for SV.
 /// </summary>

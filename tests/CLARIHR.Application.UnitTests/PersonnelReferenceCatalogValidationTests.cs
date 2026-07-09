@@ -8,6 +8,49 @@ namespace CLARIHR.Application.UnitTests;
 
 public sealed class PersonnelReferenceCatalogValidationTests
 {
+    // REQ-004 — validate-by-code of the employment-assignment payrollTypeCode against the country-scoped
+    // payroll-types catalog. Reuses the shared EmploymentAssignmentCommandSupport helper the 3 write handlers call.
+    [Fact]
+    public async Task ValidatePayrollTypeCodeAsync_WhenCodeIsActive_ReturnsNull()
+    {
+        var tenantId = Guid.NewGuid();
+        var repository = new TestPersonnelFileRepository();
+        repository.AddActiveCatalogCode(PersonnelCurriculumCatalogCategories.PayrollType, "MENSUAL");
+
+        var error = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            repository, tenantId, "MENSUAL", CancellationToken.None);
+
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public async Task ValidatePayrollTypeCodeAsync_WhenCodeIsInactiveOrUnknown_ReturnsInvalidError()
+    {
+        var tenantId = Guid.NewGuid();
+        var repository = new TestPersonnelFileRepository();
+
+        var error = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            repository, tenantId, "XXX", CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Equal("PAYROLL_TYPE_INVALID", error!.Code);
+        Assert.Equal(ErrorType.UnprocessableEntity, error.Type);
+    }
+
+    [Fact]
+    public async Task ValidatePayrollTypeCodeAsync_WhenNotSupplied_ReturnsNull()
+    {
+        var repository = new TestPersonnelFileRepository();
+
+        var blank = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            repository, Guid.NewGuid(), "   ", CancellationToken.None);
+        var missing = await EmploymentAssignmentCommandSupport.ValidatePayrollTypeCodeAsync(
+            repository, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Null(blank);
+        Assert.Null(missing);
+    }
+
     [Fact]
     public async Task ValidatePersonalInfoCodesAsync_WhenCodesAreActiveAndHierarchyIsValid_ShouldReturnNone()
     {
@@ -220,6 +263,7 @@ public sealed class PersonnelReferenceCatalogValidationTests
     {
         private readonly HashSet<string> _activeCountries = new(StringComparer.Ordinal);
         private readonly HashSet<string> _activeReferenceCodes = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _activeCatalogCodes = new(StringComparer.Ordinal);
         private readonly HashSet<string> _municipalityDepartmentLinks = new(StringComparer.Ordinal);
         private readonly HashSet<string> _insuranceTypeRangeLinks = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _identificationNumberFormats = new(StringComparer.Ordinal);
@@ -239,6 +283,9 @@ public sealed class PersonnelReferenceCatalogValidationTests
 
         public void AddActiveReferenceCode(string countryCode, string category, string code) =>
             _activeReferenceCodes.Add($"{Normalize(countryCode)}|{Normalize(category)}|{Normalize(code)}");
+
+        public void AddActiveCatalogCode(string category, string code) =>
+            _activeCatalogCodes.Add($"{Normalize(category)}|{Normalize(code)}");
 
         public void AddMunicipalityDepartment(string countryCode, string departmentCode, string municipalityCode) =>
             _municipalityDepartmentLinks.Add($"{Normalize(countryCode)}|{Normalize(departmentCode)}|{Normalize(municipalityCode)}");
@@ -317,7 +364,8 @@ public sealed class PersonnelReferenceCatalogValidationTests
         public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(string? countryCode, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(string countryCode, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult<string?>("SV");
-        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) =>
+            Task.FromResult(_activeCatalogCodes.Contains($"{Normalize(category)}|{Normalize(code)}"));
         public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();

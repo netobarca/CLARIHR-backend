@@ -73,6 +73,7 @@ public static class GeneralCatalogKeyMap
             ["compensatory-time-statuses"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeStatus,
             ["compensatory-time-operations"] = PersonnelCurriculumCatalogCategories.CompensatoryTimeOperation,
             ["personnel-transaction-statuses"] = PersonnelCurriculumCatalogCategories.PersonnelTransactionStatus,
+            ["payroll-types"] = PersonnelCurriculumCatalogCategories.PayrollType,
         };
 
     /// <summary>

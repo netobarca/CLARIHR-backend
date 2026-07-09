@@ -661,3 +661,18 @@ internal sealed class PersonnelTransactionStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class PayrollTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PayrollTypeCatalogItem>
+{
+    public PayrollTypeCatalogItemConfiguration()
+        : base(
+            "payroll_type_catalog_items",
+            "pk_payroll_type_catalog_items",
+            "uq_payroll_type_catalog_items__public_id",
+            "uq_payroll_type_catalog_items__country_code",
+            "ix_payroll_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPayrollTypeCatalogItems())
+    {
+    }
+}

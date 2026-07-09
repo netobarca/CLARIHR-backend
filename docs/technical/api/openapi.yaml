@@ -9424,7 +9424,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a general catalog
-      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`, `compensatory-time-statuses`, `compensatory-time-operations`, `personnel-transaction-statuses`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
+      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks, `clinic-sectors`, `incapacity-statuses`,\n`vacation-request-statuses`, `compensatory-time-statuses`, `compensatory-time-operations`, `personnel-transaction-statuses`, `payroll-types`…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
       parameters:
         - name: catalogKey
           in: path
@@ -51667,6 +51667,10 @@ components:
         payrollTypeCode:
           type: string
           nullable: true
+          description: >-
+            Optional contractual pay modality. When supplied it must resolve to an ACTIVE item of the
+            country-scoped `payroll-types` general catalog, otherwise the request fails with `422`
+            (`PAYROLL_TYPE_INVALID`). Distinct from `contractTypeCode` (the contract nature).
         positionSlotPublicId:
           type: string
           format: uuid
@@ -66727,6 +66731,10 @@ components:
         payrollTypeCode:
           type: string
           nullable: true
+          description: >-
+            Optional contractual pay modality. When supplied it must resolve to an ACTIVE item of the
+            country-scoped `payroll-types` general catalog, otherwise the request fails with `422`
+            (`PAYROLL_TYPE_INVALID`). Distinct from `contractTypeCode` (the contract nature).
         positionSlotPublicId:
           type: string
           format: uuid

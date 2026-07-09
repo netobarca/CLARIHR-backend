@@ -294,6 +294,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<ActionStatusCatalogItem> ActionStatusCatalogItems => Set<ActionStatusCatalogItem>();
 
+    public DbSet<PayrollTypeCatalogItem> PayrollTypeCatalogItems => Set<PayrollTypeCatalogItem>();
+
     public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
 
     public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();

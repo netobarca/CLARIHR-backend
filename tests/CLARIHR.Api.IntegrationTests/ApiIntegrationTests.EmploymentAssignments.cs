@@ -452,6 +452,96 @@ public sealed partial class ApiIntegrationTests
         await AssertProblemDetailsAsync(put, HttpStatusCode.BadRequest, "common.validation");
     }
 
+    // REQ-004 — same shape as EmploymentAssignmentBody but carrying the payrollTypeCode (planilla modality).
+    private static object EmploymentAssignmentBodyWithPayrollType(
+        Guid positionSlotId,
+        string? payrollTypeCode,
+        bool isPrimary = true,
+        bool isActive = true) =>
+        new
+        {
+            assignmentTypeCode = "INDEFINIDO",
+            positionSlotPublicId = positionSlotId,
+            orgUnitPublicId = (Guid?)null,
+            workCenterPublicId = (Guid?)null,
+            costCenterPublicId = (Guid?)null,
+            startDate = DateTime.UtcNow.Date,
+            endDate = (DateTime?)null,
+            isPrimary,
+            isActive,
+            notes = (string?)null,
+            payrollTypeCode
+        };
+
+    [Fact]
+    public async Task EmploymentAssignment_ValidPayrollTypeCode_PersistsAndReflects()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-MP-PT1", "Direccion MP PT1", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-MP-PT1", "Perfil MP PT1", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-MP-PT1", "Plaza MP PT1", profile.Id, maxEmployees: 2);
+        var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Trece", "Empleado");
+
+        // POST with a valid, active payroll-types catalog code (SV seed) → 201 and the response reflects it.
+        var created = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
+            EmploymentAssignmentBodyWithPayrollType(slot.Id, "MENSUAL"));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Guid assignmentId;
+        using (var createdDoc = JsonDocument.Parse(await created.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("MENSUAL", createdDoc.RootElement.GetProperty("payrollTypeCode").GetString());
+            assignmentId = createdDoc.RootElement.GetProperty("employmentAssignmentPublicId").GetGuid();
+        }
+
+        var get = await client.GetAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions/{assignmentId}");
+        get.EnsureSuccessStatusCode();
+        using var getDoc = JsonDocument.Parse(await get.Content.ReadAsStringAsync());
+        Assert.Equal("MENSUAL", getDoc.RootElement.GetProperty("payrollTypeCode").GetString());
+    }
+
+    [Fact]
+    public async Task EmploymentAssignment_InvalidPayrollTypeCode_IsRejected()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-MP-PT2", "Direccion MP PT2", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-MP-PT2", "Perfil MP PT2", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-MP-PT2", "Plaza MP PT2", profile.Id, maxEmployees: 2);
+        var employeeId = await SeedCompletedEmployeeAsync(scenario.TenantId, "Catorce", "Empleado");
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/assigned-positions",
+            EmploymentAssignmentBodyWithPayrollType(slot.Id, "XXX"));
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "PAYROLL_TYPE_INVALID");
+    }
+
+    [Fact]
+    public async Task GeneralCatalog_PayrollTypes_ReturnsSixSeededItems()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateMultiPlazaContext(scenario));
+
+        var response = await client.GetAsync("/api/v1/general-catalogs/payroll-types?countryCode=SV");
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var codes = document.RootElement.EnumerateArray()
+            .Select(item => item.GetProperty("code").GetString())
+            .ToArray();
+
+        Assert.Equal(6, codes.Length);
+        Assert.Contains("MENSUAL", codes);
+        Assert.Contains("QUINCENAL", codes);
+        Assert.Contains("SEMANAL", codes);
+        Assert.Contains("POR_DIA", codes);
+        Assert.Contains("POR_OBRA", codes);
+        Assert.Contains("OTRO", codes);
+    }
+
     private async Task<(Guid Id, Guid Token)> PostAssignmentAsync(HttpClient client, Guid employeeId, object body)
     {
         var response = await client.PostJsonAsync($"/api/v1/personnel-files/{employeeId}/assigned-positions", body);

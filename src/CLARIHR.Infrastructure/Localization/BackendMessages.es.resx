@@ -1630,6 +1630,9 @@
   <data name="EMPLOYMENT_ASSIGNMENT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de asignacion no es valido para el catalogo activo.</value>
   </data>
+  <data name="PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El codigo de tipo de planilla no es valido para el catalogo activo.</value>
+  </data>
   <data name="CONTRACT_TYPE_CODE_INVALID" xml:space="preserve">
     <value>El codigo de tipo de contrato no es valido para el catalogo activo.</value>
   </data>
