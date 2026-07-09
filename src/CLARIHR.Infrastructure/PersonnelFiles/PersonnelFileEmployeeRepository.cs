@@ -3939,6 +3939,177 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                     && profile.EmploymentStatusCode == PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode,
                 cancellationToken);
 
+    // ── Overtime-record applications (REQ-007 PR-4) ─────────────────────────────────────────────────
+
+    public Task<PersonnelFileOvertimeRecord?> GetTrackedOvertimeRecordWithApplicationsAsync(
+        Guid overtimeRecordPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileOvertimeRecord>()
+            .Include(record => record.Applications)
+            .SingleOrDefaultAsync(
+                record => record.TenantId == tenantId && record.PublicId == overtimeRecordPublicId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<OvertimeRecordApplicationResponse>?> GetOvertimeRecordApplicationsAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        CancellationToken cancellationToken)
+    {
+        var recordInternalId = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == overtimeRecordPublicId)
+            .Select(item => item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (recordInternalId == 0)
+        {
+            return null;
+        }
+
+        var rows = await dbContext.Set<PersonnelFileOvertimeRecordApplication>()
+            .AsNoTracking()
+            .Where(application => application.OvertimeRecordId == recordInternalId)
+            .OrderByDescending(application => application.CreatedUtc)
+            .ThenByDescending(application => application.PublicId)
+            .Select(application => new
+            {
+                application.PublicId,
+                application.AppliedDate,
+                application.PayrollTypeCode,
+                application.PayrollPeriodPublicId,
+                application.PayrollPeriodLabel,
+                application.OriginCode,
+                application.StatusCode,
+                application.AppliedByUserId,
+                application.SettlementPublicId,
+                application.AnnulmentReason,
+                application.AnnulledByUserId,
+                application.AnnulledUtc,
+                application.Notes,
+                application.ConcurrencyToken
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new OvertimeRecordApplicationResponse(
+                row.PublicId,
+                row.AppliedDate,
+                row.PayrollTypeCode,
+                row.PayrollPeriodPublicId,
+                row.PayrollPeriodLabel,
+                row.OriginCode,
+                row.StatusCode,
+                row.AppliedByUserId == Guid.Empty ? null : row.AppliedByUserId,
+                row.SettlementPublicId,
+                row.AnnulmentReason,
+                row.AnnulledByUserId,
+                row.AnnulledUtc,
+                row.Notes,
+                row.ConcurrencyToken))
+            .ToArray();
+    }
+
+    public async Task<OvertimePayrollPeriodResolution?> ResolveOvertimePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken)
+    {
+        var period = await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollPeriodPublicId)
+            .Select(item => new { item.Id, item.Label, item.IsActive })
+            .SingleOrDefaultAsync(cancellationToken);
+        return period is null
+            ? null
+            : new OvertimePayrollPeriodResolution(period.Id, period.Label, period.IsActive);
+    }
+
+    public async Task<IReadOnlyList<OvertimeApplyPeriodCandidate>> GetOvertimeApplyPeriodCandidatesAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        DateOnly today,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(record => record.TenantId == tenantId
+                && record.IsActive
+                && record.StatusCode == OvertimeRecordStatuses.Autorizada
+                && record.PayrollTypeCode == payrollTypeCode
+                && record.WorkDate <= today)
+            .OrderBy(record => record.Id)
+            .Select(record => new
+            {
+                record.Id,
+                record.PublicId,
+                record.PayrollPeriodPublicId,
+                record.PayrollPeriodLabel
+            })
+            .ToArrayAsync(cancellationToken);
+        return candidates
+            .Select(candidate => new OvertimeApplyPeriodCandidate(
+                candidate.Id,
+                candidate.PublicId,
+                candidate.PayrollPeriodPublicId,
+                candidate.PayrollPeriodLabel))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<OvertimePendingData>> GetOvertimePendingRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(record => record.TenantId == tenantId
+                && record.IsActive
+                && record.StatusCode == OvertimeRecordStatuses.Autorizada);
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            query = query.Where(record => record.PayrollTypeCode == payrollTypeCode);
+        }
+
+        var rows = await query
+            .OrderBy(record => record.WorkDate)
+            .ThenBy(record => record.Id)
+            .Select(record => new
+            {
+                record.PublicId,
+                FilePublicId = record.PersonnelFile.PublicId,
+                record.PersonnelFile.FirstName,
+                record.PersonnelFile.LastName,
+                record.WorkDate,
+                record.OvertimeTypeCodeSnapshot,
+                record.OvertimeTypeNameSnapshot,
+                record.DurationDecimalHours,
+                record.FactorApplied,
+                record.PayrollTypeCode,
+                record.PayrollPeriodPublicId,
+                record.PayrollPeriodLabel,
+                record.PayrollPeriodEndDate,
+                record.ConcurrencyToken
+            })
+            .ToArrayAsync(cancellationToken);
+        return rows
+            .Select(row => new OvertimePendingData(
+                row.PublicId,
+                row.FilePublicId,
+                $"{row.FirstName} {row.LastName}".Trim(),
+                row.WorkDate,
+                row.OvertimeTypeCodeSnapshot,
+                row.OvertimeTypeNameSnapshot,
+                row.DurationDecimalHours,
+                row.FactorApplied,
+                row.PayrollTypeCode,
+                row.PayrollPeriodPublicId,
+                row.PayrollPeriodLabel,
+                row.PayrollPeriodEndDate,
+                row.ConcurrencyToken))
+            .ToArray();
+    }
+
     public async Task<IReadOnlyCollection<OneTimeIncomeResponse>> AddOneTimeIncomeAsync(
         long personnelFileInternalId,
         Guid tenantId,

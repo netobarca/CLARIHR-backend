@@ -2650,4 +2650,13 @@
   <data name="OVERTIME_SELF_SERVICE_DISABLED" xml:space="preserve">
     <value>Employee self-service for overtime records is not enabled for this company.</value>
   </data>
+  <data name="OVERTIME_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>The active application was not found on this overtime record.</value>
+  </data>
+  <data name="OVERTIME_APPLICATION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period is not a valid active period for the company.</value>
+  </data>
+  <data name="OVERTIME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>The apply-period batch could not be completed because of a conflicting overtime record: {0}.</value>
+  </data>
 </root>

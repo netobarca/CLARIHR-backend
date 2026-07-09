@@ -212,6 +212,90 @@ public sealed class OvertimeRecordsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/overtime-records/{overtimeRecordPublicId:guid}/applications")]
+    [Produces("application/json")]
+    [ProducesResponseType<IReadOnlyCollection<OvertimeRecordApplicationResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List an overtime record's application history",
+        Description = """
+            Returns the application history of the record (both the active `APLICADA` and the past `ANULADA`, most
+            recent activity first). Passes with the `ViewOvertimeRecords` permission OR when the caller is the
+            employee reading their own record (self-read, P-12).
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<OvertimeRecordApplicationResponse>>> GetOvertimeRecordApplications(
+        Guid publicId,
+        Guid overtimeRecordPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetOvertimeRecordApplicationsQuery(publicId, overtimeRecordPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/overtime-records/{overtimeRecordPublicId:guid}/applications")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OvertimeRecordApplicationResult>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Apply an overtime record",
+        Description = """
+            Registers the single application of an `AUTORIZADA` record (RF-011); the record becomes `APLICADA`. The
+            record's work date must have elapsed — a future organized shift returns 422
+            `OVERTIME_WORK_DATE_NOT_ELAPSED` (№13). The hours are the record's own (they do NOT travel); the payroll
+            period (optional) defaults to the record's declared destination and, when supplied, is validated +
+            snapshotted (FK real). HR-only (`ManageOvertimeRecords`). Requires the `If-Match` header with the
+            record's current `concurrencyToken`; the record's refreshed token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<OvertimeRecordApplicationResult>> ApplyOvertimeRecord(
+        Guid publicId,
+        Guid overtimeRecordPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyOvertimeRecordApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyOvertimeRecordApplicationCommand(
+                publicId, overtimeRecordPublicId, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToCreatedResult(
+            result,
+            _ => $"/api/v1/personnel-files/{publicId}/overtime-records/{overtimeRecordPublicId}/applications",
+            value => value.OvertimeRecordConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/overtime-records/{overtimeRecordPublicId:guid}/applications/{applicationPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OvertimeRecordApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Revert (annul) an overtime record's application",
+        Description = """
+            Annuls the active application (`APLICADA` → `ANULADA`); the `reason` is mandatory (RF-013). The record
+            reopens (`APLICADA` → `AUTORIZADA`) so it can be re-applied or revoked. HR-only. Requires the `If-Match`
+            header with the record's current `concurrencyToken`; the refreshed token is returned in the `ETag`
+            header.
+            """)]
+    public async Task<ActionResult<OvertimeRecordApplicationResult>> AnnulOvertimeRecordApplication(
+        Guid publicId,
+        Guid overtimeRecordPublicId,
+        Guid applicationPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulOvertimeRecordApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulOvertimeRecordApplicationCommand(
+                publicId, overtimeRecordPublicId, applicationPublicId, request.Reason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.OvertimeRecordConcurrencyToken);
+    }
+
     private static OvertimeRecordInput ToInput(AddOvertimeRecordRequest request) =>
         new(
             request.WorkDate,

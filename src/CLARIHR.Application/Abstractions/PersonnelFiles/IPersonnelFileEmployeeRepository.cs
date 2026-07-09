@@ -1532,4 +1532,47 @@ public interface IPersonnelFileEmployeeRepository
     Task<bool> IsOvertimeProfileRetiredAsync(
         long personnelFileInternalId,
         CancellationToken cancellationToken);
+
+    // ── Overtime-record applications (REQ-007 PR-4) ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads the TRACKED overtime record WITH its applications (for a unitary application / annulment under the
+    /// advisory lock). Scoped to the tenant + record public id; returns null when it is not found. Do NOT pre-load
+    /// the record tracked before the lock — call this as the FIRST tracking load so it reflects any committed
+    /// concurrent application.
+    /// </summary>
+    Task<PersonnelFileOvertimeRecord?> GetTrackedOvertimeRecordWithApplicationsAsync(
+        Guid overtimeRecordPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The application history of an overtime record (APLICADA + ANULADA, most recent activity first);
+    /// null when the record is not on the file.</summary>
+    Task<IReadOnlyCollection<OvertimeRecordApplicationResponse>?> GetOvertimeRecordApplicationsAsync(
+        Guid personnelFilePublicId,
+        Guid overtimeRecordPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company payroll-period instance for an application imputation (§0.14, FK real); null
+    /// when it is not a period of the tenant.</summary>
+    Task<OvertimePayrollPeriodResolution?> ResolveOvertimePayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>An AsNoTracking snapshot of the tenant's AUTORIZADA overtime records of a payroll type whose work
+    /// date has elapsed (future organized shifts excluded) without an active application, ordered by internal id
+    /// (anti-deadlock ordering for the apply-period batch).</summary>
+    Task<IReadOnlyList<OvertimeApplyPeriodCandidate>> GetOvertimeApplyPeriodCandidatesAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        DateOnly today,
+        CancellationToken cancellationToken);
+
+    /// <summary>The tenant's AUTORIZADA overtime records without an active application for the pending/overdue tray
+    /// (optionally filtered by payroll type), with the employee identity and shift/destination snapshot.</summary>
+    Task<IReadOnlyList<OvertimePendingData>> GetOvertimePendingRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        CancellationToken cancellationToken);
 }

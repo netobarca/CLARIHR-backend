@@ -2650,4 +2650,13 @@
   <data name="OVERTIME_SELF_SERVICE_DISABLED" xml:space="preserve">
     <value>El autoservicio de horas extras del empleado no está habilitado para esta empresa.</value>
   </data>
+  <data name="OVERTIME_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la aplicación activa en este registro de hora extra.</value>
+  </data>
+  <data name="OVERTIME_APPLICATION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>El periodo de planilla no es un periodo activo válido para la empresa.</value>
+  </data>
+  <data name="OVERTIME_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>El lote de aplicación por periodo no pudo completarse por un registro de hora extra en conflicto: {0}.</value>
+  </data>
 </root>
