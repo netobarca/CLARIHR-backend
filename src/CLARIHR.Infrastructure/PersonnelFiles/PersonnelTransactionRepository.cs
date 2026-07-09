@@ -370,4 +370,420 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
             new object[] { EmployeeRelationsLockClassId, objectKey },
             cancellationToken);
     }
+
+    // ── Recognitions bandeja + export (PR-5, §3.9) ────────────────────────────────────────────────
+
+    public async Task<RecognitionBandejaResponse> QueryRecognitionsAsync(
+        QueryRecognitionsQuery query, CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredRecognitions(query.EmployeeId, query.RecognitionTypeCode, query.FromDate, query.ToDate);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even though the items
+        // default to excluding ANULADA.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Recognition.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = ApplyRecognitionItemStatusFilter(baseQuery, query.StatusCode, query.IncludeAnnulled);
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Recognition.EventDate)
+            .ThenByDescending(row => row.Recognition.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new RecognitionListItemResponse(
+                row.Recognition.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.RecognitionTypePublicId,
+                row.RecognitionTypeCode,
+                row.Recognition.TypeNameSnapshot,
+                row.Recognition.EventDate,
+                row.Recognition.Detail,
+                row.Recognition.Amount,
+                row.Recognition.CurrencyCode,
+                row.Recognition.StatusCode,
+                row.Recognition.RegisteredByUserId,
+                row.Recognition.DecidedByUserId,
+                row.Recognition.DecidedUtc,
+                row.Recognition.CreatedUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return new RecognitionBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<ReconocimientoExportRow>> GetRecognitionExportRowsAsync(
+        ExportRecognitionsQuery query, CancellationToken cancellationToken)
+    {
+        var filtered = ApplyRecognitionItemStatusFilter(
+                FilteredRecognitions(query.EmployeeId, query.RecognitionTypeCode, query.FromDate, query.ToDate),
+                query.StatusCode, query.IncludeAnnulled)
+            .OrderByDescending(row => row.Recognition.EventDate)
+            .ThenByDescending(row => row.Recognition.CreatedUtc)
+            .Select(row => new ReconocimientoExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Recognition.TypeNameSnapshot,
+                row.Recognition.EventDate,
+                row.Recognition.Detail,
+                row.Recognition.Amount,
+                row.Recognition.CurrencyCode,
+                row.Recognition.StatusCode,
+                row.Recognition.RegisteredByUserId,
+                row.Recognition.DecidedByUserId,
+                row.Recognition.DecidedUtc,
+                row.Recognition.CreatedUtc));
+
+        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
+        return await limited.ToArrayAsync(cancellationToken);
+    }
+
+    private IQueryable<RecognitionQueryRow> FilteredRecognitions(
+        Guid? employeeId, string? recognitionTypeCode, DateOnly? fromDate, DateOnly? toDate)
+    {
+        // Member-init projection (mirrors PersonnelFileIncapacityRepository.FilteredIncapacities) so EF composes
+        // further Where/GroupBy over it reliably. Company scoping is handled by the global tenant query filter.
+        var query =
+            from recognition in dbContext.PersonnelFileRecognitions.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on recognition.PersonnelFileId equals file.Id
+            join type in dbContext.Set<RecognitionType>().AsNoTracking() on recognition.RecognitionTypeId equals type.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new RecognitionQueryRow
+            {
+                Recognition = recognition,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                RecognitionTypePublicId = type.PublicId,
+                RecognitionTypeCode = type.Code,
+                RecognitionTypeNormalizedCode = type.NormalizedCode,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(recognitionTypeCode))
+        {
+            var normalizedType = recognitionTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.RecognitionTypeNormalizedCode == normalizedType);
+        }
+
+        if (fromDate is { } from)
+        {
+            query = query.Where(row => row.Recognition.EventDate >= from);
+        }
+
+        if (toDate is { } to)
+        {
+            query = query.Where(row => row.Recognition.EventDate <= to);
+        }
+
+        return query;
+    }
+
+    // ── Disciplinary-actions bandeja + export + payroll input (PR-5, §3.9) ────────────────────────
+
+    public async Task<DisciplinaryActionBandejaResponse> QueryDisciplinaryActionsAsync(
+        QueryDisciplinaryActionsQuery query, CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredDisciplinaryActions(
+            query.EmployeeId, query.DisciplinaryActionTypeCode, query.CauseCode, query.FromDate, query.ToDate);
+
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.DisciplinaryAction.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = ApplyDisciplinaryActionItemStatusFilter(baseQuery, query.StatusCode, query.IncludeAnnulled);
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.DisciplinaryAction.IncidentDate)
+            .ThenByDescending(row => row.DisciplinaryAction.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new DisciplinaryActionListItemResponse(
+                row.DisciplinaryAction.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.DisciplinaryActionTypePublicId,
+                row.DisciplinaryActionTypeCode,
+                row.DisciplinaryAction.TypeNameSnapshot,
+                row.DisciplinaryActionCausePublicId,
+                row.DisciplinaryAction.CauseNameSnapshot,
+                row.DisciplinaryAction.IncidentDate,
+                row.DisciplinaryAction.FactsDetail,
+                row.DisciplinaryAction.HasPayrollDeduction,
+                row.DisciplinaryAction.DeductionAmount,
+                row.DisciplinaryAction.CurrencyCode,
+                row.DisciplinaryAction.DeductionConceptTypeCode,
+                row.DisciplinaryAction.DeductionConceptNameSnapshot,
+                row.DisciplinaryAction.SuspensionStartDate,
+                row.DisciplinaryAction.SuspensionEndDate,
+                row.DisciplinaryAction.SuspensionDays,
+                row.DisciplinaryAction.StatusCode,
+                row.DisciplinaryAction.RegisteredByUserId,
+                row.DisciplinaryAction.DecidedByUserId,
+                row.DisciplinaryAction.DecidedUtc,
+                row.DisciplinaryAction.CreatedUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return new DisciplinaryActionBandejaResponse(items, query.PageNumber, query.PageSize, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<AmonestacionExportRow>> GetDisciplinaryActionExportRowsAsync(
+        ExportDisciplinaryActionsQuery query, CancellationToken cancellationToken)
+    {
+        var filtered = ApplyDisciplinaryActionItemStatusFilter(
+                FilteredDisciplinaryActions(
+                    query.EmployeeId, query.DisciplinaryActionTypeCode, query.CauseCode, query.FromDate, query.ToDate),
+                query.StatusCode, query.IncludeAnnulled)
+            .OrderByDescending(row => row.DisciplinaryAction.IncidentDate)
+            .ThenByDescending(row => row.DisciplinaryAction.CreatedUtc)
+            .Select(row => new AmonestacionExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.DisciplinaryAction.TypeNameSnapshot,
+                row.DisciplinaryAction.CauseNameSnapshot,
+                row.DisciplinaryAction.IncidentDate,
+                row.DisciplinaryAction.FactsDetail,
+                row.DisciplinaryAction.HasPayrollDeduction,
+                row.DisciplinaryAction.DeductionAmount,
+                row.DisciplinaryAction.DeductionConceptNameSnapshot,
+                row.DisciplinaryAction.CurrencyCode,
+                row.DisciplinaryAction.SuspensionStartDate,
+                row.DisciplinaryAction.SuspensionEndDate,
+                row.DisciplinaryAction.SuspensionDays,
+                row.DisciplinaryAction.StatusCode,
+                row.DisciplinaryAction.RegisteredByUserId,
+                row.DisciplinaryAction.DecidedByUserId,
+                row.DisciplinaryAction.DecidedUtc,
+                row.DisciplinaryAction.CreatedUtc));
+
+        var limited = query.MaxRows is { } maxRows ? filtered.Take(maxRows + 1) : filtered;
+        return await limited.ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaExportRow>> GetPayrollInputRowsAsync(
+        ExportPayrollInputQuery query, CancellationToken cancellationToken)
+    {
+        // Only APLICADA disciplinary actions of the mandatory range with an effect (RN-14/RN-15: revoked =
+        // ANULADA, so filtering on APLICADA excludes them by construction). Range = the incident date (the
+        // fault), consistent with the disciplinary bandeja's date filter. The rows are fanned out per effect.
+        var startDate = query.StartDate!.Value;
+        var endDate = query.EndDate!.Value;
+
+        var applied = await FilteredDisciplinaryActions(employeeId: null, typeCode: null, causeCode: null, fromDate: startDate, toDate: endDate)
+            .Where(row => row.DisciplinaryAction.StatusCode == PersonnelTransactionStatuses.Aplicada
+                && (row.DisciplinaryAction.HasPayrollDeduction
+                    || row.DisciplinaryAction.SuspensionStartDate != null))
+            .OrderBy(row => row.EmployeeFullName)
+            .ThenByDescending(row => row.DisciplinaryAction.IncidentDate)
+            .Select(row => new PayrollInputSource
+            {
+                EmployeeFullName = row.EmployeeFullName,
+                EmployeeCode = row.EmployeeCode,
+                CauseNameSnapshot = row.DisciplinaryAction.CauseNameSnapshot,
+                IncidentDate = row.DisciplinaryAction.IncidentDate,
+                HasPayrollDeduction = row.DisciplinaryAction.HasPayrollDeduction,
+                DeductionAmount = row.DisciplinaryAction.DeductionAmount,
+                CurrencyCode = row.DisciplinaryAction.CurrencyCode,
+                DeductionConceptNameSnapshot = row.DisciplinaryAction.DeductionConceptNameSnapshot,
+                SuspensionStartDate = row.DisciplinaryAction.SuspensionStartDate,
+                SuspensionEndDate = row.DisciplinaryAction.SuspensionEndDate,
+                SuspensionDays = row.DisciplinaryAction.SuspensionDays,
+            })
+            .ToListAsync(cancellationToken);
+
+        var rows = new List<InsumoPlanillaExportRow>(applied.Count);
+        foreach (var source in applied)
+        {
+            if (source.HasPayrollDeduction && source.DeductionAmount is { } deductionAmount)
+            {
+                rows.Add(new InsumoPlanillaExportRow(
+                    source.EmployeeFullName,
+                    source.EmployeeCode,
+                    PersonnelTransactionPayrollEffects.Deduction,
+                    source.CauseNameSnapshot,
+                    source.DeductionConceptNameSnapshot,
+                    deductionAmount,
+                    source.CurrencyCode,
+                    source.IncidentDate,
+                    source.IncidentDate,
+                    Dias: null));
+            }
+
+            if (source.SuspensionStartDate is { } suspensionStart && source.SuspensionEndDate is { } suspensionEnd)
+            {
+                rows.Add(new InsumoPlanillaExportRow(
+                    source.EmployeeFullName,
+                    source.EmployeeCode,
+                    PersonnelTransactionPayrollEffects.UnpaidSuspension,
+                    source.CauseNameSnapshot,
+                    ConceptoDescuento: null,
+                    Monto: null,
+                    Moneda: null,
+                    suspensionStart,
+                    suspensionEnd,
+                    source.SuspensionDays));
+            }
+        }
+
+        return query.MaxRows is { } maxRows ? rows.Take(maxRows + 1).ToArray() : rows;
+    }
+
+    private IQueryable<DisciplinaryActionQueryRow> FilteredDisciplinaryActions(
+        Guid? employeeId, string? typeCode, string? causeCode, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var query =
+            from action in dbContext.PersonnelFileDisciplinaryActions.AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on action.PersonnelFileId equals file.Id
+            join type in dbContext.Set<DisciplinaryActionType>().AsNoTracking() on action.DisciplinaryActionTypeId equals type.Id
+            join cause in dbContext.Set<DisciplinaryActionCause>().AsNoTracking() on action.DisciplinaryActionCauseId equals cause.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new DisciplinaryActionQueryRow
+            {
+                DisciplinaryAction = action,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                DisciplinaryActionTypePublicId = type.PublicId,
+                DisciplinaryActionTypeCode = type.Code,
+                DisciplinaryActionTypeNormalizedCode = type.NormalizedCode,
+                DisciplinaryActionCausePublicId = cause.PublicId,
+                DisciplinaryActionCauseNormalizedCode = cause.NormalizedCode,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(typeCode))
+        {
+            var normalizedType = typeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.DisciplinaryActionTypeNormalizedCode == normalizedType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(causeCode))
+        {
+            var normalizedCause = causeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.DisciplinaryActionCauseNormalizedCode == normalizedCause);
+        }
+
+        if (fromDate is { } from)
+        {
+            query = query.Where(row => row.DisciplinaryAction.IncidentDate >= from);
+        }
+
+        if (toDate is { } to)
+        {
+            query = query.Where(row => row.DisciplinaryAction.IncidentDate <= to);
+        }
+
+        return query;
+    }
+
+    // When a status is supplied the items are filtered to exactly that status; otherwise includeAnnulled decides
+    // whether ANULADA is shown — the default excludes it (mirrors the compensatory-time bandeja).
+    private static IQueryable<RecognitionQueryRow> ApplyRecognitionItemStatusFilter(
+        IQueryable<RecognitionQueryRow> query, string? statusCode, bool includeAnnulled)
+    {
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var status = statusCode.Trim().ToUpperInvariant();
+            return query.Where(row => row.Recognition.StatusCode == status);
+        }
+
+        return includeAnnulled
+            ? query
+            : query.Where(row => row.Recognition.StatusCode != PersonnelTransactionStatuses.Anulada);
+    }
+
+    private static IQueryable<DisciplinaryActionQueryRow> ApplyDisciplinaryActionItemStatusFilter(
+        IQueryable<DisciplinaryActionQueryRow> query, string? statusCode, bool includeAnnulled)
+    {
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var status = statusCode.Trim().ToUpperInvariant();
+            return query.Where(row => row.DisciplinaryAction.StatusCode == status);
+        }
+
+        return includeAnnulled
+            ? query
+            : query.Where(row => row.DisciplinaryAction.StatusCode != PersonnelTransactionStatuses.Anulada);
+    }
+
+    private sealed class RecognitionQueryRow
+    {
+        public PersonnelFileRecognition Recognition { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+
+        public Guid RecognitionTypePublicId { get; init; }
+
+        public string RecognitionTypeCode { get; init; } = string.Empty;
+
+        public string RecognitionTypeNormalizedCode { get; init; } = string.Empty;
+    }
+
+    private sealed class DisciplinaryActionQueryRow
+    {
+        public PersonnelFileDisciplinaryAction DisciplinaryAction { get; init; } = null!;
+
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+
+        public Guid DisciplinaryActionTypePublicId { get; init; }
+
+        public string DisciplinaryActionTypeCode { get; init; } = string.Empty;
+
+        public string DisciplinaryActionTypeNormalizedCode { get; init; } = string.Empty;
+
+        public Guid DisciplinaryActionCausePublicId { get; init; }
+
+        public string DisciplinaryActionCauseNormalizedCode { get; init; } = string.Empty;
+    }
+
+    private sealed class PayrollInputSource
+    {
+        public string EmployeeFullName { get; init; } = string.Empty;
+
+        public string? EmployeeCode { get; init; }
+
+        public string CauseNameSnapshot { get; init; } = string.Empty;
+
+        public DateOnly IncidentDate { get; init; }
+
+        public bool HasPayrollDeduction { get; init; }
+
+        public decimal? DeductionAmount { get; init; }
+
+        public string? CurrencyCode { get; init; }
+
+        public string? DeductionConceptNameSnapshot { get; init; }
+
+        public DateOnly? SuspensionStartDate { get; init; }
+
+        public DateOnly? SuspensionEndDate { get; init; }
+
+        public int? SuspensionDays { get; init; }
+    }
 }

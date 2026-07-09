@@ -153,4 +153,34 @@ public interface IPersonnelTransactionRepository
     /// </summary>
     Task AcquireEmployeeRelationsLockAsync(Guid tenantId, long personnelFileId, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    // ── Company bandejas + exports + payroll input (PR-5, §3.9) ───────────────────────────────────
+
+    /// <summary>
+    /// The company-wide recognitions bandeja page (RF-012): items + paging + StatusCounts. The StatusCounts
+    /// cover every status; the items default to excluding ANULADA (opt in with <c>IncludeAnnulled</c> or an
+    /// explicit status). Ordered newest event first.
+    /// </summary>
+    Task<RecognitionBandejaResponse> QueryRecognitionsAsync(
+        QueryRecognitionsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The recognitions export rows (same filters as the bandeja), capped at <c>MaxRows + 1</c>.</summary>
+    Task<IReadOnlyCollection<ReconocimientoExportRow>> GetRecognitionExportRowsAsync(
+        ExportRecognitionsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The company-wide disciplinary-actions bandeja page (RF-012): items + paging + StatusCounts.</summary>
+    Task<DisciplinaryActionBandejaResponse> QueryDisciplinaryActionsAsync(
+        QueryDisciplinaryActionsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The disciplinary-actions export rows (same filters as the bandeja), capped at <c>MaxRows + 1</c>.</summary>
+    Task<IReadOnlyCollection<AmonestacionExportRow>> GetDisciplinaryActionExportRowsAsync(
+        ExportDisciplinaryActionsQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The payroll-input rows (RF-012): only APLICADA disciplinary actions whose incident date falls in
+    /// [<c>StartDate</c>, <c>EndDate</c>] with an effect, one row per effect (DESCUENTO / SUSPENSION_SIN_GOCE).
+    /// Revoked (ANULADA) records never travel (RN-14/RN-15). The handler has already validated the range.
+    /// </summary>
+    Task<IReadOnlyCollection<InsumoPlanillaExportRow>> GetPayrollInputRowsAsync(
+        ExportPayrollInputQuery query, CancellationToken cancellationToken);
 }

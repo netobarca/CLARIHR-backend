@@ -2326,6 +2326,9 @@
   <data name="PERSONNEL_TRANSACTION_STATE_RULE_VIOLATION" xml:space="preserve">
     <value>La transacción no está en un estado que permita esta operación.</value>
   </data>
+  <data name="PERSONNEL_TRANSACTION_RANGE_REQUIRED" xml:space="preserve">
+    <value>Se requiere un rango válido de fecha inicial y fecha final para la exportación del insumo de planilla.</value>
+  </data>
   <data name="DECISION_NOTE_REQUIRED" xml:space="preserve">
     <value>Se requiere una nota para rechazar la transacción.</value>
   </data>

@@ -716,4 +716,179 @@ public sealed partial class ApiIntegrationTests
             new { decision = "APLICAR", note = (string?)null });
         await AssertProblemDetailsAsync(bySubject, HttpStatusCode.Forbidden, "DISCIPLINARY_ACTION_SELF_APPROVAL_FORBIDDEN");
     }
+
+    // ── Bandejas + exports + payroll input (REQ-003 PR-5) ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task PersonnelTransactions_Bandejas_StatusCountsDefaultExcludeAnnulledAndExport()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var recognitionAuthorizer = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeRecognitions));
+        using var disciplinaryAuthorizer = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var recTypeId = await SeedRecognitionTypeAsync(scenario.TenantId, "DESEMPENO", "Desempeño sobresaliente");
+        var employeeId = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Bianca", "Bandeja", "EMP-BJ-A", "bianca.bj.a@empresa.test");
+
+        // rec1 → APLICADA (third-party apply).
+        var (rec1, rec1Token) = await CreateRecognitionAsync(managerClient, employeeId, RecognitionBody(recTypeId));
+        var rec1Apply = await PatchRecognitionAsync(recognitionAuthorizer, employeeId, rec1, "decision", rec1Token,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, rec1Apply.StatusCode);
+
+        // rec2 → EN_REVISION.
+        await CreateRecognitionAsync(managerClient, employeeId, RecognitionBody(recTypeId));
+
+        // rec3 → ANULADA (trámite withdrawal from EN_REVISION).
+        var (rec3, rec3Token) = await CreateRecognitionAsync(managerClient, employeeId, RecognitionBody(recTypeId));
+        var rec3Annul = await PatchRecognitionAsync(managerClient, employeeId, rec3, "annulment", rec3Token,
+            new { reason = "Registrado por error." });
+        Assert.Equal(HttpStatusCode.OK, rec3Annul.StatusCode);
+
+        // Recognitions bandeja (default): StatusCounts cover every status; items exclude ANULADA.
+        var recBandeja = await managerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/recognitions/query", new { });
+        Assert.Equal(HttpStatusCode.OK, recBandeja.StatusCode);
+        using (var doc = JsonDocument.Parse(await recBandeja.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(2, doc.RootElement.GetProperty("totalCount").GetInt32());
+            var counts = doc.RootElement.GetProperty("statusCounts");
+            Assert.Equal(1, counts.GetProperty("APLICADA").GetInt32());
+            Assert.Equal(1, counts.GetProperty("EN_REVISION").GetInt32());
+            Assert.Equal(1, counts.GetProperty("ANULADA").GetInt32());
+            foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
+            {
+                Assert.NotEqual("ANULADA", item.GetProperty("statusCode").GetString());
+            }
+        }
+
+        // includeAnnulled → all three.
+        var recAll = await managerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/recognitions/query", new { includeAnnulled = true });
+        using (var doc = JsonDocument.Parse(await recAll.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(3, doc.RootElement.GetProperty("totalCount").GetInt32());
+        }
+
+        // Recognitions export xlsx → 200 + spreadsheet content-type + non-empty body.
+        var recExportXlsx = await managerClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/recognitions/export?format=xlsx");
+        Assert.Equal(HttpStatusCode.OK, recExportXlsx.StatusCode);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            recExportXlsx.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await recExportXlsx.Content.ReadAsByteArrayAsync());
+
+        // Recognitions export json (default excludes annulled → 2 rows).
+        var recExportJson = await managerClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/recognitions/export?format=json");
+        Assert.Equal(HttpStatusCode.OK, recExportJson.StatusCode);
+        using (var doc = JsonDocument.Parse(await recExportJson.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(2, doc.RootElement.GetArrayLength());
+        }
+
+        // Disciplinary actions: da1 → APLICADA, da2 → EN_REVISION.
+        var daTypeId = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "ESCRITA", "Amonestación escrita", appliesSuspension: false);
+        var daCauseId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "TARDANZA", "Llegadas tardías", deductionConceptTypeCode: null);
+
+        var (da1, da1Token) = await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(daTypeId, daCauseId));
+        var da1Apply = await PatchDisciplinaryActionAsync(disciplinaryAuthorizer, employeeId, da1, "decision", da1Token,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, da1Apply.StatusCode);
+        await CreateDisciplinaryActionAsync(managerClient, employeeId, DisciplinaryActionBody(daTypeId, daCauseId));
+
+        var daBandeja = await managerClient.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/query", new { });
+        Assert.Equal(HttpStatusCode.OK, daBandeja.StatusCode);
+        using (var doc = JsonDocument.Parse(await daBandeja.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(2, doc.RootElement.GetProperty("totalCount").GetInt32());
+            var counts = doc.RootElement.GetProperty("statusCounts");
+            Assert.Equal(1, counts.GetProperty("APLICADA").GetInt32());
+            Assert.Equal(1, counts.GetProperty("EN_REVISION").GetInt32());
+        }
+
+        var daExportXlsx = await managerClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/export?format=xlsx");
+        Assert.Equal(HttpStatusCode.OK, daExportXlsx.StatusCode);
+        Assert.NotEmpty(await daExportXlsx.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task DisciplinaryAction_PayrollInput_EmitsRowPerEffectExcludesRevokedAndRequiresRange()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var managerUserId = scenario.ActorUserId;
+        var authorizerUserId = Guid.NewGuid();
+
+        using var managerClient = factory.CreateClientFor(RecognitionContext(scenario, managerUserId, PersonnelFilePermissionCodes.Admin));
+        using var authorizerClient = factory.CreateClientFor(RecognitionContext(scenario, authorizerUserId, PersonnelFilePermissionCodes.AuthorizeDisciplinaryActions));
+
+        var conceptCode = await SeedCompensationConceptAsync(scenario.TenantId, "DESC_DISCIPLINARIO", "Descuento disciplinario", CompensationNature.Egreso);
+        var suspType = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "SUSPENSION_SIN_GOCE", "Suspensión sin goce", appliesSuspension: true);
+        var escritaType = await SeedDisciplinaryActionTypeAsync(scenario.TenantId, "ESCRITA", "Amonestación escrita", appliesSuspension: false);
+        var causeId = await SeedDisciplinaryActionCauseAsync(scenario.TenantId, "INASISTENCIA", "Inasistencia injustificada", conceptCode);
+
+        var employeeA = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Diana", "Descuento", "EMP-PI-A", "diana.pi.a@empresa.test");
+        var employeeB = await SeedRecognitionEmployeeAsync(scenario.TenantId, "Ruben", "Revocado", "EMP-PI-B", "ruben.pi.b@empresa.test");
+
+        // Employee A: APLICADA with deduction $25 + suspension 3 days, incident 2026-04-28 (inside the range).
+        var (daA, daAToken) = await CreateDisciplinaryActionAsync(managerClient, employeeA, DisciplinaryActionBody(
+            suspType, causeId, hasPayrollDeduction: true, deductionAmount: 25m, currencyCode: "USD",
+            suspensionStartDate: "2026-05-10", suspensionEndDate: "2026-05-12"));
+        var daAApply = await PatchDisciplinaryActionAsync(authorizerClient, employeeA, daA, "decision", daAToken,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, daAApply.StatusCode);
+
+        // Employee B: APLICADA with a deduction, then REVOKED (→ ANULADA, excluded from the input — RN-14/RN-15).
+        var (daB, daBToken) = await CreateDisciplinaryActionAsync(managerClient, employeeB, DisciplinaryActionBody(
+            escritaType, causeId, hasPayrollDeduction: true, deductionAmount: 40m, currencyCode: "USD"));
+        var daBApply = await PatchDisciplinaryActionAsync(authorizerClient, employeeB, daB, "decision", daBToken,
+            new { decision = "APLICAR", note = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, daBApply.StatusCode);
+        Guid daBAppliedToken;
+        using (var doc = JsonDocument.Parse(await daBApply.Content.ReadAsStringAsync()))
+        {
+            daBAppliedToken = doc.RootElement.GetProperty("concurrencyToken").GetGuid();
+        }
+
+        var daBRevoke = await PatchDisciplinaryActionAsync(authorizerClient, employeeB, daB, "annulment", daBAppliedToken,
+            new { reason = "Registrada por error." });
+        Assert.Equal(HttpStatusCode.OK, daBRevoke.StatusCode);
+
+        // Payroll input over the range → exactly 2 rows for A (DESCUENTO + SUSPENSION_SIN_GOCE); B excluded.
+        var input = await managerClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/payroll-input/export?format=json&startDate=2026-04-01&endDate=2026-05-31");
+        Assert.Equal(HttpStatusCode.OK, input.StatusCode);
+        using (var doc = JsonDocument.Parse(await input.Content.ReadAsStringAsync()))
+        {
+            var rows = doc.RootElement.EnumerateArray().ToArray();
+            Assert.Equal(2, rows.Length);
+            Assert.All(rows, row => Assert.Equal("EMP-PI-A", row.GetProperty("CodigoEmpleado").GetString()));
+
+            var deduction = rows.Single(row => row.GetProperty("Efecto").GetString() == "DESCUENTO");
+            Assert.Equal(25m, deduction.GetProperty("Monto").GetDecimal());
+            Assert.Equal("USD", deduction.GetProperty("Moneda").GetString());
+            Assert.Equal("Descuento disciplinario", deduction.GetProperty("ConceptoDescuento").GetString());
+
+            var suspension = rows.Single(row => row.GetProperty("Efecto").GetString() == "SUSPENSION_SIN_GOCE");
+            Assert.Equal(3, suspension.GetProperty("Dias").GetInt32());
+            Assert.Equal("2026-05-10", suspension.GetProperty("FechaInicio").GetString());
+            Assert.Equal("2026-05-12", suspension.GetProperty("FechaFin").GetString());
+        }
+
+        // xlsx variant → 200 + spreadsheet content-type.
+        var inputXlsx = await managerClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/payroll-input/export?format=xlsx&startDate=2026-04-01&endDate=2026-05-31");
+        Assert.Equal(HttpStatusCode.OK, inputXlsx.StatusCode);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            inputXlsx.Content.Headers.ContentType?.MediaType);
+
+        // Missing range → 422 PERSONNEL_TRANSACTION_RANGE_REQUIRED.
+        var missingRange = await managerClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/disciplinary-actions/payroll-input/export?format=json");
+        await AssertProblemDetailsAsync(missingRange, HttpStatusCode.UnprocessableEntity, "PERSONNEL_TRANSACTION_RANGE_REQUIRED");
+    }
 }
