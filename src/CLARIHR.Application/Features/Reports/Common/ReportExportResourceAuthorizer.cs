@@ -38,6 +38,10 @@ internal sealed class ReportExportResourceAuthorizer(
             ReportExportResources.PersonnelFilePersonnelActions or
             ReportExportResources.PersonnelFilePayrollTransactions =>
                 personnelFileAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
+            // REQ-004 PR-5: the company-wide personnel-actions bandeja export is gated by the dashboard reader
+            // permission (ViewReports ∨ Read ∨ Admin — D-16), NOT the generic personnel-file read.
+            ReportExportResources.CompanyPersonnelActions =>
+                personnelFileAuthorizationService.EnsureCanViewReportsAsync(companyId, cancellationToken),
             ReportExportResources.OrgUnits => orgUnitAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             ReportExportResources.PositionSlots => positionSlotAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             ReportExportResources.SalaryTabulator => salaryTabulatorAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),

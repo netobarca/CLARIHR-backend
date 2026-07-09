@@ -210,6 +210,7 @@ public static class DependencyInjection
         services.AddScoped<ReportExportRowWriter>();
         services.AddScoped<IReportExportHandler, PersonnelFilesExportHandler>();
         services.AddScoped<IReportExportHandler, PersonnelFilePersonnelActionsExportHandler>();
+        services.AddScoped<IReportExportHandler, CompanyPersonnelActionsExportHandler>();
         services.AddScoped<IReportExportHandler, PersonnelFilePayrollTransactionsExportHandler>();
         services.AddScoped<IReportExportHandler, OrgUnitsExportHandler>();
         services.AddScoped<IReportExportHandler, PositionSlotsExportHandler>();

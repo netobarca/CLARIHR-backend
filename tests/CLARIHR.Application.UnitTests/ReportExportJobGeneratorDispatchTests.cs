@@ -20,6 +20,7 @@ public sealed class ReportExportJobGeneratorDispatchTests
     [
         ReportExportResources.PersonnelFiles,
         ReportExportResources.PersonnelFilePersonnelActions,
+        ReportExportResources.CompanyPersonnelActions,
         ReportExportResources.PersonnelFilePayrollTransactions,
         ReportExportResources.OrgUnits,
         ReportExportResources.PositionSlots,

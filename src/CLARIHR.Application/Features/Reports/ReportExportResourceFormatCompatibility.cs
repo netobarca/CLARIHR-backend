@@ -28,6 +28,7 @@ public static class ReportExportResourceFormatCompatibility
         {
             [ReportExportResources.PersonnelFiles] = TabularFormats,
             [ReportExportResources.PersonnelFilePersonnelActions] = TabularFormats,
+            [ReportExportResources.CompanyPersonnelActions] = TabularFormats,
             [ReportExportResources.PersonnelFilePayrollTransactions] = TabularFormats,
             [ReportExportResources.OrgUnits] = TabularFormats,
             [ReportExportResources.PositionSlots] = TabularFormats,

@@ -41226,6 +41226,165 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/personnel-actions/query':
+    post:
+      tags:
+        - Personnel Files
+      summary: Query the company-wide personnel-actions bandeja (journal drill)
+      description: "Returns a paginated, filterable list of the tenant's personnel-action journal entries (the drill of\nthe documentary-actions dashboard section to the row level) plus per-status counts. Filters: action\ntype, status, origin (`isSystemGenerated`), a date window (`year`/`month`, or a `fromUtc`/`toUtc` range —\ndefaults to the current year), employee (`employeePublicId`) and the common dimension filters (scoped by\nthe employee's CURRENT active-primary assignment — D-07). The `statusCounts` span EVERY status in the\nfiltered set (they ignore the status filter). Each row carries the employee, code, type, status, origin,\naction date, effective dates and description/reference — NO monetary fields (aclaración №8). Requires the\nViewReports or Read permission (gated in the handler)."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryCompanyPersonnelActionsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelActionBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/personnel-actions/export':
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the company-wide personnel-actions bandeja to Excel/CSV/JSON (synchronous)
+      description: "Streams the filtered personnel-actions bandeja as a file (default `xlsx`, also `csv`/`json`) with the\ndocumentary columns in Spanish (empleado, código, tipo, estado, origen, fecha del asiento, vigencias,\ndescripción, referencia) — NO monetary column (aclaración №8). Same filters as the bandeja query.\nSynchronous download capped at the configured row limit (`413` if exceeded). For larger exports submit an\nasynchronous report export job instead (`POST /report-export-jobs` with `resourceKey=COMPANY_PERSONNEL_ACTIONS`).\nRequires the ViewReports or Read permission (gated in the handler)."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: actionTypeCode
+          in: query
+          schema:
+            type: string
+        - name: actionStatusCode
+          in: query
+          schema:
+            type: string
+        - name: isSystemGenerated
+          in: query
+          schema:
+            type: boolean
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: month
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: fromUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: toUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: employeePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: functionalAreaPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgUnitPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: positionCategoryPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: jobProfilePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: workCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: costCenterPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/personnel-files':
     post:
       tags:
@@ -55031,6 +55190,145 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardBreakdownResponse'
+      additionalProperties: false
+    QueryCompanyPersonnelActionsRequest:
+      type: object
+      description: 'REQ-004 PR-5 — filters of the company-wide personnel-actions bandeja (RF-017). Guid fields serialize as `xxxPublicId`. The date window resolves to the from/to range if supplied, otherwise the year (+ month), otherwise the current year. SIN MONTOS — no monetary filter.'
+      properties:
+        actionTypeCode:
+          type: string
+          nullable: true
+        actionStatusCode:
+          type: string
+          nullable: true
+        isSystemGenerated:
+          type: boolean
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        fromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        toUtc:
+          type: string
+          format: date-time
+          nullable: true
+        employeePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        functionalAreaPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        orgUnitPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        positionCategoryPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        jobProfilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        workCenterPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        costCenterPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    PersonnelActionBandejaItemResponse:
+      type: object
+      description: 'One row of the company-wide personnel-actions bandeja (RF-017). Documentary facts only — SIN MONTOS (aclaración №8): no amount/currency. `originCode` is MANUAL/SYSTEM.'
+      properties:
+        personnelActionPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        actionTypeCode:
+          type: string
+        actionTypeName:
+          type: string
+          nullable: true
+        actionStatusCode:
+          type: string
+        actionStatusName:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        isSystemGenerated:
+          type: boolean
+        actionDateUtc:
+          type: string
+          format: date-time
+        effectiveFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        reference:
+          type: string
+          nullable: true
+      additionalProperties: false
+    PersonnelActionBandejaResponse:
+      type: object
+      description: 'The bandeja page: items + paging + per-status counts (counts span every status regardless of the status filter).'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelActionBandejaItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
       additionalProperties: false
     DashboardPersonnelActionsByDimensionResponse:
       type: object

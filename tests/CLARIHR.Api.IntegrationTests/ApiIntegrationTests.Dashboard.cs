@@ -700,4 +700,170 @@ public sealed partial class ApiIntegrationTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    // ---- REQ-004 PR-5: company-wide personnel-actions bandeja + exports (drill of the journal) ----
+
+    private async Task<(Guid Mensual, Guid Quincenal)> SeedBandejaFixtureAsync(Guid tenantId, string tag)
+    {
+        var mensual = await SeedDashboardEmployeeAsync(tenantId, "Ana", "Mensual", $"BJ{tag}-1", $"ana.bj{tag}@empresa.test", payrollTypeCode: "MENSUAL");
+        var quincenal = await SeedDashboardEmployeeAsync(tenantId, "Bea", "Quincenal", $"BJ{tag}-2", $"bea.bj{tag}@empresa.test", payrollTypeCode: "QUINCENAL");
+
+        var feb = new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc);
+        var may = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
+        await SeedPersonnelActionAsync(tenantId, mensual, "BAJA", "APLICADA", feb, isSystemGenerated: true);
+        await SeedPersonnelActionAsync(tenantId, mensual, "AMONESTACION", "APLICADA", feb, isSystemGenerated: false);
+        await SeedPersonnelActionAsync(tenantId, quincenal, "LIQUIDACION", "APLICADA", may, isSystemGenerated: true);
+        await SeedPersonnelActionAsync(tenantId, quincenal, "BAJA", "ANULADA", feb, isSystemGenerated: true);
+
+        return (mensual, quincenal);
+    }
+
+    private static int StatusCount(JsonElement root, string status)
+    {
+        var counts = root.GetProperty("statusCounts");
+        return counts.TryGetProperty(status, out var value) ? value.GetInt32() : 0;
+    }
+
+    [Fact]
+    public async Task PersonnelActionsBandeja_ReturnsItemsStatusCountsAndFilters()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await SeedBandejaFixtureAsync(scenario.TenantId, "A");
+
+        // Full year: 4 entries; statusCounts span every status (APLICADA 3, ANULADA 1) regardless of any filter.
+        var allResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026, pageSize = 25 });
+        allResponse.EnsureSuccessStatusCode();
+
+        var allBody = await allResponse.Content.ReadAsStringAsync();
+        using (var document = JsonDocument.Parse(allBody))
+        {
+            var root = document.RootElement;
+            Assert.Equal(4, root.GetProperty("totalCount").GetInt32());
+            Assert.Equal(4, root.GetProperty("items").GetArrayLength());
+            Assert.Equal(3, StatusCount(root, "APLICADA"));
+            Assert.Equal(1, StatusCount(root, "ANULADA"));
+
+            // Rows carry the documentary facts (empleado, código, tipo, estado, origen) — and NO monetary field.
+            var first = root.GetProperty("items").EnumerateArray().First();
+            Assert.False(string.IsNullOrWhiteSpace(first.GetProperty("employeeFullName").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(first.GetProperty("actionTypeCode").GetString()));
+            Assert.True(first.TryGetProperty("originCode", out var origin));
+            Assert.Contains(origin.GetString(), new[] { "MANUAL", "SYSTEM" });
+
+            // No-amounts contract (aclaración №8): neither `amount` nor `currency` appears anywhere in the bandeja.
+            Assert.DoesNotContain("\"amount\"", allBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("\"currency\"", allBody, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Type filter = BAJA → the 2 BAJA entries (APLICADA + ANULADA); statusCounts still span both statuses.
+        var typeResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026, actionTypeCode = "BAJA" });
+        typeResponse.EnsureSuccessStatusCode();
+        using (var document = JsonDocument.Parse(await typeResponse.Content.ReadAsStringAsync()))
+        {
+            var root = document.RootElement;
+            Assert.Equal(2, root.GetProperty("totalCount").GetInt32());
+            Assert.Equal(1, StatusCount(root, "APLICADA"));
+            Assert.Equal(1, StatusCount(root, "ANULADA"));
+        }
+
+        // Status filter = APLICADA → 3 items, but statusCounts IGNORE the status filter (still APLICADA 3 + ANULADA 1).
+        var statusResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026, actionStatusCode = "APLICADA" });
+        statusResponse.EnsureSuccessStatusCode();
+        using (var document = JsonDocument.Parse(await statusResponse.Content.ReadAsStringAsync()))
+        {
+            var root = document.RootElement;
+            Assert.Equal(3, root.GetProperty("totalCount").GetInt32());
+            Assert.All(root.GetProperty("items").EnumerateArray(), item => Assert.Equal("APLICADA", item.GetProperty("actionStatusCode").GetString()));
+            Assert.Equal(3, StatusCount(root, "APLICADA"));
+            Assert.Equal(1, StatusCount(root, "ANULADA")); // counts span all statuses even with the status filter applied
+        }
+
+        // Origin filter = manual (isSystemGenerated=false) → only the AMONESTACION (manual) entry.
+        var originResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026, isSystemGenerated = false });
+        originResponse.EnsureSuccessStatusCode();
+        using (var document = JsonDocument.Parse(await originResponse.Content.ReadAsStringAsync()))
+        {
+            var root = document.RootElement;
+            Assert.Equal(1, root.GetProperty("totalCount").GetInt32());
+            var only = root.GetProperty("items").EnumerateArray().Single();
+            Assert.Equal("AMONESTACION", only.GetProperty("actionTypeCode").GetString());
+            Assert.Equal("MANUAL", only.GetProperty("originCode").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task PersonnelActionsBandeja_Pagination_ReturnsRequestedPage()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await SeedBandejaFixtureAsync(scenario.TenantId, "P");
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026, pageNumber = 2, pageSize = 3 });
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        Assert.Equal(4, root.GetProperty("totalCount").GetInt32());
+        Assert.Equal(2, root.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(3, root.GetProperty("pageSize").GetInt32());
+        Assert.Equal(1, root.GetProperty("items").GetArrayLength()); // 4 total, page 2 of size 3 → 1 row
+    }
+
+    [Fact]
+    public async Task PersonnelActionsBandeja_Export_ReturnsFileWithoutAmounts()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await SeedBandejaFixtureAsync(scenario.TenantId, "X");
+
+        var xlsxResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/export?format=xlsx&year=2026");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsxResponse.Content.Headers.ContentType?.MediaType);
+        Assert.True((await xlsxResponse.Content.ReadAsByteArrayAsync()).Length > 0);
+
+        // CSV headers are the Spanish property names; assert the export carries NO monetary column (aclaración №8).
+        var csvResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/export?format=csv&year=2026");
+        csvResponse.EnsureSuccessStatusCode();
+        var csv = await csvResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Empleado", csv);
+        Assert.Contains("Tipo", csv);
+        Assert.DoesNotContain("amount", csv, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("currency", csv, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("monto", csv, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PersonnelActionsBandeja_WithoutViewReports_IsForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var queryResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/query",
+            new { year = 2026 });
+        Assert.Equal(HttpStatusCode.Forbidden, queryResponse.StatusCode);
+
+        var exportResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-actions/export?year=2026");
+        Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+    }
 }

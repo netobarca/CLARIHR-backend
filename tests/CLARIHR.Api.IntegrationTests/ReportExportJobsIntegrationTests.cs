@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Files;
@@ -75,6 +76,55 @@ public sealed class ReportExportJobsIntegrationTests(ReportExportIntegrationTest
         var cancelled = await cancelResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
         Assert.NotNull(cancelled);
         Assert.Equal(ReportExportJobStatus.Cancelled, cancelled.Status);
+    }
+
+    [Fact]
+    public async Task ReportExportJobs_CompanyPersonnelActions_WithViewReports_QueuesJob()
+    {
+        // REQ-004 PR-5: the company-wide personnel-actions bandeja has an async export resource
+        // (COMPANY_PERSONNEL_ACTIONS) gated by the dashboard reader permission (ViewReports).
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PersonnelFilePermissionCodes.ViewReports));
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "COMPANY_PERSONNEL_ACTIONS",
+                format = "xlsx",
+                parameters = new { year = 2026 }
+            });
+
+        Assert.Equal(HttpStatusCode.Accepted, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.Equal(ReportExportJobStatus.Queued, created.Status);
+        Assert.Equal("COMPANY_PERSONNEL_ACTIONS", created.ResourceKey);
+        Assert.Equal("xlsx", created.Format);
+    }
+
+    [Fact]
+    public async Task ReportExportJobs_CompanyPersonnelActions_WithoutViewReports_IsForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // A tenant user with no personnel-file / dashboard permission cannot queue the company-wide export.
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(Guid.NewGuid(), scenario.TenantId));
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "COMPANY_PERSONNEL_ACTIONS",
+                format = "xlsx",
+                parameters = new { year = 2026 }
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, createResponse.StatusCode);
     }
 
     [Fact]

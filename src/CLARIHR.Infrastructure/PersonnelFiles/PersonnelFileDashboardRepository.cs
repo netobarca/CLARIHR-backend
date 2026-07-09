@@ -356,6 +356,244 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
         return grouped.ToDictionary(entry => entry.StatusCode, entry => entry.Count, StringComparer.OrdinalIgnoreCase);
     }
 
+    public async Task<PersonnelActionBandejaResult> QueryPersonnelActionsAsync(
+        Guid tenantId,
+        PersonnelActionBandejaFilter filter,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = await BuildBandejaBaseQueryAsync(tenantId, filter, cancellationToken);
+
+        // StatusCounts span EVERY status in the filtered set — the status filter is NOT applied here so the
+        // frontend can render the per-status tab counts even when a status is selected (like the incapacities
+        // bandeja, PR-6). Counts only — no monetary aggregate (aclaración №8).
+        var statusGroups = await baseQuery
+            .GroupBy(action => action.ActionStatusCode)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+        var statusCounts = statusGroups.ToDictionary(entry => entry.Status, entry => entry.Count, StringComparer.OrdinalIgnoreCase);
+
+        var itemsQuery = ApplyBandejaStatusFilter(baseQuery, filter);
+        var totalCount = await itemsQuery.CountAsync(cancellationToken);
+
+        var rawRows = await itemsQuery
+            .OrderByDescending(action => action.ActionDateUtc)
+            .ThenByDescending(action => action.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(action => new BandejaRawRow(
+                action.PublicId,
+                action.PersonnelFileId,
+                action.PersonnelFile.PublicId,
+                action.PersonnelFile.FullName,
+                action.ActionTypeCode,
+                action.ActionStatusCode,
+                action.ActionDateUtc,
+                action.EffectiveFromUtc,
+                action.EffectiveToUtc,
+                action.Description,
+                action.Reference,
+                action.IsSystemGenerated))
+            .ToArrayAsync(cancellationToken);
+
+        var (codeByFileId, labels) = await ResolveBandejaLookupsAsync(
+            tenantId, rawRows.Select(row => row.FileId), cancellationToken);
+
+        var items = rawRows
+            .Select(row => new PersonnelActionBandejaItemResponse(
+                row.PublicId,
+                row.FilePublicId,
+                row.FullName,
+                codeByFileId.GetValueOrDefault(row.FileId),
+                row.ActionTypeCode,
+                labels.TypeLabels.GetValueOrDefault(row.ActionTypeCode),
+                row.ActionStatusCode,
+                labels.StatusLabels.GetValueOrDefault(row.ActionStatusCode),
+                row.IsSystemGenerated ? PersonnelActionsDashboardRules.OriginSystemKey : PersonnelActionsDashboardRules.OriginManualKey,
+                row.IsSystemGenerated,
+                row.ActionDateUtc,
+                row.EffectiveFromUtc,
+                row.EffectiveToUtc,
+                row.Description,
+                row.Reference))
+            .ToArray();
+
+        return new PersonnelActionBandejaResult(items, totalCount, statusCounts);
+    }
+
+    public async Task<IReadOnlyCollection<AsientoPersonalExportRow>> GetPersonnelActionExportRowsAsync(
+        Guid tenantId,
+        PersonnelActionBandejaFilter filter,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = await BuildBandejaBaseQueryAsync(tenantId, filter, cancellationToken);
+        var itemsQuery = ApplyBandejaStatusFilter(baseQuery, filter)
+            .OrderByDescending(action => action.ActionDateUtc)
+            .ThenByDescending(action => action.Id);
+
+        IQueryable<PersonnelFilePersonnelAction> limited = itemsQuery;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        var rawRows = await limited
+            .Select(action => new BandejaRawRow(
+                action.PublicId,
+                action.PersonnelFileId,
+                action.PersonnelFile.PublicId,
+                action.PersonnelFile.FullName,
+                action.ActionTypeCode,
+                action.ActionStatusCode,
+                action.ActionDateUtc,
+                action.EffectiveFromUtc,
+                action.EffectiveToUtc,
+                action.Description,
+                action.Reference,
+                action.IsSystemGenerated))
+            .ToArrayAsync(cancellationToken);
+
+        var (codeByFileId, labels) = await ResolveBandejaLookupsAsync(
+            tenantId, rawRows.Select(row => row.FileId), cancellationToken);
+
+        return rawRows
+            .Select(row => new AsientoPersonalExportRow(
+                row.FullName,
+                codeByFileId.GetValueOrDefault(row.FileId),
+                labels.TypeLabels.GetValueOrDefault(row.ActionTypeCode, row.ActionTypeCode),
+                labels.StatusLabels.GetValueOrDefault(row.ActionStatusCode, row.ActionStatusCode),
+                row.IsSystemGenerated ? PersonnelActionsDashboardRules.OriginSystemLabel : PersonnelActionsDashboardRules.OriginManualLabel,
+                row.ActionDateUtc,
+                row.EffectiveFromUtc,
+                row.EffectiveToUtc,
+                row.Description,
+                row.Reference))
+            .ToArray();
+    }
+
+    private async Task<IQueryable<PersonnelFilePersonnelAction>> BuildBandejaBaseQueryAsync(
+        Guid tenantId,
+        PersonnelActionBandejaFilter filter,
+        CancellationToken cancellationToken)
+    {
+        var (start, endInclusive) = ResolveBandejaWindow(filter);
+
+        // Dimensional scoping (D-07): when a dimension filter is active, restrict the journal to the employees
+        // whose CURRENT active-primary assignment matches (computed from the same row bundle the dashboard uses);
+        // when none is active there is no restriction. Actions of files without a dimensional row survive only in
+        // the unconstrained case — mirrors the dashboard section's "Sin asignar" fallback.
+        HashSet<Guid>? eligibleFileIds = null;
+        if (filter.HasDimensionConstraint)
+        {
+            var lookups = await BuildDimensionLookupsAsync(tenantId, cancellationToken);
+            var bundle = await BuildRowBundleAsync(tenantId, lookups, cancellationToken);
+            var dimensionFilter = filter.ToDimensionFilter();
+            eligibleFileIds = bundle.Rows
+                .Where(row => PersonnelFileDashboardRules.MatchesDimensions(row, dimensionFilter))
+                .Select(row => row.FileId)
+                .ToHashSet();
+        }
+
+        var query = dbContext.Set<PersonnelFilePersonnelAction>()
+            .AsNoTracking()
+            .Where(action => action.TenantId == tenantId
+                && action.ActionDateUtc >= start
+                && action.ActionDateUtc <= endInclusive);
+
+        if (!string.IsNullOrWhiteSpace(filter.ActionTypeCode))
+        {
+            var typeCode = filter.ActionTypeCode.Trim();
+            query = query.Where(action => action.ActionTypeCode == typeCode);
+        }
+
+        if (filter.IsSystemGenerated.HasValue)
+        {
+            var isSystem = filter.IsSystemGenerated.Value;
+            query = query.Where(action => action.IsSystemGenerated == isSystem);
+        }
+
+        if (filter.EmployeeId.HasValue)
+        {
+            var employeeId = filter.EmployeeId.Value;
+            query = query.Where(action => action.PersonnelFile.PublicId == employeeId);
+        }
+
+        if (eligibleFileIds is not null)
+        {
+            query = query.Where(action => eligibleFileIds.Contains(action.PersonnelFile.PublicId));
+        }
+
+        return query;
+    }
+
+    private static IQueryable<PersonnelFilePersonnelAction> ApplyBandejaStatusFilter(
+        IQueryable<PersonnelFilePersonnelAction> query,
+        PersonnelActionBandejaFilter filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter.ActionStatusCode))
+        {
+            return query;
+        }
+
+        var statusCode = filter.ActionStatusCode.Trim();
+        return query.Where(action => action.ActionStatusCode == statusCode);
+    }
+
+    private async Task<(IReadOnlyDictionary<long, string> CodeByFileId, PersonnelActionCatalogLabels Labels)> ResolveBandejaLookupsAsync(
+        Guid tenantId,
+        IEnumerable<long> fileIds,
+        CancellationToken cancellationToken)
+    {
+        var distinctFileIds = fileIds.Distinct().ToArray();
+        var codeByFileId = distinctFileIds.Length == 0
+            ? new Dictionary<long, string>()
+            : (await dbContext.Set<PersonnelFileEmployeeProfile>()
+                .AsNoTracking()
+                .Where(profile => profile.TenantId == tenantId && distinctFileIds.Contains(profile.PersonnelFileId))
+                .Select(profile => new { profile.PersonnelFileId, profile.EmployeeCode })
+                .ToArrayAsync(cancellationToken))
+                .GroupBy(entry => entry.PersonnelFileId)
+                .ToDictionary(group => group.Key, group => group.First().EmployeeCode);
+
+        var labels = await GetPersonnelActionCatalogLabelsAsync(cancellationToken);
+        return (codeByFileId, labels);
+    }
+
+    /// <summary>
+    /// Resolves the bandeja window (aclaración: from/to range if supplied, otherwise the year (+ month), otherwise
+    /// the current year). Inclusive upper bound so a from/to pair maps directly onto the supplied instants.
+    /// </summary>
+    private static (DateTime Start, DateTime EndInclusive) ResolveBandejaWindow(PersonnelActionBandejaFilter filter)
+    {
+        if (filter.FromUtc.HasValue || filter.ToUtc.HasValue)
+        {
+            var start = filter.FromUtc ?? new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endInclusive = filter.ToUtc ?? new DateTime(9999, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+            return (start, endInclusive);
+        }
+
+        var year = filter.Year ?? DateTime.UtcNow.Year;
+        var windowStart = new DateTime(year, filter.Month ?? 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var exclusiveEnd = filter.Month.HasValue ? windowStart.AddMonths(1) : windowStart.AddYears(1);
+        return (windowStart, exclusiveEnd.AddTicks(-1));
+    }
+
+    private sealed record BandejaRawRow(
+        Guid PublicId,
+        long FileId,
+        Guid FilePublicId,
+        string FullName,
+        string ActionTypeCode,
+        string ActionStatusCode,
+        DateTime ActionDateUtc,
+        DateTime? EffectiveFromUtc,
+        DateTime? EffectiveToUtc,
+        string? Description,
+        string? Reference,
+        bool IsSystemGenerated);
+
     private static Dictionary<string, string> ToLabelDictionary(IEnumerable<(string Code, string Name)> items) =>
         items
             .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)

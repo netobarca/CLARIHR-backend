@@ -91,4 +91,29 @@ public interface IPersonnelFileDashboardRepository
         int year,
         int? month,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Company-wide personnel-actions bandeja (RF-017): a paginated page of journal rows in the resolved window
+    /// honoring the documentary + dimensional filters, plus per-status counts. The counts span EVERY status in the
+    /// filtered set (they ignore the status filter, so the frontend can render the tab counts). Dimensional scoping
+    /// uses the employee's CURRENT active-primary assignment (D-07). SIN MONTOS (aclaración №8): no amount/currency.
+    /// </summary>
+    Task<PersonnelActionBandejaResult> QueryPersonnelActionsAsync(
+        Guid tenantId,
+        PersonnelActionBandejaFilter filter,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Company-wide personnel-actions bandeja export rows (RF-016) in Spanish, honoring the same filters as
+    /// <see cref="QueryPersonnelActionsAsync"/> (including the status filter), capped at <paramref name="maxRows"/>
+    /// when supplied (the synchronous path passes the sync limit → 413 over it; the async job passes the async
+    /// cap). SIN MONTOS (aclaración №8): no monetary column is projected.
+    /// </summary>
+    Task<IReadOnlyCollection<AsientoPersonalExportRow>> GetPersonnelActionExportRowsAsync(
+        Guid tenantId,
+        PersonnelActionBandejaFilter filter,
+        int? maxRows,
+        CancellationToken cancellationToken);
 }
