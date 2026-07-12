@@ -432,16 +432,16 @@
 
 | | |
 |---|---|
-| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; espera turno tras REQ-008 (contiguo) |
+| **Estado** | 🟡 EN DESARROLLO — **plan técnico escrito** + **PR-1 ✅** (`4cd65c4`) en `feature/planilla-descuentos`; siguiente: PR-2 (dominio + reglas) |
 | **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — Plan 2; espejo REQ-006 confirmado sin cambios: anti-self triple, conceptos Egreso no estatutarios, sin centro de costo P-08) |
-| **Plan técnico** | `docs/technical/plan-tecnico-planilla-descuentos-eventuales.md` (pendiente) |
+| **Plan técnico** | ✅ [`docs/technical/plan-tecnico-planilla-descuentos-eventuales.md`](technical/plan-tecnico-planilla-descuentos-eventuales.md) — escrito 2026-07-12; 5 PRs; §0.2 ⚠️ el toque a `ResolveClass` SE REPITE |
 | **Guía FE** | pendiente |
 | **Rama** | `feature/planilla-descuentos` (acumulada con REQ-008) |
 | **Línea base de tests** | (anotar al arrancar) |
 | **Alcance (síntesis)** | **Espejo egreso de REQ-006**: descuento ocasional con valor fijo o **por factores** (`PORCENTAJE_SOBRE_BASE`/`CANTIDAD_POR_VALOR`, componentes persistidos, recálculo servidor), **solicitante trío + anti-self TRIPLE**, par planilla/periodo (FK real) re-imputable, aplicación unitaria/lote + reversión, búsqueda corporativa + `StatusCounts` + totales por moneda + exports + insumo, liquidación: `DESCUENTO_EVENTUAL_PENDIENTE=-9945` `IsSystemCalculated=FALSE`. Conceptos = `Nature=Egreso` no estatutario (ISSS/AFP/Renta → 422). **Seeds `-9940…-9949`**. Construir **contiguo a REQ-008** (amortiza andamiaje) |
 
 ### Checklist de PRs
-- [ ] PR-1 — Configuración (estados `-9940…-9944` + concepto `-9945` + 3 permisos)
+- [x] PR-1 — Configuración (estados `-9940…-9944` + concepto `-9945` + 3 permisos) ✅ 2026-07-12 (`4cd65c4`)
 - [ ] PR-2 — Dominio + reglas (fijo/factores + golden)
 - [ ] PR-3 — Flujo (anti-self triple, re-imputación)
 - [ ] PR-4 — Aplicación (lote + reversión + carrera)
@@ -451,9 +451,10 @@
 - [ ] Migraciones; asignar 3 permisos
 
 ### Próxima acción
-> Ratificación ✅ (2026-07-12). Espera el cierre de REQ-008 PR-1…PR-6 (o arrancar tras su PR-3 si se decide interleaving); al arrancar, escribir `plan-tecnico-planilla-descuentos-eventuales.md`. Molde: REQ-006 (`PersonnelFileOneTimeIncome`, anti-self triple `OneTimeIncomes.Handlers.cs:195-211`). Verificar seeds `-9940…-9949` libres al abrir PR-1.
+> **Arrancar PR-2 — Dominio + reglas (M2)** (plan técnico §1/§2; PR-1 cerrado en `4cd65c4`). Contenido: **2 entidades** en `src/CLARIHR.Domain/PersonnelFiles/PersonnelFileOneTimeDeduction.cs` (**molde exacto: `PersonnelFileOneTimeIncome.cs`** — copiar y cambiar `Ingreso`→`Egreso`): el agregado (5 estados; `target_date`; concepto Egreso + snapshot; **plaza sin centro de costo**; `is_fixed_value` + `amount` + **componentes persistidos** `base_amount`/`percent`/`quantity`/`unit_value`/`factor`; par planilla/**FK periodo** re-imputable; **trío solicitante** `requester_file_public_id`/`requester_name_snapshot`/`requested_by_user_id`; flujo) + la **aplicación** hija (con **índice único parcial `WHERE is_active`** → una sola aplicación activa) + mutadores custodiados (**`APLICADO` es REVERSIBLE**: anular la aplicación devuelve a `AUTORIZADO`) + EF config/CHECKs + **`OneTimeDeductionRules`** (molde `OneTimeIncomes.Rules.cs`: `Round2`, `ComputeAmount` con los 2 métodos `PORCENTAJE_SOBRE_BASE` y `CANTIDAD_POR_VALOR`, `ValidateComponents`, `CanTransition`) + repo + **lock `"ODED"`** (`0x4F_44_45_44`, molde `OTIN`). Migración **M2** `AddOneTimeDeductions`. Gate: golden de los 2 métodos de cálculo. Suites al cerrar: build 0/0 + unit + integración dirigida.
 
 ### Bitácora
+- **2026-07-12 (c)** — **Plan técnico escrito + PR-1 COMPLETADO** (`4cd65c4`). Plan: espejo 1:1 de REQ-006, 5 PRs; **§0.2 es lo importante**: el toque a `ResolveClass` **SE REPITE** (el switch sigue con `default → Ingreso`; el arreglo de REQ-008 solo cubre `DESCUENTO_CICLICO_PENDIENTE`) → en PR-5 hay que añadir `DescuentoEventualPendiente` a su brazo `Descuento` o el saldo **se pagaría** en vez de descontarse. PR-1 entregado: catálogo `one-time-deduction-statuses` (`-9940…-9944`) por la receta de 8 toques (⚠️ el índice `__country_active_sort` mide **exactamente 63 chars**, el límite de PostgreSQL), concepto de liquidación **`DESCUENTO_EVENTUAL_PENDIENTE = -9945`** (`IsSystemCalculated=false`, sort 136), **3 permisos** `View/Manage/AuthorizeOneTimeDeductions` con policies/gates/registro (`Authorize*` **sin Admin**) + governance, migración **M1** `AddOneTimeDeductionConfiguration` sin drift. **Se reutiliza sin reescribir** el resolver de concepto Egreso NO estatutario que construyó REQ-008 (`GetActiveDeductionConceptAsync`). Verificado: build 0 err/0 warn · **unit 2695/2695** · integración dirigida (seeding + catálogos + **guardrail de policies**) 6/6. Siguiente: **PR-2**.
 - **2026-07-12 (b)** — **RATIFICADO** junto con el documento compartido (detalle en la bitácora de REQ-008): espejo REQ-006 confirmado tal cual (P-02 autorización sí, P-08 sin centro de costo, P-10 conceptos Egreso + siembra de faltantes). Sin commit.
 - **2026-07-12** — Análisis en borrador (Plan 2 del documento compartido). Sin commit. Pendiente: ratificación.
 
