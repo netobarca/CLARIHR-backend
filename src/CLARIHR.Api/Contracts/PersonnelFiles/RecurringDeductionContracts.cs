@@ -82,3 +82,40 @@ public sealed record ResolveRecurringDeductionRequest(string TargetStatusCode, s
 
 /// <summary>Body for the authorizer revocation of a VIGENTE credit (reason mandatory).</summary>
 public sealed record RevokeRecurringDeductionRequest(string Reason);
+
+/// <summary>
+/// Body for applying the NEXT charge of a VIGENTE credit (RF-006). The charge number, its amount and its
+/// capital/interest split are derived by the rules and are NOT editable. <c>AppliedDate</c> defaults to today when
+/// omitted; <c>PayrollPeriodPublicId</c> (optional) imputes the charge to a company payroll-period instance
+/// (validated active). The credit's <c>concurrencyToken</c> travels in the <c>If-Match</c> header.
+/// </summary>
+public sealed record ApplyRecurringDeductionInstallmentRequest(
+    DateOnly? AppliedDate,
+    Guid? PayrollPeriodPublicId,
+    string? Notes);
+
+/// <summary>
+/// Body for an EXTRAORDINARY payment (abono, RF-008): <c>Amount</c> goes 100 % against capital and SHORTENS the
+/// term (the quota is untouched — P-04). Paying exactly the outstanding balance is a payoff and finalizes the
+/// credit. Rejected on a SUSPENDIDO credit, above the balance, or on an indefinite plan.
+/// </summary>
+public sealed record ApplyRecurringDeductionExtraordinaryRequest(
+    decimal Amount,
+    DateOnly? AppliedDate,
+    Guid? PayrollPeriodPublicId,
+    string? Notes);
+
+/// <summary>Body for annulling an applied charge (regular or extraordinary); the reason is mandatory.</summary>
+public sealed record AnnulRecurringDeductionInstallmentRequest(string Reason);
+
+/// <summary>
+/// Body for the company-wide apply-period batch (RF-007): applies every due charge of the VIGENTE credits of
+/// <c>PayrollTypeCode</c> up to the cutoff. Provide a <c>PayrollPeriodPublicId</c> (its end date is the cutoff and
+/// its id/label are snapshotted) or a bare <c>CutoffDate</c>. <c>ExcludedDeductionPublicIds</c> postpones credits.
+/// The batch is ATOMIC: any conflict rolls the whole run back (422).
+/// </summary>
+public sealed record ApplyRecurringDeductionPeriodRequest(
+    string PayrollTypeCode,
+    Guid? PayrollPeriodPublicId,
+    DateOnly? CutoffDate,
+    IReadOnlyCollection<Guid>? ExcludedDeductionPublicIds);

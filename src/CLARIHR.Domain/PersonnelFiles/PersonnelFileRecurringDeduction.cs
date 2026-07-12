@@ -74,6 +74,35 @@ public static class RecurringDeductionFrequencies
     public const string Quincenal = "QUINCENAL";
     public const string Semanal = "SEMANAL";
     public const string Unica = "UNICA";
+
+    /// <summary>
+    /// How many periods of <paramref name="frequencyCode"/> fit in a year: MENSUAL 12, QUINCENAL 24, SEMANAL 52,
+    /// UNICA 1. Any other (unknown) code degrades to the monthly cadence. This is the basis of BOTH the interest
+    /// period rate (P-03) and the installment/application split (D-10).
+    /// </summary>
+    public static int PeriodsPerYear(string? frequencyCode) =>
+        (frequencyCode ?? string.Empty).Trim().ToUpperInvariant() switch
+        {
+            Quincenal => 24,
+            Semanal => 52,
+            Unica => 1,
+            _ => 12,
+        };
+
+    /// <summary>
+    /// In how many CHARGES one installment is split when the application cadence is faster than the installment
+    /// cadence (D-10: a MENSUAL quota applied QUINCENAL is charged as 2 halves). 1 when both match — and 1 as a
+    /// safe fallback for an incoherent pair, which the rules reject at write time anyway.
+    /// </summary>
+    public static int ApplicationPartsPerInstallment(string? installmentFrequencyCode, string? applicationFrequencyCode)
+    {
+        var installmentPeriods = PeriodsPerYear(installmentFrequencyCode);
+        var applicationPeriods = PeriodsPerYear(applicationFrequencyCode);
+
+        return applicationPeriods < installmentPeriods || applicationPeriods % installmentPeriods != 0
+            ? 1
+            : applicationPeriods / installmentPeriods;
+    }
 }
 
 /// <summary>
@@ -290,6 +319,21 @@ public sealed class PersonnelFileRecurringDeduction : TenantEntity
                 : ActiveSegments()
                     .Select(segment => segment.ToInstallment)
                     .Max();
+
+    /// <summary>
+    /// In how many CHARGES each installment is split (D-10): 1 when the application cadence equals the
+    /// installment cadence, 2 when a monthly quota is charged fortnightly, and so on.
+    /// </summary>
+    public int ApplicationPartsPerInstallment =>
+        RecurringDeductionFrequencies.ApplicationPartsPerInstallment(InstallmentFrequencyCode, ApplicationFrequencyCode);
+
+    /// <summary>
+    /// How many CHARGES the plan is made of — the unit of the ledger (D-10 / RF-006): the installment count times
+    /// the application parts. A 12-installment monthly plan charged fortnightly is 24 charges of half the quota.
+    /// Null for an indefinite plan. The applied installments are numbered against THIS count, not the quota count.
+    /// </summary>
+    public int? PlannedChargeCount =>
+        PlannedInstallmentCount is { } count ? count * ApplicationPartsPerInstallment : null;
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
@@ -625,7 +669,8 @@ public sealed class PersonnelFileRecurringDeduction : TenantEntity
             throw new InvalidOperationException("The installment number must be the next expected one in the plan sequence.");
         }
 
-        if (PlannedInstallmentCount is { } count && installmentNumber > count)
+        // The ledger counts CHARGES, not quotas (D-10): a monthly quota charged fortnightly yields two rows.
+        if (PlannedChargeCount is { } count && installmentNumber > count)
         {
             throw new InvalidOperationException("The installment number cannot exceed the finite plan count.");
         }
@@ -836,7 +881,7 @@ public sealed class PersonnelFileRecurringDeduction : TenantEntity
             return true;
         }
 
-        if (PlannedInstallmentCount is not { } count)
+        if (PlannedChargeCount is not { } count)
         {
             return false;
         }

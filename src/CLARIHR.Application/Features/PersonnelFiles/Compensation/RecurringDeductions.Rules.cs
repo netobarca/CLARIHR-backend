@@ -170,13 +170,7 @@ public static class RecurringDeductionRules
     /// SEMANAL 52. Any other (unknown) code degrades to the monthly cadence, mirroring the projection.
     /// </summary>
     public static int PeriodsPerYear(string frequencyCode) =>
-        Normalize(frequencyCode) switch
-        {
-            RecurringDeductionFrequencies.Quincenal => 24,
-            RecurringDeductionFrequencies.Semanal => 52,
-            RecurringDeductionFrequencies.Unica => 1,
-            _ => 12,
-        };
+        RecurringDeductionFrequencies.PeriodsPerYear(frequencyCode);
 
     /// <summary>
     /// Validates the segment list (№12): values are positive, ranges are well formed, the segments are contiguous
@@ -511,15 +505,8 @@ public static class RecurringDeductionRules
     }
 
     /// <summary>The number of application parts per installment (1 when both frequencies match).</summary>
-    public static int ApplicationPartsPerInstallment(string installmentFrequencyCode, string applicationFrequencyCode)
-    {
-        var installmentPeriods = PeriodsPerYear(installmentFrequencyCode);
-        var applicationPeriods = PeriodsPerYear(applicationFrequencyCode);
-
-        return applicationPeriods < installmentPeriods || applicationPeriods % installmentPeriods != 0
-            ? 1
-            : applicationPeriods / installmentPeriods;
-    }
+    public static int ApplicationPartsPerInstallment(string installmentFrequencyCode, string applicationFrequencyCode) =>
+        RecurringDeductionFrequencies.ApplicationPartsPerInstallment(installmentFrequencyCode, applicationFrequencyCode);
 
     /// <summary>
     /// Builds the theoretical projection of the plan (derived, never persisted). Due dates advance by the
@@ -808,6 +795,217 @@ public static class RecurringDeductionRules
         }
 
         return RecurringDeductionRuleResult.Ok;
+    }
+
+    // ── Charge level (the unit of the LEDGER — D-10 / RF-006) ─────────────────────────────────────────
+    //
+    // A "charge" is one application event. When the application cadence is faster than the installment cadence
+    // the quota is split into parts and EACH PART is a charge (a monthly $100 quota applied fortnightly is two
+    // $50 charges). When both cadences match, a charge IS an installment. The applied rows are numbered against
+    // the charge sequence, so every function below maps charge n → the quota it belongs to and its part.
+
+    /// <summary>How many CHARGES the finite plan is made of: the installment count times the application parts.</summary>
+    public static int? ChargeCount(RecurringDeductionPlan plan, string applicationFrequencyCode)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+
+        return plan.InstallmentCount is { } count
+            ? count * ApplicationPartsPerInstallment(plan.InstallmentFrequencyCode, applicationFrequencyCode)
+            : null;
+    }
+
+    /// <summary>
+    /// The amount + capital/interest split of CHARGE <paramref name="chargeNumber"/> (1-based). The quota it
+    /// belongs to is <c>(n−1)/parts + 1</c> and its part is <c>(n−1) % parts</c>; the quota's amount — and, for a
+    /// compound-interest credit, its capital and its interest — are split with the same rule (the LAST part
+    /// absorbs the remainder), so the parts always add up to the quota exactly.
+    /// </summary>
+    public static (decimal Amount, decimal? CapitalAmount, decimal? InterestAmount) ChargeSplitFor(
+        int chargeNumber,
+        RecurringDeductionPlan plan,
+        string applicationFrequencyCode)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+
+        if (chargeNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chargeNumber), "The charge number must be greater than or equal to one.");
+        }
+
+        var parts = ApplicationPartsPerInstallment(plan.InstallmentFrequencyCode, applicationFrequencyCode);
+        var installmentNumber = ((chargeNumber - 1) / parts) + 1;
+        var partIndex = (chargeNumber - 1) % parts;
+
+        if (!plan.UsesCompoundInterest)
+        {
+            var quota = InstallmentAmountFor(installmentNumber, plan);
+            return (SplitByApplicationFrequency(quota, parts)[partIndex], null, null);
+        }
+
+        var schedule = BuildAmortizationSchedule(
+            plan.PrincipalAmount!.Value,
+            plan.AnnualRatePercent!.Value,
+            plan.InstallmentCount!.Value,
+            plan.InstallmentFrequencyCode);
+
+        if (installmentNumber > schedule.Count)
+        {
+            return (0m, 0m, 0m);
+        }
+
+        var row = schedule[installmentNumber - 1];
+        return (
+            SplitByApplicationFrequency(row.Amount, parts)[partIndex],
+            SplitByApplicationFrequency(row.CapitalAmount, parts)[partIndex],
+            SplitByApplicationFrequency(row.InterestAmount, parts)[partIndex]);
+    }
+
+    /// <summary>
+    /// The theoretical due date of CHARGE <paramref name="chargeNumber"/> (1-based): the dates advance by the
+    /// APPLICATION cadence from the start date, SKIPPING the exception months (P-05 — the plan is pushed forward,
+    /// never shortened).
+    /// </summary>
+    public static DateOnly ChargeDueDateFor(
+        string applicationFrequencyCode,
+        DateOnly installmentStartDate,
+        IReadOnlySet<int> exceptionMonths,
+        int chargeNumber)
+    {
+        ArgumentNullException.ThrowIfNull(exceptionMonths);
+
+        if (chargeNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chargeNumber), "The charge number must be greater than or equal to one.");
+        }
+
+        return BuildDueDates(applicationFrequencyCode, installmentStartDate, exceptionMonths, chargeNumber)[chargeNumber - 1];
+    }
+
+    /// <summary>
+    /// Builds the theoretical CHARGE schedule (derived, never persisted): one row per application event, with its
+    /// due date (application cadence, exception months skipped), its amount and — for a compound-interest credit —
+    /// its capital/interest split. An unapplied charge whose due date is before <paramref name="today"/> is overdue.
+    /// </summary>
+    public static IReadOnlyList<RecurringDeductionProjectedInstallment> BuildChargeProjection(
+        RecurringDeductionPlan plan,
+        string applicationFrequencyCode,
+        DateOnly installmentStartDate,
+        IReadOnlySet<int> exceptionMonths,
+        IReadOnlySet<int> appliedNumbers,
+        DateOnly today,
+        int indefiniteHorizon = 12)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(exceptionMonths);
+        ArgumentNullException.ThrowIfNull(appliedNumbers);
+
+        int projectionCount;
+        if (ChargeCount(plan, applicationFrequencyCode) is { } count)
+        {
+            projectionCount = count;
+        }
+        else
+        {
+            var appliedCeiling = appliedNumbers.Count == 0 ? 0 : appliedNumbers.Max();
+            projectionCount = Math.Max(indefiniteHorizon, appliedCeiling);
+        }
+
+        var dueDates = BuildDueDates(applicationFrequencyCode, installmentStartDate, exceptionMonths, projectionCount);
+        var projection = new List<RecurringDeductionProjectedInstallment>(projectionCount);
+
+        for (var number = 1; number <= projectionCount; number++)
+        {
+            var (amount, capital, interest) = ChargeSplitFor(number, plan, applicationFrequencyCode);
+            var isApplied = appliedNumbers.Contains(number);
+
+            projection.Add(new RecurringDeductionProjectedInstallment(
+                number,
+                dueDates[number - 1],
+                amount,
+                capital,
+                interest,
+                isApplied,
+                !isApplied && dueDates[number - 1] < today));
+        }
+
+        return projection;
+    }
+
+    /// <summary>
+    /// Validates that CHARGE <paramref name="chargeNumber"/> may be applied now: the credit must be VIGENTE, its
+    /// effective date must have been reached (D-04), the number must be the next expected one and it must not
+    /// exceed the plan's charge count.
+    /// </summary>
+    public static RecurringDeductionRuleResult CanApplyCharge(
+        string statusCode,
+        DateOnly effectiveDate,
+        DateOnly today,
+        int chargeNumber,
+        RecurringDeductionPlan plan,
+        string applicationFrequencyCode,
+        IReadOnlySet<int> appliedNumbers)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(appliedNumbers);
+
+        if (statusCode != RecurringDeductionStatuses.Vigente)
+        {
+            return RecurringDeductionRuleResult.Fail(InstallmentNotApplicableCode);
+        }
+
+        if (effectiveDate > today)
+        {
+            return RecurringDeductionRuleResult.Fail(InstallmentNotDueYetCode);
+        }
+
+        if (chargeNumber != NextInstallmentNumber(appliedNumbers))
+        {
+            return RecurringDeductionRuleResult.Fail(InstallmentSequenceInvalidCode);
+        }
+
+        if (ChargeCount(plan, applicationFrequencyCode) is { } count && chargeNumber > count)
+        {
+            return RecurringDeductionRuleResult.Fail(InstallmentExceedsPlanCode);
+        }
+
+        return RecurringDeductionRuleResult.Ok;
+    }
+
+    /// <summary>True when every charge of the finite plan has been applied, or the balance is paid off.</summary>
+    public static bool IsChargePlanComplete(
+        RecurringDeductionPlan plan,
+        string applicationFrequencyCode,
+        decimal chargedAmount,
+        decimal chargedCapital,
+        IReadOnlySet<int> appliedNumbers)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(appliedNumbers);
+
+        if (plan.IsIndefinite)
+        {
+            return false;
+        }
+
+        if (SettlementBalance(plan, chargedAmount, chargedCapital) <= 0m)
+        {
+            return true;
+        }
+
+        if (ChargeCount(plan, applicationFrequencyCode) is not { } count)
+        {
+            return false;
+        }
+
+        for (var number = 1; number <= count; number++)
+        {
+            if (!appliedNumbers.Contains(number))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>The per-period rate: the NOMINAL ANNUAL percentage divided by the periods of the frequency (P-03).</summary>

@@ -231,6 +231,144 @@ public sealed class RecurringDeductionsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/schedule")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringDeductionScheduleResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get the derived schedule of a recurring deduction",
+        Description = """
+            Returns the DERIVED plan of the credit (never persisted): one row per CHARGE — the rows advance by the
+            APPLICATION cadence, so a monthly quota charged fortnightly yields two rows of half the quota, and the
+            exception months are skipped (the plan is pushed forward, not shortened). A compound-interest credit
+            carries the capital/interest split per row (French-system amortization). Applied rows are flagged; an
+            unapplied row whose due date is past is `isOverdue`. It also carries the derived totals the business
+            asked for: `totalCharged` ("total cobrado"), `totalOutstanding` ("total no cobrado") and
+            `outstandingBalance` — which for an interest-bearing credit is the outstanding CAPITAL (the payoff), a
+            SMALLER figure than the sum of the remaining quotas, because paying early does not owe future interest.
+            """)]
+    public async Task<ActionResult<RecurringDeductionScheduleResponse>> GetRecurringDeductionSchedule(
+        Guid publicId,
+        Guid recurringDeductionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetRecurringDeductionScheduleQuery(publicId, recurringDeductionPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/installments")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringDeductionInstallmentHistoryResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List the charge history of a recurring deduction",
+        Description = """
+            Returns the applied and annulled charges (REGULAR and EXTRAORDINARIA alike), most recent activity
+            first, with their currency / payroll-type / payroll-period snapshots and their capital/interest split.
+            """)]
+    public async Task<ActionResult<RecurringDeductionInstallmentHistoryResponse>> GetRecurringDeductionInstallments(
+        Guid publicId,
+        Guid recurringDeductionPublicId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetRecurringDeductionInstallmentsQuery(publicId, recurringDeductionPublicId, pageNumber, pageSize),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/installments")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringDeductionInstallmentApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Apply the next charge of a recurring deduction",
+        Description = """
+            Applies the NEXT charge of a `VIGENTE` credit. The number, the amount and the capital/interest split
+            are derived by the rules and are NOT editable. The credit's `effectiveDate` must have been REACHED (a
+            future-dated credit → 422) and the sequence is strict (it fills any annulled gap first). When the
+            charge completes the plan — or the balance reaches zero — the credit is FINALIZED in the same
+            transaction. Serialized by an advisory lock. Requires the `If-Match` header with the credit's current
+            `concurrencyToken`; the refreshed token comes back in the `ETag`.
+            """)]
+    public async Task<ActionResult<RecurringDeductionInstallmentApplicationResult>> ApplyRecurringDeductionInstallment(
+        Guid publicId,
+        Guid recurringDeductionPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyRecurringDeductionInstallmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyRecurringDeductionInstallmentCommand(
+                publicId, recurringDeductionPublicId, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.RecurringDeductionConcurrencyToken);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/extraordinary-installments")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringDeductionInstallmentApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Apply an extraordinary payment (abono) to a recurring deduction",
+        Description = """
+            Registers an out-of-sequence payment against a `VIGENTE` credit. The amount goes 100 % against CAPITAL
+            and SHORTENS THE TERM — the quota is untouched (P-04), so the derived schedule simply ends earlier.
+            Paying exactly the `outstandingBalance` is a PAYOFF: the credit finalizes in the same transaction.
+            Rejected on a `SUSPENDIDO` credit, above the outstanding balance, or on an indefinite plan (422).
+            Requires the `If-Match` header with the credit's current `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<RecurringDeductionInstallmentApplicationResult>> ApplyRecurringDeductionExtraordinary(
+        Guid publicId,
+        Guid recurringDeductionPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyRecurringDeductionExtraordinaryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyRecurringDeductionExtraordinaryCommand(
+                publicId, recurringDeductionPublicId, request.Amount, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.RecurringDeductionConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/installments/{installmentPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<RecurringDeductionInstallmentApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Annul an applied charge of a recurring deduction",
+        Description = """
+            Annuls an APLICADA charge — regular or extraordinary; the `reason` is mandatory. The number is freed
+            and can be re-applied. If the credit had FINALIZED and the plan is no longer complete after the
+            annulment, it REOPENS to `VIGENTE` in the same transaction. Requires the `If-Match` header with the
+            credit's current `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<RecurringDeductionInstallmentApplicationResult>> AnnulRecurringDeductionInstallment(
+        Guid publicId,
+        Guid recurringDeductionPublicId,
+        Guid installmentPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulRecurringDeductionInstallmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulRecurringDeductionInstallmentCommand(
+                publicId, recurringDeductionPublicId, installmentPublicId, request.Reason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.RecurringDeductionConcurrencyToken);
+    }
+
     private static RecurringDeductionInput ToInput(AddRecurringDeductionRequest request) =>
         new(
             request.EffectiveDate,

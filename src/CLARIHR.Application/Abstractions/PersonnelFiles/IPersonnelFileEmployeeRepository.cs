@@ -1246,6 +1246,49 @@ public interface IPersonnelFileEmployeeRepository
         Guid? assignedPositionPublicId,
         CancellationToken cancellationToken);
 
+    // ── Recurring-deduction charges (REQ-008 PR-4) ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads the TRACKED recurring deduction WITH its plan segments and its applied charges (for an application /
+    /// extraordinary payment / annulment under the advisory lock). Scoped to the tenant + credit public id.
+    /// Do NOT pre-load the credit tracked before the lock — call this as the FIRST tracking load so it reflects
+    /// any committed concurrent application.
+    /// </summary>
+    Task<PersonnelFileRecurringDeduction?> GetTrackedRecurringDeductionWithInstallmentsAsync(
+        Guid recurringDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Raw plan + charged data of a recurring deduction, so the schedule query can derive the projection.</summary>
+    Task<RecurringDeductionScheduleData?> GetRecurringDeductionScheduleDataAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>A page of the charge history (APLICADA + ANULADA, regular + extraordinary).</summary>
+    Task<RecurringDeductionInstallmentHistoryResponse?> GetRecurringDeductionInstallmentHistoryAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company payroll-period instance for a charge imputation (FK real).</summary>
+    Task<RecurringDeductionPayrollPeriodResolution?> ResolveRecurringDeductionPayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The AsNoTracking scan the apply-period batch runs on: every VIGENTE credit of the payroll type, ORDERED BY
+    /// INTERNAL ID (the batch takes its locks in that order — anti-deadlock), with the plan data and the applied
+    /// charge numbers needed to compute the pending ones.
+    /// </summary>
+    Task<IReadOnlyList<RecurringDeductionBatchScanItem>> GetRecurringDeductionBatchScanAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken);
+
     // ── Recurring-income installments (REQ-005 PR-4) ────────────────────────────────────────────────
 
     /// <summary>

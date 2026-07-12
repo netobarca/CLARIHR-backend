@@ -397,6 +397,87 @@ public sealed class RecurringDeductionRulesTests
         Assert.False(RecurringDeductionRules.CanTransition(RecurringDeductionStatuses.EnRevision, RecurringDeductionStatuses.EnRevision));
     }
 
+    // ── Charge level — the unit of the LEDGER when the application cadence is faster (D-10) ───────────
+    [Fact]
+    public void ChargeCount_AMonthlyQuotaChargedFortnightlyDoublesTheLedgerRows()
+    {
+        var plan = FinitePlan([new(1, 12, 100.00m)]);
+
+        Assert.Equal(12, RecurringDeductionRules.ChargeCount(plan, Mensual));
+        Assert.Equal(24, RecurringDeductionRules.ChargeCount(plan, Quincenal));
+    }
+
+    [Fact]
+    public void ChargeSplitFor_SplitsEachQuotaAcrossItsApplicationParts()
+    {
+        var plan = FinitePlan([new(1, 12, 100.00m)]);
+
+        // Charges 1 and 2 are the two halves of quota 1; charge 3 opens quota 2.
+        Assert.Equal(50.00m, RecurringDeductionRules.ChargeSplitFor(1, plan, Quincenal).Amount);
+        Assert.Equal(50.00m, RecurringDeductionRules.ChargeSplitFor(2, plan, Quincenal).Amount);
+        Assert.Equal(50.00m, RecurringDeductionRules.ChargeSplitFor(3, plan, Quincenal).Amount);
+
+        // Every charge of the plan adds up to the plan total, to the cent.
+        var total = Enumerable.Range(1, 24).Sum(number => RecurringDeductionRules.ChargeSplitFor(number, plan, Quincenal).Amount);
+        Assert.Equal(1200.00m, total);
+    }
+
+    [Fact]
+    public void ChargeSplitFor_WithInterest_SplitsTheCapitalAndTheInterestOfEachQuota()
+    {
+        var plan = InterestPlan(1000.00m, 12.00m, 12);
+
+        // Quota 1 of the golden table is $88.85 = $10.00 interest + $78.85 capital; charged fortnightly it lands
+        // as two halves whose capital and interest each add up to the quota's exactly.
+        var first = RecurringDeductionRules.ChargeSplitFor(1, plan, Quincenal);
+        var second = RecurringDeductionRules.ChargeSplitFor(2, plan, Quincenal);
+
+        Assert.Equal(88.85m, first.Amount + second.Amount);
+        Assert.Equal(10.00m, first.InterestAmount + second.InterestAmount);
+        Assert.Equal(78.85m, first.CapitalAmount + second.CapitalAmount);
+    }
+
+    [Fact]
+    public void BuildChargeProjection_AdvancesByTheApplicationCadenceAndSkipsTheExceptionMonths()
+    {
+        var plan = FinitePlan([new(1, 3, 100.00m)]);
+        var exceptionMonths = new HashSet<int> { 12 };
+
+        var projection = RecurringDeductionRules.BuildChargeProjection(
+            plan,
+            Quincenal,
+            installmentStartDate: new DateOnly(2026, 11, 1),
+            exceptionMonths,
+            appliedNumbers: new HashSet<int>(),
+            today: new DateOnly(2026, 11, 1));
+
+        // 3 monthly quotas charged fortnightly = 6 charges of $50.
+        Assert.Equal(6, projection.Count);
+        Assert.All(projection, item => Assert.Equal(50.00m, item.Amount));
+
+        // The fortnightly dates skip December entirely (the plan runs longer, nothing is lost).
+        Assert.DoesNotContain(projection, item => item.TheoreticalDueDate.Month == 12);
+    }
+
+    [Fact]
+    public void CanApplyCharge_TheCeilingIsTheCHARGECountNotTheQuotaCount()
+    {
+        var plan = FinitePlan([new(1, 2, 100.00m)]);
+        var today = new DateOnly(2026, 7, 12);
+        var applied = new HashSet<int> { 1, 2, 3 };
+
+        // 2 monthly quotas charged fortnightly = 4 charges: number 4 is still inside the plan...
+        var inside = RecurringDeductionRules.CanApplyCharge(
+            RecurringDeductionStatuses.Vigente, today, today, 4, plan, Quincenal, applied);
+        Assert.True(inside.IsValid);
+
+        // ...but number 5 exceeds it.
+        var beyond = RecurringDeductionRules.CanApplyCharge(
+            RecurringDeductionStatuses.Vigente, today, today, 5, plan, Quincenal, new HashSet<int> { 1, 2, 3, 4 });
+        Assert.False(beyond.IsValid);
+        Assert.Equal(RecurringDeductionRules.InstallmentExceedsPlanCode, beyond.ErrorCode);
+    }
+
     private static RecurringDeductionPlan FinitePlan(List<RecurringDeductionSegment> segments)
     {
         var normalization = RecurringDeductionRules.NormalizePlan(

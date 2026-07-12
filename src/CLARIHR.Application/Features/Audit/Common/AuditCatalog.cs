@@ -231,6 +231,7 @@ public static class AuditEventTypes
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
+    public const string RecurringDeductionInstallmentsApplied = "RECURRING_DEDUCTION_INSTALLMENTS_APPLIED";
     public const string OneTimeIncomeApplicationsApplied = "ONE_TIME_INCOME_APPLICATIONS_APPLIED";
     public const string OvertimeApplicationsApplied = "OVERTIME_APPLICATIONS_APPLIED";
 
@@ -458,6 +459,7 @@ public static class AuditEventTypes
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,
+        RecurringDeductionInstallmentsApplied,
         OneTimeIncomeApplicationsApplied,
         OvertimeApplicationsApplied
     ];

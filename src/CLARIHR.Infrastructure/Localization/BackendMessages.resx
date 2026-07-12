@@ -2797,4 +2797,25 @@
   <data name="validation.message.settlementactioncode_must_be_descontar_saldo_or_cancelar" xml:space="preserve">
     <value>SettlementActionCode must be DESCONTAR_SALDO or CANCELAR.</value>
   </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_NOT_FOUND" xml:space="preserve">
+    <value>The installment was not found on this recurring deduction.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period is not a valid active period for the company.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required to annul an installment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_PLAN_COMPLETE" xml:space="preserve">
+    <value>The installment plan is already complete; there are no more installments to apply.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>The apply-period batch was rolled back because of a conflict.</value>
+  </data>
+  <data name="validation.message.the_extraordinary_payment_must_be_greater_than_zero" xml:space="preserve">
+    <value>The extraordinary payment must be greater than zero.</value>
+  </data>
+  <data name="validation.message.the_apply_period_batch_requires_either_a_payroll_period_or_a_cutoff_date" xml:space="preserve">
+    <value>The apply-period batch requires either a payroll period or a cutoff date.</value>
+  </data>
 </root>

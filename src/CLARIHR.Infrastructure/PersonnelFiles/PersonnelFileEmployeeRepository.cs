@@ -3850,6 +3850,181 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             : new RecurringDeductionPlazaResolution(true, chosen.PublicId);
     }
 
+    public Task<PersonnelFileRecurringDeduction?> GetTrackedRecurringDeductionWithInstallmentsAsync(
+        Guid recurringDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRecurringDeduction>()
+            .Include(deduction => deduction.PlanSegments)
+            .Include(deduction => deduction.Installments)
+            .SingleOrDefaultAsync(
+                deduction => deduction.TenantId == tenantId && deduction.PublicId == recurringDeductionPublicId,
+                cancellationToken);
+
+    public async Task<RecurringDeductionScheduleData?> GetRecurringDeductionScheduleDataAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var deduction = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(item => item.PlanSegments)
+            .SingleOrDefaultAsync(
+                item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == recurringDeductionPublicId,
+                cancellationToken);
+        if (deduction is null)
+        {
+            return null;
+        }
+
+        var charges = await dbContext.Set<PersonnelFileRecurringDeductionInstallment>()
+            .AsNoTracking()
+            .Where(item => item.RecurringDeductionId == deduction.Id
+                && item.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada)
+            .Select(item => new { item.Kind, item.InstallmentNumber, item.Amount, item.CapitalAmount })
+            .ToArrayAsync(cancellationToken);
+
+        return new RecurringDeductionScheduleData(
+            deduction.PublicId,
+            deduction.StatusCode,
+            deduction.IsIndefinite,
+            deduction.UsesCompoundInterest,
+            deduction.InstallmentFrequencyCode,
+            deduction.ApplicationFrequencyCode,
+            deduction.EffectiveDate,
+            deduction.InstallmentStartDate,
+            deduction.ExceptionMonths,
+            deduction.PrincipalAmount,
+            deduction.InterestRatePercent,
+            deduction.PlannedInstallments,
+            deduction.PlanSegments
+                .Where(segment => segment.IsActive)
+                .OrderBy(segment => segment.FromInstallment)
+                .Select(segment => new RecurringDeductionSegment(segment.FromInstallment, segment.ToInstallment, segment.InstallmentValue))
+                .ToArray(),
+            charges
+                .Where(item => item.Kind == RecurringDeductionInstallmentKinds.Regular)
+                .Select(item => item.InstallmentNumber!.Value)
+                .ToArray(),
+            charges.Sum(item => item.Amount),
+            charges.Sum(item => item.CapitalAmount ?? item.Amount));
+    }
+
+    public async Task<RecurringDeductionInstallmentHistoryResponse?> GetRecurringDeductionInstallmentHistoryAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var deductionInternalId = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId && item.PublicId == recurringDeductionPublicId)
+            .Select(item => item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (deductionInternalId == 0)
+        {
+            return null;
+        }
+
+        var baseQuery = dbContext.Set<PersonnelFileRecurringDeductionInstallment>()
+            .AsNoTracking()
+            .Where(item => item.RecurringDeductionId == deductionInternalId);
+
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        var rows = await baseQuery
+            .OrderByDescending(item => item.CreatedUtc)
+            .ThenByDescending(item => item.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArrayAsync(cancellationToken);
+
+        var periodIds = rows.Where(row => row.PayrollPeriodId is not null).Select(row => row.PayrollPeriodId!.Value).Distinct().ToArray();
+        var periodPublicIds = periodIds.Length == 0
+            ? new Dictionary<long, Guid>()
+            : await dbContext.PayrollPeriodDefinitions
+                .AsNoTracking()
+                .Where(period => periodIds.Contains(period.Id))
+                .Select(period => new { period.Id, period.PublicId })
+                .ToDictionaryAsync(period => period.Id, period => period.PublicId, cancellationToken);
+
+        var items = rows
+            .Select(row => RecurringDeductionInstallmentMapping.ToResponse(
+                row,
+                row.PayrollPeriodId is { } internalId && periodPublicIds.TryGetValue(internalId, out var publicId) ? publicId : null))
+            .ToArray();
+
+        return new RecurringDeductionInstallmentHistoryResponse(items, pageNumber, pageSize, totalCount);
+    }
+
+    public async Task<RecurringDeductionPayrollPeriodResolution?> ResolveRecurringDeductionPayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken)
+    {
+        var period = await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollPeriodPublicId)
+            .Select(item => new { item.Id, item.Label, item.EndDate, item.IsActive })
+            .SingleOrDefaultAsync(cancellationToken);
+        return period is null
+            ? null
+            : new RecurringDeductionPayrollPeriodResolution(period.Id, period.Label, period.EndDate, period.IsActive);
+    }
+
+    public async Task<IReadOnlyList<RecurringDeductionBatchScanItem>> GetRecurringDeductionBatchScanAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        CancellationToken cancellationToken)
+    {
+        var deductions = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(item => item.PlanSegments)
+            .Where(item => item.TenantId == tenantId
+                && item.StatusCode == RecurringDeductionStatuses.Vigente
+                && item.PayrollTypeCode == payrollTypeCode)
+            .OrderBy(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+        if (deductions.Length == 0)
+        {
+            return [];
+        }
+
+        var deductionIds = deductions.Select(item => item.Id).ToArray();
+        var appliedByDeduction = (await dbContext.Set<PersonnelFileRecurringDeductionInstallment>()
+                .AsNoTracking()
+                .Where(item => deductionIds.Contains(item.RecurringDeductionId)
+                    && item.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada
+                    && item.Kind == RecurringDeductionInstallmentKinds.Regular)
+                .Select(item => new { item.RecurringDeductionId, item.InstallmentNumber })
+                .ToArrayAsync(cancellationToken))
+            .GroupBy(item => item.RecurringDeductionId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.InstallmentNumber!.Value).ToArray());
+
+        return deductions
+            .Select(item => new RecurringDeductionBatchScanItem(
+                item.Id,
+                item.PublicId,
+                item.EffectiveDate,
+                item.IsIndefinite,
+                item.UsesCompoundInterest,
+                item.InstallmentFrequencyCode,
+                item.ApplicationFrequencyCode,
+                item.InstallmentStartDate,
+                item.ExceptionMonths,
+                item.PrincipalAmount,
+                item.InterestRatePercent,
+                item.PlannedInstallments,
+                item.PlanSegments
+                    .Where(segment => segment.IsActive)
+                    .OrderBy(segment => segment.FromInstallment)
+                    .Select(segment => new RecurringDeductionSegment(segment.FromInstallment, segment.ToInstallment, segment.InstallmentValue))
+                    .ToArray(),
+                appliedByDeduction.TryGetValue(item.Id, out var applied) ? applied : []))
+            .ToArray();
+    }
+
     // ── One-time incomes (REQ-006) ─────────────────────────────────────────────────────────────────
 
     // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the
