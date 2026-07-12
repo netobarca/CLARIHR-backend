@@ -2887,4 +2887,13 @@
   <data name="validation.message.a_fixed_value_deduction_requires_an_amount" xml:space="preserve">
     <value>Un descuento de valor fijo requiere un monto.</value>
   </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>La aplicación no se encontró en este descuento eventual.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para revertir una aplicación.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>El lote de aplicación por periodo se revirtió por un conflicto.</value>
+  </data>
 </root>

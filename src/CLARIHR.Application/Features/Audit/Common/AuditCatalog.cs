@@ -233,6 +233,7 @@ public static class AuditEventTypes
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
     public const string RecurringDeductionInstallmentsApplied = "RECURRING_DEDUCTION_INSTALLMENTS_APPLIED";
     public const string OneTimeIncomeApplicationsApplied = "ONE_TIME_INCOME_APPLICATIONS_APPLIED";
+    public const string OneTimeDeductionApplicationsApplied = "ONE_TIME_DEDUCTION_APPLICATIONS_APPLIED";
     public const string OvertimeApplicationsApplied = "OVERTIME_APPLICATIONS_APPLIED";
 
     public static readonly IReadOnlyCollection<string> All =
@@ -461,6 +462,7 @@ public static class AuditEventTypes
         RecurringIncomeInstallmentsApplied,
         RecurringDeductionInstallmentsApplied,
         OneTimeIncomeApplicationsApplied,
+        OneTimeDeductionApplicationsApplied,
         OvertimeApplicationsApplied
     ];
 

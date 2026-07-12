@@ -1242,6 +1242,41 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    // ── One-time-deduction applications (REQ-009 PR-4) ──────────────────────────────────────────────
+
+    /// <summary>The TRACKED deduction WITH its applications (for an application / reversal under the lock).</summary>
+    Task<PersonnelFileOneTimeDeduction?> GetTrackedOneTimeDeductionWithApplicationsAsync(
+        Guid oneTimeDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The application history of a deduction (APLICADA + ANULADA, most recent first).</summary>
+    Task<IReadOnlyCollection<OneTimeDeductionApplicationResponse>> GetOneTimeDeductionApplicationsAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeDeductionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves a company payroll-period instance for an application (FK real).</summary>
+    Task<OneTimeDeductionPayrollPeriodResolution?> ResolveOneTimeDeductionPayrollPeriodAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The AUTORIZADO deductions the apply-period batch will charge, ORDERED BY INTERNAL ID (anti-deadlock).</summary>
+    Task<IReadOnlyList<OneTimeDeductionBatchCandidate>> GetOneTimeDeductionBatchScanAsync(
+        Guid tenantId,
+        string payrollTypeCode,
+        Guid? payrollPeriodPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The company-wide work list: the AUTORIZADO deductions still waiting to be charged.</summary>
+    Task<IReadOnlyList<OneTimeDeductionPendingData>> GetOneTimeDeductionPendingAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        Guid? payrollPeriodPublicId,
+        Guid? employeeId,
+        CancellationToken cancellationToken);
+
     // ── Recurring deductions (REQ-008 PR-3) ─────────────────────────────────────────────────────────
 
     /// <summary>

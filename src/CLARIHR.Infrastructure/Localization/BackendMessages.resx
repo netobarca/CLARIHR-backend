@@ -2887,4 +2887,13 @@
   <data name="validation.message.a_fixed_value_deduction_requires_an_amount" xml:space="preserve">
     <value>A fixed-value deduction requires an amount.</value>
   </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_NOT_FOUND" xml:space="preserve">
+    <value>The application was not found on this one-time deduction.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required to revert an application.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLY_PERIOD_CONFLICT" xml:space="preserve">
+    <value>The apply-period batch was rolled back because of a conflict.</value>
+  </data>
 </root>

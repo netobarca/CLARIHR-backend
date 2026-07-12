@@ -205,6 +205,80 @@ public sealed class OneTimeDeductionsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/one-time-deductions/{oneTimeDeductionPublicId:guid}/applications")]
+    [Produces("application/json")]
+    [ProducesResponseType<IReadOnlyCollection<OneTimeDeductionApplicationResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List the applications of a one-time deduction",
+        Description = "Returns the applications (APLICADA and ANULADA) of the deduction — the audit trail of when it was charged and when it was reverted.")]
+    public async Task<ActionResult<IReadOnlyCollection<OneTimeDeductionApplicationResponse>>> GetOneTimeDeductionApplications(
+        Guid publicId,
+        Guid oneTimeDeductionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetOneTimeDeductionApplicationsQuery(publicId, oneTimeDeductionPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/one-time-deductions/{oneTimeDeductionPublicId:guid}/applications")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OneTimeDeductionApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Charge a one-time deduction (its single application)",
+        Description = """
+            Charges the deduction: it must be `AUTORIZADO` and must NOT already carry an active application
+            (a second attempt → `422` `ONE_TIME_DEDUCTION_ALREADY_APPLIED`). The deduction becomes `APLICADO`.
+            Serialized by an advisory lock, so two simultaneous attempts cannot both win. Requires the `If-Match`
+            header with the deduction's current `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<OneTimeDeductionApplicationResult>> ApplyOneTimeDeduction(
+        Guid publicId,
+        Guid oneTimeDeductionPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] ApplyOneTimeDeductionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ApplyOneTimeDeductionApplicationCommand(
+                publicId, oneTimeDeductionPublicId, request.AppliedDate, request.PayrollPeriodPublicId, request.Notes, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.OneTimeDeductionConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/one-time-deductions/{oneTimeDeductionPublicId:guid}/applications/{applicationPublicId:guid}/annulment")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<OneTimeDeductionApplicationResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Revert the application of a one-time deduction",
+        Description = """
+            THE REVERSAL: annuls the active application (the `reason` is mandatory) and the deduction returns to
+            `AUTORIZADO`, so it can be charged again in another payroll. Only an `APLICADO` deduction can be
+            reverted (`422` `ONE_TIME_DEDUCTION_APPLICATION_NOT_REVERTIBLE`). Requires `If-Match`.
+            """)]
+    public async Task<ActionResult<OneTimeDeductionApplicationResult>> AnnulOneTimeDeductionApplication(
+        Guid publicId,
+        Guid oneTimeDeductionPublicId,
+        Guid applicationPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] AnnulOneTimeDeductionApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AnnulOneTimeDeductionApplicationCommand(
+                publicId, oneTimeDeductionPublicId, applicationPublicId, request.Reason, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.OneTimeDeductionConcurrencyToken);
+    }
+
     private static OneTimeDeductionInput ToInput(AddOneTimeDeductionRequest request) =>
         new(
             request.DeductionDate,
