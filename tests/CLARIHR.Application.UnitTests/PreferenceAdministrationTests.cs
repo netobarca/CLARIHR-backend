@@ -666,6 +666,7 @@ public sealed class CompanyPreferenceAdministrationTests
             CompensatoryTimeSettlementRateFactor: null,
             OvertimeSelfServiceEnabled: null,
             OvertimeMaxDailyMinutes: null,
+            RecurringDeductionDefaultInterestRatePercent: null,
             ConcurrencyToken: concurrencyToken);
 
     private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>

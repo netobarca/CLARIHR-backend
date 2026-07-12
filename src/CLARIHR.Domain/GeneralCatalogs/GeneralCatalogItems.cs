@@ -1446,3 +1446,107 @@ public sealed class PersonnelTransactionStatusCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of recurring-deduction lifecycle STATUSES (general-catalogs key
+/// <c>recurring-deduction-statuses</c>) backing the <c>statusCode</c> of a personnel-file recurring
+/// deduction (REQ-008 · planilla descuentos cíclicos — the one-decision lifecycle EN_REVISION/VIGENTE/
+/// RECHAZADO/SUSPENDIDO/FINALIZADO/ANULADO, D-14). Mirrors
+/// <see cref="RecurringIncomeStatusCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class RecurringDeductionStatusCatalogItem : GeneralCatalogItem
+{
+    private RecurringDeductionStatusCatalogItem()
+    {
+    }
+
+    private RecurringDeductionStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringDeductionStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of recurring-deduction SETTLEMENT ACTIONS (general-catalogs key
+/// <c>recurring-deduction-settlement-actions</c>) backing the <c>settlementActionCode</c> of a
+/// personnel-file recurring deduction (REQ-008 — what happens to the outstanding credit when the employee
+/// is settled: DESCONTAR_SALDO / CANCELAR (condonación), D-12). Mirrors
+/// <see cref="RecurringIncomeSettlementActionCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class RecurringDeductionSettlementActionCatalogItem : GeneralCatalogItem
+{
+    private RecurringDeductionSettlementActionCatalogItem()
+    {
+    }
+
+    private RecurringDeductionSettlementActionCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringDeductionSettlementActionCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of recurring-deduction TYPES (general-catalogs key
+/// <c>recurring-deduction-types</c>) backing the <c>recurringDeductionTypeCode</c> of a personnel-file
+/// recurring deduction (REQ-008 — préstamo bancario, procuraduría, cooperativa, asociación…, P-10, an
+/// editable template). Mirrors <see cref="RecurringIncomeTypeCatalogItem"/>; seeded for SV.
+/// </summary>
+public sealed class RecurringDeductionTypeCatalogItem : GeneralCatalogItem
+{
+    private RecurringDeductionTypeCatalogItem()
+    {
+    }
+
+    private RecurringDeductionTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static RecurringDeductionTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

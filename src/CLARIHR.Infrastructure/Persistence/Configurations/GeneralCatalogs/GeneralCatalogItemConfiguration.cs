@@ -756,3 +756,54 @@ internal sealed class OvertimeRecordStatusCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class RecurringDeductionStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringDeductionStatusCatalogItem>
+{
+    public RecurringDeductionStatusCatalogItemConfiguration()
+        // "deduction" is 3 chars longer than "income": the __country_active_sort index name reaches 64 and
+        // blows the 63-char PostgreSQL identifier limit, so it takes the __active_sort shortcut (precedent:
+        // recurring_income_settle_action_catalog_items).
+        : base(
+            "recurring_deduction_status_catalog_items",
+            "pk_recurring_deduction_status_catalog_items",
+            "uq_recurring_deduction_status_catalog_items__public_id",
+            "uq_recurring_deduction_status_catalog_items__country_code",
+            "ix_recurring_deduction_status_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetRecurringDeductionStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class RecurringDeductionSettlementActionCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringDeductionSettlementActionCatalogItem>
+{
+    public RecurringDeductionSettlementActionCatalogItemConfiguration()
+        // Doubly shortened ("deduction" -> "deduct" AND "settlement_action" -> "settle_action"): the mold's
+        // single shortening still leaves uq__country_code at 64, one over the 63-char PostgreSQL limit.
+        // With "deduct" the table is 44 chars and every explicit identifier fits (max 61).
+        : base(
+            "recurring_deduct_settle_action_catalog_items",
+            "pk_recurring_deduct_settle_action_catalog_items",
+            "uq_recurring_deduct_settle_action_catalog_items__public_id",
+            "uq_recurring_deduct_settle_action_catalog_items__country_code",
+            "ix_recurring_deduct_settle_action_catalog_items__active_sort",
+            GlobalCatalogSeedData.GetRecurringDeductionSettlementActionCatalogItems())
+    {
+    }
+}
+
+internal sealed class RecurringDeductionTypeCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<RecurringDeductionTypeCatalogItem>
+{
+    public RecurringDeductionTypeCatalogItemConfiguration()
+        : base(
+            "recurring_deduction_type_catalog_items",
+            "pk_recurring_deduction_type_catalog_items",
+            "uq_recurring_deduction_type_catalog_items__public_id",
+            "uq_recurring_deduction_type_catalog_items__country_code",
+            "ix_recurring_deduction_type_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetRecurringDeductionTypeCatalogItems())
+    {
+    }
+}

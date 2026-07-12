@@ -270,5 +270,6 @@ public sealed class CompanyPreferenceLeavePoliciesTests
             CompensatoryTimeSettlementRateFactor: null,
             OvertimeSelfServiceEnabled: null,
             OvertimeMaxDailyMinutes: null,
+            RecurringDeductionDefaultInterestRatePercent: null,
             ConcurrencyToken: Guid.NewGuid());
 }

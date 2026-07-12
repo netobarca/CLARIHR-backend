@@ -187,6 +187,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ViewOvertimeRecords,
         PersonnelFilePolicies.ManageOvertimeRecords,
         PersonnelFilePolicies.AuthorizeOvertimeRecords,
+        // Planilla descuentos cíclicos (REQ-008 D-06): exact mirror of the recurring-income trio — authn-only
+        // View superset + RequireAssertion Manage (HR-only, no self-service in Fase 1) +
+        // AuthorizeRecurringDeductions that deliberately excludes PersonnelFiles.Admin (separation of duties
+        // + double anti-self). The record controllers that carry these are added in PR-3/PR-4/PR-5.
+        PersonnelFilePolicies.ViewRecurringDeductions,
+        PersonnelFilePolicies.ManageRecurringDeductions,
+        PersonnelFilePolicies.AuthorizeRecurringDeductions,
     };
 
     private static readonly HashSet<string> OvertimeConfigurationPolicyNames = new(StringComparer.Ordinal)

@@ -1384,6 +1384,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "RECURRINGINCOMESTATUS" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeStatusCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeStatus", cancellationToken),
             "RECURRINGINCOMESETTLEMENTACTION" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeSettlementActionCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeSettlementAction", cancellationToken),
             "RECURRINGINCOMETYPE" => await GetCountryScopedCatalogItemsAsync<RecurringIncomeTypeCatalogItem>(countryCatalogItemId.Value, "RecurringIncomeType", cancellationToken),
+            "RECURRINGDEDUCTIONSTATUS" => await GetCountryScopedCatalogItemsAsync<RecurringDeductionStatusCatalogItem>(countryCatalogItemId.Value, "RecurringDeductionStatus", cancellationToken),
+            "RECURRINGDEDUCTIONSETTLEMENTACTION" => await GetCountryScopedCatalogItemsAsync<RecurringDeductionSettlementActionCatalogItem>(countryCatalogItemId.Value, "RecurringDeductionSettlementAction", cancellationToken),
+            "RECURRINGDEDUCTIONTYPE" => await GetCountryScopedCatalogItemsAsync<RecurringDeductionTypeCatalogItem>(countryCatalogItemId.Value, "RecurringDeductionType", cancellationToken),
             "ONETIMEINCOMESTATUS" => await GetCountryScopedCatalogItemsAsync<OneTimeIncomeStatusCatalogItem>(countryCatalogItemId.Value, "OneTimeIncomeStatus", cancellationToken),
             "OVERTIMERECORDSTATUS" => await GetCountryScopedCatalogItemsAsync<OvertimeRecordStatusCatalogItem>(countryCatalogItemId.Value, "OvertimeRecordStatus", cancellationToken),
             _ => []
@@ -1660,6 +1663,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             "RECURRINGINCOMESTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "RECURRINGINCOMESETTLEMENTACTION" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeSettlementActionCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "RECURRINGINCOMETYPE" => await IsCountryScopedCatalogCodeActiveAsync<RecurringIncomeTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGDEDUCTIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<RecurringDeductionStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGDEDUCTIONSETTLEMENTACTION" => await IsCountryScopedCatalogCodeActiveAsync<RecurringDeductionSettlementActionCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
+            "RECURRINGDEDUCTIONTYPE" => await IsCountryScopedCatalogCodeActiveAsync<RecurringDeductionTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "ONETIMEINCOMESTATUS" => await IsCountryScopedCatalogCodeActiveAsync<OneTimeIncomeStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "OVERTIMERECORDSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<OvertimeRecordStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false

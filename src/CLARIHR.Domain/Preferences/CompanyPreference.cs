@@ -130,6 +130,14 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public int? OvertimeMaxDailyMinutes { get; private set; }
 
+    /// <summary>
+    /// Default nominal ANNUAL interest rate (percent) pre-loaded on the recurring-deduction form when the
+    /// credit uses compound interest (REQ-008 P-03: "el % de interés depende de cada empresa"). Null = no
+    /// default (the form starts empty). This is a convenience default only — the rate that governs a credit
+    /// is always the one persisted on that credit, never this preference.
+    /// </summary>
+    public decimal? RecurringDeductionDefaultInterestRatePercent { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -284,6 +292,23 @@ public sealed class CompanyPreference : TenantEntity
 
         OvertimeSelfServiceEnabled = selfServiceEnabled;
         OvertimeMaxDailyMinutes = maxDailyMinutes;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Sets the recurring-deduction parametrization (REQ-008 P-03). <paramref name="defaultInterestRatePercent"/>
+    /// is nullable (null = no default rate pre-loaded on the form) and, when provided, must sit in (0, 100].
+    /// </summary>
+    public void SetRecurringDeductionPolicies(decimal? defaultInterestRatePercent)
+    {
+        if (defaultInterestRatePercent is <= 0m or > 100m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(defaultInterestRatePercent),
+                "Recurring-deduction default interest rate must be greater than 0 and at most 100 when provided.");
+        }
+
+        RecurringDeductionDefaultInterestRatePercent = defaultInterestRatePercent;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

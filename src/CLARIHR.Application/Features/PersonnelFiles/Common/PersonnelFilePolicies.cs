@@ -299,6 +299,29 @@ public static class PersonnelFilePolicies
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 
     /// <summary>
+    /// Read policy for recurring-deduction sub-resources ("planilla descuentos cíclicos" — REQ-008). HR-only
+    /// with no self-service in Fase 1, so it is a RequireAssertion superset of the precise
+    /// EnsureCanViewRecurringDeductionsAsync handler gate (ViewRecurringDeductions / Admin / IAM
+    /// super-admin). Mirrors <see cref="ViewRecurringIncomes"/>.
+    /// </summary>
+    public const string ViewRecurringDeductions = "PersonnelFiles.ViewRecurringDeductions";
+
+    /// <summary>
+    /// Write policy for recurring-deduction sub-resources (register/edit/suspend/close/annul + installments
+    /// and extraordinary payments — REQ-008). HR-only, so it is a RequireAssertion superset of the precise
+    /// EnsureCanManageRecurringDeductionsAsync handler gate (the dedicated permission, or Admin / IAM
+    /// super-admin). Deciding/revoking is the dedicated <see cref="AuthorizeRecurringDeductions"/> grant.
+    /// </summary>
+    public const string ManageRecurringDeductions = "PersonnelFiles.ManageRecurringDeductions";
+
+    /// <summary>
+    /// Write policy for deciding/revoking a recurring deduction (REQ-008 D-06). RequireAssertion over the
+    /// dedicated AuthorizeRecurringDeductions grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRecurringIncomes).
+    /// </summary>
+    public const string AuthorizeRecurringDeductions = "PersonnelFiles.AuthorizeRecurringDeductions";
+
+    /// <summary>
     /// Read policy for one-time-income sub-resources ("planilla ingresos eventuales" — REQ-006). HR-only with
     /// no self-service in Fase 1 (P-11), so it is a RequireAssertion superset of the precise
     /// EnsureCanViewOneTimeIncomesAsync handler gate (ViewOneTimeIncomes / Admin / IAM super-admin).

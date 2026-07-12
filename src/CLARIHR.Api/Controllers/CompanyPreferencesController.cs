@@ -82,6 +82,7 @@ public sealed class CompanyPreferencesController(
                 request.CompensatoryTimeSettlementRateFactor,
                 request.OvertimeSelfServiceEnabled,
                 request.OvertimeMaxDailyMinutes,
+                request.RecurringDeductionDefaultInterestRatePercent,
                 concurrencyToken),
             cancellationToken);
 
@@ -152,7 +153,11 @@ public sealed class CompanyPreferencesController(
         // Overtime parametrization (REQ-007 P-01/P-05), all optional: null = self-service off / no daily
         // cap. The daily-minutes cap must be > 0 when provided.
         bool? OvertimeSelfServiceEnabled = null,
-        int? OvertimeMaxDailyMinutes = null);
+        int? OvertimeMaxDailyMinutes = null,
+        // Recurring-deduction parametrization (REQ-008 P-03), optional: the nominal ANNUAL rate pre-loaded on
+        // the credit form when it uses compound interest. Null = no default. Must be in (0, 100] when
+        // provided. The rate that governs a credit is always the one persisted on that credit.
+        decimal? RecurringDeductionDefaultInterestRatePercent = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

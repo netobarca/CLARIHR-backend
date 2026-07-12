@@ -38,6 +38,8 @@ public sealed record CompanyPreferenceResponse(
     // Overtime parametrization (REQ-007 P-01/P-05): null = self-service off / no daily cap.
     bool? OvertimeSelfServiceEnabled,
     int? OvertimeMaxDailyMinutes,
+    // Recurring-deduction parametrization (REQ-008 P-03): null = no default rate pre-loaded on the form.
+    decimal? RecurringDeductionDefaultInterestRatePercent,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -70,6 +72,8 @@ public sealed record UpdateCompanyPreferencesCommand(
     // Overtime parametrization (REQ-007 P-01/P-05): null = self-service off / no daily cap.
     bool? OvertimeSelfServiceEnabled,
     int? OvertimeMaxDailyMinutes,
+    // Recurring-deduction parametrization (REQ-008 P-03): null = no default rate pre-loaded on the form.
+    decimal? RecurringDeductionDefaultInterestRatePercent,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -154,6 +158,12 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
         RuleFor(command => command.OvertimeMaxDailyMinutes)
             .GreaterThan(0)
             .When(static command => command.OvertimeMaxDailyMinutes.HasValue);
+        // Recurring-deduction parametrization (REQ-008 P-03): a percentage in (0, 100] when provided
+        // (mirrors the domain SetRecurringDeductionPolicies guard).
+        RuleFor(command => command.RecurringDeductionDefaultInterestRatePercent)
+            .GreaterThan(0m)
+            .LessThanOrEqualTo(100m)
+            .When(static command => command.RecurringDeductionDefaultInterestRatePercent.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -251,6 +261,8 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
         preference.SetOvertimePolicies(
             command.OvertimeSelfServiceEnabled,
             command.OvertimeMaxDailyMinutes);
+        preference.SetRecurringDeductionPolicies(
+            command.RecurringDeductionDefaultInterestRatePercent);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -528,6 +540,7 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.CompensatoryTimeSettlementRateFactor,
             preference.OvertimeSelfServiceEnabled,
             preference.OvertimeMaxDailyMinutes,
+            preference.RecurringDeductionDefaultInterestRatePercent,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

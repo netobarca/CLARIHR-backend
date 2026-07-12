@@ -95,6 +95,11 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(preference => preference.OvertimeMaxDailyMinutes)
             .HasColumnName("overtime_max_daily_minutes");
 
+        // Recurring-deduction parametrization (REQ-008 P-03); nullable (null = no default rate on the form).
+        builder.Property(preference => preference.RecurringDeductionDefaultInterestRatePercent)
+            .HasColumnName("recurring_deduction_default_interest_rate_percent")
+            .HasColumnType("numeric(9,4)");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

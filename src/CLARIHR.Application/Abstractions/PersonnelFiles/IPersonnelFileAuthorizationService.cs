@@ -375,6 +375,33 @@ public interface IPersonnelFileAuthorizationService
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     /// <summary>
+    /// Read gate for recurring deductions (REQ-008 D-06): the dedicated
+    /// <c>PersonnelFiles.ViewRecurringDeductions</c> permission, or Admin / IAM super-admin. HR-only, no
+    /// self-service in Fase 1.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewRecurringDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for recurring deductions (register/edit/suspend/close/annul + regular and extraordinary
+    /// installments — REQ-008 D-06): the dedicated <c>PersonnelFiles.ManageRecurringDeductions</c>
+    /// permission, or Admin / IAM super-admin (HR-only).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageRecurringDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Decision/revocation gate for recurring deductions (REQ-008 D-06): the dedicated
+    /// <c>PersonnelFiles.AuthorizeRecurringDeductions</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties, mirrors AuthorizeRecurringIncomes).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeRecurringDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
     /// Read gate for one-time incomes (REQ-006 P-01): the dedicated
     /// <c>PersonnelFiles.ViewOneTimeIncomes</c> permission, or Admin / IAM super-admin. HR-only, no
     /// self-service in Fase 1 (P-11).

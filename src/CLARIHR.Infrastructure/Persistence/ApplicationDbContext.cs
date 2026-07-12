@@ -302,6 +302,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RecurringIncomeTypeCatalogItem> RecurringIncomeTypeCatalogItems => Set<RecurringIncomeTypeCatalogItem>();
 
+    public DbSet<RecurringDeductionStatusCatalogItem> RecurringDeductionStatusCatalogItems => Set<RecurringDeductionStatusCatalogItem>();
+
+    public DbSet<RecurringDeductionSettlementActionCatalogItem> RecurringDeductionSettlementActionCatalogItems => Set<RecurringDeductionSettlementActionCatalogItem>();
+
+    public DbSet<RecurringDeductionTypeCatalogItem> RecurringDeductionTypeCatalogItems => Set<RecurringDeductionTypeCatalogItem>();
+
     public DbSet<OneTimeIncomeStatusCatalogItem> OneTimeIncomeStatusCatalogItems => Set<OneTimeIncomeStatusCatalogItem>();
 
     public DbSet<OvertimeRecordStatusCatalogItem> OvertimeRecordStatusCatalogItems => Set<OvertimeRecordStatusCatalogItem>();

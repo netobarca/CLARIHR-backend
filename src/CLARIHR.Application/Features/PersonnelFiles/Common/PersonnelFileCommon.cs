@@ -362,6 +362,28 @@ public static class PersonnelFilePermissionCodes
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 
     /// <summary>
+    /// Dedicated permission to read recurring deductions ("planilla descuentos cíclicos" — REQ-008 D-06): the
+    /// per-file detail, the amortization schedule, the company bandeja and the payroll-input exports. HR-only
+    /// with no self-service in Fase 1; Admin is a superset.
+    /// </summary>
+    public const string ViewRecurringDeductions = "PersonnelFiles.ViewRecurringDeductions";
+
+    /// <summary>
+    /// Dedicated permission to register/edit/suspend/close/annul recurring deductions and to apply their
+    /// installments — regular and extraordinary (REQ-008 D-06). Admin is a superset. Deciding/revoking a
+    /// recurring deduction requires the dedicated <see cref="AuthorizeRecurringDeductions"/> grant (double
+    /// anti-self on decision/revocation).
+    /// </summary>
+    public const string ManageRecurringDeductions = "PersonnelFiles.ManageRecurringDeductions";
+
+    /// <summary>
+    /// Dedicated permission to decide (authorize/reject) and revoke a recurring deduction (REQ-008 D-06).
+    /// Like <see cref="AuthorizeRecurringIncomes"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a
+    /// superset (separation of duties); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizeRecurringDeductions = "PersonnelFiles.AuthorizeRecurringDeductions";
+
+    /// <summary>
     /// Dedicated permission to read one-time incomes ("planilla ingresos eventuales" — REQ-006 P-01): the
     /// per-file detail, the company bandeja and the payroll-input exports. HR-only with no self-service in
     /// Fase 1 (P-11); Admin is a superset.

@@ -744,6 +744,38 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9914L, "SV", "ANULADA", "Anulada", 50),
     ];
 
+    // REQ-008 (planilla descuentos cíclicos · D-14): the one-decision lifecycle of a recurring deduction,
+    // mirror of the recurring-income statuses. Country-scoped HasData seed (SV); IDs -9920…-9925.
+    public static IEnumerable<object> GetRecurringDeductionStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9920L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9921L, "SV", "VIGENTE", "Vigente", 20),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9922L, "SV", "RECHAZADO", "Rechazado", 30),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9923L, "SV", "SUSPENDIDO", "Suspendido", 40),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9924L, "SV", "FINALIZADO", "Finalizado", 50),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_STATUS_CATALOG", -9925L, "SV", "ANULADO", "Anulado", 60),
+    ];
+
+    // REQ-008 (D-12): what happens to the outstanding credit when the employee is settled — discount the
+    // balance from the settlement or cancel it (condonación). Country-scoped HasData seed (SV); IDs -9926/-9927.
+    public static IEnumerable<object> GetRecurringDeductionSettlementActionCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_SETTLEMENT_ACTION_CATALOG", -9926L, "SV", "DESCONTAR_SALDO", "Descontar saldo al liquidar", 10),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_SETTLEMENT_ACTION_CATALOG", -9927L, "SV", "CANCELAR", "Cancelar al liquidar", 20),
+    ];
+
+    // REQ-008 (P-10): editable template of recurring-deduction types (the credit families the company
+    // discounts by installments). Country-scoped HasData seed (SV); IDs -9930…-9934 (-9928 is the settlement
+    // concept, -9929 and -9935…-9939 are slack).
+    public static IEnumerable<object> GetRecurringDeductionTypeCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_TYPE_CATALOG", -9930L, "SV", "PRESTAMO_BANCARIO", "Préstamo bancario", 10),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_TYPE_CATALOG", -9931L, "SV", "PROCURADURIA", "Procuraduría", 20),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_TYPE_CATALOG", -9932L, "SV", "COOPERATIVA", "Cooperativa", 30),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_TYPE_CATALOG", -9933L, "SV", "ASOCIACION", "Asociación", 40),
+        CreateGeneralCatalogSeed("RECURRING_DEDUCTION_TYPE_CATALOG", -9934L, "SV", "OTRO", "Otro", 50),
+    ];
+
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
@@ -1087,6 +1119,10 @@ internal static class GlobalCatalogSeedData
         CreateCompensationConceptTypeSeed(-9734L, "SV", "EMBARGO", "Embargo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 310),
         CreateCompensationConceptTypeSeed(-9735L, "SV", "CUOTA_ALIMENTICIA", "Cuota alimenticia", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 320),
         CreateCompensationConceptTypeSeed(-9736L, "SV", "OTRO_EXTERNO", "Otro externo", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 330),
+        // REQ-008 (P-10): the two external deduction concepts the recurring-deduction module needs and the
+        // country catalog was missing. Same shape as the other Externo concepts (non-statutory, fixed amount).
+        CreateCompensationConceptTypeSeed(-9737L, "SV", "COOPERATIVA", "Cooperativa", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 340),
+        CreateCompensationConceptTypeSeed(-9738L, "SV", "PROCURADURIA", "Procuraduria", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 350),
     ];
 
     // Settlement ("liquidación") concepts (dedicated endpoint `settlement-concepts`): enriched country-scoped
@@ -1132,6 +1168,13 @@ internal static class GlobalCatalogSeedData
         // muerto. Voltearlo a true también cierra la vía manual (AddManualLine rechaza conceptos de sistema con
         // SETTLEMENT_CONCEPT_INVALID) → sin doble pago auto+manual. Espejo de afectaciones de -9837.
         CreateSettlementConceptSeed(-9915L, "SV", "HORAS_EXTRAS_PENDIENTES_PAGO", "Horas extras pendientes de pago", SettlementConceptClass.Ingreso, true, true, true, SettlementExemptionRule.Ninguna, null, true, null, 81),
+        // Descuento cíclico pendiente (REQ-008 §0.7/§0.9): sugerencia manual editable con monto conocido (el
+        // saldo del crédito — capital pendiente cuando hay interés); IsSystemCalculated=false → línea manual
+        // sugerida y excluible, como -9888/-9905 pero del lado DESCUENTO (reduce el neto). El motor la
+        // clasifica por ResolveClass, que es un switch cerrado con default→Ingreso: la constante DEBE
+        // añadirse a su brazo Descuento (PR-6) o el saldo se pagaría en vez de descontarse. Sort 135 (entre
+        // DESCUENTO_EXTERNO=130 y OTRO_DESCUENTO=140): el ~96 del plan pertenece a la franja de ingresos.
+        CreateSettlementConceptSeed(-9928L, "SV", "DESCUENTO_CICLICO_PENDIENTE", "Descuento cíclico pendiente", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, false, null, 135),
     ];
 
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>

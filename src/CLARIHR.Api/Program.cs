@@ -677,6 +677,29 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizeRecurringIncomes,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Recurring deductions ("planilla descuentos cíclicos" — REQ-008 D-06). Exact mirror of the
+    // recurring-income policies: HR-only (no self-service in Fase 1), the write policy is a RequireAssertion
+    // superset of the precise handler gate while ViewRecurringDeductions stays authn-only (the per-file
+    // detail and the company bandeja gate per-handler via EnsureCanViewRecurringDeductionsAsync).
+    // AuthorizeRecurringDeductions deliberately EXCLUDES PersonnelFiles.Admin (separation of duties + double
+    // anti-self); the IAM super-admin (ManageAdministration) remains the universal fallback. The controllers
+    // that carry these are added in PR-3/PR-4/PR-5.
+    options.AddPolicy(PersonnelFilePolicies.ViewRecurringDeductions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageRecurringDeductions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageRecurringDeductions,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeRecurringDeductions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeRecurringDeductions,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // One-time incomes ("planilla ingresos eventuales" — REQ-006 P-01). HR-only, no self-service in Fase 1
     // (P-11), so — mirroring the recurring-income policies — the write policy is a RequireAssertion superset
     // of the precise handler gate while ViewOneTimeIncomes stays authn-only (the per-file detail and the
