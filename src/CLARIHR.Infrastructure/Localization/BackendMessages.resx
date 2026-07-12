@@ -2818,4 +2818,7 @@
   <data name="validation.message.the_apply_period_batch_requires_either_a_payroll_period_or_a_cutoff_date" xml:space="preserve">
     <value>The apply-period batch requires either a payroll period or a cutoff date.</value>
   </data>
+  <data name="RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>The payroll-input export requires both a start date and an end date.</value>
+  </data>
 </root>

@@ -119,3 +119,32 @@ public sealed record ApplyRecurringDeductionPeriodRequest(
     Guid? PayrollPeriodPublicId,
     DateOnly? CutoffDate,
     IReadOnlyCollection<Guid>? ExcludedDeductionPublicIds);
+
+/// <summary>
+/// Body for the company-wide recurring-deduction bandeja query. Every filter is optional; when <c>StatusCode</c> is
+/// omitted every status is listed (annulled / rejected included). The StatusCounts are always computed over every
+/// status, and the per-currency totals cover the whole filtered set (not just the page).
+/// </summary>
+public sealed record QueryRecurringDeductionsRequest(
+    Guid? EmployeeId,
+    string? StatusCode,
+    string? RecurringDeductionTypeCode,
+    string? PayrollTypeCode,
+    DateOnly? EffectiveFrom,
+    DateOnly? EffectiveTo,
+    int? PageNumber,
+    int? PageSize);
+
+/// <summary>
+/// Body for the company-wide pending-charges bandeja query. The cutoff is the <c>PayrollPeriodPublicId</c> end
+/// date, the bare <c>CutoffDate</c>, or today; <c>StartDate</c> narrows the lower bound; <c>PayrollTypeCode</c> /
+/// <c>EmployeeId</c> scope the VIGENTE-credit scan.
+/// </summary>
+public sealed record QueryPendingRecurringDeductionInstallmentsRequest(
+    string? PayrollTypeCode,
+    Guid? PayrollPeriodPublicId,
+    DateOnly? CutoffDate,
+    DateOnly? StartDate,
+    Guid? EmployeeId,
+    int? PageNumber,
+    int? PageSize);

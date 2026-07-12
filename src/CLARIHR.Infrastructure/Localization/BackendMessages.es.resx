@@ -2818,4 +2818,7 @@
   <data name="validation.message.the_apply_period_batch_requires_either_a_payroll_period_or_a_cutoff_date" xml:space="preserve">
     <value>El lote de aplicación por periodo requiere un periodo de planilla o una fecha de corte.</value>
   </data>
+  <data name="RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>La exportación del insumo de planilla requiere una fecha de inicio y una fecha de fin.</value>
+  </data>
 </root>

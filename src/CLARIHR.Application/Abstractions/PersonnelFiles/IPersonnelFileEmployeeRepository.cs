@@ -1289,6 +1289,42 @@ public interface IPersonnelFileEmployeeRepository
         string payrollTypeCode,
         CancellationToken cancellationToken);
 
+    // ── Recurring-deduction bandejas + exports (REQ-008 PR-5) ───────────────────────────────────────
+
+    /// <summary>The company-wide credit bandeja: a page + StatusCounts over EVERY status + the charged/outstanding
+    /// totals per currency (both derived — never stored).</summary>
+    Task<RecurringDeductionBandejaResponse> QueryRecurringDeductionsAsync(
+        QueryRecurringDeductionsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The bandeja export rows (Spanish headers).</summary>
+    Task<IReadOnlyCollection<DescuentoCiclicoExportRow>> GetRecurringDeductionExportRowsAsync(
+        ExportRecurringDeductionsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The VIGENTE credits the pending-charges projection scans, each carrying the very
+    /// <see cref="RecurringDeductionBatchScanItem"/> the apply-period batch consumes (so the bandeja and the batch
+    /// cuadran by construction) plus the employee / plaza metadata the bandeja rows need.
+    /// </summary>
+    Task<IReadOnlyList<RecurringDeductionPendingScanItem>> GetRecurringDeductionPendingScanAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        Guid? employeeId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The payroll-input rows: every APPLIED charge (regular AND extraordinary) of the payroll type whose applied
+    /// date falls in the range, with the creditor + reference + capital/interest split the payroll operator needs.
+    /// </summary>
+    Task<IReadOnlyCollection<InsumoPlanillaDescuentoExportRow>> GetRecurringDeductionPayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
     // ── Recurring-income installments (REQ-005 PR-4) ────────────────────────────────────────────────
 
     /// <summary>

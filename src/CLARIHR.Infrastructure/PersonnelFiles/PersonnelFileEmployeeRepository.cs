@@ -4025,6 +4025,443 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ToArray();
     }
 
+    // ── Recurring-deduction bandejas + exports (REQ-008 PR-5) ──────────────────────────────────────
+
+    private sealed class RecurringDeductionQueryRow
+    {
+        public required PersonnelFileRecurringDeduction Deduction { get; init; }
+
+        public required string EmployeeFullName { get; init; }
+
+        public required Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+    }
+
+    public async Task<RecurringDeductionBandejaResponse> QueryRecurringDeductionsAsync(
+        QueryRecurringDeductionsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredRecurringDeductions(
+            query.CompanyId, query.EmployeeId, query.RecurringDeductionTypeCode, query.PayrollTypeCode,
+            query.EffectiveFrom, query.EffectiveTo);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even when the items are
+        // narrowed to one status.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Deduction.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var filtered = baseQuery;
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Deduction.StatusCode == status);
+        }
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        // The whole filtered set feeds the per-currency totals (a page-only total would misinform); the page feeds
+        // the rows. Both need the plan segments + the charged amounts, which are derived — not stored.
+        var allRows = await filtered.ToArrayAsync(cancellationToken);
+
+        var charged = await ChargedByDeductionAsync(allRows.Select(row => row.Deduction.Id).ToArray(), cancellationToken);
+
+        var chargedByCurrency = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        var outstandingByCurrency = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        foreach (var row in allRows)
+        {
+            var (chargedAmount, _) = charged.TryGetValue(row.Deduction.Id, out var totals) ? totals : (0m, 0m);
+            var currency = row.Deduction.CurrencyCode;
+
+            chargedByCurrency[currency] = chargedByCurrency.GetValueOrDefault(currency) + chargedAmount;
+
+            if (OutstandingOf(row.Deduction, chargedAmount) is { } outstanding)
+            {
+                outstandingByCurrency[currency] = outstandingByCurrency.GetValueOrDefault(currency) + outstanding;
+            }
+        }
+
+        var items = allRows
+            .OrderByDescending(row => row.Deduction.EffectiveDate)
+            .ThenByDescending(row => row.Deduction.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => ToListItem(row, charged))
+            .ToArray();
+
+        return new RecurringDeductionBandejaResponse(
+            items, query.PageNumber, query.PageSize, totalCount, statusCounts, chargedByCurrency, outstandingByCurrency);
+    }
+
+    public async Task<IReadOnlyCollection<DescuentoCiclicoExportRow>> GetRecurringDeductionExportRowsAsync(
+        ExportRecurringDeductionsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredRecurringDeductions(
+            query.CompanyId, query.EmployeeId, query.RecurringDeductionTypeCode, query.PayrollTypeCode,
+            query.EffectiveFrom, query.EffectiveTo);
+
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Deduction.StatusCode == status);
+        }
+
+        var ordered = filtered
+            .OrderByDescending(row => row.Deduction.EffectiveDate)
+            .ThenByDescending(row => row.Deduction.CreatedUtc);
+
+        var rows = query.MaxRows is { } maxRows
+            ? await ordered.Take(maxRows + 1).ToArrayAsync(cancellationToken)
+            : await ordered.ToArrayAsync(cancellationToken);
+
+        var charged = await ChargedByDeductionAsync(rows.Select(row => row.Deduction.Id).ToArray(), cancellationToken);
+
+        return rows
+            .Select(row =>
+            {
+                var item = ToListItem(row, charged);
+                return new DescuentoCiclicoExportRow(
+                    item.EmployeeFullName,
+                    item.EmployeeCode,
+                    item.Reference,
+                    item.RecurringDeductionTypeCode,
+                    item.ConceptNameSnapshot,
+                    item.FinancialInstitution,
+                    item.AssignedPositionPublicId.ToString(),
+                    item.EffectiveDate,
+                    item.InstallmentFrequencyCode,
+                    item.ApplicationFrequencyCode,
+                    item.UsesCompoundInterest,
+                    item.PrincipalAmount,
+                    item.InterestRatePercent,
+                    item.InstallmentCount,
+                    item.TotalAmount,
+                    item.TotalCharged,
+                    item.TotalOutstanding,
+                    item.IsIndefinite,
+                    item.SettlementActionCode,
+                    item.StatusCode,
+                    item.CurrencyCode,
+                    item.RegisteredByUserId?.ToString(),
+                    item.DecidedByUserId?.ToString());
+            })
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<RecurringDeductionPendingScanItem>> GetRecurringDeductionPendingScanAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        Guid? employeeId,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from deduction in dbContext.Set<PersonnelFileRecurringDeduction>().AsNoTracking().Include(item => item.PlanSegments)
+            join file in dbContext.PersonnelFiles.AsNoTracking() on deduction.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where deduction.TenantId == tenantId && deduction.StatusCode == RecurringDeductionStatuses.Vigente
+            select new RecurringDeductionQueryRow
+            {
+                Deduction = deduction,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalized = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Deduction.PayrollTypeCode == normalized);
+        }
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        var rows = await query.OrderBy(row => row.Deduction.Id).ToArrayAsync(cancellationToken);
+        if (rows.Length == 0)
+        {
+            return [];
+        }
+
+        var deductionIds = rows.Select(row => row.Deduction.Id).ToArray();
+        var appliedByDeduction = (await dbContext.Set<PersonnelFileRecurringDeductionInstallment>()
+                .AsNoTracking()
+                .Where(item => deductionIds.Contains(item.RecurringDeductionId)
+                    && item.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada
+                    && item.Kind == RecurringDeductionInstallmentKinds.Regular)
+                .Select(item => new { item.RecurringDeductionId, item.InstallmentNumber })
+                .ToArrayAsync(cancellationToken))
+            .GroupBy(item => item.RecurringDeductionId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.InstallmentNumber!.Value).ToArray());
+
+        return rows
+            .Select(row => new RecurringDeductionPendingScanItem(
+                ToBatchScanItem(row.Deduction, appliedByDeduction.TryGetValue(row.Deduction.Id, out var applied) ? applied : []),
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Deduction.Reference,
+                row.Deduction.RecurringDeductionTypeCode,
+                row.Deduction.ConceptNameSnapshot,
+                row.Deduction.FinancialInstitution,
+                row.Deduction.AssignedPositionPublicId,
+                row.Deduction.PayrollTypeCode,
+                row.Deduction.CurrencyCode))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaDescuentoExportRow>> GetRecurringDeductionPayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from installment in dbContext.Set<PersonnelFileRecurringDeductionInstallment>().AsNoTracking()
+            join deduction in dbContext.Set<PersonnelFileRecurringDeduction>().AsNoTracking()
+                on installment.RecurringDeductionId equals deduction.Id
+            join file in dbContext.PersonnelFiles.AsNoTracking() on deduction.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where installment.TenantId == tenantId
+                && installment.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada
+                && installment.AppliedDate >= startDate
+                && installment.AppliedDate <= endDate
+            select new
+            {
+                installment.Kind,
+                installment.InstallmentNumber,
+                installment.AppliedDate,
+                installment.Amount,
+                installment.CapitalAmount,
+                installment.InterestAmount,
+                installment.CurrencyCode,
+                installment.PayrollTypeCode,
+                installment.PayrollPeriodLabel,
+                EmployeeFullName = file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                deduction.Reference,
+                deduction.ConceptNameSnapshot,
+                deduction.FinancialInstitution,
+            };
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalized = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.PayrollTypeCode == normalized);
+        }
+
+        var ordered = query
+            .OrderBy(row => row.EmployeeFullName)
+            .ThenBy(row => row.AppliedDate)
+            .ThenBy(row => row.InstallmentNumber);
+
+        var rows = maxRows is { } cap
+            ? await ordered.Take(cap + 1).ToArrayAsync(cancellationToken)
+            : await ordered.ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new InsumoPlanillaDescuentoExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Reference,
+                row.ConceptNameSnapshot,
+                row.FinancialInstitution,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.AppliedDate,
+                row.Kind,
+                row.InstallmentNumber,
+                row.Amount,
+                row.CapitalAmount,
+                row.InterestAmount,
+                row.CurrencyCode))
+            .ToArray();
+    }
+
+    /// <summary>The charged amount + charged capital of each credit (active APLICADA charges, regular + extraordinary).</summary>
+    private async Task<Dictionary<long, (decimal Amount, decimal Capital)>> ChargedByDeductionAsync(
+        long[] deductionIds,
+        CancellationToken cancellationToken)
+    {
+        if (deductionIds.Length == 0)
+        {
+            return [];
+        }
+
+        var charges = await dbContext.Set<PersonnelFileRecurringDeductionInstallment>()
+            .AsNoTracking()
+            .Where(item => deductionIds.Contains(item.RecurringDeductionId)
+                && item.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada)
+            .Select(item => new { item.RecurringDeductionId, item.Amount, item.CapitalAmount })
+            .ToArrayAsync(cancellationToken);
+
+        return charges
+            .GroupBy(item => item.RecurringDeductionId)
+            .ToDictionary(
+                group => group.Key,
+                group => (
+                    Amount: group.Sum(item => item.Amount),
+                    Capital: group.Sum(item => item.CapitalAmount ?? item.Amount)));
+    }
+
+    /// <summary>What the credit still owes of its PLAN total (null for an indefinite plan, which has no total).</summary>
+    private static decimal? OutstandingOf(PersonnelFileRecurringDeduction deduction, decimal chargedAmount)
+    {
+        if (deduction.IsIndefinite)
+        {
+            return null;
+        }
+
+        var total = deduction.UsesCompoundInterest
+            ? TotalWithInterestOf(deduction)
+            : deduction.TotalPlanAmount();
+
+        return total is { } value ? Math.Max(0m, value - chargedAmount) : null;
+    }
+
+    /// <summary>
+    /// What a compound-interest credit ends up costing (principal + interest): the domain deliberately does not run
+    /// the amortization calculator, so the total is derived here through the pure rules.
+    /// </summary>
+    private static decimal TotalWithInterestOf(PersonnelFileRecurringDeduction deduction) =>
+        RecurringDeductionRules.Round2(
+            RecurringDeductionRules.BuildAmortizationSchedule(
+                deduction.PrincipalAmount!.Value,
+                deduction.InterestRatePercent!.Value,
+                deduction.PlannedInstallments!.Value,
+                deduction.InstallmentFrequencyCode)
+            .Sum(row => row.Amount));
+
+    private static RecurringDeductionBatchScanItem ToBatchScanItem(
+        PersonnelFileRecurringDeduction deduction,
+        IReadOnlyCollection<int> appliedNumbers) =>
+        new(
+            deduction.Id,
+            deduction.PublicId,
+            deduction.EffectiveDate,
+            deduction.IsIndefinite,
+            deduction.UsesCompoundInterest,
+            deduction.InstallmentFrequencyCode,
+            deduction.ApplicationFrequencyCode,
+            deduction.InstallmentStartDate,
+            deduction.ExceptionMonths,
+            deduction.PrincipalAmount,
+            deduction.InterestRatePercent,
+            deduction.PlannedInstallments,
+            deduction.PlanSegments
+                .Where(segment => segment.IsActive)
+                .OrderBy(segment => segment.FromInstallment)
+                .Select(segment => new RecurringDeductionSegment(segment.FromInstallment, segment.ToInstallment, segment.InstallmentValue))
+                .ToArray(),
+            appliedNumbers);
+
+    private static RecurringDeductionListItemResponse ToListItem(
+        RecurringDeductionQueryRow row,
+        Dictionary<long, (decimal Amount, decimal Capital)> charged)
+    {
+        var deduction = row.Deduction;
+        var chargedAmount = charged.TryGetValue(deduction.Id, out var totals) ? totals.Amount : 0m;
+
+        var total = deduction.IsIndefinite
+            ? null
+            : deduction.UsesCompoundInterest
+                ? TotalWithInterestOf(deduction)
+                : deduction.TotalPlanAmount();
+
+        return new RecurringDeductionListItemResponse(
+            deduction.PublicId,
+            row.EmployeeFilePublicId,
+            row.EmployeeFullName,
+            row.EmployeeCode,
+            deduction.Reference,
+            deduction.RecurringDeductionTypeCode,
+            deduction.ConceptTypeCode,
+            deduction.ConceptNameSnapshot,
+            deduction.FinancialInstitution,
+            deduction.AssignedPositionPublicId,
+            deduction.EffectiveDate,
+            deduction.InstallmentFrequencyCode,
+            deduction.ApplicationFrequencyCode,
+            deduction.CurrencyCode,
+            deduction.PayrollTypeCode,
+            deduction.IsIndefinite,
+            deduction.UsesCompoundInterest,
+            deduction.PrincipalAmount,
+            deduction.InterestRatePercent,
+            deduction.PlannedInstallmentCount,
+            total,
+            RecurringDeductionRules.Round2(chargedAmount),
+            OutstandingOf(deduction, chargedAmount),
+            deduction.SettlementActionCode,
+            deduction.StatusCode,
+            deduction.RegisteredByUserId == Guid.Empty ? null : deduction.RegisteredByUserId,
+            deduction.DecidedByUserId);
+    }
+
+    private IQueryable<RecurringDeductionQueryRow> FilteredRecurringDeductions(
+        Guid tenantId,
+        Guid? employeeId,
+        string? recurringDeductionTypeCode,
+        string? payrollTypeCode,
+        DateOnly? effectiveFrom,
+        DateOnly? effectiveTo)
+    {
+        // The plan segments are Included on the SOURCE: EF cannot apply an Include after the projection below.
+        var query =
+            from deduction in dbContext.Set<PersonnelFileRecurringDeduction>().AsNoTracking().Include(item => item.PlanSegments)
+            join file in dbContext.PersonnelFiles.AsNoTracking() on deduction.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where deduction.TenantId == tenantId
+            select new RecurringDeductionQueryRow
+            {
+                Deduction = deduction,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(recurringDeductionTypeCode))
+        {
+            var normalizedType = recurringDeductionTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Deduction.RecurringDeductionTypeCode == normalizedType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalizedPayroll = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Deduction.PayrollTypeCode == normalizedPayroll);
+        }
+
+        if (effectiveFrom is { } from)
+        {
+            query = query.Where(row => row.Deduction.EffectiveDate >= from);
+        }
+
+        if (effectiveTo is { } to)
+        {
+            query = query.Where(row => row.Deduction.EffectiveDate <= to);
+        }
+
+        return query;
+    }
+
     // ── One-time incomes (REQ-006) ─────────────────────────────────────────────────────────────────
 
     // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the

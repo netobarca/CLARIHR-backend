@@ -62,6 +62,11 @@ internal static class RecurringDeductionErrors
     public static readonly Error SelfApprovalForbidden = new(
         "RECURRING_DEDUCTION_SELF_APPROVAL_FORBIDDEN",
         "The subject employee or the registrar cannot decide or revoke the recurring deduction.", ErrorType.Forbidden);
+
+    // The payroll-input export requires a bounded date range so the applied charges can be imputed to a period.
+    public static readonly Error PayrollInputRangeRequired = new(
+        "RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED",
+        "The payroll-input export requires both a start date and an end date.", ErrorType.UnprocessableEntity);
 }
 
 /// <summary>One segment of the plan definition (№12): installments <c>From</c>..<c>To</c> are worth <c>Value</c>
