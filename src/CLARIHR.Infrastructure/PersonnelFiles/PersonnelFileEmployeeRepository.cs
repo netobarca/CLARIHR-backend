@@ -3748,6 +3748,108 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    // ── Recurring deductions (REQ-008) ─────────────────────────────────────────────────────────────
+
+    // Mirror of the recurring-income lock: the object id is derived deterministically from the credit's public id
+    // so every installment application/annulment/extraordinary payment of one credit contends on the same lock.
+    private const int RecurringDeductionMutationLockClassId = 0x52_44_45_44; // "RDED" — recurring deduction
+
+    public Task AcquireRecurringDeductionMutationLockAsync(Guid recurringDeductionPublicId, CancellationToken cancellationToken)
+    {
+        var objectKey = BitConverter.ToInt32(recurringDeductionPublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { RecurringDeductionMutationLockClassId, objectKey },
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<RecurringDeductionResponse>> AddRecurringDeductionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRecurringDeduction entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileRecurringDeduction>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(item => item.PlanSegments)
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.EffectiveDate)
+            .ThenByDescending(item => item.PublicId)
+            .Select(RecurringDeductionMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<RecurringDeductionResponse>> GetRecurringDeductionsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(item => item.PlanSegments)
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.EffectiveDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(RecurringDeductionMapping.ToResponse).ToArray();
+    }
+
+    public async Task<RecurringDeductionResponse?> GetRecurringDeductionAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(deduction => deduction.PlanSegments)
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFilePublicId && x.PublicId == recurringDeductionPublicId,
+                cancellationToken);
+        return item is null ? null : RecurringDeductionMapping.ToResponse(item);
+    }
+
+    public Task<PersonnelFileRecurringDeduction?> GetRecurringDeductionEntityAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileRecurringDeduction>()
+            .Include(deduction => deduction.PlanSegments)
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId
+                    && x.PublicId == recurringDeductionPublicId
+                    && x.PersonnelFile.PublicId == personnelFilePublicId,
+                cancellationToken);
+
+    public async Task<RecurringDeductionPlazaResolution> ResolveRecurringDeductionPlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileInternalId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return RecurringDeductionPlazaResolution.NotFound;
+        }
+
+        var chosen = assignedPositionPublicId is { } requested && requested != Guid.Empty
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : assignments.Where(item => item.IsActive && item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.Where(item => item.IsActive).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        return chosen is null
+            ? RecurringDeductionPlazaResolution.NotFound
+            : new RecurringDeductionPlazaResolution(true, chosen.PublicId);
+    }
+
     // ── One-time incomes (REQ-006) ─────────────────────────────────────────────────────────────────
 
     // A fixed class id namespaces this advisory lock; the object id is derived deterministically from the

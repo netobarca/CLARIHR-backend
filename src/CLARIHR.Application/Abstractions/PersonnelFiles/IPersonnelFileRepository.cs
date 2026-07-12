@@ -302,6 +302,20 @@ public interface IPersonnelFileRepository
         Task.FromResult<string?>(null);
 
     /// <summary>
+    /// Resolves an ACTIVE, NON-STATUTORY deduction compensation-concept type (Nature = Egreso, RN-04) by code for
+    /// the company's country, so the recurring-deduction write handlers can snapshot the concept name and know
+    /// whether it is an EXTERNAL deduction (which makes the financial institution mandatory, P-07). Returns null
+    /// when the code is not found, is inactive, is not a deduction concept, or is statutory (ISSS/AFP/Renta) — the
+    /// handler then rejects it (<c>RECURRING_DEDUCTION_CONCEPT_INVALID</c>). Fail-safe default (null) so
+    /// hand-written test doubles need not implement it; the production repository overrides it.
+    /// </summary>
+    Task<DeductionConceptLookup?> GetActiveDeductionConceptAsync(
+        Guid companyId,
+        string conceptTypeCode,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<DeductionConceptLookup?>(null);
+
+    /// <summary>
     /// Resolves a compensation-concept type by code for the company's country (REQ-006), returning its name +
     /// activity + nature + base-salary flag so the one-time-income handler can run the pure
     /// <c>OneTimeIncomeRules.ValidateConcept</c> (Nature = Ingreso, not base salary). Returns null when the code

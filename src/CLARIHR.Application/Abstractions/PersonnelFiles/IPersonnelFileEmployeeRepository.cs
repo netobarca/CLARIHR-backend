@@ -1192,6 +1192,60 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileInternalId,
         CancellationToken cancellationToken);
 
+    // ── Recurring deductions (REQ-008 PR-3) ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Serializes the mutations of one recurring deduction (advisory transaction lock, №11 — class id "RDED"), so
+    /// two concurrent installment applications cannot both pass the sequence guard. Fail-safe default (no-op) so
+    /// hand-written test doubles need not implement it; the production repository overrides it.
+    /// </summary>
+    Task AcquireRecurringDeductionMutationLockAsync(Guid recurringDeductionPublicId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    /// <summary>
+    /// Adds a recurring deduction (idioma post-fix): stages the entity and returns the file's recurring deductions
+    /// including the just-added (not-yet-saved) one, so the create handler can pick the created record for its
+    /// response. The unit of work commits afterwards.
+    /// </summary>
+    Task<IReadOnlyCollection<RecurringDeductionResponse>> AddRecurringDeductionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileRecurringDeduction entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns every recurring deduction of the personnel file (most recent effective date first).</summary>
+    Task<IReadOnlyCollection<RecurringDeductionResponse>> GetRecurringDeductionsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Returns a single recurring deduction by public id (or null when it is not on the file).</summary>
+    Task<RecurringDeductionResponse?> GetRecurringDeductionAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the TRACKED recurring deduction aggregate WITH its plan segments (for a domain mutation): the write
+    /// handlers apply the domain transition (pre-validated so the guards never throw) and the unit of work
+    /// commits. Returns null when the credit is not on the file / tenant.
+    /// </summary>
+    Task<PersonnelFileRecurringDeduction?> GetRecurringDeductionEntityAsync(
+        Guid personnelFilePublicId,
+        Guid recurringDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the plaza of a recurring deduction (D-13): when <paramref name="assignedPositionPublicId"/> is
+    /// supplied it must be an assignment of the employee; otherwise the principal plaza is resolved (IsPrimary
+    /// among the active ones, oldest StartDate, then oldest active, then oldest). Unlike the recurring income
+    /// there is NO cost center (P-08). Returns Found = false when no plaza can be resolved.
+    /// </summary>
+    Task<RecurringDeductionPlazaResolution> ResolveRecurringDeductionPlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
     // ── Recurring-income installments (REQ-005 PR-4) ────────────────────────────────────────────────
 
     /// <summary>

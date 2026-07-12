@@ -2662,4 +2662,139 @@
   <data name="OVERTIME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
     <value>Se requieren un tipo de planilla y un periodo para exportar el insumo de planilla de horas extras.</value>
   </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_REQUIRED" xml:space="preserve">
+    <value>Un crédito sin interés compuesto requiere al menos un tramo del plan.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_WITH_INTEREST" xml:space="preserve">
+    <value>Un crédito con interés compuesto deriva su plan y no puede llevar tramos.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENT_VALUE_INVALID" xml:space="preserve">
+    <value>El valor de cuota del tramo debe ser mayor que cero.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENT_RANGE_INVALID" xml:space="preserve">
+    <value>El rango de cuotas del tramo no es válido.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_NOT_CONTIGUOUS" xml:space="preserve">
+    <value>Los tramos del plan deben ser contiguos desde la cuota uno, sin huecos ni solapes.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_INDEFINITE_SHAPE" xml:space="preserve">
+    <value>Un plan indefinido debe terminar en un único tramo abierto.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_FINITE_SHAPE" xml:space="preserve">
+    <value>Un plan finito no puede terminar en un tramo abierto.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_INDEFINITE" xml:space="preserve">
+    <value>Un crédito con interés compuesto requiere un plan finito.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_PRINCIPAL_INVALID" xml:space="preserve">
+    <value>El monto principal no es válido para el modo de interés seleccionado.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_RATE_INVALID" xml:space="preserve">
+    <value>La tasa de interés debe ser mayor que cero.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_COUNT_INVALID" xml:space="preserve">
+    <value>Un crédito con interés compuesto requiere al menos una cuota planificada.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_NOT_AMORTIZABLE" xml:space="preserve">
+    <value>El crédito no se puede amortizar con el principal, la tasa y el número de cuotas indicados.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SETTLEMENT_ACTION_INDEFINITE" xml:space="preserve">
+    <value>Un crédito indefinido no tiene saldo que descontar en la liquidación; utilice CANCELAR.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un descuento cíclico VIGENTE puede aplicar cuotas.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_SEQUENCE_INVALID" xml:space="preserve">
+    <value>El número de cuota debe ser el siguiente esperado en la secuencia del plan.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_EXCEEDS_PLAN" xml:space="preserve">
+    <value>El número de cuota no puede exceder el número de cuotas planificadas.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_NOT_DUE_YET" xml:space="preserve">
+    <value>Aún no se ha alcanzado la fecha de vigencia del crédito.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un descuento cíclico VIGENTE puede recibir un abono extraordinario.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_EXCEEDS_BALANCE" xml:space="preserve">
+    <value>El abono extraordinario no puede exceder el saldo pendiente.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_INDEFINITE" xml:space="preserve">
+    <value>Un crédito indefinido no tiene saldo que cancelar anticipadamente.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_APPLICATION_FREQUENCY_INVALID" xml:space="preserve">
+    <value>La frecuencia de aplicación debe dividir a la frecuencia de cuota.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de descuento cíclico no es válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto de compensación no es un concepto de egreso activo y no estatutario del país de la empresa.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_FINANCIAL_INSTITUTION_REQUIRED" xml:space="preserve">
+    <value>La institución financiera es obligatoria para un concepto de descuento externo.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de planilla no es válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_FREQUENCY_INVALID" xml:space="preserve">
+    <value>La frecuencia de cuota o de aplicación no es válida para el catálogo de periodos activo.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza asignada no es una plaza válida de este empleado.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_STATUS_INVALID" xml:space="preserve">
+    <value>El estado destino no es un destino de resolución válido para el catálogo activo.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota de decisión para rechazar un descuento cíclico.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de anulación.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_CLOSURE_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de cierre para cerrar manualmente un descuento cíclico.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El descuento cíclico no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto o quien registró el descuento cíclico no pueden decidirlo ni revocarlo.</value>
+  </data>
+  <data name="validation.message.frominstallment_must_be_greater_than_or_equal_to_one" xml:space="preserve">
+    <value>La cuota inicial del tramo debe ser mayor o igual a uno.</value>
+  </data>
+  <data name="validation.message.toinstallment_cannot_precede_frominstallment" xml:space="preserve">
+    <value>La cuota final del tramo no puede ser anterior a la cuota inicial.</value>
+  </data>
+  <data name="validation.message.exceptionmonths_must_contain_month_numbers_between_1_and_12" xml:space="preserve">
+    <value>Los meses de excepción deben ser números de mes entre 1 y 12.</value>
+  </data>
+  <data name="validation.message.principalamount_is_required_and_must_be_greater_than_zero_for_a_compound_interest_credit" xml:space="preserve">
+    <value>El monto principal es obligatorio y debe ser mayor que cero en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.interestratepercent_is_required_and_must_be_in_0_100_for_a_compound_interest_credit" xml:space="preserve">
+    <value>La tasa de interés es obligatoria y debe estar entre 0 (exclusivo) y 100 en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.plannedinstallments_is_required_and_must_be_greater_than_zero_for_a_compound_interest_credit" xml:space="preserve">
+    <value>El número de cuotas es obligatorio y debe ser mayor que cero en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.principalamount_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>El monto principal solo es válido en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.interestratepercent_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>La tasa de interés solo es válida en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.plannedinstallments_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>El número de cuotas solo es válido en un crédito con interés compuesto.</value>
+  </data>
+  <data name="validation.message.segments_are_required_for_a_credit_without_compound_interest" xml:space="preserve">
+    <value>Los tramos son obligatorios en un crédito sin interés compuesto.</value>
+  </data>
+  <data name="validation.message.a_compound_interest_credit_derives_its_plan_and_cannot_carry_segments" xml:space="preserve">
+    <value>Un crédito con interés compuesto deriva su plan y no puede llevar tramos.</value>
+  </data>
+  <data name="validation.message.settlementactioncode_must_be_descontar_saldo_or_cancelar" xml:space="preserve">
+    <value>La acción de liquidación debe ser DESCONTAR_SALDO o CANCELAR.</value>
+  </data>
 </root>

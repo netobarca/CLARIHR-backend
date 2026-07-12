@@ -1,6 +1,68 @@
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles.Compensation;
+
+/// <summary>
+/// Dedicated handler-level errors for recurring deductions (REQ-008 §3.3 CRUD + resolution). Each code requires an
+/// EN + ES resource entry (parity: <c>BackendMessageLocalizationTests</c>). The plan / segment / amortization /
+/// settlement-action / state-transition codes are produced by the pure <see cref="RecurringDeductionRules"/> and
+/// localized alongside these; the ones here cover the cross-aggregate (catalog / concept / plaza) checks and the
+/// decision-flow guards that need a database or the request context. Field-level validation (required codes,
+/// positive values, plan shape) is the validator's job (400) and is NOT here.
+/// </summary>
+internal static class RecurringDeductionErrors
+{
+    public static readonly Error TypeInvalid = new(
+        "RECURRING_DEDUCTION_TYPE_INVALID",
+        "The recurring-deduction type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error ConceptInvalid = new(
+        "RECURRING_DEDUCTION_CONCEPT_INVALID",
+        "The compensation concept is not a valid active non-statutory deduction concept for the company's country.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error FinancialInstitutionRequired = new(
+        "RECURRING_DEDUCTION_FINANCIAL_INSTITUTION_REQUIRED",
+        "The financial institution is required for an external deduction concept.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error PayrollTypeInvalid = new(
+        "RECURRING_DEDUCTION_PAYROLL_TYPE_INVALID",
+        "The payroll type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error FrequencyInvalid = new(
+        "RECURRING_DEDUCTION_FREQUENCY_INVALID",
+        "The installment or application frequency is not valid for the active pay-period catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AssignedPositionInvalid = new(
+        "RECURRING_DEDUCTION_ASSIGNED_POSITION_INVALID",
+        "The assigned position is not a valid plaza of this employee.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StatusInvalid = new(
+        "RECURRING_DEDUCTION_STATUS_INVALID",
+        "The target status is not a valid resolution target for the active catalog.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error DecisionNoteRequired = new(
+        "RECURRING_DEDUCTION_DECISION_NOTE_REQUIRED",
+        "A decision note is required to reject a recurring deduction.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error AnnulmentReasonRequired = new(
+        "RECURRING_DEDUCTION_ANNULMENT_REASON_REQUIRED",
+        "An annulment reason is required.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error ClosureReasonRequired = new(
+        "RECURRING_DEDUCTION_CLOSURE_REASON_REQUIRED",
+        "A closure reason is required to close a recurring deduction manually.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error StateRuleViolation = new(
+        "RECURRING_DEDUCTION_STATE_RULE_VIOLATION",
+        "The recurring deduction is not in a state that allows this operation.", ErrorType.UnprocessableEntity);
+
+    // Separation of duties (double anti-self, D-05): neither the subject employee nor the registrar may decide or
+    // revoke the recurring deduction. 403 (Forbidden).
+    public static readonly Error SelfApprovalForbidden = new(
+        "RECURRING_DEDUCTION_SELF_APPROVAL_FORBIDDEN",
+        "The subject employee or the registrar cannot decide or revoke the recurring deduction.", ErrorType.Forbidden);
+}
 
 /// <summary>One segment of the plan definition (№12): installments <c>From</c>..<c>To</c> are worth <c>Value</c>
 /// each. <c>To</c> is null only for the single open segment of an indefinite plan.</summary>

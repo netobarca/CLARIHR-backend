@@ -2662,4 +2662,139 @@
   <data name="OVERTIME_PAYROLL_INPUT_FILTER_REQUIRED" xml:space="preserve">
     <value>A payroll type and a payroll period are required to export the overtime payroll input.</value>
   </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_REQUIRED" xml:space="preserve">
+    <value>A credit without compound interest requires at least one plan segment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_WITH_INTEREST" xml:space="preserve">
+    <value>A compound-interest credit derives its plan and cannot carry segments.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENT_VALUE_INVALID" xml:space="preserve">
+    <value>The segment installment value must be greater than zero.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENT_RANGE_INVALID" xml:space="preserve">
+    <value>The segment installment range is not valid.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_NOT_CONTIGUOUS" xml:space="preserve">
+    <value>The plan segments must be contiguous from installment one, with no gaps or overlaps.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_INDEFINITE_SHAPE" xml:space="preserve">
+    <value>An indefinite plan must end in a single open segment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SEGMENTS_FINITE_SHAPE" xml:space="preserve">
+    <value>A finite plan cannot end in an open segment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_INDEFINITE" xml:space="preserve">
+    <value>A compound-interest credit requires a finite plan.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_PRINCIPAL_INVALID" xml:space="preserve">
+    <value>The principal amount is not valid for the selected interest mode.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_RATE_INVALID" xml:space="preserve">
+    <value>The interest rate must be greater than zero.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_COUNT_INVALID" xml:space="preserve">
+    <value>A compound-interest credit requires at least one planned installment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INTEREST_NOT_AMORTIZABLE" xml:space="preserve">
+    <value>The credit cannot be amortized with the supplied principal, rate and installment count.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SETTLEMENT_ACTION_INDEFINITE" xml:space="preserve">
+    <value>An indefinite credit has no balance to discount at settlement; use CANCELAR.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only a VIGENTE recurring deduction can apply installments.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_SEQUENCE_INVALID" xml:space="preserve">
+    <value>The installment number must be the next expected one in the plan sequence.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_EXCEEDS_PLAN" xml:space="preserve">
+    <value>The installment number cannot exceed the planned installment count.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_INSTALLMENT_NOT_DUE_YET" xml:space="preserve">
+    <value>The credit's effective date has not been reached yet.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only a VIGENTE recurring deduction can take an extraordinary payment.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_EXCEEDS_BALANCE" xml:space="preserve">
+    <value>The extraordinary payment cannot exceed the outstanding balance.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_EXTRAORDINARY_INDEFINITE" xml:space="preserve">
+    <value>An indefinite credit has no balance to pay off ahead of time.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_APPLICATION_FREQUENCY_INVALID" xml:space="preserve">
+    <value>The application frequency must divide the installment frequency.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_TYPE_INVALID" xml:space="preserve">
+    <value>The recurring-deduction type is not valid for the active catalog.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>The compensation concept is not a valid active non-statutory deduction concept for the company's country.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_FINANCIAL_INSTITUTION_REQUIRED" xml:space="preserve">
+    <value>The financial institution is required for an external deduction concept.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>The payroll type is not valid for the active catalog.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_FREQUENCY_INVALID" xml:space="preserve">
+    <value>The installment or application frequency is not valid for the active pay-period catalog.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position is not a valid plaza of this employee.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_STATUS_INVALID" xml:space="preserve">
+    <value>The target status is not a valid resolution target for the active catalog.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A decision note is required to reject a recurring deduction.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_CLOSURE_REASON_REQUIRED" xml:space="preserve">
+    <value>A closure reason is required to close a recurring deduction manually.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The recurring deduction is not in a state that allows this operation.</value>
+  </data>
+  <data name="RECURRING_DEDUCTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee or the registrar cannot decide or revoke the recurring deduction.</value>
+  </data>
+  <data name="validation.message.frominstallment_must_be_greater_than_or_equal_to_one" xml:space="preserve">
+    <value>FromInstallment must be greater than or equal to one.</value>
+  </data>
+  <data name="validation.message.toinstallment_cannot_precede_frominstallment" xml:space="preserve">
+    <value>ToInstallment cannot precede FromInstallment.</value>
+  </data>
+  <data name="validation.message.exceptionmonths_must_contain_month_numbers_between_1_and_12" xml:space="preserve">
+    <value>ExceptionMonths must contain month numbers between 1 and 12.</value>
+  </data>
+  <data name="validation.message.principalamount_is_required_and_must_be_greater_than_zero_for_a_compound_interest_credit" xml:space="preserve">
+    <value>PrincipalAmount is required and must be greater than zero for a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.interestratepercent_is_required_and_must_be_in_0_100_for_a_compound_interest_credit" xml:space="preserve">
+    <value>InterestRatePercent is required and must be in (0, 100] for a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.plannedinstallments_is_required_and_must_be_greater_than_zero_for_a_compound_interest_credit" xml:space="preserve">
+    <value>PlannedInstallments is required and must be greater than zero for a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.principalamount_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>PrincipalAmount is only valid on a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.interestratepercent_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>InterestRatePercent is only valid on a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.plannedinstallments_is_only_valid_on_a_compound_interest_credit" xml:space="preserve">
+    <value>PlannedInstallments is only valid on a compound-interest credit.</value>
+  </data>
+  <data name="validation.message.segments_are_required_for_a_credit_without_compound_interest" xml:space="preserve">
+    <value>Segments are required for a credit without compound interest.</value>
+  </data>
+  <data name="validation.message.a_compound_interest_credit_derives_its_plan_and_cannot_carry_segments" xml:space="preserve">
+    <value>A compound-interest credit derives its plan and cannot carry segments.</value>
+  </data>
+  <data name="validation.message.settlementactioncode_must_be_descontar_saldo_or_cancelar" xml:space="preserve">
+    <value>SettlementActionCode must be DESCONTAR_SALDO or CANCELAR.</value>
+  </data>
 </root>
