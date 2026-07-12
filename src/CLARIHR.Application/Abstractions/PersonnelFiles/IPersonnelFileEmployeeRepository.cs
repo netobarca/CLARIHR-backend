@@ -1344,6 +1344,20 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileId,
         CancellationToken cancellationToken);
 
+    /// <summary>The employee's VIGENTE recurring deductions (tracked) to finalize when a settlement is issued
+    /// (FinalizeBySettlement, REQ-008 §3.5); empty when none. Those with DESCONTAR_SALDO were discounted through
+    /// the suggested line; those with CANCELAR are written off (condonación).</summary>
+    Task<IReadOnlyCollection<PersonnelFileRecurringDeduction>> GetVigenteRecurringDeductionsForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The employee's recurring deductions closed by a specific settlement (tracked) to reopen when that
+    /// settlement is annulled (ReopenFromSettlement, REQ-008 §3.5); empty when none.</summary>
+    Task<IReadOnlyCollection<PersonnelFileRecurringDeduction>> GetRecurringDeductionsClosedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken);
+
     /// <summary>The employee's recurring incomes closed by a specific settlement (tracked) to reopen when that
     /// settlement is annulled (ReopenFromSettlement, REQ-005 §3.5); empty when none.</summary>
     Task<IReadOnlyCollection<PersonnelFileRecurringIncome>> GetRecurringIncomesClosedBySettlementAsync(

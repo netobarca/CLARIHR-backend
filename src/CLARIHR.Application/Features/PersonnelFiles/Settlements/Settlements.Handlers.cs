@@ -1031,6 +1031,17 @@ internal sealed class IssueSettlementCommandHandler(
             income.FinalizeBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }
 
+        // REQ-008 §3.5: a settled employee's credits end too. Finalize EVERY VIGENTE recurring deduction in the
+        // same transaction — those with DESCONTAR_SALDO were discounted through the suggested line, and those with
+        // CANCELAR are WRITTEN OFF (condonación: they carry no settlement line at all, and the balance dies with
+        // the credit). Idempotent; stamps ClosedBySettlementPublicId so annulment reopens exactly these.
+        var deductionsToFinalize = await employeeRepository.GetVigenteRecurringDeductionsForSettlementAsync(
+            personnelFile.Id, cancellationToken);
+        foreach (var deduction in deductionsToFinalize)
+        {
+            deduction.FinalizeBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
         // REQ-006 §3.5: mark the employee's AUTORIZADO one-time incomes applied by THIS settlement, but ONLY those
         // whose INGRESO_EVENTUAL_PENDIENTE suggestion line was kept INCLUDED (unlike the cyclic hook, an EXCLUDED
         // line ⇒ the income is NOT paid via the settlement and stays AUTORIZADO). The line ↔ income link is the
@@ -1162,6 +1173,15 @@ internal sealed class AnnulSettlementCommandHandler(
         foreach (var income in cyclicToReopen)
         {
             income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
+        // REQ-008 §3.5: reopen exactly the credits this settlement closed (symmetric with the issue hook) — the
+        // ones it discounted AND the ones it wrote off (CANCELAR) come back to VIGENTE with their balance intact.
+        var deductionsToReopen = await employeeRepository.GetRecurringDeductionsClosedBySettlementAsync(
+            personnelFile.Id, settlement.PublicId, cancellationToken);
+        foreach (var deduction in deductionsToReopen)
+        {
+            deduction.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }
 
         // REQ-006 §3.5: reopen exactly the one-time incomes this settlement applied (symmetric with the issue hook).

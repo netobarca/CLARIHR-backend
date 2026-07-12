@@ -55203,6 +55203,1565 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/recurring-deductions/apply-period:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Apply the due recurring-deduction charges of a payroll period"
+      description: >-
+        Applies, ATOMICALLY, every due charge of the company's `VIGENTE` credits of the given `payrollTypeCode`
+        up to the period cutoff (RF-007) — including overdue charges carried over from previous periods. The
+        charges advance by each credit's APPLICATION cadence (a monthly quota charged fortnightly yields two
+        half charges) and skip its exception months; a credit whose `effectiveDate` has not been reached is not
+        a candidate. Provide a `payrollPeriodPublicId` (its end date is the cutoff and its id/label are
+        snapshotted onto the charges) or a bare `cutoffDate`. `excludedDeductionPublicIds` postpones credits
+        (they stay due for the next run). Credits whose plan completes in the run are FINALIZED. Any conflict
+        rolls the WHOLE batch back (422). HR-only (`ManageRecurringDeductions`).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ApplyRecurringDeductionPeriodRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionApplyPeriodResult"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/recurring-deductions/export:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the recurring-deduction bandeja to Excel/CSV/JSON"
+      description: >-
+        Exports the filtered credits (same filters as the bandeja) to `xlsx`, `csv` or `json` with the plan
+        header, the creditor, the interest parameters and the derived charged / outstanding totals. Annulled
+        and rejected credits are included (filter by status to narrow). HR-only. Synchronous download capped at
+        the configured row limit (`413` if exceeded).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: employeePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: statusCode
+          in: query
+          schema:
+            type: string
+        - name: recurringDeductionTypeCode
+          in: query
+          schema:
+            type: string
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: effectiveFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: effectiveTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        413:
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/recurring-deductions/payroll-input/export:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the payroll input of the applied recurring-deduction charges"
+      description: >-
+        The handoff to the external payroll system: one row per APPLIED charge whose applied date falls in the
+        MANDATORY range (`startDate` + `endDate`; a missing bound → `422`
+        `RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED`). Each row carries the CREDITOR (financial
+        institution), the credit reference and the capital/interest split, so the operator knows whom to pay.
+        EXTRAORDINARY payments are included — the payroll must discount them too. Annulled charges are excluded,
+        so this export cuadra exactly against the pending-charges bandeja of the same filter once applied.
+        HR-only.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        413:
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/recurring-deductions/pending-installments/export:
+    get:
+      tags:
+        - Personnel Files
+      summary: Export the pending / overdue charges to Excel/CSV/JSON
+      description: "Exports the same projection as the pending-charges bandeja (same filters), with the creditor and the capital/interest split. HR-only."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollTypeCode
+          in: query
+          schema:
+            type: string
+        - name: payrollPeriodPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: cutoffDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: employeePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        413:
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/recurring-deductions/pending-installments/query:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the pending / overdue charges of the company's credits"
+      description: >-
+        Returns the THEORETICAL charges of the company's `VIGENTE` credits that are due on/before the cutoff and
+        are not yet applied — including OVERDUE ones carried over from previous periods (`isOverdue`). It is a
+        pure derivation (never persisted) and it reuses the very projection the apply-period batch consumes, so
+        what you see here is exactly what the batch would apply. The charges advance by each credit's
+        APPLICATION cadence and skip its exception months; a credit whose effective date has not been reached
+        contributes nothing. HR-only (`ViewRecurringDeductions`).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/QueryPendingRecurringDeductionInstallmentsRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionPendingInstallmentsResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/recurring-deductions/query:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the company-wide recurring-deduction bandeja"
+      description: >-
+        Returns a paginated, filterable list of the company's credits (by employee, status, deduction type,
+        payroll type and effective-date range) with the plan header, the creditor, and the DERIVED
+        `totalCharged` ("total cobrado") / `totalOutstanding` ("total no cobrado") per credit. Every status is
+        listed by default — annulled and rejected credits are included with their status; the StatusCounts
+        cover every status, and the per-currency totals cover the WHOLE filtered set (not just the page).
+        HR-only (`ViewRecurringDeductions`).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/QueryRecurringDeductionsRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionBandejaResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions:
+    get:
+      tags:
+        - Personnel Files
+      summary: "List a personnel file's recurring deductions"
+      description: >-
+        Returns the recurring deductions (credits) of the specified personnel file. Requires the
+        `ViewRecurringDeductions` permission (HR-only, no self-service). Each item carries its plan segments,
+        its derived `installmentCount` / `totalAmount` and its own `concurrencyToken` for the `If-Match` header
+        of subsequent writes.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/RecurringDeductionResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    post:
+      tags:
+        - Personnel Files
+      summary: Register a recurring deduction
+      description: >-
+        Creates a credit in status `EN_REVISION` and returns it with `201 Created`. HR-only
+        (`ManageRecurringDeductions`). The deduction type, payroll type and BOTH frequencies are validated
+        against the country catalogs; the compensation concept must be an ACTIVE, NON-STATUTORY `Egreso`
+        concept (ISSS/AFP/Renta are payroll law, not credits → 422) and the `financialInstitution` is MANDATORY
+        when that concept is EXTERNAL. The plaza is optional (the principal plaza is used when omitted).
+        `effectiveDate` MAY be in the future — the credit is registered and authorized, but no installment can
+        be charged until the date is reached. The plan is normalized: WITHOUT interest it comes from the
+        contiguous `segments`; WITH `usesCompoundInterest` it is DERIVED from principal + nominal annual rate +
+        planned installments (and carries no segments, and cannot be indefinite). The application frequency
+        must divide the installment frequency; `DESCONTAR_SALDO` is invalid for an indefinite plan. The `ETag`
+        header carries the initial `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AddRecurringDeductionRequest"
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}:
+    get:
+      tags:
+        - Personnel Files
+      summary: Get a personnel file recurring deduction by id
+      description: "Returns a single recurring deduction. The `concurrencyToken` is required in the `If-Match` header of subsequent writes."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    put:
+      tags:
+        - Personnel Files
+      summary: "Replace a recurring deduction's header + plan"
+      description: >-
+        Replaces the business fields (header + installment plan) of an `EN_REVISION` credit; an authorized one
+        is no longer editable. The `segments` are REPLACE-ALL (the previous plan is discarded). HR-only.
+        Requires the `If-Match` header with the current `concurrencyToken`; the new token is returned in the
+        `ETag` header.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UpdateRecurringDeductionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    delete:
+      tags:
+        - Personnel Files
+      summary: "Discard (soft-delete) an EN_REVISION recurring-deduction draft"
+      description: >-
+        Soft-deletes an `EN_REVISION` draft (sets it inactive; no physical removal). Only a draft can be
+        discarded — an authorized credit is revoked or closed. HR-only. Requires the `If-Match` header with the
+        current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/PersonnelFileParentConcurrencyResult"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PersonnelFileParentConcurrencyResult"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/PersonnelFileParentConcurrencyResult"
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/annulment:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul an EN_REVISION recurring deduction
+      description: >-
+        Annuls an `EN_REVISION` credit (→ `ANULADO`, terminal); the `reason` is mandatory. Revoking an
+        AUTHORIZED credit is the authorizer's action (see the resolution controller) — this endpoint is the HR
+        branch and only touches drafts. Requires the `If-Match` header with the current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AnnulRecurringDeductionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/closure:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Close an indefinite VIGENTE recurring deduction by hand
+      description: >-
+        Closes an INDEFINITE `VIGENTE` credit (→ `FINALIZADO`); the `reason` is mandatory. A finite credit is
+        NOT closed this way — it ends when its plan completes or its balance is paid off. HR-only. Requires the
+        `If-Match` header with the current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CloseRecurringDeductionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/extraordinary-installments:
+    post:
+      tags:
+        - Personnel Files
+      summary: Apply an extraordinary payment (abono) to a recurring deduction
+      description: >-
+        Registers an out-of-sequence payment against a `VIGENTE` credit. The amount goes 100 % against CAPITAL
+        and SHORTENS THE TERM — the quota is untouched (P-04), so the derived schedule simply ends earlier.
+        Paying exactly the `outstandingBalance` is a PAYOFF: the credit finalizes in the same transaction.
+        Rejected on a `SUSPENDIDO` credit, above the outstanding balance, or on an indefinite plan (422).
+        Requires the `If-Match` header with the credit's current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ApplyRecurringDeductionExtraordinaryRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionInstallmentApplicationResult"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/installments:
+    get:
+      tags:
+        - Personnel Files
+      summary: List the charge history of a recurring deduction
+      description: >-
+        Returns the applied and annulled charges (REGULAR and EXTRAORDINARIA alike), most recent activity
+        first, with their currency / payroll-type / payroll-period snapshots and their capital/interest split.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 50
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionInstallmentHistoryResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    post:
+      tags:
+        - Personnel Files
+      summary: Apply the next charge of a recurring deduction
+      description: >-
+        Applies the NEXT charge of a `VIGENTE` credit. The number, the amount and the capital/interest split
+        are derived by the rules and are NOT editable. The credit's `effectiveDate` must have been REACHED (a
+        future-dated credit → 422) and the sequence is strict (it fills any annulled gap first). When the
+        charge completes the plan — or the balance reaches zero — the credit is FINALIZED in the same
+        transaction. Serialized by an advisory lock. Requires the `If-Match` header with the credit's current
+        `concurrencyToken`; the refreshed token comes back in the `ETag`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ApplyRecurringDeductionInstallmentRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionInstallmentApplicationResult"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/installments/{installmentPublicId}/annulment:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Annul an applied charge of a recurring deduction
+      description: >-
+        Annuls an APLICADA charge — regular or extraordinary; the `reason` is mandatory. The number is freed
+        and can be re-applied. If the credit had FINALIZED and the plan is no longer complete after the
+        annulment, it REOPENS to `VIGENTE` in the same transaction. Requires the `If-Match` header with the
+        credit's current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: installmentPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AnnulRecurringDeductionInstallmentRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionInstallmentApplicationResult"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/resolution:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Authorize or reject a recurring deduction
+      description: >-
+        Authorizer resolution of an `EN_REVISION` credit: `targetStatusCode` = `VIGENTE` (authorize) or
+        `RECHAZADO` (reject — note MANDATORY, terminal). Requires the dedicated `AuthorizeRecurringDeductions`
+        grant (`PersonnelFiles.Admin` does NOT imply it). Separation of duties (double anti-self): neither the
+        subject employee nor the registrar may resolve (403). Requires the `If-Match` header with the credit's
+        current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ResolveRecurringDeductionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/revocation:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Revoke a VIGENTE recurring deduction
+      description: >-
+        Authorizer revocation of a `VIGENTE` credit (→ `ANULADO`, terminal); the `reason` is mandatory.
+        Requires the dedicated `AuthorizeRecurringDeductions` grant. Separation of duties (double anti-self):
+        neither the subject employee nor the registrar may revoke (403). Requires the `If-Match` header with
+        the credit's current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RevokeRecurringDeductionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/schedule:
+    get:
+      tags:
+        - Personnel Files
+      summary: Get the derived schedule of a recurring deduction
+      description: >-
+        Returns the DERIVED plan of the credit (never persisted): one row per CHARGE — the rows advance by the
+        APPLICATION cadence, so a monthly quota charged fortnightly yields two rows of half the quota, and the
+        exception months are skipped (the plan is pushed forward, not shortened). A compound-interest credit
+        carries the capital/interest split per row (French-system amortization). Applied rows are flagged; an
+        unapplied row whose due date is past is `isOverdue`. It also carries the derived totals the business
+        asked for: `totalCharged` ("total cobrado"), `totalOutstanding` ("total no cobrado") and
+        `outstandingBalance` — which for an interest-bearing credit is the outstanding CAPITAL (the payoff), a
+        SMALLER figure than the sum of the remaining quotas, because paying early does not owe future interest.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionScheduleResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/suspension:
+    patch:
+      tags:
+        - Personnel Files
+      summary: Suspend or resume a recurring deduction
+      description: >-
+        Suspends a `VIGENTE` credit (`suspend` = true; the note is optional) or resumes a `SUSPENDIDO` one
+        (`suspend` = false). A suspended credit charges no installments and takes no extraordinary payments.
+        HR-only. Requires the `If-Match` header with the current `concurrencyToken`.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recurringDeductionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/SetRecurringDeductionSuspensionRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RecurringDeductionResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -75488,6 +77047,810 @@ components:
         expiresUtc:
           type: string
           format: date-time
+      additionalProperties: false
+    AddRecurringDeductionRequest:
+      type: object
+      properties:
+        effectiveDate:
+          type: string
+          format: date
+        reference:
+          type: string
+        recurringDeductionTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        installmentStartDate:
+          type: string
+          format: date
+        exceptionMonths:
+          type: array
+          items:
+            type: integer
+            format: int32
+          nullable: true
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        applicationFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        usesCompoundInterest:
+          type: boolean
+        principalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestRatePercent:
+          type: number
+          format: double
+          nullable: true
+        plannedInstallments:
+          type: integer
+          format: int32
+          nullable: true
+        segments:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionSegmentRequest"
+          nullable: true
+        settlementActionCode:
+          type: string
+      additionalProperties: false
+    AnnulRecurringDeductionInstallmentRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    AnnulRecurringDeductionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    ApplyRecurringDeductionExtraordinaryRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+        appliedDate:
+          type: string
+          format: date
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      additionalProperties: false
+    ApplyRecurringDeductionInstallmentRequest:
+      type: object
+      properties:
+        appliedDate:
+          type: string
+          format: date
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      additionalProperties: false
+    ApplyRecurringDeductionPeriodRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        excludedDeductionPublicIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+      additionalProperties: false
+    CloseRecurringDeductionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    QueryPendingRecurringDeductionInstallmentsRequest:
+      type: object
+      properties:
+        payrollTypeCode:
+          type: string
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        employeePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    QueryRecurringDeductionsRequest:
+      type: object
+      properties:
+        employeePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        recurringDeductionTypeCode:
+          type: string
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        effectiveFrom:
+          type: string
+          format: date
+          nullable: true
+        effectiveTo:
+          type: string
+          format: date
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    RecurringDeductionApplyPeriodResult:
+      type: object
+      properties:
+        aplicadas:
+          type: integer
+          format: int32
+        finalizados:
+          type: integer
+          format: int32
+        pospuestas:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RecurringDeductionBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionListItemResponse"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        chargedByCurrency:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        outstandingByCurrency:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+      additionalProperties: false
+    RecurringDeductionInstallmentApplicationResult:
+      type: object
+      properties:
+        installment:
+          "$ref": "#/components/schemas/RecurringDeductionInstallmentResponse"
+        recurringDeductionStatusCode:
+          type: string
+        recurringDeductionConcurrencyToken:
+          type: string
+          format: uuid
+      additionalProperties: false
+    RecurringDeductionInstallmentHistoryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionInstallmentResponse"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RecurringDeductionInstallmentResponse:
+      type: object
+      properties:
+        installmentPublicId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        installmentNumber:
+          type: integer
+          format: int32
+          nullable: true
+        extraordinaryNumber:
+          type: integer
+          format: int32
+          nullable: true
+        appliedDate:
+          type: string
+          format: date
+        theoreticalDueDate:
+          type: string
+          format: date
+          nullable: true
+        amount:
+          type: number
+          format: double
+        capitalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodLabel:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        statusCode:
+          type: string
+        appliedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        annulledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulledUtc:
+          type: string
+          format: "date-time"
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+      additionalProperties: false
+    RecurringDeductionListItemResponse:
+      type: object
+      properties:
+        recurringDeductionPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        reference:
+          type: string
+        recurringDeductionTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        effectiveDate:
+          type: string
+          format: date
+        installmentFrequencyCode:
+          type: string
+        applicationFrequencyCode:
+          type: string
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        usesCompoundInterest:
+          type: boolean
+        principalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestRatePercent:
+          type: number
+          format: double
+          nullable: true
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        totalCharged:
+          type: number
+          format: double
+        totalOutstanding:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+        statusCode:
+          type: string
+        registeredByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+      additionalProperties: false
+    RecurringDeductionPendingInstallmentResponse:
+      type: object
+      properties:
+        recurringDeductionPublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        reference:
+          type: string
+        recurringDeductionTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        payrollTypeCode:
+          type: string
+        currencyCode:
+          type: string
+        installmentNumber:
+          type: integer
+          format: int32
+        theoreticalDueDate:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: double
+        capitalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestAmount:
+          type: number
+          format: double
+          nullable: true
+        isOverdue:
+          type: boolean
+      additionalProperties: false
+    RecurringDeductionPendingInstallmentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionPendingInstallmentResponse"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RecurringDeductionResponse:
+      type: object
+      properties:
+        recurringDeductionPublicId:
+          type: string
+          format: uuid
+        effectiveDate:
+          type: string
+          format: date
+        reference:
+          type: string
+        recurringDeductionTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        conceptNameSnapshot:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        installmentStartDate:
+          type: string
+          format: date
+        exceptionMonths:
+          type: array
+          items:
+            type: integer
+            format: int32
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        applicationFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        usesCompoundInterest:
+          type: boolean
+        principalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestRatePercent:
+          type: number
+          format: double
+          nullable: true
+        plannedInstallments:
+          type: integer
+          format: int32
+          nullable: true
+        segments:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionSegmentResponse"
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        settlementActionCode:
+          type: string
+        statusCode:
+          type: string
+        registeredByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decidedUtc:
+          type: string
+          format: "date-time"
+          nullable: true
+        decisionNote:
+          type: string
+          nullable: true
+        suspendedUtc:
+          type: string
+          format: "date-time"
+          nullable: true
+        suspensionNote:
+          type: string
+          nullable: true
+        closedUtc:
+          type: string
+          format: "date-time"
+          nullable: true
+        closureReason:
+          type: string
+          nullable: true
+        closedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+      additionalProperties: false
+    RecurringDeductionScheduleItemResponse:
+      type: object
+      properties:
+        installmentNumber:
+          type: integer
+          format: int32
+        theoreticalDueDate:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: double
+        capitalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestAmount:
+          type: number
+          format: double
+          nullable: true
+        isApplied:
+          type: boolean
+        isOverdue:
+          type: boolean
+      additionalProperties: false
+    RecurringDeductionScheduleResponse:
+      type: object
+      properties:
+        recurringDeductionPublicId:
+          type: string
+          format: uuid
+        statusCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        usesCompoundInterest:
+          type: boolean
+        installmentFrequencyCode:
+          type: string
+        applicationFrequencyCode:
+          type: string
+        effectiveDate:
+          type: string
+          format: date
+        installmentStartDate:
+          type: string
+          format: date
+        exceptionMonths:
+          type: array
+          items:
+            type: integer
+            format: int32
+        installmentCount:
+          type: integer
+          format: int32
+          nullable: true
+        chargeCount:
+          type: integer
+          format: int32
+          nullable: true
+        totalAmount:
+          type: number
+          format: double
+          nullable: true
+        totalCharged:
+          type: number
+          format: double
+        totalOutstanding:
+          type: number
+          format: double
+          nullable: true
+        outstandingBalance:
+          type: number
+          format: double
+          nullable: true
+        isPlanComplete:
+          type: boolean
+        nextInstallmentNumber:
+          type: integer
+          format: int32
+        installments:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionScheduleItemResponse"
+      additionalProperties: false
+    RecurringDeductionSegmentRequest:
+      type: object
+      properties:
+        fromInstallment:
+          type: integer
+          format: int32
+        toInstallment:
+          type: integer
+          format: int32
+          nullable: true
+        installmentValue:
+          type: number
+          format: double
+      additionalProperties: false
+    RecurringDeductionSegmentResponse:
+      type: object
+      properties:
+        segmentPublicId:
+          type: string
+          format: uuid
+        fromInstallment:
+          type: integer
+          format: int32
+        toInstallment:
+          type: integer
+          format: int32
+          nullable: true
+        installmentValue:
+          type: number
+          format: double
+      additionalProperties: false
+    ResolveRecurringDeductionRequest:
+      type: object
+      properties:
+        targetStatusCode:
+          type: string
+        note:
+          type: string
+          nullable: true
+      additionalProperties: false
+    RevokeRecurringDeductionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    SetRecurringDeductionSuspensionRequest:
+      type: object
+      properties:
+        suspend:
+          type: boolean
+        note:
+          type: string
+          nullable: true
+      additionalProperties: false
+    UpdateRecurringDeductionRequest:
+      type: object
+      properties:
+        effectiveDate:
+          type: string
+          format: date
+        reference:
+          type: string
+        recurringDeductionTypeCode:
+          type: string
+        conceptTypeCode:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        installmentStartDate:
+          type: string
+          format: date
+        exceptionMonths:
+          type: array
+          items:
+            type: integer
+            format: int32
+          nullable: true
+        currencyCode:
+          type: string
+        payrollTypeCode:
+          type: string
+        installmentFrequencyCode:
+          type: string
+        applicationFrequencyCode:
+          type: string
+        isIndefinite:
+          type: boolean
+        usesCompoundInterest:
+          type: boolean
+        principalAmount:
+          type: number
+          format: double
+          nullable: true
+        interestRatePercent:
+          type: number
+          format: double
+          nullable: true
+        plannedInstallments:
+          type: integer
+          format: int32
+          nullable: true
+        segments:
+          type: array
+          items:
+            "$ref": "#/components/schemas/RecurringDeductionSegmentRequest"
+          nullable: true
+        settlementActionCode:
+          type: string
       additionalProperties: false
   securitySchemes:
     Bearer:

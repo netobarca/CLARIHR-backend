@@ -284,6 +284,42 @@ internal sealed class SettlementRepository(
             }
         }
 
+        // Recurring deductions with DESCONTAR_SALDO feed the DESCUENTO_CICLICO_PENDIENTE settlement SUGGESTION
+        // (REQ-008 §3.5): the outstanding balance is KNOWN, so it travels through the existing SuggestedItems
+        // channel as an editable/excludable MANUAL line (seed -9928, IsSystemCalculated=false) — the engine does
+        // not compute it. It is the mirror of the cyclic INCOME suggestion above, but on the DEDUCTION side: it
+        // REDUCES the net. The balance comes from the pure rules — with compound interest it is the outstanding
+        // CAPITAL, not the sum of the remaining quotas (paying a credit off early does not owe the future
+        // interest). Credits with CANCELAR are written off at issue (the hook below) and suggest nothing.
+        // Restricted to the principal plaza (a credit is per-employee, like the cyclic incomes → no double
+        // suggestion on a multi-plaza retirement). No positive balance ⇒ no suggestion (retrocompatible).
+        if (isPrincipalPlaza)
+        {
+            var pendingDeductions = await dbContext.Set<PersonnelFileRecurringDeduction>()
+                .AsNoTracking()
+                .Include(item => item.PlanSegments)
+                .Include(item => item.Installments)
+                .Where(item => item.PersonnelFileId == personnelFileId
+                    && item.StatusCode == RecurringDeductionStatuses.Vigente
+                    && item.SettlementActionCode == RecurringDeductionSettlementActions.DescontarSaldo)
+                .ToListAsync(cancellationToken);
+
+            foreach (var deduction in pendingDeductions)
+            {
+                var balance = deduction.OutstandingBalance();
+                if (balance <= 0m)
+                {
+                    continue;
+                }
+
+                suggested.Add(new SettlementSuggestedItemDto(
+                    SettlementConceptCodes.DescuentoCiclicoPendiente,
+                    $"Saldo descuento cíclico — {deduction.RecurringDeductionTypeCode} {deduction.Reference}",
+                    balance,
+                    deduction.FinancialInstitution));
+            }
+        }
+
         // Pending overtime feeds the AUTOMATIC HORAS_EXTRAS_PENDIENTES_PAGO pay-off line (REQ-007 RF-014/§0.15) —
         // an ENGINE-CALCULATED line (Σ hours × factor × hourly rate), NOT a suggested manual amount like the incomes
         // above. Scoped to THE PLAZA being settled (assigned_position_public_id == assignedPositionPublicId): each

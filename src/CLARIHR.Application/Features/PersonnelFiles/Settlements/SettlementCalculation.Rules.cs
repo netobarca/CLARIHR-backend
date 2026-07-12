@@ -393,10 +393,13 @@ internal static class SettlementCalculationRules
                 line.OverrideAmount, line.IsManual, line.ManualAmount, line.Description, line.CounterpartyName))
             .ToList();
 
+    // This switch is CLOSED and defaults to Ingreso: every deduction concept must be listed explicitly, or its
+    // amount would be PAID to the employee instead of discounted from the settlement.
     private static SettlementConceptClass ResolveClass(string conceptCode) => conceptCode.ToUpperInvariant() switch
     {
         SettlementConceptCodes.Isss or SettlementConceptCodes.Afp or SettlementConceptCodes.Renta
-            or SettlementConceptCodes.DescuentoExterno or SettlementConceptCodes.OtroDescuento => SettlementConceptClass.Descuento,
+            or SettlementConceptCodes.DescuentoExterno or SettlementConceptCodes.DescuentoCiclicoPendiente
+            or SettlementConceptCodes.OtroDescuento => SettlementConceptClass.Descuento,
         SettlementConceptCodes.IsssPatronal or SettlementConceptCodes.AfpPatronal or SettlementConceptCodes.Incaf => SettlementConceptClass.PagoPatronal,
         _ => SettlementConceptClass.Ingreso,
     };
@@ -618,6 +621,16 @@ internal static class SettlementCalculationRules
 
                 break;
 
+            case SettlementConceptCodes.DescuentoCiclicoPendiente:
+                // The outstanding balance of a credit (REQ-008): a suggested manual amount, like the cases below,
+                // but "última cuota" would be a lie — this is the WHOLE remaining balance (the capital still owed
+                // when the credit bears interest, since paying early does not owe the future interest).
+                calculated = Round2(spec.ManualAmount);
+                detail = spec.CounterpartyName is null
+                    ? "Saldo pendiente del descuento cíclico"
+                    : $"Saldo pendiente — {spec.CounterpartyName}";
+                break;
+
             default:
                 // DESCUENTO_EXTERNO (última cuota sugerida) and OTRO_DESCUENTO (manual).
                 calculated = Round2(spec.ManualAmount);
@@ -739,6 +752,14 @@ public static class SettlementConceptCodes
     public const string Afp = "AFP";
     public const string Renta = "RENTA";
     public const string DescuentoExterno = "DESCUENTO_EXTERNO";
+
+    /// <summary>
+    /// The outstanding balance of a recurring deduction ("descuento cíclico" — REQ-008): a DEDUCTION, so it MUST be
+    /// listed in the <c>Descuento</c> arm of <c>ResolveClass</c> — that switch defaults to <c>Ingreso</c>, and a
+    /// credit balance classified as income would PAY the employee their loan instead of discounting it.
+    /// </summary>
+    public const string DescuentoCiclicoPendiente = "DESCUENTO_CICLICO_PENDIENTE";
+
     public const string OtroDescuento = "OTRO_DESCUENTO";
     public const string IsssPatronal = "ISSS_PATRONAL";
     public const string AfpPatronal = "AFP_PATRONAL";
