@@ -361,6 +361,18 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 
+    /// <summary>Dedicated permission to read one-time deductions ("planilla descuentos eventuales" — REQ-009):
+    /// the per-file detail, the company bandeja and the payroll-input export. HR-only; Admin is a superset.</summary>
+    public const string ViewOneTimeDeductions = "PersonnelFiles.ViewOneTimeDeductions";
+
+    /// <summary>Dedicated permission to register/edit/annul one-time deductions and to apply (or reverse) them
+    /// (REQ-009). Admin is a superset; deciding requires <see cref="AuthorizeOneTimeDeductions"/>.</summary>
+    public const string ManageOneTimeDeductions = "PersonnelFiles.ManageOneTimeDeductions";
+
+    /// <summary>Dedicated permission to decide (authorize/reject) and revoke a one-time deduction (REQ-009).
+    /// <c>PersonnelFiles.Admin</c> is deliberately NOT a superset (separation of duties + TRIPLE anti-self).</summary>
+    public const string AuthorizeOneTimeDeductions = "PersonnelFiles.AuthorizeOneTimeDeductions";
+
     /// <summary>
     /// Dedicated permission to read recurring deductions ("planilla descuentos cíclicos" — REQ-008 D-06): the
     /// per-file detail, the amortization schedule, the company bandeja and the payroll-input exports. HR-only

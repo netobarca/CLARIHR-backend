@@ -298,6 +298,18 @@ public static class PersonnelFilePolicies
     /// </summary>
     public const string AuthorizeRecurringIncomes = "PersonnelFiles.AuthorizeRecurringIncomes";
 
+    /// <summary>Read policy for one-time-deduction sub-resources ("planilla descuentos eventuales" — REQ-009).
+    /// HR-only: a RequireAssertion superset of the precise EnsureCanViewOneTimeDeductionsAsync handler gate.</summary>
+    public const string ViewOneTimeDeductions = "PersonnelFiles.ViewOneTimeDeductions";
+
+    /// <summary>Write policy for one-time-deduction sub-resources (register/edit/annul + apply/reverse — REQ-009).
+    /// Deciding/revoking is the dedicated <see cref="AuthorizeOneTimeDeductions"/> grant.</summary>
+    public const string ManageOneTimeDeductions = "PersonnelFiles.ManageOneTimeDeductions";
+
+    /// <summary>Write policy for deciding/revoking a one-time deduction (REQ-009). RequireAssertion over the
+    /// dedicated grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is deliberately excluded.</summary>
+    public const string AuthorizeOneTimeDeductions = "PersonnelFiles.AuthorizeOneTimeDeductions";
+
     /// <summary>
     /// Read policy for recurring-deduction sub-resources ("planilla descuentos cíclicos" — REQ-008). HR-only
     /// with no self-service in Fase 1, so it is a RequireAssertion superset of the precise

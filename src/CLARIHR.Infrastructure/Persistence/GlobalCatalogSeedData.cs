@@ -744,6 +744,19 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("OVERTIME_RECORD_STATUS_CATALOG", -9914L, "SV", "ANULADA", "Anulada", 50),
     ];
 
+    // REQ-009 (planilla descuentos eventuales): the authorization lifecycle of a one-time deduction
+    // (register → authorize/reject → apply → reverse). APLICADO is REVERSIBLE (annulling the application
+    // reopens it to AUTORIZADO), mirroring the one-time INCOME. Country-scoped HasData seed (SV); IDs
+    // -9940…-9944 (block -9940…-9949; -9945 is the settlement concept, -9946…-9949 free).
+    public static IEnumerable<object> GetOneTimeDeductionStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9940L, "SV", "EN_REVISION", "En revisión", 10),
+        CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9941L, "SV", "AUTORIZADO", "Autorizado", 20),
+        CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9942L, "SV", "RECHAZADO", "Rechazado", 30),
+        CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9943L, "SV", "APLICADO", "Aplicado", 40),
+        CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9944L, "SV", "ANULADO", "Anulado", 50),
+    ];
+
     // REQ-008 (planilla descuentos cíclicos · D-14): the one-decision lifecycle of a recurring deduction,
     // mirror of the recurring-income statuses. Country-scoped HasData seed (SV); IDs -9920…-9925.
     public static IEnumerable<object> GetRecurringDeductionStatusCatalogItems() =>
@@ -1175,6 +1188,11 @@ internal static class GlobalCatalogSeedData
         // añadirse a su brazo Descuento (PR-6) o el saldo se pagaría en vez de descontarse. Sort 135 (entre
         // DESCUENTO_EXTERNO=130 y OTRO_DESCUENTO=140): el ~96 del plan pertenece a la franja de ingresos.
         CreateSettlementConceptSeed(-9928L, "SV", "DESCUENTO_CICLICO_PENDIENTE", "Descuento cíclico pendiente", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, false, null, 135),
+        // Descuento eventual pendiente (REQ-009): the AUTORIZADO one-off deductions the employee still owes when
+        // settled. Same shape as -9928 (manual suggested line, editable/excludable) but for the one-time module.
+        // ⚠️ Like -9928, its constant MUST be listed in the Descuento arm of ResolveClass — that switch defaults
+        // to Ingreso, and REQ-008's fix only covers DESCUENTO_CICLICO_PENDIENTE.
+        CreateSettlementConceptSeed(-9945L, "SV", "DESCUENTO_EVENTUAL_PENDIENTE", "Descuento eventual pendiente", SettlementConceptClass.Descuento, false, false, false, SettlementExemptionRule.Ninguna, null, false, null, 136),
     ];
 
     public static IEnumerable<object> GetPayPeriodCatalogItems() =>

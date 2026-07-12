@@ -191,6 +191,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // View superset + RequireAssertion Manage (HR-only, no self-service in Fase 1) +
         // AuthorizeRecurringDeductions that deliberately excludes PersonnelFiles.Admin (separation of duties
         // + double anti-self). The record controllers that carry these are added in PR-3/PR-4/PR-5.
+        // Planilla descuentos eventuales (REQ-009): espejo del trío de ingresos eventuales — authn-only View +
+        // RequireAssertion Manage + AuthorizeOneTimeDeductions que EXCLUYE PersonnelFiles.Admin (anti-self triple).
+        // Los controllers que las llevan se agregan en PR-3/PR-4/PR-5.
+        PersonnelFilePolicies.ViewOneTimeDeductions,
+        PersonnelFilePolicies.ManageOneTimeDeductions,
+        PersonnelFilePolicies.AuthorizeOneTimeDeductions,
         PersonnelFilePolicies.ViewRecurringDeductions,
         PersonnelFilePolicies.ManageRecurringDeductions,
         PersonnelFilePolicies.AuthorizeRecurringDeductions,

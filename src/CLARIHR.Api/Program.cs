@@ -677,6 +677,26 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizeRecurringIncomes,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // One-time deductions ("planilla descuentos eventuales" — REQ-009). Exact mirror of the one-time-income
+    // policies: HR-only, the write policy is a RequireAssertion superset of the precise handler gate while
+    // ViewOneTimeDeductions stays authn-only. AuthorizeOneTimeDeductions deliberately EXCLUDES
+    // PersonnelFiles.Admin (separation of duties + TRIPLE anti-self).
+    options.AddPolicy(PersonnelFilePolicies.ViewOneTimeDeductions, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageOneTimeDeductions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageOneTimeDeductions,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizeOneTimeDeductions, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizeOneTimeDeductions,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Recurring deductions ("planilla descuentos cíclicos" — REQ-008 D-06). Exact mirror of the
     // recurring-income policies: HR-only (no self-service in Fase 1), the write policy is a RequireAssertion
     // superset of the precise handler gate while ViewRecurringDeductions stays authn-only (the per-file

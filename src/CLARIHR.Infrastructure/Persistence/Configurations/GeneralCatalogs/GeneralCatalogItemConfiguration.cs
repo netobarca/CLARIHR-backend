@@ -757,6 +757,22 @@ internal sealed class OvertimeRecordStatusCatalogItemConfiguration
     }
 }
 
+internal sealed class OneTimeDeductionStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<OneTimeDeductionStatusCatalogItem>
+{
+    public OneTimeDeductionStatusCatalogItemConfiguration()
+        : base(
+            "one_time_deduction_status_catalog_items",
+            "pk_one_time_deduction_status_catalog_items",
+            "uq_one_time_deduction_status_catalog_items__public_id",
+            "uq_one_time_deduction_status_catalog_items__country_code",
+            // 63 chars exactly — the PostgreSQL identifier limit; one more character and it would be truncated.
+            "ix_one_time_deduction_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetOneTimeDeductionStatusCatalogItems())
+    {
+    }
+}
+
 internal sealed class RecurringDeductionStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<RecurringDeductionStatusCatalogItem>
 {

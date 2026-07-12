@@ -77,6 +77,7 @@ public static class GeneralCatalogKeyMap
             ["recurring-income-statuses"] = PersonnelCurriculumCatalogCategories.RecurringIncomeStatus,
             ["recurring-income-settlement-actions"] = PersonnelCurriculumCatalogCategories.RecurringIncomeSettlementAction,
             ["recurring-income-types"] = PersonnelCurriculumCatalogCategories.RecurringIncomeType,
+            ["one-time-deduction-statuses"] = PersonnelCurriculumCatalogCategories.OneTimeDeductionStatus,
             ["recurring-deduction-statuses"] = PersonnelCurriculumCatalogCategories.RecurringDeductionStatus,
             ["recurring-deduction-settlement-actions"] = PersonnelCurriculumCatalogCategories.RecurringDeductionSettlementAction,
             ["recurring-deduction-types"] = PersonnelCurriculumCatalogCategories.RecurringDeductionType,

@@ -374,6 +374,25 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanAuthorizeRecurringIncomesAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>Read gate for one-time deductions (REQ-009): the dedicated
+    /// <c>PersonnelFiles.ViewOneTimeDeductions</c> permission, or Admin / IAM super-admin. HR-only.</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewOneTimeDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>Write gate for one-time deductions (register/edit/annul + apply/reverse — REQ-009): the
+    /// dedicated <c>PersonnelFiles.ManageOneTimeDeductions</c> permission, or Admin / IAM super-admin.</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageOneTimeDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>Decision/revocation gate for one-time deductions (REQ-009): the dedicated
+    /// <c>PersonnelFiles.AuthorizeOneTimeDeductions</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties).</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizeOneTimeDeductionsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     /// <summary>
     /// Read gate for recurring deductions (REQ-008 D-06): the dedicated
     /// <c>PersonnelFiles.ViewRecurringDeductions</c> permission, or Admin / IAM super-admin. HR-only, no
