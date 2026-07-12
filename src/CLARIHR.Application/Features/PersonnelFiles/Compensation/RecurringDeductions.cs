@@ -67,11 +67,27 @@ public sealed record RecurringDeductionResponse(
     string? ClosureReason,
     Guid? ClosedByUserId,
     bool IsActive,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    // REQ-010: the audited footprints of the indebtedness overrides confirmed on this credit (empty in the normal
+    // case). Additive to the contract — an FE that ignores it keeps working.
+    IReadOnlyCollection<IndebtednessOverrideResponse>? IndebtednessOverrides = null)
 {
     [JsonIgnore]
     public Guid Id => RecurringDeductionPublicId;
 }
+
+/// <summary>One confirmed indebtedness override: who accepted it, when, and the figures that were on screen.</summary>
+public sealed record IndebtednessOverrideResponse(
+    Guid IndebtednessOverridePublicId,
+    string Stage,
+    Guid AcknowledgedByUserId,
+    DateTime AcknowledgedUtc,
+    decimal BaseIncome,
+    decimal MonthlyLoad,
+    decimal NewInstallment,
+    decimal ProjectedPercent,
+    decimal LimitPercent,
+    string LimitSource);
 
 /// <summary>
 /// Business fields for registering or editing a recurring deduction. The status/decision/suspension/closure fields
@@ -101,7 +117,12 @@ public sealed record RecurringDeductionInput(
     decimal? InterestRatePercent,
     int? PlannedInstallments,
     IReadOnlyCollection<RecurringDeductionSegmentInput>? Segments,
-    string SettlementActionCode);
+    string SettlementActionCode,
+    // REQ-010: the caller was told the credit would push the employee past the indebtedness ceiling and confirmed
+    // it anyway. The levantamiento is literal — WARN, never BLOCK — so this turns the 422 into a registration with
+    // an audited override footprint. Default false: a client that knows nothing about indebtedness gets the
+    // warning, which is exactly what should happen.
+    bool AcknowledgeIndebtednessExceeded = false);
 
 /// <summary>
 /// Compensation-concept lookup for a recurring deduction (RN-04): the name snapshot + the deduction class, so the
@@ -176,7 +197,10 @@ public sealed record ResolvePersonnelFileRecurringDeductionCommand(
     Guid RecurringDeductionPublicId,
     string TargetStatusCode,
     string? Note,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    // REQ-010 P-14: the check runs at BOTH points, because the employee's load can change between the day the
+    // credit was registered and the day it is decided. The authorizer confirms their own override.
+    bool AcknowledgeIndebtednessExceeded = false)
     : ICommand<RecurringDeductionResponse>;
 
 /// <summary>Authorizer revocation of a VIGENTE credit (→ ANULADO); the reason is mandatory. Double anti-self.</summary>

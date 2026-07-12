@@ -148,6 +148,7 @@ public sealed class PersonnelFileRecurringDeduction : TenantEntity
 
     private readonly List<PersonnelFileRecurringDeductionPlanSegment> _planSegments = [];
     private readonly List<PersonnelFileRecurringDeductionInstallment> _installments = [];
+    private readonly List<PersonnelFileRecurringDeductionIndebtednessOverride> _indebtednessOverrides = [];
 
     private PersonnelFileRecurringDeduction()
     {
@@ -303,6 +304,43 @@ public sealed class PersonnelFileRecurringDeduction : TenantEntity
     public IReadOnlyCollection<PersonnelFileRecurringDeductionPlanSegment> PlanSegments => _planSegments.AsReadOnly();
 
     public IReadOnlyCollection<PersonnelFileRecurringDeductionInstallment> Installments => _installments.AsReadOnly();
+
+    /// <summary>
+    /// The indebtedness overrides confirmed on this credit (REQ-010 D-16). One row per EVENT, not a flag: the same
+    /// credit can exceed the ceiling when it is registered and again when it is authorized, with different figures
+    /// (the load moves in between). Each row snapshots the numbers AT THAT MOMENT — the parameters change, the
+    /// footprint does not.
+    /// </summary>
+    public IReadOnlyCollection<PersonnelFileRecurringDeductionIndebtednessOverride> IndebtednessOverrides =>
+        _indebtednessOverrides.AsReadOnly();
+
+    /// <summary>Stamps the footprint of an indebtedness override that a user explicitly confirmed.</summary>
+    public PersonnelFileRecurringDeductionIndebtednessOverride StampIndebtednessOverride(
+        string stage,
+        Guid acknowledgedByUserId,
+        DateTime acknowledgedUtc,
+        decimal baseIncome,
+        decimal monthlyLoad,
+        decimal newInstallment,
+        decimal projectedPercent,
+        decimal limitPercent,
+        string limitSource)
+    {
+        var footprint = PersonnelFileRecurringDeductionIndebtednessOverride.Create(
+            stage,
+            acknowledgedByUserId,
+            acknowledgedUtc,
+            baseIncome,
+            monthlyLoad,
+            newInstallment,
+            projectedPercent,
+            limitPercent,
+            limitSource);
+        footprint.SetTenantId(TenantId);
+
+        _indebtednessOverrides.Add(footprint);
+        return footprint;
+    }
 
     /// <summary>The months (1..12) the plan skips, decoded from <see cref="ExceptionMonthsCsv"/> (P-05).</summary>
     public IReadOnlyCollection<int> ExceptionMonths => DecodeExceptionMonths(ExceptionMonthsCsv);
@@ -1371,4 +1409,88 @@ public sealed class PersonnelFileRecurringDeductionInstallment : TenantEntity
 
         return value;
     }
+}
+
+/// <summary>
+/// The audited footprint of an indebtedness override (REQ-010 D-16 / P-14): a user was told the deduction would
+/// push the employee past the applicable ceiling, and confirmed it anyway. The levantamiento is literal — the
+/// system must WARN, never BLOCK — so this row is the accountability trail of that decision.
+/// </summary>
+public sealed class PersonnelFileRecurringDeductionIndebtednessOverride : TenantEntity
+{
+    public const int MaxStageLength = 20;
+    public const int MaxLimitSourceLength = 20;
+
+    private PersonnelFileRecurringDeductionIndebtednessOverride()
+    {
+    }
+
+    private PersonnelFileRecurringDeductionIndebtednessOverride(
+        string stage,
+        Guid acknowledgedByUserId,
+        DateTime acknowledgedUtc,
+        decimal baseIncome,
+        decimal monthlyLoad,
+        decimal newInstallment,
+        decimal projectedPercent,
+        decimal limitPercent,
+        string limitSource)
+    {
+        PublicId = Guid.NewGuid();
+        Stage = stage;
+        AcknowledgedByUserId = acknowledgedByUserId;
+        AcknowledgedUtc = acknowledgedUtc;
+        BaseIncome = baseIncome;
+        MonthlyLoad = monthlyLoad;
+        NewInstallment = newInstallment;
+        ProjectedPercent = projectedPercent;
+        LimitPercent = limitPercent;
+        LimitSource = limitSource;
+    }
+
+    public long RecurringDeductionId { get; private set; }
+
+    public PersonnelFileRecurringDeduction? RecurringDeduction { get; private set; }
+
+    /// <summary>CREACION or AUTORIZACION — where the ceiling was crossed and confirmed.</summary>
+    public string Stage { get; private set; } = string.Empty;
+
+    public Guid AcknowledgedByUserId { get; private set; }
+
+    public DateTime AcknowledgedUtc { get; private set; }
+
+    // The snapshot of the assessment at the moment of the confirmation. The parameters and the employee's other
+    // credits will move; what was on screen when the user clicked "confirm" must not.
+    public decimal BaseIncome { get; private set; }
+
+    public decimal MonthlyLoad { get; private set; }
+
+    public decimal NewInstallment { get; private set; }
+
+    public decimal ProjectedPercent { get; private set; }
+
+    public decimal LimitPercent { get; private set; }
+
+    public string LimitSource { get; private set; } = string.Empty;
+
+    public static PersonnelFileRecurringDeductionIndebtednessOverride Create(
+        string stage,
+        Guid acknowledgedByUserId,
+        DateTime acknowledgedUtc,
+        decimal baseIncome,
+        decimal monthlyLoad,
+        decimal newInstallment,
+        decimal projectedPercent,
+        decimal limitPercent,
+        string limitSource) =>
+        new(
+            stage,
+            acknowledgedByUserId,
+            acknowledgedUtc,
+            baseIncome,
+            monthlyLoad,
+            newInstallment,
+            projectedPercent,
+            limitPercent,
+            limitSource);
 }

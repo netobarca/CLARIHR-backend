@@ -390,7 +390,8 @@ public sealed class RecurringDeductionsController(
             request.InterestRatePercent,
             request.PlannedInstallments,
             ToSegments(request.Segments),
-            request.SettlementActionCode);
+            request.SettlementActionCode,
+            request.AcknowledgeIndebtednessExceeded);
 
     private static RecurringDeductionInput ToInput(UpdateRecurringDeductionRequest request) =>
         new(
@@ -413,7 +414,8 @@ public sealed class RecurringDeductionsController(
             request.InterestRatePercent,
             request.PlannedInstallments,
             ToSegments(request.Segments),
-            request.SettlementActionCode);
+            request.SettlementActionCode,
+            request.AcknowledgeIndebtednessExceeded);
 
     private static IReadOnlyCollection<RecurringDeductionSegmentInput>? ToSegments(
         IReadOnlyCollection<RecurringDeductionSegmentRequest>? segments) =>

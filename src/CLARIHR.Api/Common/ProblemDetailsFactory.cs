@@ -50,6 +50,15 @@ internal static class ProblemDetailsFactory
         problemDetails.Detail = localizedMessage;
         problemDetails.Status = statusCode;
         problemDetails.Type = $"https://httpstatuses.com/{statusCode}";
+        // The error's own structured payload goes in FIRST, so it can never shadow the reserved keys below.
+        if (error.Extensions is { Count: > 0 })
+        {
+            foreach (var (key, value) in error.Extensions)
+            {
+                problemDetails.Extensions[key] = value;
+            }
+        }
+
         problemDetails.Extensions["code"] = error.Code;
         problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
 

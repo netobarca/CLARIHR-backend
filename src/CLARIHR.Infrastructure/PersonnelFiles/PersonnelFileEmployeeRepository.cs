@@ -5,6 +5,7 @@ using CLARIHR.Application.Features.PersonnelFiles.Compensation;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Compensation;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
@@ -3865,6 +3866,146 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     }
 
     // ── One-time-deduction bandeja + exports (REQ-009 PR-5) ─────────────────────────────────────────
+
+
+    /// <summary>
+    /// The indebtedness snapshot of ONE employee (REQ-010): income base + debt load + the company's parameters.
+    ///
+    /// The base is derived HERE and not taken from <c>SettlementRepository.MonthlyBaseSalary</c>: that value takes
+    /// the concept amount RAW (it never looks at <c>PayPeriodCode</c>) and feeds the CERTIFIED settlement engine.
+    /// Teaching it to monthly-ize would move finiquito figures, so this REQ derives its own.
+    /// </summary>
+    public async Task<IndebtednessSnapshotData> GetIndebtednessSnapshotAsync(
+        Guid tenantId,
+        long personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var company = await dbContext.Companies
+            .AsNoTracking()
+            .Where(item => item.PublicId == tenantId)
+            .Select(item => new { item.CountryCatalogItemId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // The country's base-salary concept types (the literal SALARIO_BASE stays as the fallback, as in the
+        // settlement engine).
+        var baseSalaryCodes = company is null
+            ? []
+            : await dbContext.Set<CompensationConceptTypeCatalogItem>()
+                .AsNoTracking()
+                .Where(item => item.CountryCatalogItemId == company.CountryCatalogItemId && item.IsBaseSalary)
+                .Select(item => item.NormalizedCode)
+                .ToListAsync(cancellationToken);
+        if (baseSalaryCodes.Count == 0)
+        {
+            baseSalaryCodes.Add("SALARIO_BASE");
+        }
+
+        // The plazas that are ACTIVE today: only those earn (P-11).
+        var activePlazas = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId && item.IsActive)
+            .Select(item => new { item.PublicId, item.IsPrimary })
+            .ToListAsync(cancellationToken);
+
+        var activePlazaIds = activePlazas.Select(plaza => plaza.PublicId).ToHashSet();
+        var hasPrimaryPlaza = activePlazas.Any(plaza => plaza.IsPrimary);
+
+        var concepts = await dbContext.Set<PersonnelFileCompensationConcept>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId
+                && item.IsActive
+                && item.Nature == CompensationNature.Ingreso
+                && item.CalculationType == CompensationCalculationType.Fixed)
+            .Select(item => new
+            {
+                item.AssignedPositionPublicId,
+                item.ConceptTypeCode,
+                item.Value,
+                item.PayPeriodCode,
+            })
+            .ToListAsync(cancellationToken);
+
+        var baseItems = concepts
+            .Where(item => baseSalaryCodes.Contains(item.ConceptTypeCode.ToUpperInvariant()))
+            // A concept bound to a plaza counts only if that plaza is active. An employee-level concept (null
+            // plaza) counts once, and only when the employee actually holds an active primary plaza.
+            .Where(item => item.AssignedPositionPublicId is { } plaza
+                ? activePlazaIds.Contains(plaza)
+                : hasPrimaryPlaza)
+            .Select(item => new IndebtednessBaseItem(
+                item.AssignedPositionPublicId ?? Guid.Empty,
+                item.ConceptTypeCode,
+                item.Value,
+                item.PayPeriodCode))
+            .ToArray();
+
+        // The load: the live credits. A recurring deduction can only exist over a NON-STATUTORY concept (RN-04 is
+        // enforced at registration), so there is nothing extra to filter out here.
+        var deductions = await dbContext.Set<PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Include(item => item.PlanSegments)
+            .Include(item => item.Installments)
+            .Where(item => item.PersonnelFileId == personnelFileId
+                && (item.StatusCode == RecurringDeductionStatuses.Vigente
+                    || item.StatusCode == RecurringDeductionStatuses.Suspendido))
+            .ToListAsync(cancellationToken);
+
+        var loadItems = deductions
+            .Select(deduction =>
+            {
+                // The plan is rebuilt from the aggregate with the PUBLIC rules (the Application's mapping helper is
+                // internal to that assembly); InstallmentAmountFor owns the arithmetic, including the French quota
+                // of a compound-interest credit, so the formula is not duplicated here.
+                var plan = new RecurringDeductionPlan(
+                    deduction.PlanSegments
+                        .Where(segment => segment.IsActive)
+                        .OrderBy(segment => segment.FromInstallment)
+                        .Select(segment => new RecurringDeductionSegment(
+                            segment.FromInstallment, segment.ToInstallment, segment.InstallmentValue))
+                        .ToList(),
+                    deduction.PlannedInstallmentCount,
+                    deduction.TotalPlanAmount(),
+                    deduction.IsIndefinite,
+                    deduction.UsesCompoundInterest,
+                    deduction.PrincipalAmount,
+                    deduction.InterestRatePercent,
+                    deduction.InstallmentFrequencyCode);
+
+                var appliedNumbers = deduction.Installments
+                    .Where(item => item.StatusCode == RecurringDeductionInstallmentStatuses.Aplicada
+                        && item.InstallmentNumber.HasValue)
+                    .Select(item => item.InstallmentNumber!.Value)
+                    .ToHashSet();
+                var next = RecurringDeductionRules.NextInstallmentNumber(appliedNumbers);
+
+                return new IndebtednessLoadItem(
+                    deduction.PublicId,
+                    deduction.RecurringDeductionTypeCode,
+                    deduction.FinancialInstitution,
+                    deduction.Reference,
+                    RecurringDeductionRules.InstallmentAmountFor(next, plan),
+                    // The INSTALLMENT cadence governs the monthly load. The APPLICATION cadence only splits that
+                    // installment into charges — it does not change how much is owed per month.
+                    deduction.InstallmentFrequencyCode,
+                    deduction.StatusCode,
+                    // A suspended credit is not being charged: it is shown, but it does not consume capacity (P-12).
+                    deduction.StatusCode == RecurringDeductionStatuses.Vigente);
+            })
+            .ToArray();
+
+        var globalLimit = await dbContext.CompanyPreferences
+            .AsNoTracking()
+            .Where(preference => preference.TenantId == tenantId)
+            .Select(preference => preference.MaxIndebtednessPercent)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var limitsByType = await dbContext.IndebtednessLimits
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.IsActive)
+            .ToDictionaryAsync(item => item.RecurringDeductionTypeCode, item => item.MaxPercent, cancellationToken);
+
+        return new IndebtednessSnapshotData(baseItems, loadItems, globalLimit, limitsByType);
+    }
 
     private sealed class OneTimeDeductionQueryRow
     {

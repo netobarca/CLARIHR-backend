@@ -49,7 +49,8 @@ public sealed class RecurringDeductionResolutionController(
     {
         var result = await commandDispatcher.SendAsync(
             new ResolvePersonnelFileRecurringDeductionCommand(
-                publicId, recurringDeductionPublicId, request.TargetStatusCode, request.Note, concurrencyToken),
+                publicId, recurringDeductionPublicId, request.TargetStatusCode, request.Note, concurrencyToken,
+                request.AcknowledgeIndebtednessExceeded),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);

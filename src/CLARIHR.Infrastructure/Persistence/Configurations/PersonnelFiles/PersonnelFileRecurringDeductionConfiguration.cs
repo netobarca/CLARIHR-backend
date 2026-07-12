@@ -111,8 +111,15 @@ internal sealed class PersonnelFileRecurringDeductionConfiguration
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_pf_rd_installments__recurring_deduction");
 
+        builder.HasMany(item => item.IndebtednessOverrides)
+            .WithOne(footprint => footprint.RecurringDeduction)
+            .HasForeignKey(footprint => footprint.RecurringDeductionId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_pf_rd_indebt_overrides__recurring_deduction");
+
         builder.Navigation(item => item.PlanSegments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(item => item.Installments).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(item => item.IndebtednessOverrides).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(item => item.PublicId)
             .IsUnique()

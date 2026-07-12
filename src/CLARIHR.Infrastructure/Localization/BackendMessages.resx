@@ -2902,4 +2902,7 @@
   <data name="INDEBTEDNESS_LIMIT_TYPE_DUPLICATED" xml:space="preserve">
     <value>The same recurring-deduction type cannot carry two indebtedness limits.</value>
   </data>
+  <data name="INDEBTEDNESS_LIMIT_EXCEEDED" xml:space="preserve">
+    <value>The deduction would push the employee past the applicable indebtedness limit.</value>
+  </data>
 </root>

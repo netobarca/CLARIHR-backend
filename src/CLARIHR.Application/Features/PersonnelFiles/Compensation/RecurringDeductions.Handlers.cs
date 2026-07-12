@@ -61,7 +61,21 @@ public static class RecurringDeductionMapping
             entity.ClosureReason,
             entity.ClosedByUserId,
             entity.IsActive,
-            entity.ConcurrencyToken);
+            entity.ConcurrencyToken,
+            entity.IndebtednessOverrides
+                .OrderByDescending(footprint => footprint.AcknowledgedUtc)
+                .Select(footprint => new IndebtednessOverrideResponse(
+                    footprint.PublicId,
+                    footprint.Stage,
+                    footprint.AcknowledgedByUserId,
+                    footprint.AcknowledgedUtc,
+                    footprint.BaseIncome,
+                    footprint.MonthlyLoad,
+                    footprint.NewInstallment,
+                    footprint.ProjectedPercent,
+                    footprint.LimitPercent,
+                    footprint.LimitSource))
+                .ToArray());
 
     /// <summary>
     /// What the employee ends up paying. Without interest the aggregate sums its own segments; WITH interest the
@@ -107,7 +121,11 @@ internal sealed record RecurringDeductionResolved(
     string ConceptName,
     Guid AssignedPositionPublicId,
     RecurringDeductionPlan Plan,
-    string CurrencyCode);
+    string CurrencyCode,
+    // Non-null only when the caller CONFIRMED an indebtedness excess (REQ-010): the handler must then stamp the
+    // audited footprint on the aggregate. Null in the overwhelmingly common case — nothing was exceeded, or the
+    // company has no indebtedness parameters at all.
+    IndebtednessAssessment? IndebtednessOverride = null);
 
 internal static class RecurringDeductionWriteSupport
 {
@@ -203,16 +221,106 @@ internal static class RecurringDeductionWriteSupport
                 new Error(settlementRule.ErrorCode!, "The settlement action is not coherent with the plan.", ErrorType.UnprocessableEntity));
         }
 
-        // REQ-010 seam (№16): the debt-capacity ("endeudamiento") check lands HERE — after the plan is normalized
-        // (so the installment value is known) and before the credit is persisted. It is deliberately absent in
-        // REQ-008: the gap is documented in the backlog and REQ-010 adds it additively, with its override footprint.
+        // 10) REQ-010 — the debt-capacity ("endeudamiento") check. It lands HERE, where the seam was left: the plan
+        // is normalized (so the installment is known) and nothing has been persisted yet. With no parameters
+        // configured this resolves to "not exceeded" and the whole module is invisible.
+        var indebtedness = await EvaluateIndebtednessAsync(
+            input, personnelFile, normalization.Plan, employeeRepository, cancellationToken);
+        if (indebtedness.IsExceeded && !input.AcknowledgeIndebtednessExceeded)
+        {
+            // A RETRYABLE 422: re-sending with acknowledgeIndebtednessExceeded = true registers the credit. The
+            // breakdown rides in the error's extensions because the localizer OVERWRITES `detail`.
+            return Result<RecurringDeductionResolved>.Failure(
+                IndebtednessErrors.LimitExceeded with { Extensions = IndebtednessRules.ToProblemExtensions(indebtedness) });
+        }
 
         return Result<RecurringDeductionResolved>.Success(new RecurringDeductionResolved(
             concept.Name,
             plaza.AssignedPositionPublicId,
             normalization.Plan,
-            input.CurrencyCode.Trim().ToUpperInvariant()));
+            input.CurrencyCode.Trim().ToUpperInvariant(),
+            indebtedness.IsExceeded ? indebtedness : null));
     }
+
+    /// <summary>
+    /// Projects the employee's indebtedness WITH this credit added (REQ-010 RF-021). The candidate's installment is
+    /// the FIRST one of its plan — that is the amount that starts consuming capacity today.
+    /// </summary>
+    public static async Task<IndebtednessAssessment> EvaluateIndebtednessAsync(
+        RecurringDeductionInput input,
+        PersonnelFile personnelFile,
+        RecurringDeductionPlan plan,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await employeeRepository.GetIndebtednessSnapshotAsync(
+            personnelFile.TenantId, personnelFile.Id, cancellationToken);
+
+        return IndebtednessRules.Assess(
+            IndebtednessRules.ComputeBaseIncome(snapshot.BaseItems),
+            snapshot.LoadItems,
+            RecurringDeductionRules.InstallmentAmountFor(1, plan),
+            input.InstallmentFrequencyCode,
+            snapshot.GlobalLimitPercent,
+            snapshot.LimitsByType,
+            input.RecurringDeductionTypeCode);
+    }
+
+    /// <summary>
+    /// The same projection as at registration, but driven by the PERSISTED credit (REQ-010 P-14). The credit being
+    /// authorized is EN_REVISION, so it is not part of the load yet — adding its installment double-counts nothing.
+    /// </summary>
+    public static async Task<IndebtednessAssessment> EvaluateIndebtednessAtAuthorizationAsync(
+        PersonnelFileRecurringDeduction entity,
+        PersonnelFile personnelFile,
+        IPersonnelFileEmployeeRepository employeeRepository,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await employeeRepository.GetIndebtednessSnapshotAsync(
+            personnelFile.TenantId, personnelFile.Id, cancellationToken);
+
+        var plan = new RecurringDeductionPlan(
+            entity.PlanSegments
+                .Where(segment => segment.IsActive)
+                .OrderBy(segment => segment.FromInstallment)
+                .Select(segment => new RecurringDeductionSegment(
+                    segment.FromInstallment, segment.ToInstallment, segment.InstallmentValue))
+                .ToList(),
+            entity.PlannedInstallmentCount,
+            entity.TotalPlanAmount(),
+            entity.IsIndefinite,
+            entity.UsesCompoundInterest,
+            entity.PrincipalAmount,
+            entity.InterestRatePercent,
+            entity.InstallmentFrequencyCode);
+
+        return IndebtednessRules.Assess(
+            IndebtednessRules.ComputeBaseIncome(snapshot.BaseItems),
+            snapshot.LoadItems,
+            RecurringDeductionRules.InstallmentAmountFor(1, plan),
+            entity.InstallmentFrequencyCode,
+            snapshot.GlobalLimitPercent,
+            snapshot.LimitsByType,
+            entity.RecurringDeductionTypeCode);
+    }
+
+    /// <summary>Stamps the audited footprint of a confirmed indebtedness override (REQ-010 P-14).</summary>
+    public static void StampOverride(
+        PersonnelFileRecurringDeduction entity,
+        string stage,
+        Guid acknowledgedByUserId,
+        DateTime acknowledgedUtc,
+        IndebtednessAssessment assessment) =>
+        entity.StampIndebtednessOverride(
+            stage,
+            acknowledgedByUserId,
+            acknowledgedUtc,
+            assessment.BaseIncome,
+            assessment.CurrentLoad,
+            assessment.NewInstallment,
+            assessment.ProjectedPercent,
+            assessment.LimitPercent!.Value,
+            assessment.LimitSource!);
 
     /// <summary>Applies the resolved plan to a (new or edited) aggregate: the segments are replace-all (№12).</summary>
     public static void ApplyPlanSegments(PersonnelFileRecurringDeduction entity, RecurringDeductionPlan plan) =>
@@ -246,6 +354,7 @@ internal sealed class AddPersonnelFileRecurringDeductionCommandHandler(
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -313,6 +422,14 @@ internal sealed class AddPersonnelFileRecurringDeductionCommandHandler(
             segment.SetTenantId(personnelFile.TenantId);
         }
 
+        // REQ-010: the registrar was warned and confirmed. Stamp WHO decided it and WITH WHICH figures — the
+        // parameters and the employee's other credits will move, the accountability trail must not.
+        if (resolved.IndebtednessOverride is { } overrideAtCreation)
+        {
+            RecurringDeductionWriteSupport.StampOverride(
+                entity, IndebtednessOverrideStages.Creacion, registeredByUserId, dateTimeProvider.UtcNow, overrideAtCreation);
+        }
+
         var all = await employeeRepository.AddRecurringDeductionAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
         var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
             ?? throw new InvalidOperationException("Recurring-deduction response could not be resolved after creation.");
@@ -340,6 +457,8 @@ internal sealed class UpdatePersonnelFileRecurringDeductionCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -420,6 +539,13 @@ internal sealed class UpdatePersonnelFileRecurringDeductionCommandHandler(
         foreach (var segment in entity.PlanSegments)
         {
             segment.SetTenantId(personnelFile.TenantId);
+        }
+
+        if (resolved.IndebtednessOverride is { } overrideAtEdit)
+        {
+            _ = Guid.TryParse(currentUserService.UserId, out var editedByUserId);
+            RecurringDeductionWriteSupport.StampOverride(
+                entity, IndebtednessOverrideStages.Creacion, editedByUserId, dateTimeProvider.UtcNow, overrideAtEdit);
         }
 
         var response = RecurringDeductionMapping.ToResponse(entity);
@@ -780,7 +906,24 @@ internal sealed class ResolvePersonnelFileRecurringDeductionCommandHandler(
         var now = dateTimeProvider.UtcNow;
         if (targetStatus == RecurringDeductionStatuses.Vigente)
         {
+            // REQ-010 (P-14) — the SECOND check. It is not redundant with the one at registration: the employee's
+            // load moves in between (other credits get authorized, some finish), so a credit that fit when it was
+            // registered may no longer fit when it is decided. Rejecting needs no check — it adds no debt.
+            var indebtedness = await RecurringDeductionWriteSupport.EvaluateIndebtednessAtAuthorizationAsync(
+                entity, personnelFile, employeeRepository, cancellationToken);
+            if (indebtedness.IsExceeded && !command.AcknowledgeIndebtednessExceeded)
+            {
+                return Result<RecurringDeductionResponse>.Failure(
+                    IndebtednessErrors.LimitExceeded with { Extensions = IndebtednessRules.ToProblemExtensions(indebtedness) });
+            }
+
             entity.Approve(actingUserId, now);
+
+            if (indebtedness.IsExceeded)
+            {
+                RecurringDeductionWriteSupport.StampOverride(
+                    entity, IndebtednessOverrideStages.Autorizacion, actingUserId, now, indebtedness);
+            }
         }
         else
         {

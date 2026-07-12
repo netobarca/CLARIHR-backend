@@ -42,7 +42,11 @@ public sealed record AddRecurringDeductionRequest(
     decimal? InterestRatePercent,
     int? PlannedInstallments,
     IReadOnlyCollection<RecurringDeductionSegmentRequest>? Segments,
-    string SettlementActionCode);
+    string SettlementActionCode,
+    // REQ-010: set to true to CONFIRM an indebtedness excess that was reported as
+    // 422 INDEBTEDNESS_LIMIT_EXCEEDED. Re-send the SAME request with this flag and the credit is registered with
+    // an audited override footprint. Warn, never block.
+    bool AcknowledgeIndebtednessExceeded = false);
 
 /// <summary>Body for editing a recurring deduction's header + plan (EN_REVISION only; the segments are
 /// replace-all). Same shape as the create body.</summary>
@@ -66,7 +70,11 @@ public sealed record UpdateRecurringDeductionRequest(
     decimal? InterestRatePercent,
     int? PlannedInstallments,
     IReadOnlyCollection<RecurringDeductionSegmentRequest>? Segments,
-    string SettlementActionCode);
+    string SettlementActionCode,
+    // REQ-010: set to true to CONFIRM an indebtedness excess that was reported as
+    // 422 INDEBTEDNESS_LIMIT_EXCEEDED. Re-send the SAME request with this flag and the credit is registered with
+    // an audited override footprint. Warn, never block.
+    bool AcknowledgeIndebtednessExceeded = false);
 
 /// <summary>Body for suspending (<c>Suspend</c> = true, note optional) or resuming (false) a credit.</summary>
 public sealed record SetRecurringDeductionSuspensionRequest(bool Suspend, string? Note);
@@ -78,7 +86,12 @@ public sealed record CloseRecurringDeductionRequest(string Reason);
 public sealed record AnnulRecurringDeductionRequest(string Reason);
 
 /// <summary>Body for the authorizer resolution: <c>TargetStatusCode</c> = VIGENTE (authorize) or RECHAZADO (reject — note mandatory).</summary>
-public sealed record ResolveRecurringDeductionRequest(string TargetStatusCode, string? Note);
+public sealed record ResolveRecurringDeductionRequest(
+    string TargetStatusCode,
+    string? Note,
+    // REQ-010 P-14: the load may have moved since the credit was registered, so the ceiling is checked again here.
+    // The authorizer confirms their own override.
+    bool AcknowledgeIndebtednessExceeded = false);
 
 /// <summary>Body for the authorizer revocation of a VIGENTE credit (reason mandatory).</summary>
 public sealed record RevokeRecurringDeductionRequest(string Reason);

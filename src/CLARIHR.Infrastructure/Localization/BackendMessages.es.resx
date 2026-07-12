@@ -2902,4 +2902,7 @@
   <data name="INDEBTEDNESS_LIMIT_TYPE_DUPLICATED" xml:space="preserve">
     <value>El mismo tipo de descuento cíclico no puede tener dos límites de endeudamiento.</value>
   </data>
+  <data name="INDEBTEDNESS_LIMIT_EXCEEDED" xml:space="preserve">
+    <value>El descuento llevaría al empleado por encima del límite de endeudamiento aplicable.</value>
+  </data>
 </root>

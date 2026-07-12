@@ -1,5 +1,6 @@
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.Compensation;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 
@@ -1898,4 +1899,18 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileId,
         Guid settlementPublicId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Everything the indebtedness engine needs about ONE employee, in a single round trip (REQ-010): the income
+    /// base (the base-salary concepts of the ACTIVE plazas, each with its pay period so it can be monthly-ized),
+    /// the debt load (the VIGENTE credits with their current installment; SUSPENDIDO ones travel flagged but do
+    /// not count — P-12), and the company's parameters.
+    /// </summary>
+    // Fail-open default so test doubles need not implement it: an empty snapshot means "no parameters" ⇒ no
+    // validation, which is the module's own opt-in behaviour.
+    Task<IndebtednessSnapshotData> GetIndebtednessSnapshotAsync(
+        Guid tenantId,
+        long personnelFileId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new IndebtednessSnapshotData([], [], null, new Dictionary<string, decimal>()));
 }
