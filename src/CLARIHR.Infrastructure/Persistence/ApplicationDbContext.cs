@@ -330,6 +330,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CLARIHR.Domain.Compensation.IncomeTaxWithholdingBracket> IncomeTaxWithholdingBrackets => Set<CLARIHR.Domain.Compensation.IncomeTaxWithholdingBracket>();
 
+    public DbSet<CLARIHR.Domain.Compensation.IndebtednessLimit> IndebtednessLimits => Set<CLARIHR.Domain.Compensation.IndebtednessLimit>();
+
     public DbSet<IdentificationTypeCatalogItem> IdentificationTypeCatalogItems => Set<IdentificationTypeCatalogItem>();
 
     public DbSet<ProfessionCatalogItem> ProfessionCatalogItems => Set<ProfessionCatalogItem>();

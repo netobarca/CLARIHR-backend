@@ -138,6 +138,14 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public decimal? RecurringDeductionDefaultInterestRatePercent { get; private set; }
 
+    /// <summary>
+    /// The company-wide indebtedness ceiling (REQ-010, D-16): the maximum share of an employee's income that their
+    /// recurring deductions may consume. <b>Null = no control at all</b> — deductions are then registered with no
+    /// warning, which is the deliberate opt-in-by-configuration behaviour. An <see cref="Compensation.IndebtednessLimit"/>
+    /// row for a given deduction type PREVAILS over this value for deductions of that type.
+    /// </summary>
+    public decimal? MaxIndebtednessPercent { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -309,6 +317,23 @@ public sealed class CompanyPreference : TenantEntity
         }
 
         RecurringDeductionDefaultInterestRatePercent = defaultInterestRatePercent;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Sets the company-wide indebtedness ceiling (REQ-010, D-16). Nullable: null leaves the company WITHOUT
+    /// indebtedness control (no warnings on registration). When provided it must sit in (0, 100].
+    /// </summary>
+    public void SetIndebtednessPolicies(decimal? maxIndebtednessPercent)
+    {
+        if (maxIndebtednessPercent is <= 0m or > 100m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxIndebtednessPercent),
+                "The maximum indebtedness percentage must be greater than 0 and at most 100 when provided.");
+        }
+
+        MaxIndebtednessPercent = maxIndebtednessPercent;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

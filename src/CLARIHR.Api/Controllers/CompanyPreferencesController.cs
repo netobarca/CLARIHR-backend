@@ -83,6 +83,7 @@ public sealed class CompanyPreferencesController(
                 request.OvertimeSelfServiceEnabled,
                 request.OvertimeMaxDailyMinutes,
                 request.RecurringDeductionDefaultInterestRatePercent,
+                request.MaxIndebtednessPercent,
                 concurrencyToken),
             cancellationToken);
 
@@ -157,7 +158,8 @@ public sealed class CompanyPreferencesController(
         // Recurring-deduction parametrization (REQ-008 P-03), optional: the nominal ANNUAL rate pre-loaded on
         // the credit form when it uses compound interest. Null = no default. Must be in (0, 100] when
         // provided. The rate that governs a credit is always the one persisted on that credit.
-        decimal? RecurringDeductionDefaultInterestRatePercent = null);
+        decimal? RecurringDeductionDefaultInterestRatePercent = null,
+        decimal? MaxIndebtednessPercent = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

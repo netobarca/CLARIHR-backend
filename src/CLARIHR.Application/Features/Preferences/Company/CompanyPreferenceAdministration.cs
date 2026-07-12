@@ -40,6 +40,8 @@ public sealed record CompanyPreferenceResponse(
     int? OvertimeMaxDailyMinutes,
     // Recurring-deduction parametrization (REQ-008 P-03): null = no default rate pre-loaded on the form.
     decimal? RecurringDeductionDefaultInterestRatePercent,
+    // Indebtedness ceiling (REQ-010 D-16): null = the company has NO indebtedness control at all.
+    decimal? MaxIndebtednessPercent,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -74,6 +76,8 @@ public sealed record UpdateCompanyPreferencesCommand(
     int? OvertimeMaxDailyMinutes,
     // Recurring-deduction parametrization (REQ-008 P-03): null = no default rate pre-loaded on the form.
     decimal? RecurringDeductionDefaultInterestRatePercent,
+    // Indebtedness ceiling (REQ-010 D-16): null = the company has NO indebtedness control at all.
+    decimal? MaxIndebtednessPercent,
     Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
@@ -164,6 +168,12 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
             .GreaterThan(0m)
             .LessThanOrEqualTo(100m)
             .When(static command => command.RecurringDeductionDefaultInterestRatePercent.HasValue);
+        // Indebtedness ceiling (REQ-010 D-16): a percentage in (0, 100] when provided
+        // (mirrors the domain SetIndebtednessPolicies guard).
+        RuleFor(command => command.MaxIndebtednessPercent)
+            .GreaterThan(0m)
+            .LessThanOrEqualTo(100m)
+            .When(static command => command.MaxIndebtednessPercent.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -263,6 +273,8 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
             command.OvertimeMaxDailyMinutes);
         preference.SetRecurringDeductionPolicies(
             command.RecurringDeductionDefaultInterestRatePercent);
+        preference.SetIndebtednessPolicies(
+            command.MaxIndebtednessPercent);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -541,6 +553,7 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.OvertimeSelfServiceEnabled,
             preference.OvertimeMaxDailyMinutes,
             preference.RecurringDeductionDefaultInterestRatePercent,
+            preference.MaxIndebtednessPercent,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

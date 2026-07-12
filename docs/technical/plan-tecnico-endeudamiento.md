@@ -210,9 +210,13 @@ En ambos: si `IsExceeded` **y** el request **no** trae `acknowledgeIndebtednessE
 **422 `INDEBTEDNESS_LIMIT_EXCEEDED`**. Si lo trae → procede **y estampa la huella**.
 
 > ⚠️ **La cifra del desglose NO viaja en el `detail`** — el localizador lo reemplaza por el mensaje catalogado
-> (lección de REQ-009). El desglose viaja en **`extensions`** del ProblemDetails (`baseIncome`, `currentLoad`,
+> (lección de REQ-009). El desglose viaja como **miembros RAÍZ** del ProblemDetails (`baseIncome`, `currentLoad`,
 > `newInstallment`, `projectedPercent`, `limitPercent`, `limitSource`), que el localizador **no** toca.
-> **Verificar esto con un test E2E** — es exactamente la trampa que ya mordió una vez.
+>
+> ⚠️⚠️ **Ojo con la forma del JSON**: el backend escribe estos datos en `ProblemDetails.Extensions`, pero
+> `System.Text.Json` **aplana** ese diccionario (`[JsonExtensionData]`) → **NO existe un objeto `extensions` en el
+> cuerpo**; `code` y el desglose son miembros de la raíz. (Esto ya mordió: un test de REQ-009 aseveraba
+> `extensions.code` y estaba en rojo.) **Verificarlo con un test E2E.**
 
 ### 3.4 La huella del override (P-14: "se estampa en **cada** punto que la exigió")
 
@@ -280,7 +284,8 @@ Respuesta: el mismo shape + `simulatedPercent` + `wouldExceed` + `limitPercent`.
 - `openapi.yaml` **por volcado del swagger real** (receta REQ-008/009: test temporal `GET /swagger/v1/swagger.json`
   + script de inyección — **no transcribir a mano**).
 - **Guía FE** `guia-integracion-frontend-endeudamiento.md`. Debe decir explícitamente:
-  1. el desglose del 422 va en **`extensions`**, no en `detail`;
+  1. el desglose del 422 va como **miembros raíz** del ProblemDetails (no en `detail`, y **no** bajo un objeto
+     `extensions` — ese objeto no existe en el JSON);
   2. el flujo de confirmación es **reenviar el MISMO request** con `acknowledgeIndebtednessExceeded: true`
      (no hay endpoint de confirmación aparte);
   3. **sin parámetros configurados no hay advertencia** — y eso es correcto, no un bug;

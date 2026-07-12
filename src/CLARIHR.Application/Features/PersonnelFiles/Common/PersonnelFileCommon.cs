@@ -396,6 +396,19 @@ public static class PersonnelFilePermissionCodes
     public const string AuthorizeRecurringDeductions = "PersonnelFiles.AuthorizeRecurringDeductions";
 
     /// <summary>
+    /// Dedicated permission to read an employee's indebtedness level and run the simulation (REQ-010 P-15):
+    /// it is an aggregated, sensitive figure, so it does not ride on the generic file-read permission.
+    /// <c>PersonnelFiles.Admin</c> IS a superset (this is a read grant, not an Authorize* separation-of-duties one).
+    /// </summary>
+    public const string ViewIndebtedness = "PersonnelFiles.ViewIndebtedness";
+
+    /// <summary>
+    /// Dedicated permission to configure the company's per-type indebtedness ceilings (REQ-010 D-16).
+    /// <c>PersonnelFiles.Admin</c> is a superset.
+    /// </summary>
+    public const string ManageIndebtednessParameters = "PersonnelFiles.ManageIndebtednessParameters";
+
+    /// <summary>
     /// Dedicated permission to read one-time incomes ("planilla ingresos eventuales" — REQ-006 P-01): the
     /// per-file detail, the company bandeja and the payroll-input exports. HR-only with no self-service in
     /// Fase 1 (P-11); Admin is a superset.

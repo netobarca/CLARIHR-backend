@@ -2896,4 +2896,10 @@
   <data name="ONE_TIME_DEDUCTION_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>The apply-period batch was rolled back because of a conflict.</value>
   </data>
+  <data name="INDEBTEDNESS_LIMIT_TYPE_INVALID" xml:space="preserve">
+    <value>The indebtedness limit references a recurring-deduction type that does not exist or is not active.</value>
+  </data>
+  <data name="INDEBTEDNESS_LIMIT_TYPE_DUPLICATED" xml:space="preserve">
+    <value>The same recurring-deduction type cannot carry two indebtedness limits.</value>
+  </data>
 </root>

@@ -334,6 +334,20 @@ public static class PersonnelFilePolicies
     public const string AuthorizeRecurringDeductions = "PersonnelFiles.AuthorizeRecurringDeductions";
 
     /// <summary>
+    /// Read policy for the indebtedness query and simulation (REQ-010 D-17, P-15). Authn-only at the policy
+    /// level; the precise gate (EnsureCanViewIndebtednessAsync) runs per handler. Admin IS a superset here —
+    /// unlike the Authorize* grants, this is a plain read permission.
+    /// </summary>
+    public const string ViewIndebtedness = "PersonnelFiles.ViewIndebtedness";
+
+    /// <summary>
+    /// Write policy for the indebtedness parameters (the per-type ceilings — REQ-010 D-16). RequireAssertion
+    /// superset of EnsureCanManageIndebtednessParametersAsync (the dedicated permission, or Admin / IAM
+    /// super-admin).
+    /// </summary>
+    public const string ManageIndebtednessParameters = "PersonnelFiles.ManageIndebtednessParameters";
+
+    /// <summary>
     /// Read policy for one-time-income sub-resources ("planilla ingresos eventuales" — REQ-006). HR-only with
     /// no self-service in Fase 1 (P-11), so it is a RequireAssertion superset of the precise
     /// EnsureCanViewOneTimeIncomesAsync handler gate (ViewOneTimeIncomes / Admin / IAM super-admin).

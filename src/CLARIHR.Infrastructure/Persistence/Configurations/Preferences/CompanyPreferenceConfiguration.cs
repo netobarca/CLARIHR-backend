@@ -100,6 +100,11 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
             .HasColumnName("recurring_deduction_default_interest_rate_percent")
             .HasColumnType("numeric(9,4)");
 
+        // Indebtedness ceiling (REQ-010 D-16); nullable (null = the company has NO indebtedness control).
+        builder.Property(preference => preference.MaxIndebtednessPercent)
+            .HasColumnName("max_indebtedness_percent")
+            .HasColumnType("numeric(9,4)");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

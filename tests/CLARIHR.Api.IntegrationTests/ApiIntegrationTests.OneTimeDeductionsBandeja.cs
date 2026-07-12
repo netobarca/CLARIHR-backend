@@ -187,9 +187,12 @@ public sealed partial class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, withoutRange.StatusCode);
         using (var problem = JsonDocument.Parse(await withoutRange.Content.ReadAsStringAsync()))
         {
+            // The business code is a ROOT member of the ProblemDetails: ProblemDetailsFactory writes it into
+            // ProblemDetails.Extensions, which System.Text.Json flattens ([JsonExtensionData]) — there is no
+            // "extensions" object on the wire.
             Assert.Equal(
                 "ONE_TIME_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED",
-                problem.RootElement.GetProperty("extensions").GetProperty("code").GetString());
+                problem.RootElement.GetProperty("code").GetString());
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

@@ -200,6 +200,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ViewRecurringDeductions,
         PersonnelFilePolicies.ManageRecurringDeductions,
         PersonnelFilePolicies.AuthorizeRecurringDeductions,
+        // Endeudamiento (REQ-010 D-16/D-17): NO son grants Authorize* — PersonnelFiles.Admin SÍ es superset de
+        // ambas. View es authn-only (la consulta y la simulación gatean por handler); Manage lleva el superset
+        // RequireAssertion. Los controllers que las llevan se agregan en PR-1 y PR-3.
+        PersonnelFilePolicies.ViewIndebtedness,
+        PersonnelFilePolicies.ManageIndebtednessParameters,
     };
 
     private static readonly HashSet<string> OvertimeConfigurationPolicyNames = new(StringComparer.Ordinal)

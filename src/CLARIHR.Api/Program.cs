@@ -720,6 +720,20 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizeRecurringDeductions,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Indebtedness (REQ-010 D-16/D-17). NOT an Authorize* grant: PersonnelFiles.Admin IS a superset of both.
+    // ViewIndebtedness stays authn-only at the policy level (the query and the simulation gate per handler via
+    // EnsureCanViewIndebtednessAsync); the parameter writes carry the precise RequireAssertion superset.
+    // Registered here BEFORE the controllers land (PR-1/PR-3) — the governance test demands it.
+    options.AddPolicy(PersonnelFilePolicies.ViewIndebtedness, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageIndebtednessParameters, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageIndebtednessParameters,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // One-time incomes ("planilla ingresos eventuales" — REQ-006 P-01). HR-only, no self-service in Fase 1
     // (P-11), so — mirroring the recurring-income policies — the write policy is a RequireAssertion superset
     // of the precise handler gate while ViewOneTimeIncomes stays authn-only (the per-file detail and the

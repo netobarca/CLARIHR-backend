@@ -2896,4 +2896,10 @@
   <data name="ONE_TIME_DEDUCTION_APPLY_PERIOD_CONFLICT" xml:space="preserve">
     <value>El lote de aplicación por periodo se revirtió por un conflicto.</value>
   </data>
+  <data name="INDEBTEDNESS_LIMIT_TYPE_INVALID" xml:space="preserve">
+    <value>El límite de endeudamiento referencia un tipo de descuento cíclico que no existe o no está activo.</value>
+  </data>
+  <data name="INDEBTEDNESS_LIMIT_TYPE_DUPLICATED" xml:space="preserve">
+    <value>El mismo tipo de descuento cíclico no puede tener dos límites de endeudamiento.</value>
+  </data>
 </root>

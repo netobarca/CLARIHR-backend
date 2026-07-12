@@ -111,7 +111,7 @@ y mostrar la vista previa en pantalla —está bien—, pero **no la envíes**: 
 
 > ⚠️ Y ojo con esto: **la cifra esperada NO viaja en el `detail`** del ProblemDetails (la infraestructura de
 > localización reemplaza ese texto por el mensaje catalogado). **El contrato es el CÓDIGO**
-> (`extensions.code == "ONE_TIME_DEDUCTION_AMOUNT_MISMATCH"`). Si lo recibís, mostrá el error genérico y
+> (`code == "ONE_TIME_DEDUCTION_AMOUNT_MISMATCH"`, **miembro raíz** del ProblemDetails). Si lo recibís, mostrá el error genérico y
 > **recalculá desde los componentes**, que sí los tenés.
 
 ### Otras validaciones que te van a pegar
@@ -238,6 +238,8 @@ Si el empleado no debe nada, **no aparece ninguna línea** — la liquidación e
 - Prefijo `api/v1`. Los `Guid` de dominio serializan como `xxxPublicId`.
 - **Toda escritura lleva `If-Match: "{concurrencyToken}"`**: sin él → `400`; con uno viejo → `409`.
   Después de **cada** escritura, refrescá el token con el que viene en la respuesta.
-- El código de error de negocio va en **`extensions.code`** del ProblemDetails. **Ramificá por ese código, nunca
+- El código de error de negocio va en **`code`**, un **miembro RAÍZ** del ProblemDetails (el backend lo escribe en
+  `ProblemDetails.Extensions`, y `System.Text.Json` aplana ese diccionario — **no existe un objeto `extensions` en el
+  JSON**). **Ramificá por ese código, nunca
   por el texto de `detail`** (está localizado ES/EN y puede cambiar).
 - Los enums viajan como **strings**.
