@@ -1202,6 +1202,46 @@ public interface IPersonnelFileEmployeeRepository
     Task AcquireOneTimeDeductionMutationLockAsync(Guid oneTimeDeductionPublicId, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
+    /// <summary>Adds a one-time deduction (idioma post-fix) and returns the file's deductions including it.</summary>
+    Task<IReadOnlyCollection<OneTimeDeductionResponse>> AddOneTimeDeductionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOneTimeDeduction entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>Every one-time deduction of the personnel file (most recent deduction date first).</summary>
+    Task<IReadOnlyCollection<OneTimeDeductionResponse>> GetOneTimeDeductionsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>A single one-time deduction by public id (or null when it is not on the file).</summary>
+    Task<OneTimeDeductionResponse?> GetOneTimeDeductionAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeDeductionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The TRACKED one-time-deduction aggregate WITH its applications (for a domain mutation).</summary>
+    Task<PersonnelFileOneTimeDeduction?> GetOneTimeDeductionEntityAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Resolves the plaza of a one-time deduction (default the principal one). NO cost center (P-08).</summary>
+    Task<OneTimeDeductionPlazaResolution> ResolveOneTimeDeductionPlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The requester of a one-time deduction (the trío): the file, its display name (snapshotted) and its linked
+    /// login — the THIRD leg of the anti-self triple. Null when the file is not of this company.
+    /// </summary>
+    Task<OneTimeDeductionRequesterLookup?> GetOneTimeDeductionRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     // ── Recurring deductions (REQ-008 PR-3) ─────────────────────────────────────────────────────────
 
     /// <summary>

@@ -2884,4 +2884,7 @@
   <data name="ONE_TIME_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>La exportación del insumo de planilla requiere una fecha de inicio y una fecha de fin.</value>
   </data>
+  <data name="validation.message.a_fixed_value_deduction_requires_an_amount" xml:space="preserve">
+    <value>Un descuento de valor fijo requiere un monto.</value>
+  </data>
 </root>

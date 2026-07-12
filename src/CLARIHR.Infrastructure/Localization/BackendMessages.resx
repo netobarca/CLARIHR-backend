@@ -2884,4 +2884,7 @@
   <data name="ONE_TIME_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>The payroll-input export requires both a start date and an end date.</value>
   </data>
+  <data name="validation.message.a_fixed_value_deduction_requires_an_amount" xml:space="preserve">
+    <value>A fixed-value deduction requires an amount.</value>
+  </data>
 </root>

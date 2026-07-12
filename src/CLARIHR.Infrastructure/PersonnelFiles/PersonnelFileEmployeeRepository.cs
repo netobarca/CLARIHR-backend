@@ -3764,6 +3764,106 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<OneTimeDeductionResponse>> AddOneTimeDeductionAsync(
+        long personnelFileInternalId,
+        Guid tenantId,
+        PersonnelFileOneTimeDeduction entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileOneTimeDeduction>().Add(entity);
+        // Append the in-memory entity: the row is not saved yet, so an AsNoTracking re-query excludes it.
+        var persisted = await dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .ToArrayAsync(cancellationToken);
+        return persisted.Append(entity)
+            .OrderByDescending(item => item.DeductionDate)
+            .ThenByDescending(item => item.PublicId)
+            .Select(OneTimeDeductionMapping.ToResponse)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<OneTimeDeductionResponse>> GetOneTimeDeductionsAsync(
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.DeductionDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+        return items.Select(OneTimeDeductionMapping.ToResponse).ToArray();
+    }
+
+    public async Task<OneTimeDeductionResponse?> GetOneTimeDeductionAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeDeductionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFilePublicId && x.PublicId == oneTimeDeductionPublicId,
+                cancellationToken);
+        return item is null ? null : OneTimeDeductionMapping.ToResponse(item);
+    }
+
+    public Task<PersonnelFileOneTimeDeduction?> GetOneTimeDeductionEntityAsync(
+        Guid personnelFilePublicId,
+        Guid oneTimeDeductionPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .Include(deduction => deduction.Applications)
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId
+                    && x.PublicId == oneTimeDeductionPublicId
+                    && x.PersonnelFile.PublicId == personnelFilePublicId,
+                cancellationToken);
+
+    public async Task<OneTimeDeductionPlazaResolution> ResolveOneTimeDeductionPlazaAsync(
+        long personnelFileInternalId,
+        Guid? assignedPositionPublicId,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileInternalId)
+            .Select(item => new { item.PublicId, item.StartDate, item.IsActive, item.IsPrimary })
+            .ToListAsync(cancellationToken);
+        if (assignments.Count == 0)
+        {
+            return OneTimeDeductionPlazaResolution.NotFound;
+        }
+
+        var chosen = assignedPositionPublicId is { } requested && requested != Guid.Empty
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : assignments.Where(item => item.IsActive && item.IsPrimary).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.Where(item => item.IsActive).OrderBy(item => item.StartDate).FirstOrDefault()
+                ?? assignments.OrderBy(item => item.StartDate).FirstOrDefault();
+
+        return chosen is null
+            ? OneTimeDeductionPlazaResolution.NotFound
+            : new OneTimeDeductionPlazaResolution(true, chosen.PublicId);
+    }
+
+    public async Task<OneTimeDeductionRequesterLookup?> GetOneTimeDeductionRequesterLookupAsync(
+        Guid requesterFilePublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var file = await dbContext.PersonnelFiles
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == requesterFilePublicId)
+            .Select(item => new { item.PublicId, item.FullName, item.LinkedUserPublicId })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return file is null
+            ? null
+            : new OneTimeDeductionRequesterLookup(file.PublicId, file.FullName, file.LinkedUserPublicId);
+    }
+
     // ── Recurring deductions (REQ-008) ─────────────────────────────────────────────────────────────
 
     // Mirror of the recurring-income lock: the object id is derived deterministically from the credit's public id
