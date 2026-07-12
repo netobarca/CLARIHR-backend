@@ -423,6 +423,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileRecurringIncomeInstallment> PersonnelFileRecurringIncomeInstallments => Set<PersonnelFileRecurringIncomeInstallment>();
 
+    public DbSet<PersonnelFileRecurringDeduction> PersonnelFileRecurringDeductions => Set<PersonnelFileRecurringDeduction>();
+
+    public DbSet<PersonnelFileRecurringDeductionPlanSegment> PersonnelFileRecurringDeductionPlanSegments => Set<PersonnelFileRecurringDeductionPlanSegment>();
+
+    public DbSet<PersonnelFileRecurringDeductionInstallment> PersonnelFileRecurringDeductionInstallments => Set<PersonnelFileRecurringDeductionInstallment>();
+
     public DbSet<PersonnelFileOneTimeIncome> PersonnelFileOneTimeIncomes => Set<PersonnelFileOneTimeIncome>();
 
     public DbSet<PersonnelFileOneTimeIncomeApplication> PersonnelFileOneTimeIncomeApplications => Set<PersonnelFileOneTimeIncomeApplication>();
