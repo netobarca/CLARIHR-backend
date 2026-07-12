@@ -4007,6 +4007,28 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return new IndebtednessSnapshotData(baseItems, loadItems, globalLimit, limitsByType);
     }
 
+    public async Task<IReadOnlyCollection<IndebtednessOverrideResponse>> GetIndebtednessOverridesAsync(
+        Guid tenantId,
+        long personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileRecurringDeductionIndebtednessOverride>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
+                && item.RecurringDeduction!.PersonnelFileId == personnelFileId)
+            .OrderByDescending(item => item.AcknowledgedUtc)
+            .Select(item => new IndebtednessOverrideResponse(
+                item.PublicId,
+                item.Stage,
+                item.AcknowledgedByUserId,
+                item.AcknowledgedUtc,
+                item.BaseIncome,
+                item.MonthlyLoad,
+                item.NewInstallment,
+                item.ProjectedPercent,
+                item.LimitPercent,
+                item.LimitSource))
+            .ToArrayAsync(cancellationToken);
+
     private sealed class OneTimeDeductionQueryRow
     {
         public required PersonnelFileOneTimeDeduction Deduction { get; init; }

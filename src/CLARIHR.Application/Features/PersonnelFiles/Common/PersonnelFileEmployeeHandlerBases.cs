@@ -1509,6 +1509,44 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
         return (null, personnelFile);
     }
 
+    /// <summary>Read gate for the indebtedness query and simulation (REQ-010): the dedicated
+    /// <c>ViewIndebtedness</c> permission (or Admin / IAM super-admin). No self-service in Fase 1.</summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForIndebtednessReadAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        if (!(await authorizationService.EnsureCanViewIndebtednessAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
     /// <summary>
     /// Manage gate for one-time incomes (REQ-006 P-01/P-11): enforces the dedicated
     /// <c>PersonnelFiles.ManageOneTimeIncomes</c> permission (or Admin / IAM super-admin). HR-only — there is NO

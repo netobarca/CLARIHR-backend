@@ -1913,4 +1913,11 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileId,
         CancellationToken cancellationToken) =>
         Task.FromResult(new IndebtednessSnapshotData([], [], null, new Dictionary<string, decimal>()));
+
+    /// <summary>Every indebtedness override ever confirmed on the employee's credits, most recent first (REQ-010).</summary>
+    Task<IReadOnlyCollection<IndebtednessOverrideResponse>> GetIndebtednessOverridesAsync(
+        Guid tenantId,
+        long personnelFileId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<IndebtednessOverrideResponse>>([]);
 }

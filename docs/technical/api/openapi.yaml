@@ -57971,6 +57971,212 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/indebtedness-limits:
+    get:
+      tags:
+        - Compensation
+      summary: "Get the company's per-type indebtedness ceilings"
+      description: >-
+        The maximum share of an employee's income that a recurring deduction of each type may consume. A type
+        WITHOUT a row here falls back to the company-wide `maxIndebtednessPercent` preference; if neither is
+        configured, the company has **no indebtedness control at all** and deductions are registered without
+        any warning (that is the intended opt-in-by-configuration behaviour, not a bug).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/IndebtednessLimitResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    put:
+      tags:
+        - Compensation
+      summary: "Replace the company's per-type indebtedness ceilings"
+      description: >-
+        **Replace-all**: the body is the complete set of ceilings; whatever is not sent is removed. Each
+        `recurringDeductionTypeCode` must exist and be ACTIVE in the deduction-type catalog
+        (`422 INDEBTEDNESS_LIMIT_TYPE_INVALID`), and no type may appear twice
+        (`422 INDEBTEDNESS_LIMIT_TYPE_DUPLICATED`). The per-type ceiling PREVAILS over the company-wide
+        preference for deductions of its type — **even when it is more permissive**.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ReplaceIndebtednessLimitsRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/IndebtednessLimitResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/indebtedness:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Get the employee's indebtedness level"
+      description: >-
+        The income base (broken down per plaza, each monthly-ized on its own pay period), the debt load (broken
+        down per recurring deduction, each with the ceiling that governs IT), the current percentage, and the
+        history of confirmed overrides.
+
+        `status` is `DENTRO`, `EXCEDIDO` or **`SIN_CONTROL`** — the last one meaning the company configured no
+        ceiling at all. That is a legitimate state, not an error: the whole feature is opt-in by configuration.
+        An employee with no salary configured reports `0%` and is never flagged as exceeding.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IndebtednessResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/indebtedness/simulation:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Simulate an additional deduction against the employee's indebtedness"
+      description: >-
+        **Read-only. It writes NOTHING** — "solo simulación y no debe afectar la planilla" is a literal
+        requirement, so the handler is a query with no unit of work. The verb is POST only because the input
+        travels in a body.
+
+        `baseIncomeOverride` is the "ingreso digitado": omit it and the derived base is used.
+        `additionalDeduction.typeCode` selects the ceiling that would govern the hypothetical deduction (the
+        per-type one prevails over the company-wide one, even when it is more permissive).
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/SimulateIndebtednessRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IndebtednessSimulationResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
 
 components:
   schemas:
@@ -78320,6 +78526,8 @@ components:
           nullable: true
         settlementActionCode:
           type: string
+        acknowledgeIndebtednessExceeded:
+          type: boolean
       additionalProperties: false
     AnnulRecurringDeductionInstallmentRequest:
       type: object
@@ -78858,6 +79066,11 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+        indebtednessOverrides:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IndebtednessOverrideResponse"
+          nullable: true
       additionalProperties: false
     RecurringDeductionScheduleItemResponse:
       type: object
@@ -78983,6 +79196,8 @@ components:
         note:
           type: string
           nullable: true
+        acknowledgeIndebtednessExceeded:
+          type: boolean
       additionalProperties: false
     RevokeRecurringDeductionRequest:
       type: object
@@ -79061,6 +79276,8 @@ components:
           nullable: true
         settlementActionCode:
           type: string
+        acknowledgeIndebtednessExceeded:
+          type: boolean
       additionalProperties: false
     AddOneTimeDeductionRequest:
       type: object
@@ -79626,6 +79843,216 @@ components:
         payrollPeriodEndDate:
           type: string
           format: date
+          nullable: true
+      additionalProperties: false
+    IndebtednessBaseLineResponse:
+      type: object
+      properties:
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        conceptTypeCode:
+          type: string
+        value:
+          type: number
+          format: double
+        payPeriodCode:
+          type: string
+        monthlyValue:
+          type: number
+          format: double
+      additionalProperties: false
+    IndebtednessLimitInput:
+      type: object
+      properties:
+        recurringDeductionTypeCode:
+          type: string
+        maxPercent:
+          type: number
+          format: double
+      additionalProperties: false
+    IndebtednessLimitResponse:
+      type: object
+      properties:
+        indebtednessLimitPublicId:
+          type: string
+          format: uuid
+        recurringDeductionTypeCode:
+          type: string
+        maxPercent:
+          type: number
+          format: double
+        isActive:
+          type: boolean
+        publicId:
+          type: string
+          format: uuid
+          readOnly: true
+      additionalProperties: false
+    IndebtednessLoadLineResponse:
+      type: object
+      properties:
+        recurringDeductionPublicId:
+          type: string
+          format: uuid
+        typeCode:
+          type: string
+        financialInstitution:
+          type: string
+          nullable: true
+        reference:
+          type: string
+          nullable: true
+        installmentAmount:
+          type: number
+          format: double
+        installmentFrequencyCode:
+          type: string
+        monthlyAmount:
+          type: number
+          format: double
+        statusCode:
+          type: string
+        isIncludedInLoad:
+          type: boolean
+        limitPercent:
+          type: number
+          format: double
+          nullable: true
+        limitSource:
+          type: string
+          nullable: true
+      additionalProperties: false
+    IndebtednessOverrideResponse:
+      type: object
+      properties:
+        indebtednessOverridePublicId:
+          type: string
+          format: uuid
+        stage:
+          type: string
+        acknowledgedByUserPublicId:
+          type: string
+          format: uuid
+        acknowledgedUtc:
+          type: string
+          format: "date-time"
+        baseIncome:
+          type: number
+          format: double
+        monthlyLoad:
+          type: number
+          format: double
+        newInstallment:
+          type: number
+          format: double
+        projectedPercent:
+          type: number
+          format: double
+        limitPercent:
+          type: number
+          format: double
+        limitSource:
+          type: string
+      additionalProperties: false
+    IndebtednessResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        baseIncome:
+          type: number
+          format: double
+        baseBreakdown:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IndebtednessBaseLineResponse"
+        currentLoad:
+          type: number
+          format: double
+        loadBreakdown:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IndebtednessLoadLineResponse"
+        currentPercent:
+          type: number
+          format: double
+        globalLimitPercent:
+          type: number
+          format: double
+          nullable: true
+        limitsByType:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        status:
+          type: string
+        overrides:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IndebtednessOverrideResponse"
+      additionalProperties: false
+    IndebtednessSimulationResponse:
+      type: object
+      properties:
+        baseIncome:
+          type: number
+          format: double
+        currentLoad:
+          type: number
+          format: double
+        currentPercent:
+          type: number
+          format: double
+        additionalMonthlyDeduction:
+          type: number
+          format: double
+        simulatedPercent:
+          type: number
+          format: double
+        limitPercent:
+          type: number
+          format: double
+          nullable: true
+        limitSource:
+          type: string
+          nullable: true
+        wouldExceed:
+          type: boolean
+        status:
+          type: string
+      additionalProperties: false
+    ReplaceIndebtednessLimitsRequest:
+      type: object
+      properties:
+        limits:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IndebtednessLimitInput"
+          nullable: true
+      additionalProperties: false
+    SimulateIndebtednessRequest:
+      type: object
+      properties:
+        baseIncomeOverride:
+          type: number
+          format: double
+          nullable: true
+        additionalDeduction:
+          "$ref": "#/components/schemas/SimulatedDeductionRequest"
+      additionalProperties: false
+    SimulatedDeductionRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+        payPeriodCode:
+          type: string
+        typeCode:
+          type: string
           nullable: true
       additionalProperties: false
   securitySchemes:
