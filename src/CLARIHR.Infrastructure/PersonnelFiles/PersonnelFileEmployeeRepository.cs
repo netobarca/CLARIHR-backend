@@ -3748,6 +3748,22 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             cancellationToken);
     }
 
+    // ── One-time deductions (REQ-009) ──────────────────────────────────────────────────────────────
+
+    // Mirror of the one-time-income lock: the object id is derived deterministically from the deduction's public
+    // id so every application/reversal of one deduction contends on the same lock, serializing the
+    // at-most-one-active-application rule.
+    private const int OneTimeDeductionMutationLockClassId = 0x4F_44_45_44; // "ODED" — one-time deduction
+
+    public Task AcquireOneTimeDeductionMutationLockAsync(Guid oneTimeDeductionPublicId, CancellationToken cancellationToken)
+    {
+        var objectKey = BitConverter.ToInt32(oneTimeDeductionPublicId.ToByteArray(), 0);
+        return dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT pg_advisory_xact_lock({0}, {1})",
+            new object[] { OneTimeDeductionMutationLockClassId, objectKey },
+            cancellationToken);
+    }
+
     // ── Recurring deductions (REQ-008) ─────────────────────────────────────────────────────────────
 
     // Mirror of the recurring-income lock: the object id is derived deterministically from the credit's public id

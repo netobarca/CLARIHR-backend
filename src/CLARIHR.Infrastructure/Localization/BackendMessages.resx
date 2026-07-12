@@ -2821,4 +2821,67 @@
   <data name="RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>The payroll-input export requires both a start date and an end date.</value>
   </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_METHOD_REQUIRED" xml:space="preserve">
+    <value>A computed value requires a calculation method.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_METHOD_INVALID" xml:space="preserve">
+    <value>The calculation method must be CANTIDAD_POR_VALOR or PORCENTAJE_SOBRE_BASE.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_COMPONENTS_INVALID" xml:space="preserve">
+    <value>The value components are not valid for the selected calculation method.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_FIXED_WITH_COMPONENTS" xml:space="preserve">
+    <value>A fixed-value deduction cannot carry a calculation method or components.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_AMOUNT_INVALID" xml:space="preserve">
+    <value>The amount must be greater than zero.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_AMOUNT_MISMATCH" xml:space="preserve">
+    <value>The declared amount does not match the amount computed from its components.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_NOT_APPLICABLE" xml:space="preserve">
+    <value>Only an AUTORIZADO one-time deduction can be applied.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ALREADY_APPLIED" xml:space="preserve">
+    <value>The one-time deduction already has an active application.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Only an AUTORIZADO one-time deduction can be re-targeted to another payroll period.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Only an APLICADO one-time deduction can have its application reverted.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The one-time deduction is not in a state that allows this operation.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>The compensation concept is not a valid active non-statutory deduction concept for the company's country.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>The payroll type is not valid for the active catalog.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>The assigned position is not a valid plaza of this employee.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_REQUESTER_INVALID" xml:space="preserve">
+    <value>The requester is not a valid personnel file of the company.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_STATUS_INVALID" xml:space="preserve">
+    <value>The target status is not a valid resolution target.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>A decision note is required to reject a one-time deduction.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>An annulment reason is required.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>The payroll period is not a valid active period for the company.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>The subject employee, the requester or the registrar cannot decide or revoke the one-time deduction.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>The payroll-input export requires both a start date and an end date.</value>
+  </data>
 </root>

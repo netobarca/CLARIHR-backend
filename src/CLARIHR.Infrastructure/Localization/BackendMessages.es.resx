@@ -2821,4 +2821,67 @@
   <data name="RECURRING_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>La exportación del insumo de planilla requiere una fecha de inicio y una fecha de fin.</value>
   </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_METHOD_REQUIRED" xml:space="preserve">
+    <value>Un valor calculado requiere un método de cálculo.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_METHOD_INVALID" xml:space="preserve">
+    <value>El método de cálculo debe ser CANTIDAD_POR_VALOR o PORCENTAJE_SOBRE_BASE.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_COMPONENTS_INVALID" xml:space="preserve">
+    <value>Los componentes del valor no son válidos para el método de cálculo seleccionado.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_FIXED_WITH_COMPONENTS" xml:space="preserve">
+    <value>Un descuento de valor fijo no puede llevar método de cálculo ni componentes.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_VALUE_AMOUNT_INVALID" xml:space="preserve">
+    <value>El monto debe ser mayor que cero.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_AMOUNT_MISMATCH" xml:space="preserve">
+    <value>El monto declarado no coincide con el monto calculado a partir de sus componentes.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_NOT_APPLICABLE" xml:space="preserve">
+    <value>Solo un descuento eventual AUTORIZADO puede aplicarse.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ALREADY_APPLIED" xml:space="preserve">
+    <value>El descuento eventual ya tiene una aplicación activa.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_NOT_RETARGETABLE" xml:space="preserve">
+    <value>Solo un descuento eventual AUTORIZADO puede reimputarse a otro periodo de planilla.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_APPLICATION_NOT_REVERTIBLE" xml:space="preserve">
+    <value>Solo un descuento eventual APLICADO puede revertir su aplicación.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El descuento eventual no está en un estado que permita esta operación.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_CONCEPT_INVALID" xml:space="preserve">
+    <value>El concepto de compensación no es un concepto de egreso activo y no estatutario del país de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de planilla no es válido para el catálogo activo.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ASSIGNED_POSITION_INVALID" xml:space="preserve">
+    <value>La plaza asignada no es una plaza válida de este empleado.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_REQUESTER_INVALID" xml:space="preserve">
+    <value>El solicitante no es un expediente válido de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_STATUS_INVALID" xml:space="preserve">
+    <value>El estado destino no es un destino de resolución válido.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_DECISION_NOTE_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nota de decisión para rechazar un descuento eventual.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo de anulación.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_PERIOD_INVALID" xml:space="preserve">
+    <value>El periodo de planilla no es un periodo activo válido de la empresa.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_SELF_APPROVAL_FORBIDDEN" xml:space="preserve">
+    <value>El empleado sujeto, el solicitante o quien registró el descuento eventual no pueden decidirlo ni revocarlo.</value>
+  </data>
+  <data name="ONE_TIME_DEDUCTION_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>La exportación del insumo de planilla requiere una fecha de inicio y una fecha de fin.</value>
+  </data>
 </root>

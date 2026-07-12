@@ -1192,6 +1192,16 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileInternalId,
         CancellationToken cancellationToken);
 
+    // ── One-time deductions (REQ-009) ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Serializes the mutations of one one-time deduction (advisory transaction lock — class id "ODED"), so two
+    /// concurrent applications cannot both pass the at-most-one-active-application guard. Fail-safe default
+    /// (no-op) so hand-written test doubles need not implement it; the production repository overrides it.
+    /// </summary>
+    Task AcquireOneTimeDeductionMutationLockAsync(Guid oneTimeDeductionPublicId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
     // ── Recurring deductions (REQ-008 PR-3) ─────────────────────────────────────────────────────────
 
     /// <summary>
