@@ -497,9 +497,9 @@
 
 | | |
 |---|---|
-| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; espera el cierre de REQ-008 |
+| **Estado** | 🟡 EN DESARROLLO — **plan técnico ✅** (2026-07-12); siguiente: **PR-1 (parámetros + permisos)** |
 | **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — Plan 3; P-11…P-15 fijadas: base = Σ salario bruto mensualizado ×4.33 semanal · carga = solo cíclicos vigentes no estatutarios · validación al crear Y autorizar · `ViewIndebtedness` dedicado sin self · **P-13: sin adelanto, gap documentado**) |
-| **Plan técnico** | `docs/technical/plan-tecnico-endeudamiento.md` (pendiente) |
+| **Plan técnico** | ✅ [`docs/technical/plan-tecnico-endeudamiento.md`](technical/plan-tecnico-endeudamiento.md) — escrito 2026-07-12; 3 PRs; **§0.1 ⚠️ la mensualización NO existe en el código** (el `MonthlyBaseSalary` del motor de liquidación toma el valor CRUDO; el ×4.33 es código nuevo y **NO se implementa tocando ese método**) |
 | **Guía FE** | pendiente |
 | **Rama** | `feature/planilla-descuentos` (acumulada) |
 | **Línea base de tests** | (anotar al arrancar) |
@@ -514,9 +514,18 @@
 - [ ] Migraciones; asignar permisos; **configurar parámetros por empresa** (sin ellos no valida — comunicarlo)
 
 ### Próxima acción
-> Ratificación ✅ (2026-07-12 — P-11…P-15 fijadas, ver fila de análisis). Espera el cierre de REQ-008 (la carga nace de los cíclicos); al arrancar, escribir `plan-tecnico-endeudamiento.md`. Anclas: `MonthlyBaseSalary` por plaza `SettlementRepository.cs:89-126`; molde de tabla por tipo `IncomeTaxWithholdingBracket.cs`; preferencia por PUT (`CompanyPreferenceAdministration.cs:235-259`). Recordar el **pendiente documentado (P-13)** al redactar la guía FE/comunicación del despliegue.
+> **Arrancar PR-1 — Parámetros + permisos** (plan técnico §2). Contenido:
+> 1. **Preferencia global** `MaxIndebtednessPercent` — **5 toques**, molde LITERAL de `RecurringDeductionDefaultInterestRatePercent` (REQ-008): dominio (`CompanyPreference.cs` + setter rico `SetIndebtednessPolicies`) · `CompanyPreferenceAdministration.cs` (Response + Command + validator `(0,100]` + `preference.SetIndebtednessPolicies(...)` en el handler del PUT, justo tras `SetRecurringDeductionPolicies`) · `CompanyPreferencesController.cs` (request record + mapeo). **El PATCH es scalar-only → el campo es PUT-only, NO se toca el PATCH.**
+> 2. **Tabla `IndebtednessLimit`** (tenant; `RecurringDeductionTypeCode` → `MaxPercent`) — molde `IncomeTaxWithholdingBracket` **completo** (entidad `TenantEntity` + EF config con check `(0,100]` + **índice único parcial `(tenant_id, type_code) WHERE is_active`** + DbSet + repo delete/add sin `SaveChanges` + DI + CQRS + controller `GET`/`PUT` **replace-all**, sin POST/DELETE por fila y **sin `If-Match`** — así es el molde). Validación de handler: el tipo debe existir **activo** en el catálogo de REQ-008 → 422 `INDEBTEDNESS_LIMIT_TYPE_INVALID`.
+> 3. **2 permisos** `ViewIndebtedness` + `ManageIndebtednessParameters` (**Admin SÍ los cubre** — no son `Authorize*`), receta de 5 toques + allow-list del governance test. **⚠️ Registrarlos ANTES de que aterricen los controllers** o el governance test truena.
+> 4. **Migración M1** `AddIndebtednessConfiguration`.
+>
+> **Ojos** (del plan): **§0.1 — NO tocar `MonthlyBaseSalary`** (`SettlementRepository.cs:89-126`): toma el valor CRUDO, no mensualiza, y alimenta el motor de liquidación **certificado**; REQ-010 deriva su propia base en PR-2. **§0.2 — cero toques a `ResolveClass`** (este REQ no sugiere nada a la liquidación; el "ojo repetido" NO aplica). **§0.3 — REQ-010 no consume seeds**: el bloque `-9950…-9959` queda **libre** (los parámetros son tablas tenant, no catálogos). **§0.4 — sin parámetros configurados no hay validación** (opt-in retrocompatible: la suite de REQ-008 debe quedar verde SIN EDITARLA).
+>
+> Suites al cerrar PR-1: build 0/0 + unit + integración dirigida `~Indebtedness`.
 
 ### Bitácora
+- **2026-07-12 (c)** — **Plan técnico escrito** (`plan-tecnico-endeudamiento.md`), 3 PRs, con exploración quirúrgica de las 5 anclas. **Hallazgo que cambió el diseño**: el análisis asumía que `MonthlyBaseSalary` entrega un salario **mensualizado** — **no lo hace**: toma `concept.Value` crudo y **ni siquiera proyecta `PayPeriodCode`**; el factor **×4.33 de P-11 no existe en el código** (cero hits en `src/`, solo vive en el documento de negocio). Por tanto la mensualización es **código nuevo** y **NO se implementa tocando ese método** (alimenta el motor de liquidación certificado y su gemelo el de vacaciones — cambiarle la semántica alteraría finiquitos): REQ-010 deriva **su propia** base. Otros 3 hallazgos: (a) **cero toques al motor de liquidación** (no sugiere líneas → el "ojo" de `ResolveClass` no aplica); (b) **REQ-010 no consume seeds** — bloque `-9950…-9959` **liberado** (piso global sigue `-9949`, **libre desde `-9950`**); (c) **P-12 ⇒ los hooks van SOLO en REQ-008** (los eventuales quedan fuera de la carga) → **REQ-009 no se toca**. La costura real en código es **una sola** y está en `RecurringDeductions.Handlers.cs:206-208` (write-support, tras `NormalizePlan` y antes de persistir); el segundo enganche (autorizar) va entre el anti-self y `entity.Approve(...)`. Decisiones fijadas: huella del override = **tabla hija con una fila por evento** (`CREACION`/`AUTORIZACION` — el mismo crédito puede excederse dos veces con cifras distintas), no un flag; el desglose del 422 viaja en **`extensions`** (el localizador reemplaza el `detail` — lección de REQ-009); la simulación es un **`IQueryHandler` sin `IUnitOfWork`** con test de no-escritura; base 0 ⇒ nunca excedido (no dividir por cero); el límite por tipo **prevalece aunque sea más permisivo**. Sin commit de código. Siguiente: **PR-1**.
 - **2026-07-12 (b)** — **RATIFICADO** (detalle en REQ-008): P-11 base bruta Σ plazas activas ×4.33 semanal · P-12 solo cíclicos vigentes no estatutarios (suspendidos visibles/excluidos; eventuales y estatutarios fuera) · **P-13 sin adelanto + gap documentado aquí** · P-14 validación en ambos puntos con huella · P-15 `ViewIndebtedness` dedicado, sin self F1 · P-09 sin catálogo de familias. Sin commit.
 - **2026-07-12** — Análisis en borrador (Plan 3). Sin commit. Pendiente: ratificación.
 
