@@ -347,6 +347,132 @@
 
 ---
 
+## REQ-008 — Planilla: descuentos cíclicos (plan de cuotas por segmentos, interés compuesto, extraordinarias, autorización e historial)
+
+| | |
+|---|---|
+| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; siguiente: plan técnico y arranque (primer 🔴 del backlog) |
+| **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — D-01…D-22 + P-01…P-21 en §17; **P-03 ajustada**: tasa de interés con default configurable por empresa; **P-13**: gap documentado; **P-22 eliminada**: sin producción — sin fallbacks/legacy. Documento compartido de los 4 planes; este REQ = Plan 1) |
+| **Plan técnico** | [`docs/technical/plan-tecnico-planilla-descuentos-ciclicos.md`](technical/plan-tecnico-planilla-descuentos-ciclicos.md) — **escrito 2026-07-12** sobre anclas frescas (HEAD `ca94d8c`): §0 aclaraciones (18) · §2 modelo (3 tablas: descuento + **segmentos de plan** + cuotas con `kind` REGULAR/EXTRAORDINARIA y capital/interés) · §3 arquitectura · §6 PR-1…PR-6 · §7 **3 decisiones abiertas** (№1 `exception_months` int[] vs CSV — PR-2 · №2 mini-case detail — PR-6 · №3 nombre de la preferencia de tasa — PR-1) · **⚠️ hallazgo: `ResolveClass` (`SettlementCalculation.Rules.cs:396-402`) tiene default→Ingreso — el concepto `-9928` EXIGE añadirse al brazo Descuento (único toque al motor, 1 línea)** |
+| **Guía FE** | pendiente |
+| **Rama** | `feature/planilla-descuentos` (crear desde `master`; recomendado acumular REQ-008…010 en ella, como `feature/vacaciones-incapacidades`) |
+| **Línea base de tests** | (anotar al arrancar) |
+| **Alcance (síntesis)** | **Espejo egreso de REQ-005** (molde en master, anclas en el análisis) + 3 deltas duros: **segmentos de cuotas** (tramos cuota inicial–final→valor), **interés compuesto** (calculadora francesa, tasa nominal anual con **default configurable por empresa** — P-03 ratificada, preferencia nueva vía PUT —, desglose capital/interés — golden del contador como gate) y **cuotas extraordinarias** (abonos/payoff, default reducir plazo). Vigencia futura, institución financiera texto, meses de excepción (se corren), frecuencia de cuota vs **frecuencia de aplicación** (división entera), plaza sin centro de costo (D-13), anti-self doble, aplicación unitaria/lote con exclusión bajo lock, historial con total cobrado/no cobrado, bandejas/exports/insumo, liquidación: `DESCONTAR_SALDO`/`CANCELAR` + concepto **`DESCUENTO_CICLICO_PENDIENTE=-9928` `IsSystemCalculated=FALSE`** (canal sugerencias clase Descuento — ya soportado por el motor, `SettlementRepository.cs:144-153`). «Tipos de descuentos» **ya existe** (conceptos `Nature=Egreso` `-9727…-9736`; sembrar `COOPERATIVA`/`PROCURADURIA` faltantes); catálogo nuevo solo el de tipos cíclicos. **Seeds `-9920…-9939`** (piso verificado `-9915`; libre `-9916…-9999`) |
+
+### Checklist de PRs (detalle en análisis A.4; el plan técnico los refina)
+- [ ] **PR-1 — Configuración (M1)**: 3 catálogos (`-9920…-9934`) + concepto `-9928` + conceptos país faltantes + 3 permisos (`View/Manage/AuthorizeRecurringDeductions`, Authorize sin Admin) + governance
+- [ ] **PR-2 — Dominio + reglas (M2)**: entidad + segmentos + cuota hija (kind REGULAR/EXTRAORDINARIA, capital/interés) + `RecurringDeductionRules` + **motor de amortización con golden del contador (gate)**
+- [ ] **PR-3 — Flujo end-to-end**: CRUD + resolución dedicada (anti-self doble) + suspensión/revocación/cierres
+- [ ] **PR-4 — Aplicación**: unitaria + lote por periodo con exclusión + meses de excepción + división por frecuencia + **extraordinarias/payoff** + test de carrera
+- [ ] **PR-5 — Consultas**: historial/amortización + bandejas (descuentos, pendientes/vencidas) + exports + insumo
+- [ ] **PR-6 — Integración liquidación** (línea de deducción sugerida, cierre/reapertura simétrica) + openapi + guía FE
+
+### Pendientes de despliegue
+- [ ] Migraciones M1–M3; asignar los 3 permisos a roles
+- [ ] **Confirmar con el contador la aritmética de amortización y los casos dorados A.3 ANTES de PR-2**
+- [ ] Configurar por empresa: preferencia de **tasa de interés default** (P-03, vía PUT) + `load-template`/ajuste de la plantilla del catálogo de tipos si aplica (sin adopción de datos — P-22 eliminada: data de prueba)
+
+### Próxima acción
+> **Arrancar PR-1 — Configuración (M1)** (plan técnico §3.1/§4; análisis y plan ratificados/escritos 2026-07-12): crear `feature/planilla-descuentos` desde `master`, **anotar línea base de tests** (unit + integración completa), verificar seeds libres **con sufijo `L`** (bloque `-9920…-9939` + conceptos país `-9737`/`-9738`; piso `-9915`; trampa GUID en `Designer.cs`). Contenido PR-1: **3 subclases de catálogo** receta 8 toques (`recurring-deduction-statuses` `-9920…-9925` · `recurring-deduction-settlement-actions` `DESCONTAR_SALDO=-9926`/`CANCELAR=-9927` · `recurring-deduction-types` plantilla `-9930…-9934`) + **concepto liquidación `DESCUENTO_CICLICO_PENDIENTE=-9928`** (clase **Descuento**, `IsSystemCalculated=FALSE`, `Affects*=false`, molde `-9842`; el toque a `ResolveClass` va en PR-6) + **2 conceptos país** `COOPERATIVA=-9737`/`PROCURADURIA=-9738` (`Egreso`/`Externo`/`Fixed`) + **3 permisos** `View/Manage/AuthorizeRecurringDeductions` (receta completa; `Authorize*` RequireAssertion **sin Admin**) + **preferencia `RecurringDeductionDefaultInterestRatePercent`** (№3 — nullable, por el **PUT** de preferencias, PATCH scalar-only) + governance tests + openapi temprano (wire keys). Migración M1 `AddRecurringDeductionConfiguration` con `has-pending-model-changes` vacío. **⚠️ Antes de PR-2**: casos dorados de amortización bendecidos por el contador (plan §8 — es el gate). Suites al cerrar PR-1: build 0/0 + unit completa + governance.
+
+### Bitácora
+- **2026-07-12 (c)** — **Plan técnico escrito** (`plan-tecnico-planilla-descuentos-ciclicos.md`) sobre anclas frescas de master (HEAD `ca94d8c`) con **lectura quirúrgica del motor de liquidación**: (1) **hallazgo crítico** — `ResolveClass` (`SettlementCalculation.Rules.cs:396-402`) es un switch cerrado con **default→Ingreso**: el concepto `-9928` DEBE añadirse al brazo `Descuento` (constante en `SettlementConceptCodes:724-742` + 1 línea en el switch) o la sugerencia del saldo se clasificaría como INGRESO (pagaría en vez de descontar) — es el **único toque al motor**, aditivo, a diferencia de REQ-005 (cero toques); (2) la línea manual de deducción ya fluye completa (`BuildSuggestedSpecs:371-373` → `ComputeDeductionLine` rama default `:621-625` `Round2(ManualAmount)`; neto `:288`); (3) bloque de sugerencia = espejo literal del cíclico (`SettlementRepository.cs:221-255`, gate `isPrincipalPlaza:206`, DTO `ISettlementRepository.cs:18-22` con `CounterpartyName=institución`); (4) **saldo a sugerir con interés = capital pendiente** (no Σ cuotas futuras — golden del contador); (5) hooks Issue/Annul espejo `:1027-1031`/`:1160-1164`. Diseño fijado: 3 tablas (segmentos de plan como hija de definición — con interés CERO segmentos, derivación pura; cuotas con `kind` REGULAR/EXTRAORDINARIA + 2 índices únicos parciales + snapshot capital/interés), lock nuevo `"RDED"`, amortización francesa nominal-anual÷periodos con `RecomputeFromBalance` (reducir plazo), frecuencia de aplicación con división entera, meses de excepción que corren el plan, preferencia de tasa default (M1), costura REQ-010 anotada sin construir (№16). 3 decisiones abiertas con PR asignado (№1 int[] vs CSV · №2 mini-case detail · №3 nombre preferencia). Sin commit. Siguiente: **PR-1** (ver Próxima acción).
+- **2026-07-12 (b)** — **RATIFICADO por el negocio** (P-01…P-21 respondidas, §17): **18 recomendaciones aceptadas tal cual** + **P-09 con precisión** (clasificación existente como familia + generar los catálogos que falten — ya previsto en D-20) + **P-03 AJUSTADA** («el % de interés depende de cada empresa, debe ser configurable» → **preferencia por empresa nueva** como default del formulario, vía PUT; la tasa del crédito sigue por registro, editable; D-08 ajustada) + **P-13 con instrucción** (esperar a REQ-010 **documentando el pendiente** — anotado en D-16, en «División en planes» y en el backlog de REQ-010) + **P-22 ELIMINADA** («aún no tenemos producción; frontend y data de prueba — no fallbacks ni legacys» → retirados el Flujo 8 de adopción y el ítem de despliegue; regla transversal guardada en memoria). D-01…D-22 RATIFICADAS (D-08/D-16 anotadas); división en 4 planes confirmada (P-01; REQ-011 adelantable). Documento actualizado a RATIFICADO. Sin commit. Siguiente: **plan técnico** (Próxima acción).
+- **2026-07-12** — **Análisis de negocio creado en borrador** (validación contra código + GAP, HEAD `ca94d8c`): documento único para los 4 planes del levantamiento «Descuentos cíclicos» (REQ-008…011). Verificado con 3 exploraciones: (1) **greenfield** del lado descuentos (cero entidades; `procuraduría`/`endeudamiento` 0 hits); (2) molde REQ-005 completo en master (cuota hija = aplicación por periodo, proyección derivada, `FinalizeBySettlement`/`ReopenFromSettlement`); (3) el canal de sugerencias de liquidación **ya produce líneas clase Descuento** (`DESCUENTO_EXTERNO` con contraparte) → el gancho D-12 no requiere tocar el motor; (4) «tipos de descuentos» ya existe (`Nature=Egreso`, `DeductionClass` Ley/Interno/Externo = familia implícita — P-09); (5) piso de seeds `-9915`, **libre `-9916…-9999`**. Deltas duros identificados: segmentos, interés compuesto (golden contador), extraordinarias, endeudamiento (net-new). Sin commit. Pendiente: ratificación del negocio.
+
+---
+
+## REQ-009 — Planilla: descuentos eventuales
+
+| | |
+|---|---|
+| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; espera turno tras REQ-008 (contiguo) |
+| **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — Plan 2; espejo REQ-006 confirmado sin cambios: anti-self triple, conceptos Egreso no estatutarios, sin centro de costo P-08) |
+| **Plan técnico** | `docs/technical/plan-tecnico-planilla-descuentos-eventuales.md` (pendiente) |
+| **Guía FE** | pendiente |
+| **Rama** | `feature/planilla-descuentos` (acumulada con REQ-008) |
+| **Línea base de tests** | (anotar al arrancar) |
+| **Alcance (síntesis)** | **Espejo egreso de REQ-006**: descuento ocasional con valor fijo o **por factores** (`PORCENTAJE_SOBRE_BASE`/`CANTIDAD_POR_VALOR`, componentes persistidos, recálculo servidor), **solicitante trío + anti-self TRIPLE**, par planilla/periodo (FK real) re-imputable, aplicación unitaria/lote + reversión, búsqueda corporativa + `StatusCounts` + totales por moneda + exports + insumo, liquidación: `DESCUENTO_EVENTUAL_PENDIENTE=-9945` `IsSystemCalculated=FALSE`. Conceptos = `Nature=Egreso` no estatutario (ISSS/AFP/Renta → 422). **Seeds `-9940…-9949`**. Construir **contiguo a REQ-008** (amortiza andamiaje) |
+
+### Checklist de PRs
+- [ ] PR-1 — Configuración (estados `-9940…-9944` + concepto `-9945` + 3 permisos)
+- [ ] PR-2 — Dominio + reglas (fijo/factores + golden)
+- [ ] PR-3 — Flujo (anti-self triple, re-imputación)
+- [ ] PR-4 — Aplicación (lote + reversión + carrera)
+- [ ] PR-5 — Búsqueda/exports/insumo + liquidación + guía FE
+
+### Pendientes de despliegue
+- [ ] Migraciones; asignar 3 permisos
+
+### Próxima acción
+> Ratificación ✅ (2026-07-12). Espera el cierre de REQ-008 PR-1…PR-6 (o arrancar tras su PR-3 si se decide interleaving); al arrancar, escribir `plan-tecnico-planilla-descuentos-eventuales.md`. Molde: REQ-006 (`PersonnelFileOneTimeIncome`, anti-self triple `OneTimeIncomes.Handlers.cs:195-211`). Verificar seeds `-9940…-9949` libres al abrir PR-1.
+
+### Bitácora
+- **2026-07-12 (b)** — **RATIFICADO** junto con el documento compartido (detalle en la bitácora de REQ-008): espejo REQ-006 confirmado tal cual (P-02 autorización sí, P-08 sin centro de costo, P-10 conceptos Egreso + siembra de faltantes). Sin commit.
+- **2026-07-12** — Análisis en borrador (Plan 2 del documento compartido). Sin commit. Pendiente: ratificación.
+
+---
+
+## REQ-010 — Endeudamiento (parámetros, validación con confirmación y consulta/simulación)
+
+| | |
+|---|---|
+| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; espera el cierre de REQ-008 |
+| **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — Plan 3; P-11…P-15 fijadas: base = Σ salario bruto mensualizado ×4.33 semanal · carga = solo cíclicos vigentes no estatutarios · validación al crear Y autorizar · `ViewIndebtedness` dedicado sin self · **P-13: sin adelanto, gap documentado**) |
+| **Plan técnico** | `docs/technical/plan-tecnico-endeudamiento.md` (pendiente) |
+| **Guía FE** | pendiente |
+| **Rama** | `feature/planilla-descuentos` (acumulada) |
+| **Línea base de tests** | (anotar al arrancar) |
+| **Alcance (síntesis)** | **Net-new total** (verificado: 0 hits de endeudamiento; sin «ingreso total» multi-plaza). Parámetros: `MaxIndebtednessPercent` global (**preferencia por empresa vía PUT** — el PATCH es scalar-only) + tabla `IndebtednessLimit` **por tipo de descuento cíclico** (molde `IncomeTaxWithholdingBracket`; el por-tipo prevalece). **Validación al crear Y autorizar** descuentos: % proyectado = (carga mensualizada + nueva cuota) ÷ base; exceso → 422 `INDEBTEDNESS_LIMIT_EXCEEDED` con desglose **salvo `acknowledgeIndebtednessExceeded=true`** → procede con **huella auditada** (advertir, NUNCA bloquear — literal del levantamiento). Base F1 = **Σ salario base mensual de plazas activas** (P-11); carga F1 = cíclicos `VIGENTE` no estatutarios mensualizados (P-12). **Consulta** por empleado (base, carga desglosada, %, límites, semáforo, overrides) + **simulación** POST sin persistencia (test de no-escritura). Permisos `ViewIndebtedness`/`ManageIndebtednessParameters`. **Depende de REQ-008**; sin parámetros configurados → sin validación (opt-in retrocompatible). **PENDIENTE DOCUMENTADO (P-13 ratificada)**: los descuentos registrados antes de este REQ **no se re-validan retroactivamente** (solo aparecen en la consulta); sin chequeo adelantado en REQ-008/009 — es la deuda funcional que este REQ salda. Seeds `-9950…-9959` (holgura — **P-09 ratificó SIN catálogo de familias**: la clasificación `Nature`+`DeductionClass` cumple ese rol) |
+
+### Checklist de PRs
+- [ ] PR-1 — Parámetros (preferencia por PUT + tabla por tipo + permisos)
+- [ ] PR-2 — Motor `IndebtednessRules` (golden) + hooks crear/autorizar en REQ-008(/009 según P-12) con override auditado
+- [ ] PR-3 — Consulta + simulación (no-escritura) + exports + guía FE
+
+### Pendientes de despliegue
+- [ ] Migraciones; asignar permisos; **configurar parámetros por empresa** (sin ellos no valida — comunicarlo)
+
+### Próxima acción
+> Ratificación ✅ (2026-07-12 — P-11…P-15 fijadas, ver fila de análisis). Espera el cierre de REQ-008 (la carga nace de los cíclicos); al arrancar, escribir `plan-tecnico-endeudamiento.md`. Anclas: `MonthlyBaseSalary` por plaza `SettlementRepository.cs:89-126`; molde de tabla por tipo `IncomeTaxWithholdingBracket.cs`; preferencia por PUT (`CompanyPreferenceAdministration.cs:235-259`). Recordar el **pendiente documentado (P-13)** al redactar la guía FE/comunicación del despliegue.
+
+### Bitácora
+- **2026-07-12 (b)** — **RATIFICADO** (detalle en REQ-008): P-11 base bruta Σ plazas activas ×4.33 semanal · P-12 solo cíclicos vigentes no estatutarios (suspendidos visibles/excluidos; eventuales y estatutarios fuera) · **P-13 sin adelanto + gap documentado aquí** · P-14 validación en ambos puntos con huella · P-15 `ViewIndebtedness` dedicado, sin self F1 · P-09 sin catálogo de familias. Sin commit.
+- **2026-07-12** — Análisis en borrador (Plan 3). Sin commit. Pendiente: ratificación.
+
+---
+
+## REQ-011 — Tiempos no trabajados (maestro por empresa + registro con descuento calculado)
+
+| | |
+|---|---|
+| **Estado** | 🔴 PENDIENTE — **análisis RATIFICADO (2026-07-12)**; independiente — **adelantable/paralelizable** (P-01) |
+| **Análisis de negocio** | [`docs/business/analisis-planilla-descuentos-y-endeudamiento.md`](business/analisis-planilla-descuentos-y-endeudamiento.md) (**RATIFICADO 2026-07-12** — Plan 4; P-16…P-21 fijadas: registro directo sin decisión · flags como clasificación · **séptimo = +1 día completo de descanso por semana afectada (golden contador)** · insumo propio · **ActionType NUEVO `TIEMPO_NO_TRABAJADO=-9965`** · biometría a futuro) |
+| **Plan técnico** | `docs/technical/plan-tecnico-tiempos-no-trabajados.md` (pendiente) |
+| **Guía FE** | pendiente |
+| **Rama** | `feature/tiempos-no-trabajados` (independiente — **paralelizable** con REQ-008…010) |
+| **Línea base de tests** | (anotar al arrancar) |
+| **Alcance (síntesis)** | Net-new con **todos los insumos en master**: maestro por empresa `NotWorkedTimeType` (los 10 campos literales del levantamiento: aplica-permiso, utiliza-jornada, incluye asueto/domingo/sábado, **séptimo**, %, concepto egreso + ingreso opcional) con **plantilla** (`AUSENCIA_SIN_GOCE` 100 % / `AUSENCIA_CON_GOCE` 0 % / `SUSPENSION_CON_DESCUENTO` / `LLEGADA_TARDIA` con jornada) + registro con **cálculo automático** (motor puro espejo `IncapacityCalculationRules`: scan de días con exclusiones × salario/30 × % + **séptimo = +1 día de descanso por semana afectada** — P-18 golden contador; modo horas con `CompensatoryTimeStandardDailyHours` null→8; las plazas NO tienen jornada real — `WorkdayCode` es código libre); ciclo `REGISTRADA→ANULADA` sin decisión F1 (P-16); **asiento** en journal con ActionType **NUEVO `TIEMPO_NO_TRABAJADO=-9965`** (P-20 ratificada; `PERMISO=-9479` queda reservado al futuro módulo de solicitudes); bandeja/insumo/exports; **fuente aditiva de «Disponibilidad de tiempo»** (`TimeAvailability.cs:8-23` lo anticipa textual); **biometría fuera de alcance** (0 código de marcación; costura `origin` MANUAL/MARCACION). Insumos verificados: `CompanyHoliday`, `RestDayOfWeek` plaza→empresa→domingo, descuento `SIN_PAGO = días × salario/30` (`IncapacityCalculation.Rules.cs:317-328`). **Seeds `-9960…-9969`** |
+
+### Checklist de PRs
+- [ ] PR-1 — Maestro + plantilla + `load-template` + estados `-9960/-9961` + permisos
+- [ ] PR-2 — Dominio + `NotWorkedTimeRules` (scan, séptimo, horas — **golden del contador gate**)
+- [ ] PR-3 — Registro end-to-end (cálculo snapshot + asiento + anulación)
+- [ ] PR-4 — Bandeja/insumo/exports + fuente de disponibilidad + guía FE
+
+### Pendientes de despliegue
+- [ ] Migraciones; permisos; `load-template` por empresa; **confirmar regla del séptimo con el contador ANTES de PR-2**
+- [ ] Verificar asuetos y `RestDayOfWeek` configurados en las empresas piloto (insumos del cálculo)
+
+### Próxima acción
+> Ratificación ✅ (2026-07-12 — P-16…P-21 fijadas, ver fila de análisis). Independiente de REQ-008…010 — **candidato a paralelizar/adelantar** si urge el ausentismo (P-01); al arrancar, escribir `plan-tecnico-tiempos-no-trabajados.md` y **confirmar la regla del séptimo con el contador ANTES de PR-2** (P-18). Molde de maestros: REQ-007 PR-1 (`CostCenter` governed + template seeder); motor: `IncapacityCalculationRules.Calculate/IsExcluded`; disponibilidad: método de repo + categoría nueva (contrato wire intacto). Verificar seeds `-9960…-9969` libres al abrir PR-1.
+
+### Bitácora
+- **2026-07-12 (b)** — **RATIFICADO** (detalle en REQ-008): P-16 registro directo sin decisión (molde incapacidad) · P-17 flags/conceptos como clasificación (solicitudes de permiso = levantamiento futuro) · **P-18 séptimo = +1 día completo de descanso por semana afectada, golden del contador valida antes de construir** · P-19 insumo propio (costura hacia REQ-009 = F2 si se pide) · **P-20 ActionType nuevo `TIEMPO_NO_TRABAJADO=-9965`** · P-21 biometría se desarrollará a futuro (costura `origin`). Sin commit.
+- **2026-07-12** — Análisis en borrador (Plan 4). Hallazgos clave: chasis de disponibilidad extensible por diseño; flags del maestro calcan `IncapacityRisk`; sin jornada real por plaza (G-11); sin marcación (G-12). Sin commit. Pendiente: ratificación.
+
+---
+
 ## Plantilla para nuevos requerimientos
 
 ```markdown
