@@ -757,6 +757,15 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9944L, "SV", "ANULADO", "Anulado", 50),
     ];
 
+    // REQ-011 (tiempos no trabajados · P-16): NO decision step — the absence already happened, so the record is
+    // born REGISTRADO and can only be ANULADO (the incapacity reasoning). Country-scoped HasData seed (SV);
+    // IDs -9960/-9961 (block -9960…-9969; -9965 is the ActionType TIEMPO_NO_TRABAJADO).
+    public static IEnumerable<object> GetNotWorkedTimeStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("NOT_WORKED_TIME_STATUS_CATALOG", -9960L, "SV", "REGISTRADO", "Registrado", 10),
+        CreateGeneralCatalogSeed("NOT_WORKED_TIME_STATUS_CATALOG", -9961L, "SV", "ANULADO", "Anulado", 20),
+    ];
+
     // REQ-008 (planilla descuentos cíclicos · D-14): the one-decision lifecycle of a recurring deduction,
     // mirror of the recurring-income statuses. Country-scoped HasData seed (SV); IDs -9920…-9925.
     public static IEnumerable<object> GetRecurringDeductionStatusCatalogItems() =>
@@ -930,6 +939,10 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9870L, "SV", "ACREDITACION_TIEMPO_COMPENSATORIO", "Acreditación de tiempo compensatorio", 210),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9871L, "SV", "GOCE_TIEMPO_COMPENSATORIO", "Goce de tiempo compensatorio", 220),
         CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9879L, "SV", "RECONOCIMIENTO", "Reconocimiento", 230),
+        // REQ-011 (P-20): a DEDICATED action type. PERMISO (-9479) is deliberately NOT reused — it stays reserved
+        // for the future permission-REQUEST module, and conflating a recorded absence with a requested permission
+        // would poison the personnel-actions dashboard for both.
+        CreateGeneralCatalogSeed("ACTION_TYPE_CATALOG", -9965L, "SV", "TIEMPO_NO_TRABAJADO", "Tiempo no trabajado", 240),
     ];
 
     public static IEnumerable<object> GetActionStatusCatalogItems() =>

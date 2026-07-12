@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.Absences;
 using CLARIHR.Application.Features.PersonnelFiles.Compensation;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime;
@@ -4006,6 +4007,110 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
 
         return new IndebtednessSnapshotData(baseItems, loadItems, globalLimit, limitsByType);
     }
+
+    // ── Not-worked time (REQ-011) ────────────────────────────────────────────────────────────────────
+
+    public async Task<NotWorkedTimeContextData> GetNotWorkedTimeContextAsync(
+        Guid tenantId,
+        long personnelFileId,
+        Guid? assignedPositionPublicId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId && item.IsActive)
+            .Select(item => new { item.PublicId, item.IsPrimary, item.RestDayOfWeek, item.StartDate })
+            .ToListAsync(cancellationToken);
+
+        var referred = assignedPositionPublicId is { } requested
+            ? assignments.FirstOrDefault(item => item.PublicId == requested)
+            : null;
+        var primary = assignments
+            .Where(item => item.IsPrimary)
+            .OrderBy(item => item.StartDate)
+            .FirstOrDefault();
+
+        var plaza = referred ?? primary;
+        if (plaza is null || (assignedPositionPublicId is not null && referred is null))
+        {
+            return new NotWorkedTimeContextData(
+                false, Guid.Empty, 0m, DayOfWeek.Sunday, new HashSet<DateOnly>(), 8m, "USD");
+        }
+
+        var preference = await dbContext.CompanyPreferences
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId)
+            .Select(item => new { item.CompanyRestDayOfWeek, item.CompensatoryTimeStandardDailyHours, item.CurrencyCode })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // Rest day: the plaza's own → the company preference → Sunday. The SAME chain the leave engine uses; a
+        // hardcoded Sunday would silently miscount every company that rests on another day.
+        var restDay = plaza.RestDayOfWeek
+            ?? (preference?.CompanyRestDayOfWeek is { } configured ? (DayOfWeek)configured : DayOfWeek.Sunday);
+
+        var holidays = (await dbContext.CompanyHolidays
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.IsActive)
+            .Where(item => item.Date >= startDate && item.Date <= endDate)
+            .Select(item => item.Date)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        var salary = await dbContext.Set<PersonnelFileCompensationConcept>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFileId == personnelFileId
+                && item.IsActive
+                && item.Nature == CompensationNature.Ingreso
+                && item.CalculationType == CompensationCalculationType.Fixed
+                && (item.AssignedPositionPublicId == plaza.PublicId || item.AssignedPositionPublicId == null))
+            .Where(item => item.ConceptTypeCode.ToUpper() == "SALARIO_BASE")
+            .Select(item => (decimal?)item.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new NotWorkedTimeContextData(
+            true,
+            plaza.PublicId,
+            salary ?? 0m,
+            restDay,
+            holidays,
+            // The default is resolved when CONSUMED, never persisted (the company-preference pattern).
+            preference?.CompensatoryTimeStandardDailyHours ?? NotWorkedTimeRules.DefaultStandardDailyHours,
+            preference?.CurrencyCode ?? "USD");
+    }
+
+    public async Task<PersonnelFileNotWorkedTime> AddNotWorkedTimeAsync(
+        PersonnelFileNotWorkedTime entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileNotWorkedTime>().Add(entity);
+        await Task.CompletedTask;
+        return entity;
+    }
+
+    public Task<PersonnelFileNotWorkedTime?> GetNotWorkedTimeEntityAsync(
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        Guid notWorkedTimePublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileNotWorkedTime>()
+            .SingleOrDefaultAsync(
+                item => item.TenantId == tenantId
+                    && item.PersonnelFile!.PublicId == personnelFilePublicId
+                    && item.PublicId == notWorkedTimePublicId,
+                cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileNotWorkedTime>> GetNotWorkedTimesAsync(
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileNotWorkedTime>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFile!.PublicId == personnelFilePublicId)
+            .OrderByDescending(item => item.StartDate)
+            .ThenByDescending(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<IndebtednessOverrideResponse>> GetIndebtednessOverridesAsync(
         Guid tenantId,

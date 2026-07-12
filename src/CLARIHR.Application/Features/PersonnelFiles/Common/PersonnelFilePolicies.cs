@@ -348,6 +348,19 @@ public static class PersonnelFilePolicies
     public const string ManageIndebtednessParameters = "PersonnelFiles.ManageIndebtednessParameters";
 
     /// <summary>
+    /// Read policy for not-worked time (REQ-011). Authn-only at the policy level; the precise gate runs per handler.
+    /// Admin IS a superset — there is no Authorize* grant here: the record has NO decision step (P-16), because the
+    /// absence already happened (same reasoning as an incapacity).
+    /// </summary>
+    public const string ViewNotWorkedTimes = "PersonnelFiles.ViewNotWorkedTimes";
+
+    /// <summary>Write policy for the not-worked-time records (register/annul — REQ-011).</summary>
+    public const string ManageNotWorkedTimes = "PersonnelFiles.ManageNotWorkedTimes";
+
+    /// <summary>Write policy for the company's not-worked-time TYPE master (REQ-011 D-18).</summary>
+    public const string ManageNotWorkedTimeTypes = "PersonnelFiles.ManageNotWorkedTimeTypes";
+
+    /// <summary>
     /// Read policy for one-time-income sub-resources ("planilla ingresos eventuales" — REQ-006). HR-only with
     /// no self-service in Fase 1 (P-11), so it is a RequireAssertion superset of the precise
     /// EnsureCanViewOneTimeIncomesAsync handler gate (ViewOneTimeIncomes / Admin / IAM super-admin).

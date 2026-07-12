@@ -1483,6 +1483,41 @@ public sealed class OneTimeDeductionStatusCatalogItem : GeneralCatalogItem
 }
 
 /// <summary>
+/// Country-scoped catalog of not-worked-time lifecycle STATUSES (general-catalogs key
+/// <c>not-worked-time-statuses</c>) backing the <c>statusCode</c> of a personnel-file not-worked-time record
+/// (REQ-011 · tiempos no trabajados). The lifecycle has NO decision step (P-16): the absence already happened,
+/// so the record is born REGISTRADO and can only be ANULADO — the same reasoning as an incapacity.
+/// Seeded for SV.
+/// </summary>
+public sealed class NotWorkedTimeStatusCatalogItem : GeneralCatalogItem
+{
+    private NotWorkedTimeStatusCatalogItem()
+    {
+    }
+
+    private NotWorkedTimeStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static NotWorkedTimeStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
 /// Country-scoped catalog of recurring-deduction lifecycle STATUSES (general-catalogs key
 /// <c>recurring-deduction-statuses</c>) backing the <c>statusCode</c> of a personnel-file recurring
 /// deduction (REQ-008 · planilla descuentos cíclicos — the one-decision lifecycle EN_REVISION/VIGENTE/

@@ -1509,6 +1509,67 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
         return (null, personnelFile);
     }
 
+    /// <summary>Read gate for not-worked time (REQ-011).</summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForViewNotWorkedTimesAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken) =>
+        await LoadForNotWorkedTimesAsync<TResponse>(
+            personnelFileId, tenantContext, authorizationService, personnelFileRepository, manage: false, cancellationToken);
+
+    /// <summary>Write gate for not-worked time (REQ-011). No Authorize* counterpart: the flow has no decision step
+    /// (P-16) — the absence already happened.</summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForManageNotWorkedTimesAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        CancellationToken cancellationToken) =>
+        await LoadForNotWorkedTimesAsync<TResponse>(
+            personnelFileId, tenantContext, authorizationService, personnelFileRepository, manage: true, cancellationToken);
+
+    private static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForNotWorkedTimesAsync<TResponse>(
+        Guid personnelFileId,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository personnelFileRepository,
+        bool manage,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var personnelFile = await personnelFileRepository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await personnelFileRepository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(manage ? RbacPermissionAction.Update : RbacPermissionAction.Read)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        var gate = manage
+            ? await authorizationService.EnsureCanManageNotWorkedTimesAsync(tenantContext.TenantId.Value, cancellationToken)
+            : await authorizationService.EnsureCanViewNotWorkedTimesAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (!gate.IsSuccess)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.Forbidden), null);
+        }
+
+        if (!personnelFile.IsCompletedEmployee)
+        {
+            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+        }
+
+        return (null, personnelFile);
+    }
+
     /// <summary>Read gate for the indebtedness query and simulation (REQ-010): the dedicated
     /// <c>ViewIndebtedness</c> permission (or Admin / IAM super-admin). No self-service in Fase 1.</summary>
     protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadCompletedEmployeeForIndebtednessReadAsync<TResponse>(

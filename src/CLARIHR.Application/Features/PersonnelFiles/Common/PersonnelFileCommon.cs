@@ -408,6 +408,16 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string ManageIndebtednessParameters = "PersonnelFiles.ManageIndebtednessParameters";
 
+    /// <summary>Read the not-worked-time records, the company bandeja and the payroll input (REQ-011).</summary>
+    public const string ViewNotWorkedTimes = "PersonnelFiles.ViewNotWorkedTimes";
+
+    /// <summary>Register and annul not-worked time (REQ-011). No Authorize* counterpart: the flow has no decision
+    /// step (P-16) — the absence already occurred.</summary>
+    public const string ManageNotWorkedTimes = "PersonnelFiles.ManageNotWorkedTimes";
+
+    /// <summary>Configure the company's not-worked-time TYPE master (REQ-011 D-18).</summary>
+    public const string ManageNotWorkedTimeTypes = "PersonnelFiles.ManageNotWorkedTimeTypes";
+
     /// <summary>
     /// Dedicated permission to read one-time incomes ("planilla ingresos eventuales" — REQ-006 P-01): the
     /// per-file detail, the company bandeja and the payroll-input exports. HR-only with no self-service in

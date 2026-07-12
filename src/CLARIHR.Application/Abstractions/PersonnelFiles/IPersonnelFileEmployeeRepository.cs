@@ -1920,4 +1920,32 @@ public interface IPersonnelFileEmployeeRepository
         long personnelFileId,
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyCollection<IndebtednessOverrideResponse>>([]);
+
+    // ── Not-worked time (REQ-011) ────────────────────────────────────────────────────────────────────
+
+    /// <summary>The calculation context of ONE not-worked-time record (REQ-011): plaza, salary, rest day, holidays
+    /// in the range, and the company's standard working day.</summary>
+    Task<CLARIHR.Application.Features.PersonnelFiles.Absences.NotWorkedTimeContextData> GetNotWorkedTimeContextAsync(
+        Guid tenantId,
+        long personnelFileId,
+        Guid? assignedPositionPublicId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileNotWorkedTime> AddNotWorkedTimeAsync(
+        PersonnelFileNotWorkedTime entity,
+        CancellationToken cancellationToken);
+
+    /// <summary>TRACKED, for the annulment.</summary>
+    Task<PersonnelFileNotWorkedTime?> GetNotWorkedTimeEntityAsync(
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        Guid notWorkedTimePublicId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileNotWorkedTime>> GetNotWorkedTimesAsync(
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken);
 }

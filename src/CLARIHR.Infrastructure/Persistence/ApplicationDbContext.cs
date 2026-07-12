@@ -304,6 +304,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OneTimeDeductionStatusCatalogItem> OneTimeDeductionStatusCatalogItems => Set<OneTimeDeductionStatusCatalogItem>();
 
+    public DbSet<NotWorkedTimeStatusCatalogItem> NotWorkedTimeStatusCatalogItems => Set<NotWorkedTimeStatusCatalogItem>();
+
     public DbSet<RecurringDeductionStatusCatalogItem> RecurringDeductionStatusCatalogItems => Set<RecurringDeductionStatusCatalogItem>();
 
     public DbSet<RecurringDeductionSettlementActionCatalogItem> RecurringDeductionSettlementActionCatalogItems => Set<RecurringDeductionSettlementActionCatalogItem>();
@@ -505,6 +507,10 @@ public sealed class ApplicationDbContext(
     public DbSet<IncapacityRisk> IncapacityRisks => Set<IncapacityRisk>();
 
     public DbSet<IncapacityRiskParameter> IncapacityRiskParameters => Set<IncapacityRiskParameter>();
+
+    public DbSet<NotWorkedTimeType> NotWorkedTimeTypes => Set<NotWorkedTimeType>();
+
+    public DbSet<CLARIHR.Domain.PersonnelFiles.PersonnelFileNotWorkedTime> PersonnelFileNotWorkedTimes => Set<CLARIHR.Domain.PersonnelFiles.PersonnelFileNotWorkedTime>();
 
     public DbSet<IncapacityType> IncapacityTypes => Set<IncapacityType>();
 

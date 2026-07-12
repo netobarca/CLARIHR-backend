@@ -734,6 +734,26 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Not-worked time (REQ-011 D-18/P-16). NO Authorize* grant: the flow has no decision step — the absence already
+    // happened (same reasoning as an incapacity), so PersonnelFiles.Admin IS a superset of all three.
+    // Registered BEFORE the controllers land (PR-1/PR-3) — the governance test demands it.
+    options.AddPolicy(PersonnelFilePolicies.ViewNotWorkedTimes, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManageNotWorkedTimes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageNotWorkedTimes,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.ManageNotWorkedTimeTypes, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManageNotWorkedTimeTypes,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // One-time incomes ("planilla ingresos eventuales" — REQ-006 P-01). HR-only, no self-service in Fase 1
     // (P-11), so — mirroring the recurring-income policies — the write policy is a RequireAssertion superset
     // of the precise handler gate while ViewOneTimeIncomes stays authn-only (the per-file detail and the

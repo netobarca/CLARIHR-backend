@@ -205,6 +205,11 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         // RequireAssertion. Los controllers que las llevan se agregan en PR-1 y PR-3.
         PersonnelFilePolicies.ViewIndebtedness,
         PersonnelFilePolicies.ManageIndebtednessParameters,
+        // Tiempos no trabajados (REQ-011 P-16): SIN grant Authorize* — el flujo no tiene decisión (el hecho ya
+        // ocurrió, molde incapacidad), así que PersonnelFiles.Admin ES superset de las tres.
+        PersonnelFilePolicies.ViewNotWorkedTimes,
+        PersonnelFilePolicies.ManageNotWorkedTimes,
+        PersonnelFilePolicies.ManageNotWorkedTimeTypes,
     };
 
     private static readonly HashSet<string> OvertimeConfigurationPolicyNames = new(StringComparer.Ordinal)

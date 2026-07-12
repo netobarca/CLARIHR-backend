@@ -427,6 +427,21 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanManageIndebtednessParametersAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>Read gate for not-worked time (REQ-011).</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewNotWorkedTimesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>Write gate for the not-worked-time records (REQ-011).</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageNotWorkedTimesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>Write gate for the not-worked-time TYPE master (REQ-011 D-18).</summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManageNotWorkedTimeTypesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     /// <summary>
     /// Decision/revocation gate for recurring deductions (REQ-008 D-06): the dedicated
     /// <c>PersonnelFiles.AuthorizeRecurringDeductions</c> permission, or IAM super-admin — <c>Admin</c> is

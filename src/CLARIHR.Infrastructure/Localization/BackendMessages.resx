@@ -2905,4 +2905,28 @@
   <data name="INDEBTEDNESS_LIMIT_EXCEEDED" xml:space="preserve">
     <value>The deduction would push the employee past the applicable indebtedness limit.</value>
   </data>
+  <data name="NOT_WORKED_TIME_TYPE_CODE_DUPLICATED" xml:space="preserve">
+    <value>Another not-worked-time type already uses this code.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_DEDUCTION_CONCEPT_REQUIRED" xml:space="preserve">
+    <value>A type with a discount percent greater than 0 must carry a deduction concept.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The not-worked-time type does not exist.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_INVALID" xml:space="preserve">
+    <value>The not-worked-time type does not exist or is not active.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_RANGE_INVALID" xml:space="preserve">
+    <value>The end date cannot be earlier than the start date.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_HOURS_REQUIRED" xml:space="preserve">
+    <value>This not-worked-time type is captured in hours, so the hours are mandatory.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_HOURS_NOT_APPLICABLE" xml:space="preserve">
+    <value>This not-worked-time type is captured in days, so hours cannot be provided.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_ALREADY_ANNULLED" xml:space="preserve">
+    <value>The not-worked-time record is already annulled.</value>
+  </data>
 </root>

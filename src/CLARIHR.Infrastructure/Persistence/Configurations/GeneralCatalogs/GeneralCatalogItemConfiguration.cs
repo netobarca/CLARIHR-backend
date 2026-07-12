@@ -757,6 +757,21 @@ internal sealed class OvertimeRecordStatusCatalogItemConfiguration
     }
 }
 
+internal sealed class NotWorkedTimeStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<NotWorkedTimeStatusCatalogItem>
+{
+    public NotWorkedTimeStatusCatalogItemConfiguration()
+        : base(
+            "not_worked_time_status_catalog_items",
+            "pk_not_worked_time_status_catalog_items",
+            "uq_not_worked_time_status_catalog_items__public_id",
+            "uq_not_worked_time_status_catalog_items__country_code",
+            "ix_not_worked_time_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetNotWorkedTimeStatusCatalogItems())
+    {
+    }
+}
+
 internal sealed class OneTimeDeductionStatusCatalogItemConfiguration
     : GeneralCatalogItemConfigurationBase<OneTimeDeductionStatusCatalogItem>
 {

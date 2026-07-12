@@ -2905,4 +2905,28 @@
   <data name="INDEBTEDNESS_LIMIT_EXCEEDED" xml:space="preserve">
     <value>El descuento llevaría al empleado por encima del límite de endeudamiento aplicable.</value>
   </data>
+  <data name="NOT_WORKED_TIME_TYPE_CODE_DUPLICATED" xml:space="preserve">
+    <value>Ya existe otro tipo de tiempo no trabajado con este código.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_DEDUCTION_CONCEPT_REQUIRED" xml:space="preserve">
+    <value>Un tipo con porcentaje de descuento mayor que 0 debe llevar un concepto de egreso.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>El tipo de tiempo no trabajado no existe.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de tiempo no trabajado no existe o no está activo.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_RANGE_INVALID" xml:space="preserve">
+    <value>La fecha de fin no puede ser anterior a la fecha de inicio.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_HOURS_REQUIRED" xml:space="preserve">
+    <value>Este tipo de tiempo no trabajado se captura en horas, por lo que las horas son obligatorias.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_HOURS_NOT_APPLICABLE" xml:space="preserve">
+    <value>Este tipo de tiempo no trabajado se captura en días, por lo que no se pueden enviar horas.</value>
+  </data>
+  <data name="NOT_WORKED_TIME_ALREADY_ANNULLED" xml:space="preserve">
+    <value>El registro de tiempo no trabajado ya está anulado.</value>
+  </data>
 </root>

@@ -211,6 +211,8 @@ public static class DependencyInjection
         services.AddScoped<ISalaryTabulatorRepository, SalaryTabulatorRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Compensation.IIncomeTaxBracketRepository, CLARIHR.Infrastructure.Compensation.IncomeTaxBracketRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Compensation.IIndebtednessRepository, CLARIHR.Infrastructure.Compensation.IndebtednessRepository>();
+        services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.INotWorkedTimeTypeRepository, CLARIHR.Infrastructure.PersonnelFiles.NotWorkedTimeTypeRepository>();
+        services.AddScoped<CLARIHR.Application.Abstractions.Leave.INotWorkedTimeTemplateSeeder, CLARIHR.Infrastructure.Leave.NotWorkedTimeTemplateSeeder>();
         services.AddScoped<ISalaryTabulatorAuthorizationService, SalaryTabulatorAuthorizationService>();
         services.AddScoped<IReportExportJobRepository, ReportExportJobRepository>();
         services.AddScoped<ReportExportRowWriter>();
