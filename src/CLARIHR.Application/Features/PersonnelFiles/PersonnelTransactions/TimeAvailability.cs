@@ -18,8 +18,12 @@ public static class TimeAvailabilityCategories
     public const string Suspension = "SUSPENSION";
     public const string TemporaryContractEnd = "FIN_CONTRATO_TEMPORAL";
 
-    /// <summary>The families connected in F1 — always advertised in the response's <c>activeSources[]</c>.</summary>
-    public static readonly IReadOnlyList<string> ActiveSources = [Suspension, TemporaryContractEnd];
+    /// <summary>Not-worked time (REQ-011) — the third family, wired exactly as the chassis anticipated: a new
+    /// repository source method and a new category. The wire contract did not change.</summary>
+    public const string NotWorkedTime = "TIEMPO_NO_TRABAJADO";
+
+    /// <summary>The families connected — always advertised in the response's <c>activeSources[]</c>.</summary>
+    public static readonly IReadOnlyList<string> ActiveSources = [Suspension, TemporaryContractEnd, NotWorkedTime];
 }
 
 /// <summary>Source-module tags that tell the frontend which subsystem produced each availability row.</summary>
@@ -27,6 +31,7 @@ public static class TimeAvailabilitySourceModules
 {
     public const string EmployeeRelations = "EMPLOYEE_RELATIONS";
     public const string Employment = "EMPLOYMENT";
+    public const string NotWorkedTime = "NOT_WORKED_TIME";
 }
 
 /// <summary>

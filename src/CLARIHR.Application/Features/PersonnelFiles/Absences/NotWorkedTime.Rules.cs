@@ -42,6 +42,13 @@ public static class NotWorkedTimeErrors
         "This not-worked-time type is captured in days, so hours cannot be provided.",
         ErrorType.UnprocessableEntity);
 
+    /// <summary>The payroll input needs a range: without it the export would silently dump the whole history into a
+    /// payroll run.</summary>
+    public static readonly Error PayrollInputRangeRequired = new(
+        "NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED",
+        "The payroll-input export requires both a start date and an end date.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error AlreadyAnnulled = new(
         "NOT_WORKED_TIME_ALREADY_ANNULLED",
         "The not-worked-time record is already annulled.",

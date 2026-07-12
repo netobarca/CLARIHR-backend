@@ -197,6 +197,11 @@ public interface IPersonnelTransactionRepository
     Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetSuspensionAvailabilityRowsAsync(
         Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken);
 
+    /// <summary>Source 3 — NOT-WORKED TIME (REQ-011): the REGISTERED records overlapping the window. Annulled ones
+    /// are out: an annulled absence never happened.</summary>
+    Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetNotWorkedTimeAvailabilityRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken);
+
     /// <summary>
     /// Source 2 of the time-availability query — END OF TEMPORARY CONTRACTS (aclaración №7): active assignments
     /// whose <c>ContractTypeCode</c> resolves (by normalized code + tenant country, same criterion as the

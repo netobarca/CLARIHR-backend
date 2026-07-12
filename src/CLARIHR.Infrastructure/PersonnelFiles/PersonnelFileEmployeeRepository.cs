@@ -4112,6 +4112,161 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ThenByDescending(item => item.PublicId)
             .ToArrayAsync(cancellationToken);
 
+    private IQueryable<PersonnelFileNotWorkedTime> FilteredNotWorkedTimes(
+        Guid tenantId,
+        Guid? employeeId,
+        string? statusCode,
+        string? typeCode,
+        DateOnly? from,
+        DateOnly? to)
+    {
+        var query = dbContext.Set<PersonnelFileNotWorkedTime>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId);
+
+        if (employeeId is { } employee)
+        {
+            query = query.Where(item => item.PersonnelFile!.PublicId == employee);
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = statusCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.StatusCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(typeCode))
+        {
+            var normalized = typeCode.Trim().ToUpperInvariant();
+            query = query.Where(item => item.TypeCodeSnapshot.ToUpper() == normalized);
+        }
+
+        if (from is { } start)
+        {
+            query = query.Where(item => item.EndDate >= start);
+        }
+
+        if (to is { } end)
+        {
+            query = query.Where(item => item.StartDate <= end);
+        }
+
+        return query;
+    }
+
+    public async Task<NotWorkedTimeBandejaResponse> QueryNotWorkedTimesAsync(
+        QueryNotWorkedTimesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredNotWorkedTimes(
+            query.CompanyId, query.EmployeeId, query.StatusCode, query.TypeCode, query.From, query.To);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(item => item.StartDate)
+            .ThenByDescending(item => item.PublicId)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(item => new NotWorkedTimeListItemResponse(
+                item.PublicId,
+                item.PersonnelFile!.PublicId,
+                item.PersonnelFile.FirstName + " " + item.PersonnelFile.LastName,
+                null,
+                item.TypeCodeSnapshot,
+                item.TypeNameSnapshot,
+                item.StartDate,
+                item.EndDate,
+                item.Hours,
+                item.ComputableDays,
+                item.SeventhDayPenaltyDays,
+                item.DiscountedDays,
+                item.DiscountAmount,
+                item.CurrencyCode,
+                item.StatusCode))
+            .ToArrayAsync(cancellationToken);
+
+        // The counts and the totals ignore the STATUS filter on purpose: they are the numbers of the tabs, and a
+        // tab that only counted what is already shown would always read 100%.
+        var spanning = FilteredNotWorkedTimes(
+            query.CompanyId, query.EmployeeId, statusCode: null, query.TypeCode, query.From, query.To);
+
+        var statusCounts = await spanning
+            .GroupBy(item => item.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(entry => entry.Key, entry => entry.Count, cancellationToken);
+
+        var amountByCurrency = await spanning
+            .Where(item => item.StatusCode == "REGISTRADO")
+            .GroupBy(item => item.CurrencyCode)
+            .Select(group => new { group.Key, Amount = group.Sum(item => item.DiscountAmount) })
+            .ToDictionaryAsync(entry => entry.Key, entry => entry.Amount, cancellationToken);
+
+        return new NotWorkedTimeBandejaResponse(
+            items, query.PageNumber, query.PageSize, totalCount, statusCounts, amountByCurrency);
+    }
+
+    public async Task<IReadOnlyCollection<TiempoNoTrabajadoExportRow>> GetNotWorkedTimeExportRowsAsync(
+        ExportNotWorkedTimesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredNotWorkedTimes(
+            query.CompanyId, query.EmployeeId, query.StatusCode, query.TypeCode, query.From, query.To)
+            .OrderByDescending(item => item.StartDate);
+
+        var limited = query.MaxRows is { } max ? filtered.Take(max) : filtered;
+
+        return await limited
+            .Select(item => new TiempoNoTrabajadoExportRow(
+                item.PersonnelFile!.FirstName + " " + item.PersonnelFile.LastName,
+                null,
+                item.TypeNameSnapshot,
+                item.StartDate,
+                item.EndDate,
+                item.Hours,
+                item.ComputableDays,
+                item.SeventhDayPenaltyDays,
+                item.DiscountedDays,
+                item.DiscountAmount,
+                item.CurrencyCode,
+                item.StatusCode))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaTiempoNoTrabajadoExportRow>> GetNotWorkedTimePayrollInputRowsAsync(
+        Guid tenantId,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        // ANULADO records are excluded: the payroll must never discount money the company gave back. Records with
+        // no discount (the paid absences) are excluded too — they are not payroll input, they are documentation.
+        var query = dbContext.Set<PersonnelFileNotWorkedTime>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
+                && item.StatusCode == "REGISTRADO"
+                && item.DiscountAmount > 0m
+                && item.StartDate <= endDate
+                && item.EndDate >= startDate)
+            .OrderBy(item => item.StartDate);
+
+        var limited = maxRows is { } max ? query.Take(max) : query;
+
+        return await limited
+            .Select(item => new InsumoPlanillaTiempoNoTrabajadoExportRow(
+                item.PersonnelFile!.FirstName + " " + item.PersonnelFile.LastName,
+                null,
+                item.TypeNameSnapshot,
+                item.DeductionConceptTypeCodeSnapshot,
+                item.StartDate,
+                item.EndDate,
+                item.DiscountedDays,
+                item.DiscountAmount,
+                item.CurrencyCode))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<IndebtednessOverrideResponse>> GetIndebtednessOverridesAsync(
         Guid tenantId,
         long personnelFileId,

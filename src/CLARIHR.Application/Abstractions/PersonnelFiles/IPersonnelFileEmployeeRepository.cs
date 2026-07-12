@@ -1948,4 +1948,19 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         Guid personnelFilePublicId,
         CancellationToken cancellationToken);
+
+    Task<CLARIHR.Application.Features.PersonnelFiles.Absences.NotWorkedTimeBandejaResponse> QueryNotWorkedTimesAsync(
+        CLARIHR.Application.Features.PersonnelFiles.Absences.QueryNotWorkedTimesQuery query,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<CLARIHR.Application.Features.PersonnelFiles.Absences.TiempoNoTrabajadoExportRow>> GetNotWorkedTimeExportRowsAsync(
+        CLARIHR.Application.Features.PersonnelFiles.Absences.ExportNotWorkedTimesQuery query,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<CLARIHR.Application.Features.PersonnelFiles.Absences.InsumoPlanillaTiempoNoTrabajadoExportRow>> GetNotWorkedTimePayrollInputRowsAsync(
+        Guid tenantId,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken);
 }

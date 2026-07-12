@@ -906,6 +906,65 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
             .ToArray();
     }
 
+    public async Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetNotWorkedTimeAvailabilityRowsAsync(
+        Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken)
+    {
+        // Source 3 (REQ-011): the REGISTERED not-worked-time records that intersect the window. ANULADO ones are
+        // excluded — an annulled absence never happened, so the employee WAS available.
+        var query =
+            from record in dbContext.Set<PersonnelFileNotWorkedTime>().AsNoTracking()
+            where record.TenantId == companyId
+                && record.StatusCode == "REGISTRADO"
+                && record.StartDate <= window.End
+                && record.EndDate >= window.Start
+            join file in dbContext.PersonnelFiles.AsNoTracking() on record.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new
+            {
+                PersonnelFileId = file.Id,
+                file.PublicId,
+                EmployeeName = file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                record.AssignedPositionPublicId,
+                record.StartDate,
+                record.EndDate,
+                record.ComputableDays,
+                ReferencePublicId = record.PublicId,
+            };
+
+        if (filters.PersonnelFilePublicId is { } employeePublicId)
+        {
+            query = query.Where(row => row.PublicId == employeePublicId);
+        }
+
+        if (filters.OrgUnitPublicId is { } orgUnitPublicId)
+        {
+            query = query.Where(row => dbContext.PersonnelFileEmploymentAssignments
+                .Any(assignment => assignment.PersonnelFileId == row.PersonnelFileId
+                    && assignment.IsActive
+                    && assignment.OrgUnitPublicId == orgUnitPublicId));
+        }
+
+        var rows = await query.ToListAsync(cancellationToken);
+        return rows
+            .Select(row => new TimeAvailabilityRowResponse(
+                row.PublicId,
+                row.EmployeeName,
+                row.EmployeeCode,
+                row.AssignedPositionPublicId,
+                null,
+                TimeAvailabilityCategories.NotWorkedTime,
+                row.StartDate,
+                row.EndDate,
+                row.ComputableDays,
+                "REGISTRADO",
+                TimeAvailabilitySourceModules.NotWorkedTime,
+                row.ReferencePublicId))
+            .ToArray();
+    }
+
     public async Task<IReadOnlyCollection<TimeAvailabilityRowResponse>> GetTemporaryContractEndRowsAsync(
         Guid companyId, AvailabilityWindow window, TimeAvailabilityFilters filters, CancellationToken cancellationToken)
     {

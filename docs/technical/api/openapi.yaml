@@ -58177,6 +58177,801 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-time-configuration/load-template:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Load the not-worked-time type template into the company"
+      description: >-
+        Creates the four F1 types (`AUSENCIA_SIN_GOCE`, `AUSENCIA_CON_GOCE`, `SUSPENSION_CON_DESCUENTO`,
+        `LLEGADA_TARDIA`). **Idempotent**: a code the company already has is SKIPPED, never overwritten — even
+        if it was edited or inactivated. Safe to call repeatedly; the response says how many were created and
+        how many were skipped.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeTemplateResultResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-time-types:
+    get:
+      tags:
+        - Personnel Files
+      summary: "List the company's not-worked-time types"
+      description: "`isActive` narrows the list. A type with `discountPercent: 0` is a paid absence: it is recorded, and the money is not touched."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/NotWorkedTimeTypeResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    post:
+      tags:
+        - Personnel Files
+      summary: "Create a not-worked-time type"
+      description: >-
+        `countsHoliday` / `countsSaturday` / `countsRestDay` drive the day scan (a day that does not count is
+        not discounted). **`countsSeventhDayPenalty`** adds ONE extra full day per affected week — the paid day
+        of rest the employee forfeits.
+
+        A `discountPercent` greater than 0 REQUIRES `deductionConceptTypeCode`
+        (`422 NOT_WORKED_TIME_TYPE_DEDUCTION_CONCEPT_REQUIRED`): a discount with nowhere to land would never
+        reach the payroll input.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/NotWorkedTimeTypeRequest"
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeTypeResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-time-types/{notWorkedTimeTypePublicId}:
+    put:
+      tags:
+        - Personnel Files
+      summary: "Update a not-worked-time type"
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: notWorkedTimeTypePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/NotWorkedTimeTypeRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeTypeResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-time-types/{notWorkedTimeTypePublicId}/activation:
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Activate or inactivate a not-worked-time type"
+      description: "The master has **no DELETE**: a type already stamped on a record must stay readable, so the removal is logical."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: notWorkedTimeTypePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/SetNotWorkedTimeTypeActivationRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeTypeResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-time-types/{publicId}:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Get one not-worked-time type"
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeTypeResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-times/export:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the not-worked-time bandeja to Excel/CSV/JSON"
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: employeePublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: statusCode
+          in: query
+          schema:
+            type: string
+        - name: typeCode
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        413:
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-times/payroll-input/export:
+    get:
+      tags:
+        - Personnel Files
+      summary: "Export the payroll input of the not-worked time"
+      description: >-
+        One row per REGISTERED record with a discount, over the MANDATORY range (`startDate` + `endDate`; a
+        missing bound → `422 NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED`). **Annulled records are excluded** —
+        the payroll must never discount money the company gave back — and so are the paid absences (they have no
+        discount: they are documentation, not payroll input).
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        413:
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+            text/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/companies/{companyPublicId}/not-worked-times/query:
+    post:
+      tags:
+        - Personnel Files
+      summary: "Query the company-wide not-worked-time bandeja"
+      description: >-
+        Paginated and filterable (employee, status, type, date range), with per-status counts and the totals per
+        currency. **The counts and totals always span EVERY status** — they are the numbers of the tabs, so do
+        not recompute them from `items`.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/QueryNotWorkedTimesRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeBandejaResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/not-worked-times:
+    get:
+      tags:
+        - Personnel Files
+      summary: "List the employee's not-worked-time records"
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/NotWorkedTimeResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+    post:
+      tags:
+        - Personnel Files
+      summary: "Register a not-worked time"
+      description: >-
+        The **amount is computed by the server**: the type's flags drive a day-by-day scan (excluding the rest
+        day, Saturdays and holidays unless the type says they count), and — when the type carries the seventh-day
+        penalty — **each affected week adds one extra full day**, the paid rest the employee forfeits. A
+        Monday-to-Friday absence therefore discounts **six** days, not five.
+
+        `hours` belongs to the types captured in hours (a late arrival) and ONLY to them
+        (`422 NOT_WORKED_TIME_HOURS_REQUIRED` / `NOT_WORKED_TIME_HOURS_NOT_APPLICABLE`).
+
+        `assignedPositionPublicId` is optional: omitted, the employee's primary plaza is used.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AddNotWorkedTimeRequest"
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+  /api/v1/personnel-files/{publicId}/not-worked-times/{notWorkedTimePublicId}/annulment:
+    patch:
+      tags:
+        - Personnel Files
+      summary: "Annul a not-worked-time record"
+      description: The only transition there is. The record is kept (with its reason); the journal entry is annulled too.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: notWorkedTimePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: "If-Match"
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AnnulNotWorkedTimeRequest"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/NotWorkedTimeResponse"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        409:
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
+        422:
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProblemDetails"
 
 components:
   schemas:
@@ -80054,6 +80849,308 @@ components:
         typeCode:
           type: string
           nullable: true
+      additionalProperties: false
+    AddNotWorkedTimeRequest:
+      type: object
+      properties:
+        typeCode:
+          type: string
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        hours:
+          type: number
+          format: double
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+      additionalProperties: false
+    AnnulNotWorkedTimeRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    NotWorkedTimeBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/NotWorkedTimeListItemResponse"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        amountByCurrency:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+      additionalProperties: false
+    NotWorkedTimeListItemResponse:
+      type: object
+      properties:
+        notWorkedTimePublicId:
+          type: string
+          format: uuid
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        employeeFullName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        typeCode:
+          type: string
+        typeName:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        hours:
+          type: number
+          format: double
+          nullable: true
+        computableDays:
+          type: integer
+          format: int32
+        seventhDayPenaltyDays:
+          type: integer
+          format: int32
+        discountedDays:
+          type: number
+          format: double
+        discountAmount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+        statusCode:
+          type: string
+      additionalProperties: false
+    NotWorkedTimeResponse:
+      type: object
+      properties:
+        notWorkedTimePublicId:
+          type: string
+          format: uuid
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+        typeCode:
+          type: string
+        typeName:
+          type: string
+        usesWorkSchedule:
+          type: boolean
+        discountPercent:
+          type: number
+          format: double
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        incomeConceptTypeCode:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        hours:
+          type: number
+          format: double
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        originCode:
+          type: string
+        calendarDays:
+          type: integer
+          format: int32
+        computableDays:
+          type: integer
+          format: int32
+        seventhDayPenaltyDays:
+          type: integer
+          format: int32
+        discountedDays:
+          type: number
+          format: double
+        dailySalary:
+          type: number
+          format: double
+        discountAmount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+        statusCode:
+          type: string
+        registeredByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        registeredUtc:
+          type: string
+          format: "date-time"
+        annulledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        annulledUtc:
+          type: string
+          format: "date-time"
+          nullable: true
+        annulmentReason:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+      additionalProperties: false
+    NotWorkedTimeTemplateResultResponse:
+      type: object
+      properties:
+        typesCreated:
+          type: integer
+          format: int32
+        typesSkipped:
+          type: integer
+          format: int32
+      additionalProperties: false
+    NotWorkedTimeTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        appliesToPermission:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsRestDay:
+          type: boolean
+        countsSeventhDayPenalty:
+          type: boolean
+        discountPercent:
+          type: number
+          format: double
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        incomeConceptTypeCode:
+          type: string
+          nullable: true
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    NotWorkedTimeTypeResponse:
+      type: object
+      properties:
+        notWorkedTimeTypePublicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        appliesToPermission:
+          type: boolean
+        usesWorkSchedule:
+          type: boolean
+        countsHoliday:
+          type: boolean
+        countsSaturday:
+          type: boolean
+        countsRestDay:
+          type: boolean
+        countsSeventhDayPenalty:
+          type: boolean
+        discountPercent:
+          type: number
+          format: double
+        deductionConceptTypeCode:
+          type: string
+          nullable: true
+        incomeConceptTypeCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    QueryNotWorkedTimesRequest:
+      type: object
+      properties:
+        employeePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        typeCode:
+          type: string
+          nullable: true
+        from:
+          type: string
+          format: date
+          nullable: true
+        to:
+          type: string
+          format: date
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    SetNotWorkedTimeTypeActivationRequest:
+      type: object
+      properties:
+        isActive:
+          type: boolean
       additionalProperties: false
   securitySchemes:
     Bearer:

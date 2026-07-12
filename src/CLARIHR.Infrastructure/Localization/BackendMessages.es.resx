@@ -2929,4 +2929,7 @@
   <data name="NOT_WORKED_TIME_ALREADY_ANNULLED" xml:space="preserve">
     <value>El registro de tiempo no trabajado ya está anulado.</value>
   </data>
+  <data name="NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>La exportación del insumo de planilla requiere fecha de inicio y fecha de fin.</value>
+  </data>
 </root>

@@ -22,6 +22,8 @@ public sealed partial class ApiIntegrationTests
             PersonnelFilePermissionCodes.ManageNotWorkedTimeTypes,
             PersonnelFilePermissionCodes.ManageNotWorkedTimes,
             PersonnelFilePermissionCodes.ViewNotWorkedTimes,
+            // The availability view (REQ-003) has its own dedicated grant.
+            PersonnelFilePermissionCodes.ViewTimeAvailability,
             // Declaring a company holiday (an input of the scan) lives in the leave-configuration domain.
             LeaveConfigurationPermissionCodes.Admin);
 

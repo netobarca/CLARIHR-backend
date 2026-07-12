@@ -2929,4 +2929,7 @@
   <data name="NOT_WORKED_TIME_ALREADY_ANNULLED" xml:space="preserve">
     <value>The not-worked-time record is already annulled.</value>
   </data>
+  <data name="NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
+    <value>The payroll-input export requires both a start date and an end date.</value>
+  </data>
 </root>

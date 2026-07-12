@@ -65,6 +65,11 @@ internal static class TimeAvailabilitySupport
             rows.AddRange(await repository.GetTemporaryContractEndRowsAsync(companyId, window, filters, cancellationToken));
         }
 
+        if (IsIncluded(requestedCategories, TimeAvailabilityCategories.NotWorkedTime))
+        {
+            rows.AddRange(await repository.GetNotWorkedTimeAvailabilityRowsAsync(companyId, window, filters, cancellationToken));
+        }
+
         return rows
             .OrderBy(row => row.StartDate)
             .ThenBy(row => row.EmployeeName, StringComparer.OrdinalIgnoreCase)
