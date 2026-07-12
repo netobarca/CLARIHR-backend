@@ -284,6 +284,35 @@ internal sealed class SettlementRepository(
             }
         }
 
+        // One-time deductions (REQ-009 §3.5) feed the DESCUENTO_EVENTUAL_PENDIENTE settlement SUGGESTION: an
+        // AUTORIZADO one-off charge the employee still owes travels through the existing SuggestedItems channel as
+        // an editable/excludable MANUAL line (seed -9945, IsSystemCalculated=false) — the exact mirror of the
+        // one-time INCOME block above, but on the DEDUCTION side: it REDUCES the net. An AUTORIZADO deduction by
+        // definition has no active application, so the filter is just StatusCode == AUTORIZADO. Restricted to the
+        // principal plaza (no double suggestion on a multi-plaza retirement). None ⇒ no suggestion (retrocompatible).
+        if (isPrincipalPlaza)
+        {
+            var pendingOneTimeDeductions = await dbContext.Set<PersonnelFileOneTimeDeduction>()
+                .AsNoTracking()
+                .Where(item => item.PersonnelFileId == personnelFileId
+                    && item.StatusCode == OneTimeDeductionStatuses.Autorizado)
+                .Select(item => new
+                {
+                    item.Reference,
+                    item.ConceptNameSnapshot,
+                    item.Amount,
+                })
+                .ToListAsync(cancellationToken);
+            foreach (var deduction in pendingOneTimeDeductions)
+            {
+                suggested.Add(new SettlementSuggestedItemDto(
+                    SettlementConceptCodes.DescuentoEventualPendiente,
+                    deduction.Reference ?? deduction.ConceptNameSnapshot,
+                    deduction.Amount,
+                    null));
+            }
+        }
+
         // Recurring deductions with DESCONTAR_SALDO feed the DESCUENTO_CICLICO_PENDIENTE settlement SUGGESTION
         // (REQ-008 §3.5): the outstanding balance is KNOWN, so it travels through the existing SuggestedItems
         // channel as an editable/excludable MANUAL line (seed -9928, IsSystemCalculated=false) — the engine does

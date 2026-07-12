@@ -3864,6 +3864,228 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             : new OneTimeDeductionRequesterLookup(file.PublicId, file.FullName, file.LinkedUserPublicId);
     }
 
+    // ── One-time-deduction bandeja + exports (REQ-009 PR-5) ─────────────────────────────────────────
+
+    private sealed class OneTimeDeductionQueryRow
+    {
+        public required PersonnelFileOneTimeDeduction Deduction { get; init; }
+
+        public required string EmployeeFullName { get; init; }
+
+        public required Guid EmployeeFilePublicId { get; init; }
+
+        public string? EmployeeCode { get; init; }
+    }
+
+    public async Task<OneTimeDeductionBandejaResponse> QueryOneTimeDeductionsAsync(
+        QueryOneTimeDeductionsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var baseQuery = FilteredOneTimeDeductions(
+            query.CompanyId, query.EmployeeId, query.ConceptTypeCode, query.PayrollTypeCode,
+            query.DeductionFrom, query.DeductionTo);
+
+        // StatusCounts over the full (non-status) filter, so every status is represented even when the items are
+        // narrowed to one status.
+        var statusCounts = await baseQuery
+            .GroupBy(row => row.Deduction.StatusCode)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key, group => group.Count, cancellationToken);
+
+        var amountByCurrency = await baseQuery
+            .GroupBy(row => row.Deduction.CurrencyCode)
+            .Select(group => new { group.Key, Total = group.Sum(row => row.Deduction.Amount) })
+            .ToDictionaryAsync(group => group.Key, group => group.Total, cancellationToken);
+
+        var filtered = baseQuery;
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Deduction.StatusCode == status);
+        }
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+
+        var items = await filtered
+            .OrderByDescending(row => row.Deduction.DeductionDate)
+            .ThenByDescending(row => row.Deduction.CreatedUtc)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(row => new OneTimeDeductionListItemResponse(
+                row.Deduction.PublicId,
+                row.EmployeeFilePublicId,
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Deduction.DeductionDate,
+                row.Deduction.Reference,
+                row.Deduction.ConceptTypeCode,
+                row.Deduction.ConceptNameSnapshot,
+                row.Deduction.IsFixedValue,
+                row.Deduction.CalculationMethod,
+                row.Deduction.Amount,
+                row.Deduction.CurrencyCode,
+                row.Deduction.AssignedPositionPublicId,
+                row.Deduction.RequesterNameSnapshot,
+                row.Deduction.PayrollTypeCode,
+                row.Deduction.PayrollPeriodLabel,
+                row.Deduction.StatusCode,
+                row.Deduction.RequestedByUserId == Guid.Empty ? null : row.Deduction.RequestedByUserId,
+                row.Deduction.DecidedByUserId))
+            .ToArrayAsync(cancellationToken);
+
+        return new OneTimeDeductionBandejaResponse(
+            items, query.PageNumber, query.PageSize, totalCount, statusCounts, amountByCurrency);
+    }
+
+    public async Task<IReadOnlyCollection<DescuentoEventualExportRow>> GetOneTimeDeductionExportRowsAsync(
+        ExportOneTimeDeductionsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var filtered = FilteredOneTimeDeductions(
+            query.CompanyId, query.EmployeeId, query.ConceptTypeCode, query.PayrollTypeCode,
+            query.DeductionFrom, query.DeductionTo);
+
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+        {
+            var status = query.StatusCode.Trim().ToUpperInvariant();
+            filtered = filtered.Where(row => row.Deduction.StatusCode == status);
+        }
+
+        var ordered = filtered
+            .OrderByDescending(row => row.Deduction.DeductionDate)
+            .ThenByDescending(row => row.Deduction.CreatedUtc)
+            .Select(row => new DescuentoEventualExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Deduction.DeductionDate,
+                row.Deduction.Reference,
+                row.Deduction.ConceptNameSnapshot,
+                row.Deduction.IsFixedValue,
+                row.Deduction.CalculationMethod,
+                row.Deduction.Amount,
+                row.Deduction.CurrencyCode,
+                row.Deduction.AssignedPositionPublicId.ToString(),
+                row.Deduction.RequesterNameSnapshot,
+                row.Deduction.PayrollTypeCode,
+                row.Deduction.PayrollPeriodLabel,
+                row.Deduction.StatusCode));
+
+        return query.MaxRows is { } maxRows
+            ? await ordered.Take(maxRows + 1).ToArrayAsync(cancellationToken)
+            : await ordered.ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<InsumoPlanillaDescuentoEventualExportRow>> GetOneTimeDeductionPayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from application in dbContext.Set<PersonnelFileOneTimeDeductionApplication>().AsNoTracking()
+            join deduction in dbContext.Set<PersonnelFileOneTimeDeduction>().AsNoTracking()
+                on application.OneTimeDeductionId equals deduction.Id
+            join file in dbContext.PersonnelFiles.AsNoTracking() on deduction.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where application.TenantId == tenantId
+                && application.StatusCode == OneTimeDeductionApplicationStatuses.Aplicada
+                && application.AppliedDate >= startDate
+                && application.AppliedDate <= endDate
+            select new
+            {
+                EmployeeFullName = file.FullName,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+                deduction.Reference,
+                deduction.ConceptNameSnapshot,
+                deduction.Amount,
+                deduction.CurrencyCode,
+                application.PayrollTypeCode,
+                application.PayrollPeriodLabel,
+                application.AppliedDate,
+            };
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalized = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.PayrollTypeCode == normalized);
+        }
+
+        var ordered = query
+            .OrderBy(row => row.EmployeeFullName)
+            .ThenBy(row => row.AppliedDate)
+            .Select(row => new InsumoPlanillaDescuentoEventualExportRow(
+                row.EmployeeFullName,
+                row.EmployeeCode,
+                row.Reference,
+                row.ConceptNameSnapshot,
+                row.PayrollTypeCode,
+                row.PayrollPeriodLabel,
+                row.AppliedDate,
+                row.Amount,
+                row.CurrencyCode));
+
+        return maxRows is { } cap
+            ? await ordered.Take(cap + 1).ToArrayAsync(cancellationToken)
+            : await ordered.ToArrayAsync(cancellationToken);
+    }
+
+    private IQueryable<OneTimeDeductionQueryRow> FilteredOneTimeDeductions(
+        Guid tenantId,
+        Guid? employeeId,
+        string? conceptTypeCode,
+        string? payrollTypeCode,
+        DateOnly? deductionFrom,
+        DateOnly? deductionTo)
+    {
+        var query =
+            from deduction in dbContext.Set<PersonnelFileOneTimeDeduction>().AsNoTracking()
+            join file in dbContext.PersonnelFiles.AsNoTracking() on deduction.PersonnelFileId equals file.Id
+            join profileEntry in dbContext.PersonnelFileEmployeeProfiles.AsNoTracking()
+                on file.Id equals profileEntry.PersonnelFileId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            where deduction.TenantId == tenantId
+            select new OneTimeDeductionQueryRow
+            {
+                Deduction = deduction,
+                EmployeeFullName = file.FullName,
+                EmployeeFilePublicId = file.PublicId,
+                EmployeeCode = profile != null ? profile.EmployeeCode : null,
+            };
+
+        if (employeeId is { } employeePublicId)
+        {
+            query = query.Where(row => row.EmployeeFilePublicId == employeePublicId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(conceptTypeCode))
+        {
+            var normalized = conceptTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Deduction.ConceptTypeCode == normalized);
+        }
+
+        if (!string.IsNullOrWhiteSpace(payrollTypeCode))
+        {
+            var normalized = payrollTypeCode.Trim().ToUpperInvariant();
+            query = query.Where(row => row.Deduction.PayrollTypeCode == normalized);
+        }
+
+        if (deductionFrom is { } from)
+        {
+            query = query.Where(row => row.Deduction.DeductionDate >= from);
+        }
+
+        if (deductionTo is { } to)
+        {
+            query = query.Where(row => row.Deduction.DeductionDate <= to);
+        }
+
+        return query;
+    }
+
     // ── One-time-deduction applications (REQ-009 PR-4) ──────────────────────────────────────────────
 
     public Task<PersonnelFileOneTimeDeduction?> GetTrackedOneTimeDeductionWithApplicationsAsync(
@@ -6427,6 +6649,23 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         await dbContext.Set<PersonnelFileOneTimeIncome>()
             .Where(income => income.PersonnelFileId == personnelFileId
                 && income.StatusCode == OneTimeIncomeStatuses.Autorizado)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileOneTimeDeduction>> GetAutorizadoOneTimeDeductionsForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .Where(deduction => deduction.PersonnelFileId == personnelFileId
+                && deduction.StatusCode == OneTimeDeductionStatuses.Autorizado)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileOneTimeDeduction>> GetOneTimeDeductionsAppliedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileOneTimeDeduction>()
+            .Where(deduction => deduction.PersonnelFileId == personnelFileId
+                && deduction.AppliedBySettlementPublicId == settlementPublicId)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileOneTimeIncome>> GetOneTimeIncomesAppliedBySettlementAsync(

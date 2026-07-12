@@ -100,3 +100,17 @@ public sealed record QueryOneTimeDeductionPendingRequest(
     string? PayrollTypeCode,
     Guid? PayrollPeriodPublicId,
     Guid? EmployeeId);
+
+/// <summary>
+/// Body for the company-wide one-time-deduction bandeja. Every filter is optional; when <c>StatusCode</c> is
+/// omitted every status is listed. The StatusCounts and the per-currency totals always cover EVERY status.
+/// </summary>
+public sealed record QueryOneTimeDeductionsRequest(
+    Guid? EmployeeId,
+    string? StatusCode,
+    string? ConceptTypeCode,
+    string? PayrollTypeCode,
+    DateOnly? DeductionFrom,
+    DateOnly? DeductionTo,
+    int? PageNumber,
+    int? PageSize);

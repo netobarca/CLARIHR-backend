@@ -1242,6 +1242,40 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         CancellationToken cancellationToken);
 
+    /// <summary>The employee's AUTORIZADO one-off deductions (tracked) to mark as charged when a settlement is
+    /// issued — but ONLY those whose suggested line stayed INCLUDED (REQ-009 §3.5).</summary>
+    Task<IReadOnlyCollection<PersonnelFileOneTimeDeduction>> GetAutorizadoOneTimeDeductionsForSettlementAsync(
+        long personnelFileId,
+        CancellationToken cancellationToken);
+
+    /// <summary>The employee's one-off deductions charged by a specific settlement (tracked) to reopen when that
+    /// settlement is annulled (REQ-009 §3.5).</summary>
+    Task<IReadOnlyCollection<PersonnelFileOneTimeDeduction>> GetOneTimeDeductionsAppliedBySettlementAsync(
+        long personnelFileId,
+        Guid settlementPublicId,
+        CancellationToken cancellationToken);
+
+    // ── One-time-deduction bandeja + exports (REQ-009 PR-5) ─────────────────────────────────────────
+
+    /// <summary>The company bandeja: a page + StatusCounts over EVERY status + the totals per currency.</summary>
+    Task<OneTimeDeductionBandejaResponse> QueryOneTimeDeductionsAsync(
+        QueryOneTimeDeductionsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The bandeja export rows (Spanish headers).</summary>
+    Task<IReadOnlyCollection<DescuentoEventualExportRow>> GetOneTimeDeductionExportRowsAsync(
+        ExportOneTimeDeductionsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>The payroll-input rows: every CHARGED (APLICADA, active) application whose applied date falls in the range.</summary>
+    Task<IReadOnlyCollection<InsumoPlanillaDescuentoEventualExportRow>> GetOneTimeDeductionPayrollInputRowsAsync(
+        Guid tenantId,
+        string? payrollTypeCode,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
     // ── One-time-deduction applications (REQ-009 PR-4) ──────────────────────────────────────────────
 
     /// <summary>The TRACKED deduction WITH its applications (for an application / reversal under the lock).</summary>

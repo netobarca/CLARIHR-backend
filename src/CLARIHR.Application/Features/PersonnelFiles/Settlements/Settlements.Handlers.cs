@@ -1066,6 +1066,29 @@ internal sealed class IssueSettlementCommandHandler(
             }
         }
 
+        // REQ-009 §3.5: mirror of the block above on the DEDUCTION side — mark the employee's AUTORIZADO one-off
+        // deductions as charged by THIS settlement, but ONLY those whose DESCUENTO_EVENTUAL_PENDIENTE line stayed
+        // INCLUDED. An EXCLUDED line means the liquidator chose NOT to charge it, so the deduction stays
+        // AUTORIZADO and can still be charged in a payroll. The link line↔deduction is the suggestion description.
+        var includedDeductionKeys = settlement.Lines
+            .Where(line => line.IsIncluded && line.ConceptCode == SettlementConceptCodes.DescuentoEventualPendiente)
+            .Select(line => line.Description)
+            .Where(description => description is not null)
+            .Select(description => description!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (includedDeductionKeys.Count > 0)
+        {
+            var oneTimeDeductionsToApply = await employeeRepository.GetAutorizadoOneTimeDeductionsForSettlementAsync(
+                personnelFile.Id, cancellationToken);
+            foreach (var deduction in oneTimeDeductionsToApply)
+            {
+                if (includedDeductionKeys.Contains(deduction.Reference ?? deduction.ConceptNameSnapshot))
+                {
+                    deduction.MarkAppliedBySettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+                }
+            }
+        }
+
         // REQ-007 §0.15: when the engine-calculated HORAS_EXTRAS_PENDIENTES_PAGO line stayed INCLUDED, the plaza's
         // AUTORIZADA overtime records that fed it are closed by THIS settlement — the elapsed (payable) ones become
         // APLICADA (MarkAppliedBySettlement, idempotent) and the FUTURE organized shifts of the plaza are annulled
@@ -1190,6 +1213,15 @@ internal sealed class AnnulSettlementCommandHandler(
         foreach (var income in oneTimeToReopen)
         {
             income.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
+        }
+
+        // REQ-009 §3.5: reopen exactly the one-off deductions this settlement charged (symmetric with the issue
+        // hook) — they return to AUTORIZADO with their amount intact.
+        var oneTimeDeductionsToReopen = await employeeRepository.GetOneTimeDeductionsAppliedBySettlementAsync(
+            personnelFile.Id, settlement.PublicId, cancellationToken);
+        foreach (var deduction in oneTimeDeductionsToReopen)
+        {
+            deduction.ReopenFromSettlement(settlement.PublicId, dateTimeProvider.UtcNow);
         }
 
         // REQ-007 §0.15: reopen exactly the overtime records this settlement closed (symmetric with the issue hook) —

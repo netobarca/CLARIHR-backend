@@ -399,6 +399,7 @@ internal static class SettlementCalculationRules
     {
         SettlementConceptCodes.Isss or SettlementConceptCodes.Afp or SettlementConceptCodes.Renta
             or SettlementConceptCodes.DescuentoExterno or SettlementConceptCodes.DescuentoCiclicoPendiente
+            or SettlementConceptCodes.DescuentoEventualPendiente
             or SettlementConceptCodes.OtroDescuento => SettlementConceptClass.Descuento,
         SettlementConceptCodes.IsssPatronal or SettlementConceptCodes.AfpPatronal or SettlementConceptCodes.Incaf => SettlementConceptClass.PagoPatronal,
         _ => SettlementConceptClass.Ingreso,
@@ -621,6 +622,13 @@ internal static class SettlementCalculationRules
 
                 break;
 
+            case SettlementConceptCodes.DescuentoEventualPendiente:
+                // A one-off charge the employee still owes (REQ-009): a suggested manual amount, editable and
+                // excludable. "Última cuota" would be a lie — there is no instalment plan behind it.
+                calculated = Round2(spec.ManualAmount);
+                detail = "Descuento eventual pendiente";
+                break;
+
             case SettlementConceptCodes.DescuentoCiclicoPendiente:
                 // The outstanding balance of a credit (REQ-008): a suggested manual amount, like the cases below,
                 // but "última cuota" would be a lie — this is the WHOLE remaining balance (the capital still owed
@@ -759,6 +767,14 @@ public static class SettlementConceptCodes
     /// credit balance classified as income would PAY the employee their loan instead of discounting it.
     /// </summary>
     public const string DescuentoCiclicoPendiente = "DESCUENTO_CICLICO_PENDIENTE";
+
+    /// <summary>
+    /// The AUTORIZADO one-off deductions the employee still owes when settled ("descuentos eventuales" — REQ-009).
+    /// Like <see cref="DescuentoCiclicoPendiente"/>, it MUST be listed in the <c>Descuento</c> arm of
+    /// <c>ResolveClass</c>: that switch defaults to <c>Ingreso</c>, and REQ-008's fix only covered the CYCLIC
+    /// concept — a one-off charge classified as income would PAY the employee their fine instead of charging it.
+    /// </summary>
+    public const string DescuentoEventualPendiente = "DESCUENTO_EVENTUAL_PENDIENTE";
 
     public const string OtroDescuento = "OTRO_DESCUENTO";
     public const string IsssPatronal = "ISSS_PATRONAL";
