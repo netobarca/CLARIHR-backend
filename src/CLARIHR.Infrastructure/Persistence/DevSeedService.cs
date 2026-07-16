@@ -261,31 +261,53 @@ internal sealed class DevSeedService(
 
     private void SeedIncomeTaxBrackets(Guid tenantId)
     {
-        // SV monthly ISR retention table (editable — D-19). Quincenal/semanal load with their own values.
+        // SV ISR retention tables (editable — D-19). REQ-012 golden 13 (ajuste 2026-07-15): THREE official
+        // tables — mensual, quincenal and semanal (the daily one was discarded); the pay frequency of the
+        // period picks the table. Figures are the official DL 95/2015 ones — never derived arithmetically.
         var effectiveFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthly = new (int Order, decimal Lower, decimal? Upper, decimal FixedFee, decimal Rate, decimal Excess)[]
+        var tables = new (string PayPeriod, (int Order, decimal Lower, decimal? Upper, decimal FixedFee, decimal Rate, decimal Excess)[] Brackets)[]
         {
-            (1, 0.01m, 472.00m, 0.00m, 0.00m, 0.00m),
-            (2, 472.01m, 895.24m, 17.67m, 10.00m, 472.00m),
-            (3, 895.25m, 2038.10m, 60.00m, 20.00m, 895.24m),
-            (4, 2038.11m, null, 288.57m, 30.00m, 2038.10m),
+            ("MENSUAL",
+            [
+                (1, 0.01m, 472.00m, 0.00m, 0.00m, 0.00m),
+                (2, 472.01m, 895.24m, 17.67m, 10.00m, 472.00m),
+                (3, 895.25m, 2038.10m, 60.00m, 20.00m, 895.24m),
+                (4, 2038.11m, null, 288.57m, 30.00m, 2038.10m),
+            ]),
+            ("QUINCENAL",
+            [
+                (1, 0.01m, 236.00m, 0.00m, 0.00m, 0.00m),
+                (2, 236.01m, 447.62m, 8.83m, 10.00m, 236.00m),
+                (3, 447.63m, 1019.05m, 30.00m, 20.00m, 447.62m),
+                (4, 1019.06m, null, 144.28m, 30.00m, 1019.05m),
+            ]),
+            ("SEMANAL",
+            [
+                (1, 0.01m, 118.00m, 0.00m, 0.00m, 0.00m),
+                (2, 118.01m, 223.81m, 4.42m, 10.00m, 118.00m),
+                (3, 223.82m, 509.52m, 15.00m, 20.00m, 223.81m),
+                (4, 509.53m, null, 72.14m, 30.00m, 509.52m),
+            ]),
         };
 
-        foreach (var item in monthly)
+        foreach (var (payPeriod, brackets) in tables)
         {
-            var entity = IncomeTaxWithholdingBracket.Create(
-                "MENSUAL",
-                item.Order,
-                item.Lower,
-                item.Upper,
-                item.FixedFee,
-                item.Rate,
-                item.Excess,
-                effectiveFrom,
-                null,
-                true);
-            entity.SetTenantId(tenantId);
-            dbContext.IncomeTaxWithholdingBrackets.Add(entity);
+            foreach (var item in brackets)
+            {
+                var entity = IncomeTaxWithholdingBracket.Create(
+                    payPeriod,
+                    item.Order,
+                    item.Lower,
+                    item.Upper,
+                    item.FixedFee,
+                    item.Rate,
+                    item.Excess,
+                    effectiveFrom,
+                    null,
+                    true);
+                entity.SetTenantId(tenantId);
+                dbContext.IncomeTaxWithholdingBrackets.Add(entity);
+            }
         }
     }
 
