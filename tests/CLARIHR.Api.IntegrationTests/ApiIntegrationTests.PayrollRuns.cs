@@ -1016,4 +1016,160 @@ public sealed partial class ApiIntegrationTests
             HttpStatusCode.OK,
             (await manager.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history")).StatusCode);
     }
+
+    [Fact]
+    public async Task PayrollRuns_IntegralE2E_CarryoverReleaseAndSlips()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // The manager also registers the TNT input (REQ-011 grants on top of the payroll ones).
+        using var manager = factory.CreateClientFor(TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageNotWorkedTimeTypes,
+            PersonnelFilePermissionCodes.ManageNotWorkedTimes,
+            PersonnelFilePermissionCodes.ViewNotWorkedTimes,
+            PayrollConfigurationPermissionCodes.Manage,
+            LeaveConfigurationPermissionCodes.Admin));
+        using var authorizer = factory.CreateClientFor(PayrollRunAuthorizerContext(scenario, Guid.NewGuid()));
+
+        var fileId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Rezago", "Integral", "EMP-PRUN-K", "rezago.prun.k@empresa.test");
+        var (definitionId, periodOneId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+
+        // A LAGGED not-worked time (REQ-014 P-03): Mon-Wed BEFORE the 2026 calendar even starts.
+        await LoadNotWorkedTimeTemplateAsync(manager, scenario.TenantId);
+        var lagged = await CreateNotWorkedTimeAsync(manager, fileId, new
+        {
+            typeCode = "AUSENCIA_SIN_GOCE",
+            assignedPositionPublicId = (Guid?)null,
+            startDate = "2025-12-01",
+            endDate = "2025-12-03",
+            hours = (decimal?)null,
+            reason = "rezago histórico",
+        });
+        var laggedId = lagged.GetProperty("notWorkedTimePublicId").GetGuid();
+        var laggedAmount = lagged.GetProperty("discountAmount").GetDecimal();
+        Assert.True(laggedAmount > 0m);
+
+        Guid periodTwoId;
+        {
+            var periods = await manager.GetAsync(
+                $"/api/v1/companies/{scenario.TenantId}/payroll-periods?payPeriodTypeCode=QUINCENAL&year=2026&pageSize=30");
+            periods.EnsureSuccessStatusCode();
+            using var doc = JsonDocument.Parse(await periods.Content.ReadAsStringAsync());
+            periodTwoId = doc.RootElement.GetProperty("items").EnumerateArray()
+                .Single(item => item.GetProperty("number").GetInt32() == 2 &&
+                                item.GetProperty("payrollDefinitionPublicId").GetGuid() == definitionId)
+                .GetProperty("publicId").GetGuid();
+        }
+
+        // Run 1 CARRIES the lagged input (warning + line bound to the source record).
+        var generateOne = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodOneId);
+        var generateOnePayload = await generateOne.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.Created == generateOne.StatusCode, $"generate 1: {(int)generateOne.StatusCode} {generateOnePayload}");
+        Guid runOneId;
+        using (var doc = JsonDocument.Parse(generateOnePayload))
+        {
+            runOneId = doc.RootElement.GetProperty("publicId").GetGuid();
+            Assert.Contains(
+                doc.RootElement.GetProperty("warnings").EnumerateArray(),
+                warning => warning.GetProperty("code").GetString() == "PAYROLL_WARNING_CARRYOVER_INPUT");
+        }
+
+        Guid laggedLineId;
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runOneId, fileId))
+        {
+            var laggedLine = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "NOT_WORKED_TIME");
+            laggedLineId = laggedLine.GetProperty("publicId").GetGuid();
+            Assert.Equal(laggedId, laggedLine.GetProperty("sourceReferencePublicId").GetGuid());
+            Assert.Equal(laggedAmount, laggedLine.GetProperty("finalAmount").GetDecimal());
+        }
+
+        // While run 1 (active) consumes it, run 2 must NOT carry it — never in two active runs.
+        var generateTwo = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodTwoId);
+        Assert.Equal(HttpStatusCode.Created, generateTwo.StatusCode);
+        Guid runTwoId;
+        using (var doc = JsonDocument.Parse(await generateTwo.Content.ReadAsStringAsync()))
+        {
+            runTwoId = doc.RootElement.GetProperty("publicId").GetGuid();
+        }
+
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runTwoId, fileId))
+        {
+            Assert.DoesNotContain(
+                lines.RootElement.GetProperty("lines").EnumerateArray(),
+                line => line.GetProperty("sourceModule").GetString() == "NOT_WORKED_TIME");
+        }
+
+        // Release the lag: EXCLUDE its line in run 1 (REQ-014 liberación) and clear run 2's slot…
+        var (_, tokenOne, _, _) = await ReadRunAsync(manager, scenario.TenantId, runOneId);
+        var exclude = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runOneId}/lines/{laggedLineId}",
+            tokenOne,
+            new { isIncluded = false });
+        Assert.Equal(HttpStatusCode.OK, exclude.StatusCode);
+
+        var (_, tokenTwo, _, _) = await ReadRunAsync(manager, scenario.TenantId, runTwoId);
+        var annulTwo = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runTwoId}/annulment", tokenTwo,
+            new { reason = "Regenerar con el rezago liberado" });
+        Assert.Equal(HttpStatusCode.OK, annulTwo.StatusCode);
+
+        // …and the NEXT generation of period 2 re-carries it (re-arrastrable tras liberar).
+        var regenerateTwo = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodTwoId);
+        var regeneratePayload = await regenerateTwo.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.Created == regenerateTwo.StatusCode, $"generate 2b: {(int)regenerateTwo.StatusCode} {regeneratePayload}");
+        Guid runTwoBId;
+        using (var doc = JsonDocument.Parse(regeneratePayload))
+        {
+            runTwoBId = doc.RootElement.GetProperty("publicId").GetGuid();
+            Assert.Contains(
+                doc.RootElement.GetProperty("warnings").EnumerateArray(),
+                warning => warning.GetProperty("code").GetString() == "PAYROLL_WARNING_CARRYOVER_INPUT");
+        }
+
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runTwoBId, fileId))
+        {
+            var laggedLine = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "NOT_WORKED_TIME");
+            Assert.Equal(laggedId, laggedLine.GetProperty("sourceReferencePublicId").GetGuid());
+        }
+
+        // Slips only exist for FINAL figures: 422 while GENERADA…
+        var draftSlip = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runTwoBId}/employees/{fileId}/slip");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, draftSlip.StatusCode);
+        using (var doc = JsonDocument.Parse(await draftSlip.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_STATE_RULE_VIOLATION", doc.RootElement.GetProperty("code").GetString());
+        }
+
+        // …after authorizing: the individual PDF and the zip batch.
+        var (_, tokenTwoB, _, _) = await ReadRunAsync(manager, scenario.TenantId, runTwoBId);
+        var authorize = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runTwoBId}/authorization", tokenTwoB);
+        Assert.Equal(HttpStatusCode.OK, authorize.StatusCode);
+
+        var slip = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runTwoBId}/employees/{fileId}/slip");
+        Assert.True(HttpStatusCode.OK == slip.StatusCode, $"slip: {(int)slip.StatusCode}");
+        Assert.Equal("application/pdf", slip.Content.Headers.ContentType!.MediaType);
+        var pdfBytes = await slip.Content.ReadAsByteArrayAsync();
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 4));
+
+        var slips = await manager.GetAsync($"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runTwoBId}/slips");
+        Assert.True(HttpStatusCode.OK == slips.StatusCode, $"slips: {(int)slips.StatusCode}");
+        Assert.Equal("application/zip", slips.Content.Headers.ContentType!.MediaType);
+        var zipBytes = await slips.Content.ReadAsByteArrayAsync();
+        Assert.Equal((byte)'P', zipBytes[0]);
+        Assert.Equal((byte)'K', zipBytes[1]);
+        using (var archive = new System.IO.Compression.ZipArchive(new MemoryStream(zipBytes)))
+        {
+            var entry = Assert.Single(archive.Entries);
+            Assert.Equal("boleta-EMP-PRUN-K.pdf", entry.Name);
+        }
+    }
 }

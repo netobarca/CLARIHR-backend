@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
+using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
@@ -14,16 +16,17 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace CLARIHR.Api.Controllers;
 
 /// <summary>
-/// The payroll-run bandeja, its exports (bandeja · payroll print · bank reconciliation) and the corporate
-/// employee-history query (REQ-012 §3.7 — REQ-013 RF-001/002/003 · REQ-015 RF-001). Deliberately NOT
-/// annotated with [AuthorizationPolicySet]: the query POSTs are reads — everything gates per handler on
-/// <c>ViewPayrollRuns</c> (payroll data exposes salaries; corporate reads are HR-only).
+/// The payroll-run bandeja, its exports (bandeja · payroll print · bank reconciliation), the corporate
+/// employee-history query and the payslips (REQ-012 §3.7 — REQ-013 RF-001/002/003 · REQ-015 RF-001).
+/// Deliberately NOT annotated with [AuthorizationPolicySet]: the query POSTs are reads — everything gates
+/// per handler on <c>ViewPayrollRuns</c> (payroll data exposes salaries; corporate reads are HR-only).
 /// </summary>
 [ApiController]
 [Authorize]
 [Tags("Payroll Runs")]
 public sealed class PayrollRunsReportingController(
     IQueryDispatcher queryDispatcher,
+    IDocumentModelRenderer documentModelRenderer,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
@@ -234,6 +237,92 @@ public sealed class PayrollRunsReportingController(
             cancellationToken);
 
         return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
+    [HttpGet("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/employees/{personnelFilePublicId:guid}/slip")]
+    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Download one employee's payslip (PDF)",
+        Description = """
+            The boleta de pago of ONE employee of an `AUTORIZADA`/`CERRADA` run: header (employee, Nómina,
+            period, payment date), the three line sections (incomes, deductions, employer charges as
+            informative) with calculated/override/final amounts, and the summary with the net. A
+            `GENERADA` or annulled run has NO slips — the figures are not final
+            (`422 PAYROLL_RUN_STATE_RULE_VIOLATION`). The slip carries ONLY that employee's lines.
+            """)]
+    public async Task<IActionResult> GetEmployeeSlip(
+        Guid companyId,
+        Guid payrollRunId,
+        Guid personnelFilePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPayrollRunEmployeeSlipDataQuery(companyId, payrollRunId, personnelFilePublicId),
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        var document = PayrollSlipDocumentMapper.Map(result.Value.Run, result.Value.Employee);
+        using var buffer = new MemoryStream();
+        await documentModelRenderer.RenderAsync(document, buffer, cancellationToken);
+        var shortRun = payrollRunId.ToString("N")[..8];
+        var shortFile = personnelFilePublicId.ToString("N")[..8];
+        return File(buffer.ToArray(), "application/pdf", $"boleta-{shortRun}-{shortFile}.pdf");
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
+    [HttpGet("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/slips")]
+    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Download every payslip of the run (zip of PDFs)",
+        Description = """
+            The batch download (decision №2 — a zip of individual PDFs): one boleta per employee of an
+            `AUTORIZADA`/`CERRADA` run, each carrying ONLY that employee's lines. Same state gate as the
+            individual slip (`422` while `GENERADA`/annulled).
+            """)]
+    public async Task<IActionResult> GetSlips(
+        Guid companyId,
+        Guid payrollRunId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPayrollRunSlipsDataQuery(companyId, payrollRunId),
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        var shortRun = payrollRunId.ToString("N")[..8];
+        using var zipBuffer = new MemoryStream();
+        using (var archive = new ZipArchive(zipBuffer, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var employee in result.Value.Employees)
+            {
+                var document = PayrollSlipDocumentMapper.Map(result.Value.Run, employee);
+                using var pdfBuffer = new MemoryStream();
+                await documentModelRenderer.RenderAsync(document, pdfBuffer, cancellationToken);
+
+                var code = employee.Lines.Count > 0 ? employee.Lines[0].EmployeeCode : null;
+                var entryName = $"boleta-{(string.IsNullOrWhiteSpace(code) ? employee.EmployeePublicId.ToString("N")[..8] : code)}.pdf";
+                var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
+                await using var entryStream = entry.Open();
+                await entryStream.WriteAsync(pdfBuffer.ToArray(), cancellationToken);
+            }
+        }
+
+        return File(zipBuffer.ToArray(), "application/zip", $"boletas-{shortRun}.zip");
     }
 
     public sealed record QueryPayrollRunsRequest(
