@@ -183,6 +183,8 @@ public static class DependencyInjection
         services.AddScoped<IOvertimeTemplateSeeder, OvertimeTemplateSeeder>();
         services.AddScoped<IPayrollDefinitionRepository, PayrollDefinitionRepository>();
         services.AddScoped<IPayrollConfigurationAuthorizationService, PayrollConfigurationAuthorizationService>();
+        services.AddScoped<IWorkScheduleRepository, WorkScheduleRepository>();
+        services.AddScoped<IWorkScheduleTemplateSeeder, WorkScheduleTemplateSeeder>();
         services.AddScoped<IMedicalClinicRepository, MedicalClinicRepository>();
         services.AddScoped<ICompensatoryTimeTypeRepository, CompensatoryTimeTypeRepository>();
         services.AddScoped<IIncapacityRiskRepository, IncapacityRiskRepository>();

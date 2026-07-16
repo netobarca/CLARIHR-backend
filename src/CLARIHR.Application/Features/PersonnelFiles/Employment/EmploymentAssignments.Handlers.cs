@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionSlots;
@@ -176,6 +177,29 @@ internal static class EmploymentAssignmentCommandSupport
 
         return null;
     }
+
+    /// <summary>
+    /// Validates the plaza's workday: when <paramref name="workdayCode"/> is supplied it must resolve to an
+    /// ACTIVE work schedule of the company's master (REQ-012 D-06 — the code IS the link, no FK/snapshot;
+    /// free text died with the M3 cleanup). Returns
+    /// <see cref="EmploymentAssignmentErrors.WorkdayCodeInvalid"/> (422) when invalid, or null when valid /
+    /// not set.
+    /// </summary>
+    public static async Task<Error?> ValidateWorkdayCodeAsync(
+        IWorkScheduleRepository workScheduleRepository,
+        Guid tenantId,
+        string? workdayCode,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(workdayCode)
+            && !await workScheduleRepository.ActiveCodeExistsAsync(
+                tenantId, workdayCode.Trim().ToUpperInvariant(), cancellationToken))
+        {
+            return EmploymentAssignmentErrors.WorkdayCodeInvalid;
+        }
+
+        return null;
+    }
 }
 
 internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
@@ -183,6 +207,7 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     IPositionSlotRepository positionSlotRepository,
+    IWorkScheduleRepository workScheduleRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -230,6 +255,13 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
         if (payrollTypeError is not null)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
+        }
+
+        var workdayError = await EmploymentAssignmentCommandSupport.ValidateWorkdayCodeAsync(
+            workScheduleRepository, personnelFile.TenantId, item.WorkdayCode, cancellationToken);
+        if (workdayError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(workdayError);
         }
 
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
@@ -342,6 +374,7 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     IPositionSlotRepository positionSlotRepository,
+    IWorkScheduleRepository workScheduleRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -394,6 +427,13 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
         if (payrollTypeError is not null)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
+        }
+
+        var workdayError = await EmploymentAssignmentCommandSupport.ValidateWorkdayCodeAsync(
+            workScheduleRepository, personnelFile.TenantId, command.Item.WorkdayCode, cancellationToken);
+        if (workdayError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(workdayError);
         }
 
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(
@@ -484,6 +524,7 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
     IPositionSlotRepository positionSlotRepository,
+    IWorkScheduleRepository workScheduleRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -559,6 +600,13 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
         if (payrollTypeError is not null)
         {
             return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(payrollTypeError);
+        }
+
+        var workdayError = await EmploymentAssignmentCommandSupport.ValidateWorkdayCodeAsync(
+            workScheduleRepository, personnelFile.TenantId, state.WorkdayCode, cancellationToken);
+        if (workdayError is not null)
+        {
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(workdayError);
         }
 
         var bankAccountError = await EmploymentAssignmentCommandSupport.ValidatePaymentFieldsAsync(

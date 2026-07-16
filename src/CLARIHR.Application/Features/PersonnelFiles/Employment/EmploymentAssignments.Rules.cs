@@ -56,6 +56,13 @@ internal static class EmploymentAssignmentErrors
         "PAYROLL_TYPE_INVALID",
         "The payroll type code is not valid for the active catalog.",
         ErrorType.UnprocessableEntity);
+
+    // REQ-012 D-06: the optional workdayCode must resolve to an ACTIVE work schedule of the company's
+    // master when supplied (the code IS the link — no FK, no snapshot). Free text died with the M3 cleanup.
+    public static readonly Error WorkdayCodeInvalid = new(
+        "WORK_SCHEDULE_INVALID",
+        "The workday code does not match an active work schedule of the company.",
+        ErrorType.UnprocessableEntity);
 }
 
 /// <summary>

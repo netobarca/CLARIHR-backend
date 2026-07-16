@@ -233,6 +233,11 @@ public static class AuditEventTypes
     public const string PayrollDefinitionActivated = "PAYROLL_DEFINITION_ACTIVATED";
     public const string PayrollDefinitionInactivated = "PAYROLL_DEFINITION_INACTIVATED";
     public const string PayrollPeriodCalendarGenerated = "PAYROLL_PERIOD_CALENDAR_GENERATED";
+    public const string WorkScheduleCreated = "WORK_SCHEDULE_CREATED";
+    public const string WorkScheduleUpdated = "WORK_SCHEDULE_UPDATED";
+    public const string WorkScheduleActivated = "WORK_SCHEDULE_ACTIVATED";
+    public const string WorkScheduleInactivated = "WORK_SCHEDULE_INACTIVATED";
+    public const string PayrollConfigurationTemplateLoaded = "PAYROLL_CONFIGURATION_TEMPLATE_LOADED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
@@ -467,6 +472,11 @@ public static class AuditEventTypes
         PayrollDefinitionActivated,
         PayrollDefinitionInactivated,
         PayrollPeriodCalendarGenerated,
+        WorkScheduleCreated,
+        WorkScheduleUpdated,
+        WorkScheduleActivated,
+        WorkScheduleInactivated,
+        PayrollConfigurationTemplateLoaded,
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,
@@ -548,6 +558,8 @@ public static class AuditEntityTypes
     public const string OvertimeJustificationType = "OvertimeJustificationType";
     public const string OvertimeConfiguration = "OvertimeConfiguration";
     public const string PayrollDefinition = "PayrollDefinition";
+    public const string WorkSchedule = "WorkSchedule";
+    public const string PayrollConfiguration = "PayrollConfiguration";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -607,7 +619,9 @@ public static class AuditEntityTypes
         OvertimeType,
         OvertimeJustificationType,
         OvertimeConfiguration,
-        PayrollDefinition
+        PayrollDefinition,
+        WorkSchedule,
+        PayrollConfiguration
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

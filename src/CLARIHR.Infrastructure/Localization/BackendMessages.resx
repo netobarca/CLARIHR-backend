@@ -2986,4 +2986,19 @@
   <data name="validation.message.attendance_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
     <value>Attendance entry window dates require the window to be enabled.</value>
   </data>
+  <data name="WORK_SCHEDULE_NOT_FOUND" xml:space="preserve">
+    <value>The work schedule could not be found.</value>
+  </data>
+  <data name="WORK_SCHEDULE_CODE_TAKEN" xml:space="preserve">
+    <value>Another active work schedule already uses the requested code.</value>
+  </data>
+  <data name="WORK_SCHEDULE_DAY_INVALID" xml:space="preserve">
+    <value>The work schedule days are not valid (weekday, shift times or meal break).</value>
+  </data>
+  <data name="WORK_SCHEDULE_IN_USE" xml:space="preserve">
+    <value>The work schedule is referenced by an active employment assignment and cannot be inactivated.</value>
+  </data>
+  <data name="WORK_SCHEDULE_INVALID" xml:space="preserve">
+    <value>The workday code does not match an active work schedule of the company.</value>
+  </data>
 </root>

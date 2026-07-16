@@ -59821,6 +59821,738 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-configuration/load-template:
+    post:
+      tags:
+        - Payroll Configuration
+      summary: Load the El Salvador payroll configuration template
+      description: 'Applies the El Salvador template to the company''s payroll configuration masters: today the
+
+        44-hour LEGAL work schedule (`JORNADA_ORDINARIA` — Mon-Fri 08:00-17:00 with a 12:00-13:00 meal,
+
+        8 h/day, plus Saturday 08:00-12:00, 4 h; golden 11 of the signed A.3). Idempotent by normalized
+
+        code: rows the company already has are never overwritten (even when edited or inactive) and are
+
+        reported as skipped; only the missing template rows are created. Returns `200 OK` with the
+
+        created/skipped summary.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollConfigurationTemplateSeedResultResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollConfigurationTemplateSeedResultResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollConfigurationTemplateSeedResultResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/work-schedules:
+    get:
+      tags:
+        - Work Schedules
+      summary: List work schedules for a company
+      description: 'Returns a paginated list of the company''s work schedules ("jornadas laborales", REQ-012 — the
+
+        master the plaza''s `workdayCode` references by code), filterable by `isActive` and free-text `q`
+
+        over the code and name. Each row carries the attendance date anchor (`ENTRADA`/`SALIDA` — which
+
+        side of a midnight-crossing shift owns the calendar date), the classification
+
+        (`ORDINARIA`/`EXTRAORDINARIA`), the weekly hours and the day count; the full day set travels on
+
+        the detail endpoint. Set `includeAllowedActions=true` to receive per-item read/manage flags.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleListItemResponsePagedResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleListItemResponsePagedResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleListItemResponsePagedResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Work Schedules
+      summary: Create a work schedule
+      description: 'Creates a work schedule under the company and returns `201 Created` with the `Location` header
+
+        pointing to the new resource and the `ETag` header carrying its initial `concurrencyToken`. The
+
+        full weekday set travels in `days` (at least one; each weekday 0=Sunday…6=Saturday at most once;
+
+        `endTime` earlier than `startTime` means a midnight-crossing night shift — allowed, anchored by
+
+        `attendanceDateAnchor`; the optional meal break requires a day shift and must be contained in
+
+        it) — violations yield `422 WORK_SCHEDULE_DAY_INVALID`. `totalWeeklyHours` is derived from the
+
+        days when omitted and may be overridden. A duplicate active code yields `409`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkScheduleRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkScheduleRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkScheduleRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/work-schedules/{publicId}:
+    get:
+      tags:
+        - Work Schedules
+      summary: Get a work schedule by id
+      description: 'Returns a single work schedule with its full weekday set (shift times, optional meal break and
+
+        derived net hours per day). A non-existent id yields `404`; an id of another tenant yields
+
+        `403 TENANT_MISMATCH`. The current `concurrencyToken` is emitted as the `ETag` header on
+
+        mutations.'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Work Schedules
+      summary: Update a work schedule
+      description: 'Replaces the editable fields of a work schedule INCLUDING its full weekday set (triple-replace:
+
+        the whole week travels on every edit). Requires the current `concurrencyToken` in the `If-Match`
+
+        header; a missing/malformed header yields `400` and a stale token yields
+
+        `409 CONCURRENCY_CONFLICT`. Day-set violations yield `422 WORK_SCHEDULE_DAY_INVALID`; a
+
+        duplicate active code yields `409`.'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkScheduleRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkScheduleRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkScheduleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/work-schedules/{publicId}/activation:
+    patch:
+      tags:
+        - Work Schedules
+      summary: Activate a work schedule
+      description: 'Reactivates an inactive work schedule. Requires the current `concurrencyToken` in the `If-Match`
+
+        header (missing → `400`, stale → `409`). If another active schedule already uses the same code,
+
+        activation yields `409`.'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/work-schedules/{publicId}/inactivation:
+    patch:
+      tags:
+        - Work Schedules
+      summary: Inactivate a work schedule
+      description: 'Deactivates (soft-delete) a work schedule. A schedule referenced by an ACTIVE employment
+
+        assignment (the plaza''s `workdayCode` carries the code) yields `422 WORK_SCHEDULE_IN_USE`.
+
+        Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+
+        `409`).'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -82383,6 +83115,213 @@ components:
         notDerivable:
           type: integer
           format: int32
+      additionalProperties: false
+    CreateWorkScheduleRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        attendanceDateAnchor:
+          type: string
+        scheduleClass:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayInputModel'
+        scheduleLabel:
+          type: string
+          nullable: true
+        totalWeeklyHours:
+          type: number
+          format: double
+          nullable: true
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    PayrollConfigurationTemplateSeedResultResponse:
+      type: object
+      properties:
+        workSchedulesCreated:
+          type: integer
+          format: int32
+        workSchedulesSkipped:
+          type: integer
+          format: int32
+      additionalProperties: false
+    UpdateWorkScheduleRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        attendanceDateAnchor:
+          type: string
+        scheduleClass:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayInputModel'
+        scheduleLabel:
+          type: string
+          nullable: true
+        totalWeeklyHours:
+          type: number
+          format: double
+          nullable: true
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    WorkScheduleDayInputModel:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          format: int32
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        mealStart:
+          type: string
+          format: time
+          nullable: true
+        mealEnd:
+          type: string
+          format: time
+          nullable: true
+      additionalProperties: false
+    WorkScheduleDayResponse:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          format: int32
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        mealStart:
+          type: string
+          format: time
+          nullable: true
+        mealEnd:
+          type: string
+          format: time
+          nullable: true
+        netHours:
+          type: number
+          format: double
+      additionalProperties: false
+    WorkScheduleListItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        scheduleLabel:
+          type: string
+          nullable: true
+        attendanceDateAnchor:
+          type: string
+        scheduleClass:
+          type: string
+        totalWeeklyHours:
+          type: number
+          format: double
+        daysCount:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    WorkScheduleListItemResponsePagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    WorkScheduleResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        scheduleLabel:
+          type: string
+          nullable: true
+        attendanceDateAnchor:
+          type: string
+        scheduleClass:
+          type: string
+        totalWeeklyHours:
+          type: number
+          format: double
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayResponse'
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
   securitySchemes:
     Bearer:

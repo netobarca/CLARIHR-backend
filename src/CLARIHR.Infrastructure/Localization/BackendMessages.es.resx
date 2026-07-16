@@ -2986,4 +2986,19 @@
   <data name="validation.message.attendance_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
     <value>Las fechas de la ventana de asistencia requieren que la ventana esté habilitada.</value>
   </data>
+  <data name="WORK_SCHEDULE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la jornada laboral.</value>
+  </data>
+  <data name="WORK_SCHEDULE_CODE_TAKEN" xml:space="preserve">
+    <value>Otra jornada laboral activa ya utiliza el código solicitado.</value>
+  </data>
+  <data name="WORK_SCHEDULE_DAY_INVALID" xml:space="preserve">
+    <value>Los días de la jornada laboral no son válidos (día de la semana, horas del turno o tiempo de comida).</value>
+  </data>
+  <data name="WORK_SCHEDULE_IN_USE" xml:space="preserve">
+    <value>La jornada laboral está referenciada por una plaza activa y no puede inactivarse.</value>
+  </data>
+  <data name="WORK_SCHEDULE_INVALID" xml:space="preserve">
+    <value>El código de jornada no corresponde a una jornada laboral activa de la empresa.</value>
+  </data>
 </root>

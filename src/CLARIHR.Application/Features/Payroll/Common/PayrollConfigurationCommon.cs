@@ -47,6 +47,8 @@ public static class PayrollConfigurationPermissionCodes
     public const string ModuleResourceKey = "PAYROLL_CONFIGURATION";
 
     public const string PayrollDefinitionsResourceKey = "PAYROLL_DEFINITIONS";
+
+    public const string WorkSchedulesResourceKey = "WORK_SCHEDULES";
 }
 
 /// <summary>
@@ -78,4 +80,6 @@ public static class PayrollConfigurationErrors
 public static class PayrollMasterConstraintNames
 {
     public const string PayrollDefinitionCodeUnique = "uq_payroll_definitions__tenant_code_active";
+
+    public const string WorkScheduleCodeUnique = "uq_work_schedules__tenant_code_active";
 }
