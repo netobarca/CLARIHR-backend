@@ -2953,4 +2953,37 @@
   <data name="PAYROLL_DEFINITION_CATALOG_INVALID" xml:space="preserve">
     <value>The payroll type, pay period or currency code is not an active catalog code.</value>
   </data>
+  <data name="PAYROLL_PERIOD_DEFINITION_REQUIRED" xml:space="preserve">
+    <value>An active payroll definition is required for this payroll period.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_SCHEDULE_INVALID" xml:space="preserve">
+    <value>The payroll period schedule (cutoff, payment date, month or entry windows) is not valid.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The payroll period status does not allow the requested change.</value>
+  </data>
+  <data name="OVERTIME_ENTRY_NOT_ALLOWED_FOR_PERIOD" xml:space="preserve">
+    <value>The target payroll period does not accept overtime entry.</value>
+  </data>
+  <data name="OVERTIME_ENTRY_WINDOW_CLOSED" xml:space="preserve">
+    <value>The overtime entry window of the target payroll period is closed.</value>
+  </data>
+  <data name="validation.message.code_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>Code is required when the payroll definition travels.</value>
+  </data>
+  <data name="validation.message.cutoff_date_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>Cutoff date is required when the payroll definition travels.</value>
+  </data>
+  <data name="validation.message.payment_date_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>Payment date is required when the payroll definition travels.</value>
+  </data>
+  <data name="validation.message.month_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>Month is required when the payroll definition travels.</value>
+  </data>
+  <data name="validation.message.overtime_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
+    <value>Overtime entry window dates require the window to be enabled.</value>
+  </data>
+  <data name="validation.message.attendance_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
+    <value>Attendance entry window dates require the window to be enabled.</value>
+  </data>
 </root>

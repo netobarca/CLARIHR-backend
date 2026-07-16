@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Leave;
 using CLARIHR.Domain.Leave;
+using CLARIHR.Domain.Payroll;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +21,7 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
             .IgnoreQueryFilters()
             .AnyAsync(period => period.PublicId == payrollPeriodId, cancellationToken);
 
+    // Legacy bucket only (payroll_definition_id IS NULL) — mirrors the partial unique index the probe backs.
     public Task<bool> PeriodExistsAsync(
         Guid tenantId,
         string payPeriodTypeCode,
@@ -29,7 +31,23 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
         CancellationToken cancellationToken) =>
         dbContext.PayrollPeriodDefinitions.AnyAsync(
             period => period.TenantId == tenantId &&
+                      period.PayrollDefinitionId == null &&
                       period.PayPeriodTypeCode == payPeriodTypeCode &&
+                      period.Year == year &&
+                      period.Number == number &&
+                      (!excludingPayrollPeriodId.HasValue || period.PublicId != excludingPayrollPeriodId.Value),
+            cancellationToken);
+
+    public Task<bool> PeriodExistsForDefinitionAsync(
+        Guid tenantId,
+        long payrollDefinitionId,
+        int year,
+        int number,
+        Guid? excludingPayrollPeriodId,
+        CancellationToken cancellationToken) =>
+        dbContext.PayrollPeriodDefinitions.AnyAsync(
+            period => period.TenantId == tenantId &&
+                      period.PayrollDefinitionId == payrollDefinitionId &&
                       period.Year == year &&
                       period.Number == number &&
                       (!excludingPayrollPeriodId.HasValue || period.PublicId != excludingPayrollPeriodId.Value),
@@ -41,10 +59,12 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
         int year,
         DateOnly startDate,
         DateOnly endDate,
+        long? payrollDefinitionId,
         Guid? excludingPayrollPeriodId,
         CancellationToken cancellationToken) =>
         dbContext.PayrollPeriodDefinitions.AnyAsync(
             period => period.TenantId == tenantId &&
+                      period.PayrollDefinitionId == payrollDefinitionId &&
                       period.PayPeriodTypeCode == payPeriodTypeCode &&
                       period.Year == year &&
                       period.IsActive &&
@@ -52,6 +72,33 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
                       endDate >= period.StartDate &&
                       (!excludingPayrollPeriodId.HasValue || period.PublicId != excludingPayrollPeriodId.Value),
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<int>> GetExistingNumbersForDefinitionAsync(
+        Guid tenantId,
+        long payrollDefinitionId,
+        int year,
+        CancellationToken cancellationToken) =>
+        await dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(period => period.TenantId == tenantId &&
+                             period.PayrollDefinitionId == payrollDefinitionId &&
+                             period.Year == year)
+            .Select(period => period.Number)
+            .ToListAsync(cancellationToken);
+
+    public Task<PayrollPeriodOvertimeWindow?> GetOvertimeWindowByPublicIdAsync(
+        Guid tenantId,
+        Guid payrollPeriodPublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.PayrollPeriodDefinitions
+            .AsNoTracking()
+            .Where(period => period.TenantId == tenantId && period.PublicId == payrollPeriodPublicId)
+            .Select(period => new PayrollPeriodOvertimeWindow(
+                period.PayrollDefinitionId,
+                period.AllowsOvertimeEntry,
+                period.OvertimeEntryStart,
+                period.OvertimeEntryEnd))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PagedResponse<PayrollPeriodListItemResponse>> SearchAsync(
         Guid tenantId,
@@ -97,6 +144,23 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
                 period.Label,
                 period.StartDate,
                 period.EndDate,
+                period.Code,
+                period.PayrollDefinitionId == null
+                    ? null
+                    : dbContext.Set<PayrollDefinition>()
+                        .Where(definition => definition.Id == period.PayrollDefinitionId)
+                        .Select(definition => (Guid?)definition.PublicId)
+                        .FirstOrDefault(),
+                period.CutoffDate,
+                period.PaymentDate,
+                period.Month,
+                period.StatusCode,
+                period.AllowsOvertimeEntry,
+                period.OvertimeEntryStart,
+                period.OvertimeEntryEnd,
+                period.AllowsAttendance,
+                period.AttendanceEntryStart,
+                period.AttendanceEntryEnd,
                 period.IsActive,
                 period.ConcurrencyToken,
                 period.CreatedUtc,
@@ -118,6 +182,23 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
                 period.Label,
                 period.StartDate,
                 period.EndDate,
+                period.Code,
+                period.PayrollDefinitionId == null
+                    ? null
+                    : dbContext.Set<PayrollDefinition>()
+                        .Where(definition => definition.Id == period.PayrollDefinitionId)
+                        .Select(definition => (Guid?)definition.PublicId)
+                        .FirstOrDefault(),
+                period.CutoffDate,
+                period.PaymentDate,
+                period.Month,
+                period.StatusCode,
+                period.AllowsOvertimeEntry,
+                period.OvertimeEntryStart,
+                period.OvertimeEntryEnd,
+                period.AllowsAttendance,
+                period.AttendanceEntryStart,
+                period.AttendanceEntryEnd,
                 period.IsActive,
                 period.ConcurrencyToken,
                 period.CreatedUtc,

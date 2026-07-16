@@ -1,8 +1,55 @@
+using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.PersonnelFiles.CompensatoryTime;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Features.PersonnelFiles.Overtime;
+
+/// <summary>
+/// REQ-012 D-05 gate: overtime entry against a payroll period that RESOLVES and hangs from a Nómina must
+/// be allowed by the period and fall inside its materialized window. A missing reference, a reference that
+/// does not resolve or a LEGACY period (no Nómina) keeps the pre-REQ-012 behavior untouched — that is what
+/// keeps the REQ-007 suites green without editing them.
+/// </summary>
+internal static class OvertimeEntryWindowGate
+{
+    public static async Task<Error?> CheckAsync(
+        IPayrollPeriodRepository payrollPeriodRepository,
+        Guid tenantId,
+        Guid? payrollPeriodPublicId,
+        DateOnly today,
+        CancellationToken cancellationToken)
+    {
+        if (!payrollPeriodPublicId.HasValue)
+        {
+            return null;
+        }
+
+        var window = await payrollPeriodRepository.GetOvertimeWindowByPublicIdAsync(
+            tenantId, payrollPeriodPublicId.Value, cancellationToken);
+        if (window is null || window.PayrollDefinitionId is null)
+        {
+            return null;
+        }
+
+        if (!window.AllowsOvertimeEntry)
+        {
+            return OvertimeRecordErrors.EntryNotAllowedForPeriod;
+        }
+
+        if (window.OvertimeEntryStart.HasValue && today < window.OvertimeEntryStart.Value)
+        {
+            return OvertimeRecordErrors.EntryWindowClosed;
+        }
+
+        if (window.OvertimeEntryEnd.HasValue && today > window.OvertimeEntryEnd.Value)
+        {
+            return OvertimeRecordErrors.EntryWindowClosed;
+        }
+
+        return null;
+    }
+}
 
 /// <summary>
 /// Dedicated handler-level errors for overtime records (REQ-007 §3.4 CRUD + resolution + application). Each code
@@ -39,6 +86,17 @@ internal static class OvertimeRecordErrors
     public static readonly Error PayrollTypeInvalid = new(
         "OVERTIME_PAYROLL_TYPE_INVALID",
         "The payroll type is not valid for the active catalog.", ErrorType.UnprocessableEntity);
+
+    // ── REQ-012 D-05 window gate (only when the target period RESOLVES and hangs from a Nómina;
+    //    legacy periods and unresolved references keep the pre-REQ-012 behavior untouched) ──────────────
+
+    public static readonly Error EntryNotAllowedForPeriod = new(
+        "OVERTIME_ENTRY_NOT_ALLOWED_FOR_PERIOD",
+        "The target payroll period does not accept overtime entry.", ErrorType.UnprocessableEntity);
+
+    public static readonly Error EntryWindowClosed = new(
+        "OVERTIME_ENTRY_WINDOW_CLOSED",
+        "The overtime entry window of the target payroll period is closed.", ErrorType.UnprocessableEntity);
 
     public static readonly Error AssignedPositionInvalid = new(
         "OVERTIME_ASSIGNED_POSITION_INVALID",

@@ -2953,4 +2953,37 @@
   <data name="PAYROLL_DEFINITION_CATALOG_INVALID" xml:space="preserve">
     <value>El tipo de planilla, el periodo de pago o la moneda no es un código de catálogo activo.</value>
   </data>
+  <data name="PAYROLL_PERIOD_DEFINITION_REQUIRED" xml:space="preserve">
+    <value>Se requiere una nómina activa para este periodo de planilla.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_SCHEDULE_INVALID" xml:space="preserve">
+    <value>La programación del periodo de planilla (corte, fecha de pago, mes o ventanas de ingreso) no es válida.</value>
+  </data>
+  <data name="PAYROLL_PERIOD_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El estado del periodo de planilla no permite el cambio solicitado.</value>
+  </data>
+  <data name="OVERTIME_ENTRY_NOT_ALLOWED_FOR_PERIOD" xml:space="preserve">
+    <value>El periodo de planilla destino no acepta ingreso de horas extras.</value>
+  </data>
+  <data name="OVERTIME_ENTRY_WINDOW_CLOSED" xml:space="preserve">
+    <value>La ventana de ingreso de horas extras del periodo destino está cerrada.</value>
+  </data>
+  <data name="validation.message.code_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>El código es obligatorio cuando viaja la nómina.</value>
+  </data>
+  <data name="validation.message.cutoff_date_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>La fecha de corte es obligatoria cuando viaja la nómina.</value>
+  </data>
+  <data name="validation.message.payment_date_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>La fecha de pago es obligatoria cuando viaja la nómina.</value>
+  </data>
+  <data name="validation.message.month_is_required_when_the_payroll_definition_travels" xml:space="preserve">
+    <value>El mes es obligatorio cuando viaja la nómina.</value>
+  </data>
+  <data name="validation.message.overtime_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
+    <value>Las fechas de la ventana de ingreso de horas extras requieren que la ventana esté habilitada.</value>
+  </data>
+  <data name="validation.message.attendance_entry_window_dates_require_the_window_to_be_enabled" xml:space="preserve">
+    <value>Las fechas de la ventana de asistencia requieren que la ventana esté habilitada.</value>
+  </data>
 </root>

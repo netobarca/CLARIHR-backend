@@ -10,9 +10,23 @@ internal sealed class PayrollPeriodDefinitionConfiguration : IEntityTypeConfigur
     public void Configure(EntityTypeBuilder<PayrollPeriodDefinition> builder)
     {
         builder.ToTable("payroll_period_definitions", table =>
+        {
             table.HasCheckConstraint(
                 "ck_payroll_period_definitions__dates",
-                "end_date >= start_date"));
+                "end_date >= start_date");
+            table.HasCheckConstraint(
+                "ck_payroll_period_definitions__cutoff_in_range",
+                "cutoff_date IS NULL OR (cutoff_date >= start_date AND cutoff_date <= end_date)");
+            table.HasCheckConstraint(
+                "ck_payroll_period_definitions__month",
+                "month IS NULL OR (month >= 1 AND month <= 12)");
+            table.HasCheckConstraint(
+                "ck_payroll_period_definitions__overtime_window",
+                "overtime_entry_start IS NULL OR overtime_entry_end IS NULL OR overtime_entry_end >= overtime_entry_start");
+            table.HasCheckConstraint(
+                "ck_payroll_period_definitions__attendance_window",
+                "attendance_entry_start IS NULL OR attendance_entry_end IS NULL OR attendance_entry_end >= attendance_entry_start");
+        });
 
         builder.HasKey(period => period.Id)
             .HasName("pk_payroll_period_definitions");
@@ -46,6 +60,53 @@ internal sealed class PayrollPeriodDefinitionConfiguration : IEntityTypeConfigur
         builder.Property(period => period.EndDate)
             .HasColumnName("end_date");
 
+        builder.Property(period => period.Code)
+            .HasColumnName("code")
+            .HasMaxLength(PayrollPeriodDefinition.MaxCodeLength);
+
+        builder.Property(period => period.PayrollDefinitionId)
+            .HasColumnName("payroll_definition_id");
+
+        builder.Property(period => period.CutoffDate)
+            .HasColumnName("cutoff_date");
+
+        builder.Property(period => period.PaymentDate)
+            .HasColumnName("payment_date");
+
+        builder.Property(period => period.Month)
+            .HasColumnName("month");
+
+        builder.Property(period => period.AllowsOvertimeEntry)
+            .HasColumnName("allows_overtime_entry")
+            .HasDefaultValue(false);
+
+        builder.Property(period => period.OvertimeEntryStart)
+            .HasColumnName("overtime_entry_start");
+
+        builder.Property(period => period.OvertimeEntryEnd)
+            .HasColumnName("overtime_entry_end");
+
+        builder.Property(period => period.AllowsAttendance)
+            .HasColumnName("allows_attendance")
+            .HasDefaultValue(false);
+
+        builder.Property(period => period.AttendanceEntryStart)
+            .HasColumnName("attendance_entry_start");
+
+        builder.Property(period => period.AttendanceEntryEnd)
+            .HasColumnName("attendance_entry_end");
+
+        builder.Property(period => period.StatusCode)
+            .HasColumnName("status_code")
+            .HasMaxLength(PayrollPeriodDefinition.MaxStatusCodeLength)
+            .HasDefaultValue(CLARIHR.Domain.Payroll.PayrollPeriodStatuses.Generado);
+
+        builder.HasOne<CLARIHR.Domain.Payroll.PayrollDefinition>()
+            .WithMany()
+            .HasForeignKey(period => period.PayrollDefinitionId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_payroll_period_definitions__payroll_definition");
+
         builder.Property(period => period.IsActive)
             .HasColumnName("is_active");
 
@@ -63,9 +124,18 @@ internal sealed class PayrollPeriodDefinitionConfiguration : IEntityTypeConfigur
             .IsUnique()
             .HasDatabaseName("uq_payroll_period_definitions__public_id");
 
+        // Partial since REQ-012 M2: it keeps guarding the LEGACY rows (no Nómina) exactly as before, while
+        // periods hanging from a Nómina are guarded per-definition below — two Nóminas of the same
+        // frequency may each own the same (year, number).
         builder.HasIndex(period => new { period.TenantId, period.PayPeriodTypeCode, period.Year, period.Number })
             .IsUnique()
+            .HasFilter("payroll_definition_id IS NULL")
             .HasDatabaseName(LeaveMasterConstraintNames.PayrollPeriodUnique);
+
+        builder.HasIndex(period => new { period.TenantId, period.PayrollDefinitionId, period.Year, period.Number })
+            .IsUnique()
+            .HasFilter("payroll_definition_id IS NOT NULL")
+            .HasDatabaseName(LeaveMasterConstraintNames.PayrollPeriodDefinitionScopedUnique);
 
         builder.HasIndex(period => new { period.TenantId, period.StartDate })
             .HasDatabaseName("ix_payroll_period_definitions__tenant_start");

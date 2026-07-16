@@ -15,7 +15,13 @@ public static class LeaveMasterConstraintNames
 
     public const string CompanyHolidayDateUnique = "uq_company_holidays__tenant_date";
 
+    // Since REQ-012 M2 this index is PARTIAL (WHERE payroll_definition_id IS NULL): it keeps amparando the
+    // legacy rows without a Nómina, while periods that hang from one are guarded by the new
+    // per-definition unique below — two Nóminas of the same frequency may each own the same (year, number).
     public const string PayrollPeriodUnique = "uq_payroll_period_definitions__tenant_type_year_number";
+
+    // Filtered unique (WHERE payroll_definition_id IS NOT NULL): one (year, number) per Nómina (REQ-012 §1.2).
+    public const string PayrollPeriodDefinitionScopedUnique = "uq_payroll_period_definitions__tenant_definition_year_number";
 
     // Filtered unique (WHERE is_active): a compensatory-time-type code can be reused after inactivation.
     public const string CompensatoryTimeTypeCodeUnique = "uq_compensatory_time_types__tenant_code_active";

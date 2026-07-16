@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -271,6 +272,7 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPayrollPeriodRepository payrollPeriodRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
@@ -306,6 +308,14 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
         if (resolution.IsFailure)
         {
             return Result<OvertimeRecordResponse>.Failure(resolution.Error);
+        }
+
+        // REQ-012 D-05: a target period that RESOLVES and hangs from a Nómina must accept overtime entry
+        // and be inside its window; legacy/unresolved references keep the pre-REQ-012 behavior untouched.
+        if (await OvertimeEntryWindowGate.CheckAsync(
+                payrollPeriodRepository, personnelFile.TenantId, command.Item.PayrollPeriodPublicId, today, cancellationToken) is { } windowError)
+        {
+            return Result<OvertimeRecordResponse>.Failure(windowError);
         }
 
         if (await OvertimeRecordWriteSupport.CheckDailyCapAsync(
@@ -373,6 +383,7 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPayrollPeriodRepository payrollPeriodRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
@@ -432,6 +443,13 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
         if (resolution.IsFailure)
         {
             return Result<OvertimeRecordResponse>.Failure(resolution.Error);
+        }
+
+        // REQ-012 D-05 window gate — same rule as the create path.
+        if (await OvertimeEntryWindowGate.CheckAsync(
+                payrollPeriodRepository, personnelFile.TenantId, command.Item.PayrollPeriodPublicId, today, cancellationToken) is { } windowError)
+        {
+            return Result<OvertimeRecordResponse>.Failure(windowError);
         }
 
         if (await OvertimeRecordWriteSupport.CheckDailyCapAsync(
@@ -623,6 +641,7 @@ internal sealed class RetargetPersonnelFileOvertimeRecordPeriodCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
+    IPayrollPeriodRepository payrollPeriodRepository,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -664,6 +683,18 @@ internal sealed class RetargetPersonnelFileOvertimeRecordPeriodCommandHandler(
                 personnelFile.TenantId, PersonnelCurriculumCatalogCategories.PayrollType, command.Period.PayrollTypeCode, cancellationToken))
         {
             return Result<OvertimeRecordResponse>.Failure(OvertimeRecordErrors.PayrollTypeInvalid);
+        }
+
+        // REQ-012 D-05: re-targeting into a period that RESOLVES and hangs from a Nómina obeys the same
+        // entry-window gate as create/update; legacy/unresolved references keep the behavior untouched.
+        if (await OvertimeEntryWindowGate.CheckAsync(
+                payrollPeriodRepository,
+                personnelFile.TenantId,
+                command.Period.PayrollPeriodPublicId,
+                DateOnly.FromDateTime(dateTimeProvider.UtcNow),
+                cancellationToken) is { } windowError)
+        {
+            return Result<OvertimeRecordResponse>.Failure(windowError);
         }
 
         // The payroll-period FK resolution is deferred to PR-4; PR-3 re-targets in the degraded mode (label +

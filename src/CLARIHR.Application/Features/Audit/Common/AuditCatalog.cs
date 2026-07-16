@@ -232,6 +232,7 @@ public static class AuditEventTypes
     public const string PayrollDefinitionUpdated = "PAYROLL_DEFINITION_UPDATED";
     public const string PayrollDefinitionActivated = "PAYROLL_DEFINITION_ACTIVATED";
     public const string PayrollDefinitionInactivated = "PAYROLL_DEFINITION_INACTIVATED";
+    public const string PayrollPeriodCalendarGenerated = "PAYROLL_PERIOD_CALENDAR_GENERATED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
@@ -465,6 +466,7 @@ public static class AuditEventTypes
         PayrollDefinitionUpdated,
         PayrollDefinitionActivated,
         PayrollDefinitionInactivated,
+        PayrollPeriodCalendarGenerated,
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,

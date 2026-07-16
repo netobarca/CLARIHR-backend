@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Leave;
+using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
@@ -97,6 +98,7 @@ internal sealed class GetPayrollPeriodByIdQueryHandler(
 internal sealed class CreatePayrollPeriodCommandHandler(
     ILeaveConfigurationAuthorizationService authorizationService,
     IPayrollPeriodRepository repository,
+    IPayrollDefinitionRepository payrollDefinitionRepository,
     IPersonnelFileRepository personnelFileRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
@@ -112,6 +114,17 @@ internal sealed class CreatePayrollPeriodCommandHandler(
             return Result<PayrollPeriodResponse>.Failure(authorizationResult.Error);
         }
 
+        var definitionResolution = await PayrollPeriodRules.ResolveDefinitionAsync(
+            payrollDefinitionRepository,
+            command.CompanyId,
+            command.PayrollDefinitionPublicId,
+            command.PayPeriodTypeCode,
+            cancellationToken);
+        if (definitionResolution.IsFailure)
+        {
+            return Result<PayrollPeriodResponse>.Failure(definitionResolution.Error);
+        }
+
         var businessResult = await PayrollPeriodRules.ValidateAsync(
             repository,
             personnelFileRepository,
@@ -121,6 +134,7 @@ internal sealed class CreatePayrollPeriodCommandHandler(
             command.Number,
             command.StartDate,
             command.EndDate,
+            definitionResolution.Value,
             excludingPayrollPeriodId: null,
             cancellationToken);
         if (businessResult.IsFailure)
@@ -144,6 +158,25 @@ internal sealed class CreatePayrollPeriodCommandHandler(
             // Validators mirror the domain guards, but a value that still slips through must
             // surface as a clean 422 instead of a 500.
             return Result<PayrollPeriodResponse>.Failure(PayrollPeriodErrors.RuleViolation);
+        }
+
+        try
+        {
+            payrollPeriod.AssignDefinition(definitionResolution.Value);
+            payrollPeriod.SetCode(command.Code);
+            payrollPeriod.SetSchedule(command.CutoffDate, command.PaymentDate, command.Month);
+            payrollPeriod.SetWindows(
+                command.AllowsOvertimeEntry,
+                command.OvertimeEntryStart,
+                command.OvertimeEntryEnd,
+                command.AllowsAttendance,
+                command.AttendanceEntryStart,
+                command.AttendanceEntryEnd);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        {
+            // Cutoff out of range / month out of bounds / incoherent windows → clean 422 (REQ-012 §5).
+            return Result<PayrollPeriodResponse>.Failure(PayrollPeriodErrors.ScheduleInvalid);
         }
 
         payrollPeriod.SetTenantId(command.CompanyId);
@@ -188,6 +221,7 @@ internal sealed class CreatePayrollPeriodCommandHandler(
 internal sealed class UpdatePayrollPeriodCommandHandler(
     ILeaveConfigurationAuthorizationService authorizationService,
     IPayrollPeriodRepository repository,
+    IPayrollDefinitionRepository payrollDefinitionRepository,
     IPersonnelFileRepository personnelFileRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -223,6 +257,23 @@ internal sealed class UpdatePayrollPeriodCommandHandler(
             return Result<PayrollPeriodResponse>.Failure(LeaveConfigurationErrors.ConcurrencyConflict);
         }
 
+        // A CERRADO/ANULADO period is immutable (REQ-012 §1.2); pre-check to avoid a domain exception → 500.
+        if (!payrollPeriod.IsEditable)
+        {
+            return Result<PayrollPeriodResponse>.Failure(PayrollPeriodErrors.StateRuleViolation);
+        }
+
+        var definitionResolution = await PayrollPeriodRules.ResolveDefinitionAsync(
+            payrollDefinitionRepository,
+            payrollPeriod.TenantId,
+            command.PayrollDefinitionPublicId,
+            command.PayPeriodTypeCode,
+            cancellationToken);
+        if (definitionResolution.IsFailure)
+        {
+            return Result<PayrollPeriodResponse>.Failure(definitionResolution.Error);
+        }
+
         var businessResult = await PayrollPeriodRules.ValidateAsync(
             repository,
             personnelFileRepository,
@@ -232,6 +283,7 @@ internal sealed class UpdatePayrollPeriodCommandHandler(
             command.Number,
             command.StartDate,
             command.EndDate,
+            definitionResolution.Value,
             payrollPeriod.PublicId,
             cancellationToken);
         if (businessResult.IsFailure)
@@ -252,6 +304,26 @@ internal sealed class UpdatePayrollPeriodCommandHandler(
                 command.Label,
                 command.StartDate,
                 command.EndDate);
+            try
+            {
+                payrollPeriod.AssignDefinition(definitionResolution.Value);
+                payrollPeriod.SetCode(command.Code);
+                payrollPeriod.SetSchedule(command.CutoffDate, command.PaymentDate, command.Month);
+                payrollPeriod.SetWindows(
+                    command.AllowsOvertimeEntry,
+                    command.OvertimeEntryStart,
+                    command.OvertimeEntryEnd,
+                    command.AllowsAttendance,
+                    command.AttendanceEntryStart,
+                    command.AttendanceEntryEnd);
+            }
+            catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+            {
+                // Cutoff out of the (possibly re-dated) range / bad month / incoherent windows → 422.
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<PayrollPeriodResponse>.Failure(PayrollPeriodErrors.ScheduleInvalid);
+            }
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(payrollPeriod.PublicId, cancellationToken)
@@ -442,13 +514,48 @@ internal sealed class InactivatePayrollPeriodCommandHandler(
 internal static class PayrollPeriodRules
 {
     /// <summary>
+    /// Resolves the optional Nómina reference of a create/update (REQ-012 D-03). No reference →
+    /// legacy-style period (null). A reference that does not resolve to an ACTIVE definition of the
+    /// tenant → 422 <c>PAYROLL_PERIOD_DEFINITION_REQUIRED</c>; a frequency mismatch between the period's
+    /// pay-period type and the Nómina's frequency → 422 <c>PAYROLL_PERIOD_SCHEDULE_INVALID</c> (a
+    /// QUINCENAL period cannot hang from a MENSUAL payroll).
+    /// </summary>
+    public static async Task<Result<long?>> ResolveDefinitionAsync(
+        IPayrollDefinitionRepository payrollDefinitionRepository,
+        Guid companyId,
+        Guid? payrollDefinitionPublicId,
+        string payPeriodTypeCode,
+        CancellationToken cancellationToken)
+    {
+        if (!payrollDefinitionPublicId.HasValue)
+        {
+            return Result<long?>.Success(null);
+        }
+
+        var definition = await payrollDefinitionRepository.GetByIdAsync(payrollDefinitionPublicId.Value, cancellationToken);
+        if (definition is null || definition.TenantId != companyId || !definition.IsActive)
+        {
+            return Result<long?>.Failure(PayrollPeriodErrors.DefinitionRequired);
+        }
+
+        if (!string.Equals(definition.PayPeriodCode, payPeriodTypeCode.Trim().ToUpperInvariant(), StringComparison.Ordinal))
+        {
+            return Result<long?>.Failure(PayrollPeriodErrors.ScheduleInvalid);
+        }
+
+        return Result<long?>.Success(definition.Id);
+    }
+
+    /// <summary>
     /// Shared Create/Update business validations, in order:
     /// (1) the pay-period type must be an active code of the country-scoped pay-periods general
     /// catalog (<c>PAY_PERIOD_CATALOG</c>, validated via CatalogCodeIsActiveAsync like the
     /// compensation-concept pay period) → 422;
-    /// (2) (type, year, number) must be unique per tenant → 409 (the probe closes the sequential
-    /// case, the unique index closes the concurrent one);
-    /// (3) the date range must not overlap another ACTIVE period of the same type and year → 422.
+    /// (2) (type, year, number) must be unique in its BUCKET → 409 (per-Nómina when the period hangs
+    /// from one — REQ-012 §1.2 —, the legacy bucket otherwise; the probe closes the sequential case,
+    /// the partial unique indexes close the concurrent one);
+    /// (3) the date range must not overlap another ACTIVE period of the same type and year in the same
+    /// bucket → 422 (two Nóminas of the same frequency deliberately do not collide).
     /// </summary>
     public static async Task<Result> ValidateAsync(
         IPayrollPeriodRepository repository,
@@ -459,6 +566,7 @@ internal static class PayrollPeriodRules
         int number,
         DateOnly startDate,
         DateOnly endDate,
+        long? payrollDefinitionId,
         Guid? excludingPayrollPeriodId,
         CancellationToken cancellationToken)
     {
@@ -473,13 +581,22 @@ internal static class PayrollPeriodRules
 
         var normalizedTypeCode = payPeriodTypeCode.Trim().ToUpperInvariant();
 
-        if (await repository.PeriodExistsAsync(
+        var duplicate = payrollDefinitionId.HasValue
+            ? await repository.PeriodExistsForDefinitionAsync(
+                companyId,
+                payrollDefinitionId.Value,
+                year,
+                number,
+                excludingPayrollPeriodId,
+                cancellationToken)
+            : await repository.PeriodExistsAsync(
                 companyId,
                 normalizedTypeCode,
                 year,
                 number,
                 excludingPayrollPeriodId,
-                cancellationToken))
+                cancellationToken);
+        if (duplicate)
         {
             return Result.Failure(PayrollPeriodErrors.PeriodConflict);
         }
@@ -490,6 +607,7 @@ internal static class PayrollPeriodRules
                 year,
                 startDate,
                 endDate,
+                payrollDefinitionId,
                 excludingPayrollPeriodId,
                 cancellationToken))
         {

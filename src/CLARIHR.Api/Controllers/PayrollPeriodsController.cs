@@ -98,7 +98,18 @@ public sealed class PayrollPeriodsController(
                 request.Number,
                 request.Label,
                 request.StartDate,
-                request.EndDate),
+                request.EndDate,
+                request.PayrollDefinitionPublicId,
+                request.Code,
+                request.CutoffDate,
+                request.PaymentDate,
+                request.Month,
+                request.AllowsOvertimeEntry,
+                request.OvertimeEntryStart,
+                request.OvertimeEntryEnd,
+                request.AllowsAttendance,
+                request.AttendanceEntryStart,
+                request.AttendanceEntryEnd),
             cancellationToken);
 
         // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
@@ -140,10 +151,51 @@ public sealed class PayrollPeriodsController(
                 request.Label,
                 request.StartDate,
                 request.EndDate,
-                concurrencyToken),
+                concurrencyToken,
+                request.PayrollDefinitionPublicId,
+                request.Code,
+                request.CutoffDate,
+                request.PaymentDate,
+                request.Month,
+                request.AllowsOvertimeEntry,
+                request.OvertimeEntryStart,
+                request.OvertimeEntryEnd,
+                request.AllowsAttendance,
+                request.AttendanceEntryStart,
+                request.AttendanceEntryEnd),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPost("companies/{companyId:guid}/payroll-definitions/{payrollDefinitionPublicId:guid}/periods/generate")]
+    [ProducesResponseType<PayrollPeriodCalendarGenerationSummary>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Generate a Nómina's annual payroll-period calendar",
+        Description = """
+            Mass-generates the payroll periods of the given payroll definition ("Nómina", REQ-012) for
+            `year`, deriving the ranges from its pay frequency: QUINCENAL → 1-15 / 16-end per month,
+            SEMANAL → ISO weeks (Mon-Sun), MENSUAL → calendar months. Cutoff and payment date default to
+            the period end and the month to the end's month (all editable afterwards); the
+            overtime/attendance entry windows are materialized from the Nómina rule (window = period start
+            → end + offset). The run is IDEMPOTENT by (definition, year, number) — a re-run reports the
+            existing periods as `skipped` and creates nothing; a `totalPeriods` beyond the natural calendar
+            capacity (e.g. a 13th monthly run) is reported as `notDerivable` and created by hand. A
+            frequency without a fixed cadence (UNICA) yields `422 PAYROLL_PERIOD_SCHEDULE_INVALID`; an
+            unknown or inactive definition yields `422 PAYROLL_PERIOD_DEFINITION_REQUIRED`.
+            """)]
+    public async Task<ActionResult<PayrollPeriodCalendarGenerationSummary>> GenerateCalendar(
+        Guid companyId,
+        Guid payrollDefinitionPublicId,
+        [FromQuery] int year,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new GeneratePayrollPeriodCalendarCommand(companyId, payrollDefinitionPublicId, year),
+            cancellationToken);
+
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("payroll-periods/{id:guid}/activate")]
@@ -196,7 +248,18 @@ public sealed class PayrollPeriodsController(
         int Number,
         string Label,
         DateOnly StartDate,
-        DateOnly EndDate);
+        DateOnly EndDate,
+        Guid? PayrollDefinitionPublicId = null,
+        string? Code = null,
+        DateOnly? CutoffDate = null,
+        DateOnly? PaymentDate = null,
+        int? Month = null,
+        bool AllowsOvertimeEntry = false,
+        DateOnly? OvertimeEntryStart = null,
+        DateOnly? OvertimeEntryEnd = null,
+        bool AllowsAttendance = false,
+        DateOnly? AttendanceEntryStart = null,
+        DateOnly? AttendanceEntryEnd = null);
 
     public sealed record UpdatePayrollPeriodRequest(
         string PayPeriodTypeCode,
@@ -204,5 +267,16 @@ public sealed class PayrollPeriodsController(
         int Number,
         string Label,
         DateOnly StartDate,
-        DateOnly EndDate);
+        DateOnly EndDate,
+        Guid? PayrollDefinitionPublicId = null,
+        string? Code = null,
+        DateOnly? CutoffDate = null,
+        DateOnly? PaymentDate = null,
+        int? Month = null,
+        bool AllowsOvertimeEntry = false,
+        DateOnly? OvertimeEntryStart = null,
+        DateOnly? OvertimeEntryEnd = null,
+        bool AllowsAttendance = false,
+        DateOnly? AttendanceEntryStart = null,
+        DateOnly? AttendanceEntryEnd = null);
 }

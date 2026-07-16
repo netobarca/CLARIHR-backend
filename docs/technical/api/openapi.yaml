@@ -23220,12 +23220,20 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/companies/{companyPublicId}/payroll-periods':
+  /api/v1/companies/{companyPublicId}/payroll-periods:
     get:
       tags:
         - Payroll Periods
       summary: List payroll periods for a company
-      description: "Returns a paginated list of the company's payroll period definitions, filterable by\n`payPeriodTypeCode` (pay-periods catalog code), `year` and `isActive`, ordered by\nyear descending then number ascending. The owning company is validated against the\nauthenticated tenant. Set `includeAllowedActions=true` to receive per-item\nread/manage flags. A caller without the leave-configuration permissions yields\n`403 LEAVE_CONFIGURATION_FORBIDDEN`."
+      description: 'Returns a paginated list of the company''s payroll period definitions, filterable
+
+        by `payPeriodTypeCode` (pay-periods catalog code), `year` and `isActive`, ordered
+
+        by year descending then number ascending. The owning company is validated against
+
+        the authenticated tenant. Set `includeAllowedActions=true` to receive per-item
+
+        read/manage flags.'
       parameters:
         - name: companyPublicId
           in: path
@@ -23318,7 +23326,19 @@ paths:
       tags:
         - Payroll Periods
       summary: Create a payroll period
-      description: "Creates a payroll period under the company and returns `201 Created` with the\n`Location` header pointing to the new resource and the `ETag` header carrying its\ninitial `concurrencyToken`. `payPeriodTypeCode` must be an active code of the\ncountry-scoped pay-periods catalog (`422 PAYROLL_PERIOD_TYPE_INVALID` otherwise). A\nduplicate (type, year, number) yields `409 PAYROLL_PERIOD_DUPLICATE`; a date range\noverlapping another active period of the same type and year yields\n`422 PAYROLL_PERIOD_OVERLAP`."
+      description: 'Creates a payroll period under the company and returns `201 Created` with the
+
+        `Location` header pointing to the new resource and the `ETag` header carrying its
+
+        initial `concurrencyToken`. `payPeriodTypeCode` must be an active code of the
+
+        country-scoped pay-periods catalog (`422 PAYROLL_PERIOD_TYPE_INVALID` otherwise).
+
+        A duplicate (type, year, number) yields `409 PAYROLL_PERIOD_DUPLICATE`; a date
+
+        range overlapping another active period of the same type and year yields
+
+        `422 PAYROLL_PERIOD_OVERLAP`.'
       parameters:
         - name: companyPublicId
           in: path
@@ -23422,12 +23442,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/payroll-periods/{publicId}':
+  /api/v1/payroll-periods/{publicId}:
     get:
       tags:
         - Payroll Periods
       summary: Get a payroll period by id
-      description: "Returns a single payroll period by its public id. The owning company is resolved\nfrom the authenticated tenant; a non-existent id yields `404`, while an id that\nbelongs to another tenant yields `403 TENANT_MISMATCH`. The current\n`concurrencyToken` is emitted as the `ETag` header on mutations."
+      description: 'Returns a single payroll period by its public id. The owning company is resolved
+
+        from the authenticated tenant; a non-existent id yields `404`, while an id that
+
+        belongs to another tenant yields `403 TENANT_MISMATCH`. The current
+
+        `concurrencyToken` is emitted as the `ETag` header on mutations.'
       parameters:
         - name: publicId
           in: path
@@ -23488,7 +23514,19 @@ paths:
       tags:
         - Payroll Periods
       summary: Update a payroll period
-      description: "Replaces the editable fields of a payroll period (type, year, number, label,\ndates). `payPeriodTypeCode` must be an active code of the country-scoped pay-periods\ncatalog (`422 PAYROLL_PERIOD_TYPE_INVALID` otherwise); a duplicate (type, year,\nnumber) yields `409 PAYROLL_PERIOD_DUPLICATE` and an overlapping date range yields\n`422 PAYROLL_PERIOD_OVERLAP`. Requires the current `concurrencyToken` in the\n`If-Match` header; a missing/malformed header yields `400` and a stale token yields\n`409 CONCURRENCY_CONFLICT`. The refreshed token is returned in the body and the\n`ETag` header."
+      description: 'Replaces the editable fields of a payroll period (type, year, number, label,
+
+        dates). `payPeriodTypeCode` must be an active code of the country-scoped
+
+        pay-periods catalog (`422` otherwise); a duplicate (type, year, number) yields
+
+        `409` and an overlapping date range yields `422 PAYROLL_PERIOD_OVERLAP`. Requires
+
+        the current `concurrencyToken` in the `If-Match` header; a missing/malformed
+
+        header yields `400` and a stale token yields `409 CONCURRENCY_CONFLICT`. The
+
+        refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -23597,12 +23635,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/payroll-periods/{publicId}/activate':
+  /api/v1/payroll-periods/{publicId}/activate:
     patch:
       tags:
         - Payroll Periods
       summary: Activate a payroll period
-      description: "Reactivates an inactive payroll period. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      description: 'Reactivates an inactive payroll period. Requires the current `concurrencyToken`
+
+        in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is
+
+        returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -23700,12 +23742,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/payroll-periods/{publicId}/inactivate':
+  /api/v1/payroll-periods/{publicId}/inactivate:
     patch:
       tags:
         - Payroll Periods
       summary: Inactivate a payroll period
-      description: "Deactivates (soft-delete) a payroll period. Requires the current `concurrencyToken`\nin the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is\nreturned in the body and the `ETag` header."
+      description: 'Deactivates (soft-delete) a payroll period. Requires the current
+
+        `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The
+
+        refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -59595,6 +59641,186 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-definitions/{payrollDefinitionPublicId}/periods/generate:
+    post:
+      tags:
+        - Payroll Periods
+      summary: Generate a Nómina's annual payroll-period calendar
+      description: 'Mass-generates the payroll periods of the given payroll definition ("Nómina", REQ-012) for
+
+        `year`, deriving the ranges from its pay frequency: QUINCENAL → 1-15 / 16-end per month,
+
+        SEMANAL → ISO weeks (Mon-Sun), MENSUAL → calendar months. Cutoff and payment date default to
+
+        the period end and the month to the end''s month (all editable afterwards); the
+
+        overtime/attendance entry windows are materialized from the Nómina rule (window = period start
+
+        → end + offset). The run is IDEMPOTENT by (definition, year, number) — a re-run reports the
+
+        existing periods as `skipped` and creates nothing; a `totalPeriods` beyond the natural calendar
+
+        capacity (e.g. a 13th monthly run) is reported as `notDerivable` and created by hand. A
+
+        frequency without a fixed cadence (UNICA) yields `422 PAYROLL_PERIOD_SCHEDULE_INVALID`; an
+
+        unknown or inactive definition yields `422 PAYROLL_PERIOD_DEFINITION_REQUIRED`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: payrollDefinitionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodCalendarGenerationSummary'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodCalendarGenerationSummary'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollPeriodCalendarGenerationSummary'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/vacation-periods/generate:
+    post:
+      tags:
+        - Personnel Files
+      summary: Generate the yearly vacation fund for active employees
+      description: 'Creates one active vacation fund period per active employee for the year (idempotent by
+
+        employee-year: a re-run creates nothing for employees that already have an active period).
+
+        Art. 177-ineligible employees (less than one year of service at the start of the period) are
+
+        reported per row (`errors`). The grants and anniversary flag default to the company preference; an
+
+        optional `employeeIds` filter restricts the run. Returns a `{created, skipped, errors[]}` summary.
+
+        Manager-only (`ManageVacations`).'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateVacationPeriodsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacationPeriodGenerationSummary'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -63196,6 +63422,48 @@ components:
         endDate:
           type: string
           format: date
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        allowsOvertimeEntry:
+          type: boolean
+        overtimeEntryStart:
+          type: string
+          format: date
+          nullable: true
+        overtimeEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        allowsAttendance:
+          type: boolean
+        attendanceEntryStart:
+          type: string
+          format: date
+          nullable: true
+        attendanceEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     CreatePersonnelFileRequest:
       type: object
@@ -66900,6 +67168,10 @@ components:
           type: string
         message:
           type: string
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
     VacationPeriodGenerationSummary:
       type: object
       properties:
@@ -66919,6 +67191,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VacationPeriodGenerationError'
+      additionalProperties: false
     AddVacationPeriodRequest:
       type: object
       properties:
@@ -66968,12 +67241,13 @@ components:
         generatesEnjoymentDays:
           type: boolean
           nullable: true
-        employeeIds:
+        employeePublicIds:
           type: array
-          nullable: true
           items:
             type: string
             format: uuid
+          nullable: true
+      additionalProperties: false
     VacationAllocationResponse:
       type: object
       properties:
@@ -71382,6 +71656,47 @@ components:
         endDate:
           type: string
           format: date
+        code:
+          type: string
+          nullable: true
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        statusCode:
+          type: string
+        allowsOvertimeEntry:
+          type: boolean
+        overtimeEntryStart:
+          type: string
+          format: date
+          nullable: true
+        overtimeEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        allowsAttendance:
+          type: boolean
+        attendanceEntryStart:
+          type: string
+          format: date
+          nullable: true
+        attendanceEntryEnd:
+          type: string
+          format: date
+          nullable: true
         isActive:
           type: boolean
         concurrencyToken:
@@ -71396,6 +71711,9 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     PayrollPeriodListItemResponsePagedResponse:
       type: object
@@ -71436,6 +71754,47 @@ components:
         endDate:
           type: string
           format: date
+        code:
+          type: string
+          nullable: true
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        statusCode:
+          type: string
+        allowsOvertimeEntry:
+          type: boolean
+        overtimeEntryStart:
+          type: string
+          format: date
+          nullable: true
+        overtimeEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        allowsAttendance:
+          type: boolean
+        attendanceEntryStart:
+          type: string
+          format: date
+          nullable: true
+        attendanceEntryEnd:
+          type: string
+          format: date
+          nullable: true
         isActive:
           type: boolean
         concurrencyToken:
@@ -71450,6 +71809,9 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     PersonnelCatalogItemResponse:
       type: object
@@ -78693,6 +79055,48 @@ components:
         endDate:
           type: string
           format: date
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        cutoffDate:
+          type: string
+          format: date
+          nullable: true
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        month:
+          type: integer
+          format: int32
+          nullable: true
+        allowsOvertimeEntry:
+          type: boolean
+        overtimeEntryStart:
+          type: string
+          format: date
+          nullable: true
+        overtimeEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        allowsAttendance:
+          type: boolean
+        attendanceEntryStart:
+          type: string
+          format: date
+          nullable: true
+        attendanceEntryEnd:
+          type: string
+          format: date
+          nullable: true
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     UpdatePerformanceEvaluationRequest:
       type: object
@@ -81960,6 +82364,25 @@ components:
         normalizedCode:
           type: string
           readOnly: true
+      additionalProperties: false
+    PayrollPeriodCalendarGenerationSummary:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        totalPeriods:
+          type: integer
+          format: int32
+        created:
+          type: integer
+          format: int32
+        skipped:
+          type: integer
+          format: int32
+        notDerivable:
+          type: integer
+          format: int32
       additionalProperties: false
   securitySchemes:
     Bearer:
