@@ -3019,4 +3019,25 @@
   <data name="validation.message.employee_ids_must_be_omitted_or_non_empty" xml:space="preserve">
     <value>Employee ids must be omitted or non-empty.</value>
   </data>
+  <data name="PAYROLL_RUN_SELF_AUTHORIZATION_FORBIDDEN" xml:space="preserve">
+    <value>The user who generated the payroll run cannot authorize it.</value>
+  </data>
+  <data name="PAYROLL_RUN_RETURN_REASON_REQUIRED" xml:space="preserve">
+    <value>A reason is required to return the payroll run.</value>
+  </data>
+  <data name="PAYROLL_RUN_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>A reason is required to annul the payroll run.</value>
+  </data>
+  <data name="PAYROLL_RUN_LINE_NOT_FOUND" xml:space="preserve">
+    <value>The payroll run line could not be found.</value>
+  </data>
+  <data name="PAYROLL_RUN_LINE_NOT_ADJUSTABLE" xml:space="preserve">
+    <value>The payroll run line does not admit adjustments.</value>
+  </data>
+  <data name="validation.message.the_adjustment_must_supply_an_override_or_an_inclusion_flag" xml:space="preserve">
+    <value>The adjustment must supply an override or an inclusion flag.</value>
+  </data>
+  <data name="validation.message.an_override_requires_a_note" xml:space="preserve">
+    <value>An override requires a note.</value>
+  </data>
 </root>

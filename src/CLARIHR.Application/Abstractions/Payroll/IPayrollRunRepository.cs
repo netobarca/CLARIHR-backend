@@ -37,4 +37,36 @@ public interface IPayrollRunRepository
         Guid tenantId,
         string sourceModule,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the PARENT pool record of an applied installment/application child (the line's re-bound
+    /// <c>SourceReferencePublicId</c> after §3.5). The reversal flows (exclude / regenerate / annul — PR-6)
+    /// need the parent to call its <c>AnnulInstallment</c>/<c>AnnulApplication</c> mutator. Null when the
+    /// child does not resolve in the module.
+    /// </summary>
+    Task<Guid?> GetPoolParentByChildAsync(
+        Guid tenantId,
+        string sourceModule,
+        Guid childPublicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The PARENT pool records holding an ACTIVE MOTOR-origin installment/application bound to the given
+    /// period — exactly what the run applied (one active run per Nómina × period). The full reversal
+    /// (regenerate / annul — §3.5) walks these parents and annuls those children symmetrically; the
+    /// selective recalculation passes <paramref name="personnelFilePublicIds"/> to revert ONLY those
+    /// employees' records (null ⇒ no employee filter).
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> GetMotorAppliedParentsForPeriodAsync(
+        Guid tenantId,
+        string sourceModule,
+        long payrollPeriodId,
+        IReadOnlyCollection<Guid>? personnelFilePublicIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>The public ids of the run's definition/period FKs (the wire never exposes internal ids).</summary>
+    Task<(Guid DefinitionPublicId, Guid PeriodPublicId)?> GetReferencePublicIdsAsync(
+        long payrollDefinitionId,
+        long payrollPeriodId,
+        CancellationToken cancellationToken);
 }

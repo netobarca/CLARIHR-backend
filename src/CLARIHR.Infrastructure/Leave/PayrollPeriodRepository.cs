@@ -15,6 +15,9 @@ internal sealed class PayrollPeriodRepository(ApplicationDbContext dbContext) : 
     public Task<PayrollPeriodDefinition?> GetByIdAsync(Guid payrollPeriodId, CancellationToken cancellationToken) =>
         dbContext.PayrollPeriodDefinitions.SingleOrDefaultAsync(period => period.PublicId == payrollPeriodId, cancellationToken);
 
+    public Task<PayrollPeriodDefinition?> GetByInternalIdAsync(long payrollPeriodId, CancellationToken cancellationToken) =>
+        dbContext.PayrollPeriodDefinitions.SingleOrDefaultAsync(period => period.Id == payrollPeriodId, cancellationToken);
+
     public Task<bool> ExistsOutsideTenantAsync(Guid payrollPeriodId, CancellationToken cancellationToken) =>
         dbContext.PayrollPeriodDefinitions
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.

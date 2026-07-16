@@ -345,4 +345,439 @@ public sealed partial class ApiIntegrationTests
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return doc.RootElement.GetProperty("amount").GetDecimal();
     }
+
+    private static TestUserContext PayrollRunAuthorizerContext(IntegrationTestScenario scenario, Guid userId) =>
+        TestUserContext.Authenticated(userId, scenario.TenantId, PersonnelFilePermissionCodes.AuthorizePayrollRuns);
+
+    private static Task<HttpResponseMessage> PatchPayrollRunAsync(
+        HttpClient client, string url, Guid concurrencyToken, object? body = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, url);
+        request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        return client.SendAsync(request);
+    }
+
+    private static async Task<(string Status, Guid Token, decimal TotalIncome, int RegeneratedCount)> ReadRunAsync(
+        HttpClient client, Guid companyId, Guid runId)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{companyId}/payroll-runs/{runId}");
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == response.StatusCode, $"get run: {(int)response.StatusCode} {payload}");
+        using var doc = JsonDocument.Parse(payload);
+        return (
+            doc.RootElement.GetProperty("statusCode").GetString()!,
+            doc.RootElement.GetProperty("concurrencyToken").GetGuid(),
+            doc.RootElement.GetProperty("totalIncome").GetDecimal(),
+            doc.RootElement.GetProperty("regeneratedCount").GetInt32());
+    }
+
+    private static async Task<JsonDocument> ReadEmployeeLinesAsync(
+        HttpClient client, Guid companyId, Guid runId, Guid fileId)
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/payroll-runs/{runId}/employees/{fileId}");
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == response.StatusCode, $"employee lines: {(int)response.StatusCode} {payload}");
+        return JsonDocument.Parse(payload);
+    }
+
+    [Fact]
+    public async Task PayrollRuns_ReviewLifecycle_AdjustAuthorizeReturnClose_EndToEnd()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+        // The GENERATOR holding the authorize grant — the double anti-self must still reject them.
+        using var selfAuthorizer = factory.CreateClientFor(PayrollRunAuthorizerContext(scenario, scenario.ActorUserId));
+        using var authorizer = factory.CreateClientFor(PayrollRunAuthorizerContext(scenario, Guid.NewGuid()));
+
+        var fileId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Ciclo", "Completo", "EMP-PRUN-E", "ciclo.prun.e@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+        }
+
+        var (status, token, totalIncome, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        Assert.Equal("GENERADA", status);
+        Assert.Equal(300.00m, totalIncome);
+
+        // Per-employee drill: the salary line travels with its class, source and calculated amount.
+        Guid salaryLineId;
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileId))
+        {
+            var salary = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "SALARIO");
+            salaryLineId = salary.GetProperty("publicId").GetGuid();
+            Assert.Equal("Ingreso", salary.GetProperty("lineClass").GetString());
+            Assert.Equal(300.00m, salary.GetProperty("calculatedAmount").GetDecimal());
+        }
+
+        // Audited override (note MANDATORY) — the run's totals recompute over the final amounts.
+        var adjust = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{salaryLineId}",
+            token,
+            new { overrideAmount = 350.00m, overrideNote = "Ajuste autorizado por gerencia" });
+        var adjustPayload = await adjust.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == adjust.StatusCode, $"adjust: {(int)adjust.StatusCode} {adjustPayload}");
+        using (var doc = JsonDocument.Parse(adjustPayload))
+        {
+            Assert.Equal(350.00m, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        // Double anti-self: the generator, even holding the dedicated grant, cannot authorize their run.
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var selfAttempt = await PatchPayrollRunAsync(
+            selfAuthorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/authorization", token);
+        Assert.Equal(HttpStatusCode.Forbidden, selfAttempt.StatusCode);
+        using (var doc = JsonDocument.Parse(await selfAttempt.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_SELF_AUTHORIZATION_FORBIDDEN", doc.RootElement.GetProperty("code").GetString());
+        }
+
+        var authorize = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/authorization", token);
+        var authorizePayload = await authorize.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == authorize.StatusCode, $"authorize: {(int)authorize.StatusCode} {authorizePayload}");
+        using (var doc = JsonDocument.Parse(authorizePayload))
+        {
+            Assert.Equal("AUTORIZADA", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        // AUTORIZADA freezes the calculations: no adjustment until a return.
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var frozenAdjust = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{salaryLineId}",
+            token,
+            new { overrideAmount = 999.99m, overrideNote = "no debe pasar" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, frozenAdjust.StatusCode);
+        using (var doc = JsonDocument.Parse(await frozenAdjust.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_STATE_RULE_VIOLATION", doc.RootElement.GetProperty("code").GetString());
+        }
+
+        // Return demands a reason (REQ-013 P-02 — the ONLY pre-closure reopening) …
+        var returnEmpty = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/return", token, new { reason = " " });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, returnEmpty.StatusCode);
+        using (var doc = JsonDocument.Parse(await returnEmpty.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_RETURN_REASON_REQUIRED", doc.RootElement.GetProperty("code").GetString());
+        }
+
+        var returned = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/return", token,
+            new { reason = "Revisar el ajuste del salario" });
+        var returnedPayload = await returned.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == returned.StatusCode, $"return: {(int)returned.StatusCode} {returnedPayload}");
+        using (var doc = JsonDocument.Parse(returnedPayload))
+        {
+            Assert.Equal("GENERADA", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        // … the run is editable again, re-authorizes and closes; the PERIOD closes with it (same tx).
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var reauthorize = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/authorization", token);
+        Assert.Equal(HttpStatusCode.OK, reauthorize.StatusCode);
+
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var close = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/closure", token);
+        var closePayload = await close.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == close.StatusCode, $"close: {(int)close.StatusCode} {closePayload}");
+        using (var doc = JsonDocument.Parse(closePayload))
+        {
+            Assert.Equal("CERRADA", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        var periods = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-periods?payPeriodTypeCode=QUINCENAL&year=2026&pageSize=30");
+        periods.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await periods.Content.ReadAsStringAsync()))
+        {
+            var period = doc.RootElement.GetProperty("items").EnumerateArray()
+                .Single(item => item.GetProperty("publicId").GetGuid() == periodId);
+            Assert.Equal("CERRADO", period.GetProperty("statusCode").GetString());
+        }
+
+        // CERRADA is terminal: no adjustment and no annulment.
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var closedAdjust = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{salaryLineId}",
+            token,
+            new { overrideAmount = 1.00m, overrideNote = "tarde" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, closedAdjust.StatusCode);
+        var closedAnnul = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/annulment", token,
+            new { reason = "tarde" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, closedAnnul.StatusCode);
+        using (var doc = JsonDocument.Parse(await closedAnnul.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_STATE_RULE_VIOLATION", doc.RootElement.GetProperty("code").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task PayrollRuns_Annul_RevertsPoolsSymmetrically_AndReleasesTheSlot()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+        using var incomeAuthorizer = factory.CreateClientFor(OneTimeIncomeAuthorizerContext(scenario, Guid.NewGuid()));
+
+        var fileId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Rever", "Simetrica", "EMP-PRUN-F", "rever.prun.f@empresa.test");
+        var requesterId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Rosa", "Pide", "EMP-PRUN-F2", "rosa.prun.f@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+        var (incomeId, _) = await CreateAndAuthorizeOneTimeIncomeAsync(
+            manager, incomeAuthorizer, fileId, FixedOneTimeIncomeBody(requesterId));
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        decimal firstTotalIncome;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+            firstTotalIncome = doc.RootElement.GetProperty("totalIncome").GetDecimal();
+        }
+
+        var (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+
+        // The annulment reason is mandatory.
+        var annulEmpty = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/annulment", token, new { reason = "" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, annulEmpty.StatusCode);
+        using (var doc = JsonDocument.Parse(await annulEmpty.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("PAYROLL_RUN_ANNULMENT_REASON_REQUIRED", doc.RootElement.GetProperty("code").GetString());
+        }
+
+        var annul = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/annulment", token,
+            new { reason = "Generada con datos incompletos" });
+        var annulPayload = await annul.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == annul.StatusCode, $"annul: {(int)annul.StatusCode} {annulPayload}");
+        using (var doc = JsonDocument.Parse(annulPayload))
+        {
+            Assert.Equal("ANULADA", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        // Symmetric reversal: the income is AUTORIZADO again and its MOTOR application ended ANULADA — the
+        // pool is byte-identical to its pre-generation state (record re-applicable).
+        var detail = await manager.GetAsync($"/api/v1/personnel-files/{fileId}/one-time-incomes/{incomeId}");
+        detail.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await detail.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("AUTORIZADO", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        using (var history = await GetOneTimeIncomeApplicationsAsync(manager, fileId, incomeId))
+        {
+            var application = Assert.Single(history.RootElement.EnumerateArray().ToArray());
+            Assert.Equal("MOTOR", application.GetProperty("originCode").GetString());
+            Assert.Equal("ANULADA", application.GetProperty("statusCode").GetString());
+        }
+
+        // The one-active-run slot is released: a fresh generation re-applies the SAME income and squares
+        // to the SAME totals.
+        var regenerate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        var regeneratePayload = await regenerate.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.Created == regenerate.StatusCode, $"second generate: {(int)regenerate.StatusCode} {regeneratePayload}");
+        using (var doc = JsonDocument.Parse(regeneratePayload))
+        {
+            Assert.Equal(firstTotalIncome, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        detail = await manager.GetAsync($"/api/v1/personnel-files/{fileId}/one-time-incomes/{incomeId}");
+        detail.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await detail.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("APLICADO", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task PayrollRuns_ExcludePoolLine_FreesTheRecord_AndReincludeReapplies()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+        using var incomeAuthorizer = factory.CreateClientFor(OneTimeIncomeAuthorizerContext(scenario, Guid.NewGuid()));
+
+        var fileId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Libre", "Otra", "EMP-PRUN-G", "libre.prun.g@empresa.test");
+        var requesterId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Rene", "Manda", "EMP-PRUN-G2", "rene.prun.g@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+        var (incomeId, _) = await CreateAndAuthorizeOneTimeIncomeAsync(
+            manager, incomeAuthorizer, fileId, FixedOneTimeIncomeBody(requesterId));
+        var incomeAmount = await ReadOneTimeIncomeAmountAsync(manager, fileId, incomeId);
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+        }
+
+        // The applied pool line references the CREATED application child (§3.5), not the income itself.
+        Guid poolLineId;
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileId))
+        {
+            var poolLine = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "ONE_TIME_INCOME");
+            poolLineId = poolLine.GetProperty("publicId").GetGuid();
+            Assert.NotEqual(incomeId, poolLine.GetProperty("sourceReferencePublicId").GetGuid());
+        }
+
+        var (_, token, includedIncome, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+
+        // EXCLUDE → the MOTOR application is annulled, the income is AUTORIZADO again (free for another
+        // run — never in two active ones: this run no longer counts it) and the line re-binds to the PARENT.
+        var exclude = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{poolLineId}",
+            token,
+            new { isIncluded = false });
+        var excludePayload = await exclude.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == exclude.StatusCode, $"exclude: {(int)exclude.StatusCode} {excludePayload}");
+        using (var doc = JsonDocument.Parse(excludePayload))
+        {
+            Assert.Equal(includedIncome - incomeAmount, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        var detail = await manager.GetAsync($"/api/v1/personnel-files/{fileId}/one-time-incomes/{incomeId}");
+        detail.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await detail.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("AUTORIZADO", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileId))
+        {
+            var poolLine = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "ONE_TIME_INCOME");
+            Assert.False(poolLine.GetProperty("isIncluded").GetBoolean());
+            Assert.Equal(incomeId, poolLine.GetProperty("sourceReferencePublicId").GetGuid());
+        }
+
+        // RE-INCLUDE → the §3.5 flow re-applies it (new MOTOR child) and the totals square again.
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var reinclude = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{poolLineId}",
+            token,
+            new { isIncluded = true });
+        var reincludePayload = await reinclude.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == reinclude.StatusCode, $"re-include: {(int)reinclude.StatusCode} {reincludePayload}");
+        using (var doc = JsonDocument.Parse(reincludePayload))
+        {
+            Assert.Equal(includedIncome, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        detail = await manager.GetAsync($"/api/v1/personnel-files/{fileId}/one-time-incomes/{incomeId}");
+        detail.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await detail.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("APLICADO", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileId))
+        {
+            var poolLine = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "ONE_TIME_INCOME");
+            Assert.True(poolLine.GetProperty("isIncluded").GetBoolean());
+            Assert.NotEqual(incomeId, poolLine.GetProperty("sourceReferencePublicId").GetGuid());
+        }
+    }
+
+    [Fact]
+    public async Task PayrollRuns_RegenerateAndRecalculate_RederiveFromCurrentInputs()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+        using var incomeAuthorizer = factory.CreateClientFor(OneTimeIncomeAuthorizerContext(scenario, Guid.NewGuid()));
+
+        var fileId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Nueva", "Base", "EMP-PRUN-H", "nueva.prun.h@empresa.test");
+        var requesterId = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Rey", "Firma", "EMP-PRUN-H2", "rey.prun.h@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+        }
+
+        // An override rides the run …
+        Guid salaryLineId;
+        using (var lines = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileId))
+        {
+            salaryLineId = lines.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(line => line.GetProperty("sourceModule").GetString() == "SALARIO")
+                .GetProperty("publicId").GetGuid();
+        }
+
+        var (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var adjust = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/{salaryLineId}",
+            token,
+            new { overrideAmount = 999.00m, overrideNote = "se descarta al regenerar" });
+        Assert.Equal(HttpStatusCode.OK, adjust.StatusCode);
+
+        // … REGENERATE discards it (full rebuild from current inputs) and bumps the counter.
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var regenerate = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/regeneration", token);
+        var regeneratePayload = await regenerate.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == regenerate.StatusCode, $"regenerate: {(int)regenerate.StatusCode} {regeneratePayload}");
+        using (var doc = JsonDocument.Parse(regeneratePayload))
+        {
+            Assert.Equal(1, doc.RootElement.GetProperty("regeneratedCount").GetInt32());
+            Assert.Equal(600.00m, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        // A pool income registered AFTER the generation joins via selective RECALCULATION of its employee.
+        var (incomeId, _) = await CreateAndAuthorizeOneTimeIncomeAsync(
+            manager, incomeAuthorizer, fileId, FixedOneTimeIncomeBody(requesterId));
+        var incomeAmount = await ReadOneTimeIncomeAmountAsync(manager, fileId, incomeId);
+
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var recalculate = await PatchPayrollRunAsync(
+            manager,
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/recalculation",
+            token,
+            new { employeeIds = new[] { fileId } });
+        var recalculatePayload = await recalculate.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == recalculate.StatusCode, $"recalculate: {(int)recalculate.StatusCode} {recalculatePayload}");
+        using (var doc = JsonDocument.Parse(recalculatePayload))
+        {
+            Assert.Equal(600.00m + incomeAmount, doc.RootElement.GetProperty("totalIncome").GetDecimal());
+        }
+
+        var detail = await manager.GetAsync($"/api/v1/personnel-files/{fileId}/one-time-incomes/{incomeId}");
+        detail.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await detail.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("APLICADO", doc.RootElement.GetProperty("statusCode").GetString());
+        }
+    }
 }

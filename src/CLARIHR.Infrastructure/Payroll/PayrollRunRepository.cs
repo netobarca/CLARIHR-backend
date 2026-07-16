@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Payroll;
+using CLARIHR.Application.Features.Payroll;
 using CLARIHR.Domain.Payroll;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -66,4 +67,124 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
             select line.SourceReferencePublicId!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
+
+    public async Task<Guid?> GetPoolParentByChildAsync(
+        Guid tenantId,
+        string sourceModule,
+        Guid childPublicId,
+        CancellationToken cancellationToken) => sourceModule switch
+    {
+        PayrollSourceModules.RecurringIncome => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileRecurringIncome>()
+            .AsNoTracking()
+            .Where(parent => parent.TenantId == tenantId && parent.Installments.Any(child => child.PublicId == childPublicId))
+            .Select(parent => (Guid?)parent.PublicId)
+            .SingleOrDefaultAsync(cancellationToken),
+        PayrollSourceModules.RecurringDeduction => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileRecurringDeduction>()
+            .AsNoTracking()
+            .Where(parent => parent.TenantId == tenantId && parent.Installments.Any(child => child.PublicId == childPublicId))
+            .Select(parent => (Guid?)parent.PublicId)
+            .SingleOrDefaultAsync(cancellationToken),
+        PayrollSourceModules.OneTimeIncome => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileOneTimeIncome>()
+            .AsNoTracking()
+            .Where(parent => parent.TenantId == tenantId && parent.Applications.Any(child => child.PublicId == childPublicId))
+            .Select(parent => (Guid?)parent.PublicId)
+            .SingleOrDefaultAsync(cancellationToken),
+        PayrollSourceModules.OneTimeDeduction => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileOneTimeDeduction>()
+            .AsNoTracking()
+            .Where(parent => parent.TenantId == tenantId && parent.Applications.Any(child => child.PublicId == childPublicId))
+            .Select(parent => (Guid?)parent.PublicId)
+            .SingleOrDefaultAsync(cancellationToken),
+        _ => null,
+    };
+
+    public async Task<IReadOnlyCollection<Guid>> GetMotorAppliedParentsForPeriodAsync(
+        Guid tenantId,
+        string sourceModule,
+        long payrollPeriodId,
+        IReadOnlyCollection<Guid>? personnelFilePublicIds,
+        CancellationToken cancellationToken)
+    {
+        // null ⇒ every employee (regenerate/annul); a set ⇒ only those files (selective recalculation).
+        var hasEmployeeFilter = personnelFilePublicIds is not null;
+        List<long> fileIds = hasEmployeeFilter
+            ? await dbContext.Set<Domain.PersonnelFiles.PersonnelFile>()
+                .Where(file => personnelFilePublicIds!.Contains(file.PublicId))
+                .Select(file => file.Id)
+                .ToListAsync(cancellationToken)
+            : [];
+
+        return sourceModule switch
+        {
+            PayrollSourceModules.RecurringIncome => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileRecurringIncome>()
+                .AsNoTracking()
+                .Where(parent => parent.TenantId == tenantId &&
+                    (!hasEmployeeFilter || fileIds.Contains(parent.PersonnelFileId)) &&
+                    parent.Installments.Any(child =>
+                        child.OriginCode == Domain.PersonnelFiles.RecurringIncomeInstallmentOrigins.Motor &&
+                        child.PayrollPeriodId == payrollPeriodId &&
+                        child.StatusCode == Domain.PersonnelFiles.RecurringIncomeInstallmentStatuses.Aplicada))
+                .Select(parent => parent.PublicId)
+                .ToListAsync(cancellationToken),
+            PayrollSourceModules.RecurringDeduction => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileRecurringDeduction>()
+                .AsNoTracking()
+                .Where(parent => parent.TenantId == tenantId &&
+                    (!hasEmployeeFilter || fileIds.Contains(parent.PersonnelFileId)) &&
+                    parent.Installments.Any(child =>
+                        child.OriginCode == Domain.PersonnelFiles.RecurringDeductionInstallmentOrigins.Motor &&
+                        child.PayrollPeriodId == payrollPeriodId &&
+                        child.StatusCode == Domain.PersonnelFiles.RecurringDeductionInstallmentStatuses.Aplicada))
+                .Select(parent => parent.PublicId)
+                .ToListAsync(cancellationToken),
+            PayrollSourceModules.OneTimeIncome => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileOneTimeIncome>()
+                .AsNoTracking()
+                .Where(parent => parent.TenantId == tenantId &&
+                    (!hasEmployeeFilter || fileIds.Contains(parent.PersonnelFileId)) &&
+                    parent.Applications.Any(child =>
+                        child.OriginCode == Domain.PersonnelFiles.OneTimeIncomeApplicationOrigins.Motor &&
+                        child.PayrollPeriodId == payrollPeriodId &&
+                        child.StatusCode == Domain.PersonnelFiles.OneTimeIncomeApplicationStatuses.Aplicada))
+                .Select(parent => parent.PublicId)
+                .ToListAsync(cancellationToken),
+            PayrollSourceModules.OneTimeDeduction => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileOneTimeDeduction>()
+                .AsNoTracking()
+                .Where(parent => parent.TenantId == tenantId &&
+                    (!hasEmployeeFilter || fileIds.Contains(parent.PersonnelFileId)) &&
+                    parent.Applications.Any(child =>
+                        child.OriginCode == Domain.PersonnelFiles.OneTimeDeductionApplicationOrigins.Motor &&
+                        child.PayrollPeriodId == payrollPeriodId &&
+                        child.StatusCode == Domain.PersonnelFiles.OneTimeDeductionApplicationStatuses.Aplicada))
+                .Select(parent => parent.PublicId)
+                .ToListAsync(cancellationToken),
+            PayrollSourceModules.Overtime => await dbContext.Set<Domain.PersonnelFiles.PersonnelFileOvertimeRecord>()
+                .AsNoTracking()
+                .Where(parent => parent.TenantId == tenantId &&
+                    (!hasEmployeeFilter || fileIds.Contains(parent.PersonnelFileId)) &&
+                    parent.Applications.Any(child =>
+                        child.OriginCode == Domain.PersonnelFiles.OvertimeApplicationOrigins.Motor &&
+                        child.PayrollPeriodId == payrollPeriodId &&
+                        child.StatusCode == Domain.PersonnelFiles.OvertimeApplicationStatuses.Aplicada))
+                .Select(parent => parent.PublicId)
+                .ToListAsync(cancellationToken),
+            _ => [],
+        };
+    }
+
+    public async Task<(Guid DefinitionPublicId, Guid PeriodPublicId)?> GetReferencePublicIdsAsync(
+        long payrollDefinitionId,
+        long payrollPeriodId,
+        CancellationToken cancellationToken)
+    {
+        var definition = await dbContext.Set<PayrollDefinition>()
+            .AsNoTracking()
+            .Where(item => item.Id == payrollDefinitionId)
+            .Select(item => (Guid?)item.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+        var period = await dbContext.Set<Domain.Leave.PayrollPeriodDefinition>()
+            .AsNoTracking()
+            .Where(item => item.Id == payrollPeriodId)
+            .Select(item => (Guid?)item.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return definition is { } definitionId && period is { } periodId ? (definitionId, periodId) : null;
+    }
 }

@@ -3019,4 +3019,25 @@
   <data name="validation.message.employee_ids_must_be_omitted_or_non_empty" xml:space="preserve">
     <value>La lista de empleados debe omitirse o venir con elementos.</value>
   </data>
+  <data name="PAYROLL_RUN_SELF_AUTHORIZATION_FORBIDDEN" xml:space="preserve">
+    <value>El usuario que generó la corrida de planilla no puede autorizarla.</value>
+  </data>
+  <data name="PAYROLL_RUN_RETURN_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para devolver la corrida de planilla.</value>
+  </data>
+  <data name="PAYROLL_RUN_ANNULMENT_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere un motivo para anular la corrida de planilla.</value>
+  </data>
+  <data name="PAYROLL_RUN_LINE_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la línea de la corrida de planilla.</value>
+  </data>
+  <data name="PAYROLL_RUN_LINE_NOT_ADJUSTABLE" xml:space="preserve">
+    <value>La línea de la corrida de planilla no admite ajustes.</value>
+  </data>
+  <data name="validation.message.the_adjustment_must_supply_an_override_or_an_inclusion_flag" xml:space="preserve">
+    <value>El ajuste debe traer un valor manual o una bandera de inclusión.</value>
+  </data>
+  <data name="validation.message.an_override_requires_a_note" xml:space="preserve">
+    <value>Un valor manual requiere una nota.</value>
+  </data>
 </root>

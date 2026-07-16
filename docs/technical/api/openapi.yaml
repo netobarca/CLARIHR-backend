@@ -60799,6 +60799,713 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/authorization:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Authorize a payroll run
+      description: '`GENERADA` → `AUTORIZADA` (REQ-013 P-01 first step): the calculations freeze — no adjustment,
+
+        recalculation or regeneration is possible until a return. Requires the dedicated
+
+        `AuthorizePayrollRuns` grant (`PersonnelFiles.Admin` does NOT imply it). Separation of duties
+
+        (double anti-self): the user who GENERATED the run cannot authorize it
+
+        (`403 PAYROLL_RUN_SELF_AUTHORIZATION_FORBIDDEN`). Requires `If-Match` with the run''s current
+
+        `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/return:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Return a payroll run to review
+      description: '`AUTORIZADA` → `GENERADA` with a MANDATORY reason (REQ-013 P-02 — the ONLY pre-closure
+
+        reopening): the run becomes editable again (adjustments, recalculation, regeneration) and must
+
+        be re-authorized to close. Requires the dedicated `AuthorizePayrollRuns` grant and `If-Match`
+
+        with the run''s current `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnPayrollRunRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}:
+    get:
+      tags:
+        - Payroll Runs
+      summary: Get a payroll run
+      description: 'The run header: definition/period snapshots, lifecycle status (`GENERADA` → `AUTORIZADA` →
+
+        `CERRADA`; `ANULADA` pre-closure), persisted totals, regeneration count and the generation''s
+
+        stable warnings. The response `ETag` carries the `concurrencyToken` every review/decision
+
+        endpoint requires via `If-Match`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/employees/{personnelFilePublicId}:
+    get:
+      tags:
+        - Payroll Runs
+      summary: Get an employee's lines of a payroll run
+      description: 'The per-employee drill of the run (REQ-013 RF-002): every line — income, deduction and employer
+
+        charge — with its concept, units, base, calculated amount, audited override, inclusion flag and
+
+        line→source traceability (`sourceModule` + `sourceReferencePublicId`), plus the employee''s
+
+        income/deduction/net totals over the INCLUDED lines.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: personnelFilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeLinesResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeLinesResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeLinesResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/lines/{linePublicId}:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Adjust a payroll run line
+      description: 'Review adjustment of one line — only while the run is `GENERADA`: an audited `overrideAmount`
+
+        with its MANDATORY `overrideNote` (send `clearOverride: true` to remove it) and/or the
+
+        `isIncluded` flag. EXCLUDING a pool-backed line (pool incomes/deductions) annuls its `MOTOR`
+
+        application in the same transaction — the source record is released and re-appears as a
+
+        candidate (REQ-014 RF-007); re-including re-applies it. Law lines (ISSS/AFP/Renta and employer
+
+        charges) and the overtime aggregate''s inclusion admit no adjustment
+
+        (`422 PAYROLL_RUN_LINE_NOT_ADJUSTABLE`). Requires `If-Match` with the run''s current
+
+        `concurrencyToken`; totals are recomputed and returned.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: linePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustPayrollRunLineRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/recalculation:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Recalculate employees of a payroll run
+      description: 'Selective recalculation — only while `GENERADA`: reverts the given employees'' `MOTOR` pool
+
+        applications, re-derives their lines from the CURRENT inputs and re-applies, keeping every
+
+        other employee untouched. Audited overrides of the recalculated employees are preserved when
+
+        the same concept/source re-emerges. Requires `If-Match` with the run''s current
+
+        `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecalculatePayrollRunRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/regeneration:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Regenerate a payroll run
+      description: 'Full regeneration — only while `GENERADA`: every `MOTOR` pool application of the period is
+
+        annulled (the pools end as if the run never existed), the run is rebuilt from the CURRENT
+
+        inputs and the pools re-apply. Review adjustments (overrides/exclusions) are deliberately
+
+        discarded; `regeneratedCount` increments. Requires `If-Match` with the run''s current
+
+        `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/closure:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Close a payroll run
+      description: '`AUTORIZADA` → `CERRADA` (terminal — REQ-013 P-01 second step): the payment cycle ends and the
+
+        run''s PERIOD closes in the SAME transaction; no further generation, adjustment or annulment is
+
+        possible for either. Requires `If-Match` with the run''s current `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/annulment:
+    patch:
+      tags:
+        - Payroll Runs
+      summary: Annul a payroll run
+      description: 'Pre-closure annulment (`GENERADA`/`AUTORIZADA` → `ANULADA`, terminal) with a MANDATORY reason:
+
+        every `MOTOR` pool application the run made is annulled symmetrically — the source records
+
+        return to their pre-generation state and become candidates again — and the one-active-run slot
+
+        of the Nómina × period is released (a new generation is allowed). A `CERRADA` run cannot be
+
+        annulled. Requires `If-Match` with the run''s current `concurrencyToken`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnulPayrollRunRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -83717,6 +84424,135 @@ components:
         normalizedCode:
           type: string
           readOnly: true
+      additionalProperties: false
+    AdjustPayrollRunLineRequest:
+      type: object
+      properties:
+        overrideAmount:
+          type: number
+          format: double
+          nullable: true
+        overrideNote:
+          type: string
+          nullable: true
+        isIncluded:
+          type: boolean
+          nullable: true
+        clearOverride:
+          type: boolean
+      additionalProperties: false
+    AnnulPayrollRunRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    PayrollRunEmployeeLinesResponse:
+      type: object
+      properties:
+        payrollRunPublicId:
+          type: string
+          format: uuid
+        employeePublicId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        totalIncome:
+          type: number
+          format: double
+        totalDeductions:
+          type: number
+          format: double
+        totalNet:
+          type: number
+          format: double
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollRunLineResponse'
+      additionalProperties: false
+    PayrollRunLineResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        employeePublicId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        employeeCode:
+          type: string
+          nullable: true
+        assignedPositionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        costCenterName:
+          type: string
+          nullable: true
+        conceptCode:
+          type: string
+        conceptName:
+          type: string
+        lineClass:
+          type: string
+        units:
+          type: number
+          format: double
+          nullable: true
+        baseAmount:
+          type: number
+          format: double
+          nullable: true
+        calculatedAmount:
+          type: number
+          format: double
+        overrideAmount:
+          type: number
+          format: double
+          nullable: true
+        overrideNote:
+          type: string
+          nullable: true
+        finalAmount:
+          type: number
+          format: double
+        isIncluded:
+          type: boolean
+        sourceModule:
+          type: string
+          nullable: true
+        sourceReferencePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        currencyCode:
+          type: string
+        warningCodes:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RecalculatePayrollRunRequest:
+      type: object
+      properties:
+        employeePublicIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+    ReturnPayrollRunRequest:
+      type: object
+      properties:
+        reason:
+          type: string
       additionalProperties: false
   securitySchemes:
     Bearer:

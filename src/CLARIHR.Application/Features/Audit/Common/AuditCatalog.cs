@@ -239,6 +239,13 @@ public static class AuditEventTypes
     public const string WorkScheduleInactivated = "WORK_SCHEDULE_INACTIVATED";
     public const string PayrollConfigurationTemplateLoaded = "PAYROLL_CONFIGURATION_TEMPLATE_LOADED";
     public const string PayrollRunGenerated = "PAYROLL_RUN_GENERATED";
+    public const string PayrollRunLineAdjusted = "PAYROLL_RUN_LINE_ADJUSTED";
+    public const string PayrollRunRecalculated = "PAYROLL_RUN_RECALCULATED";
+    public const string PayrollRunRegenerated = "PAYROLL_RUN_REGENERATED";
+    public const string PayrollRunAuthorized = "PAYROLL_RUN_AUTHORIZED";
+    public const string PayrollRunReturned = "PAYROLL_RUN_RETURNED";
+    public const string PayrollRunClosed = "PAYROLL_RUN_CLOSED";
+    public const string PayrollRunAnnulled = "PAYROLL_RUN_ANNULLED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
@@ -479,6 +486,13 @@ public static class AuditEventTypes
         WorkScheduleInactivated,
         PayrollConfigurationTemplateLoaded,
         PayrollRunGenerated,
+        PayrollRunLineAdjusted,
+        PayrollRunRecalculated,
+        PayrollRunRegenerated,
+        PayrollRunAuthorized,
+        PayrollRunReturned,
+        PayrollRunClosed,
+        PayrollRunAnnulled,
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,

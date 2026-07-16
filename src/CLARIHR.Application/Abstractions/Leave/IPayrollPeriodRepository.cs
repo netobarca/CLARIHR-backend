@@ -21,6 +21,9 @@ public interface IPayrollPeriodRepository
 
     Task<PayrollPeriodDefinition?> GetByIdAsync(Guid payrollPeriodId, CancellationToken cancellationToken);
 
+    /// <summary>Tracked load by INTERNAL id — the run stores the FK (closure closes the period in the same tx).</summary>
+    Task<PayrollPeriodDefinition?> GetByInternalIdAsync(long payrollPeriodId, CancellationToken cancellationToken);
+
     Task<bool> ExistsOutsideTenantAsync(Guid payrollPeriodId, CancellationToken cancellationToken);
 
     /// <summary>
