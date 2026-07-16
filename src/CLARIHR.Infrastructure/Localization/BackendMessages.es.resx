@@ -3001,4 +3001,22 @@
   <data name="WORK_SCHEDULE_INVALID" xml:space="preserve">
     <value>El código de jornada no corresponde a una jornada laboral activa de la empresa.</value>
   </data>
+  <data name="PAYROLL_RUN_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la corrida de planilla.</value>
+  </data>
+  <data name="PAYROLL_RUN_ALREADY_ACTIVE" xml:space="preserve">
+    <value>La nómina ya tiene una corrida activa para este periodo.</value>
+  </data>
+  <data name="PAYROLL_RUN_POOL_CONFLICT" xml:space="preserve">
+    <value>Un insumo de planilla cambió mientras se generaba la corrida. Reintente la generación.</value>
+  </data>
+  <data name="PAYROLL_RUN_INPUT_INVALID" xml:space="preserve">
+    <value>La nómina o el periodo no son válidos para generar.</value>
+  </data>
+  <data name="PAYROLL_RUN_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El estado de la corrida de planilla no permite el cambio solicitado.</value>
+  </data>
+  <data name="validation.message.employee_ids_must_be_omitted_or_non_empty" xml:space="preserve">
+    <value>La lista de empleados debe omitirse o venir con elementos.</value>
+  </data>
 </root>

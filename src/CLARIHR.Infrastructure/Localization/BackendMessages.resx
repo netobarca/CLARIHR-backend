@@ -3001,4 +3001,22 @@
   <data name="WORK_SCHEDULE_INVALID" xml:space="preserve">
     <value>The workday code does not match an active work schedule of the company.</value>
   </data>
+  <data name="PAYROLL_RUN_NOT_FOUND" xml:space="preserve">
+    <value>The payroll run could not be found.</value>
+  </data>
+  <data name="PAYROLL_RUN_ALREADY_ACTIVE" xml:space="preserve">
+    <value>The payroll definition already has an active run for this period.</value>
+  </data>
+  <data name="PAYROLL_RUN_POOL_CONFLICT" xml:space="preserve">
+    <value>A payroll input changed while generating the run. Retry the generation.</value>
+  </data>
+  <data name="PAYROLL_RUN_INPUT_INVALID" xml:space="preserve">
+    <value>The payroll definition or period is not valid for generation.</value>
+  </data>
+  <data name="PAYROLL_RUN_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The payroll run status does not allow the requested change.</value>
+  </data>
+  <data name="validation.message.employee_ids_must_be_omitted_or_non_empty" xml:space="preserve">
+    <value>Employee ids must be omitted or non-empty.</value>
+  </data>
 </root>

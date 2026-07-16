@@ -499,4 +499,12 @@ public sealed class PayrollRunLine : TenantEntity
         IsIncluded = isIncluded;
         AdjustedByUserId = adjustedByUserId;
     }
+
+    /// <summary>
+    /// Re-binds the line's source reference to the CREATED installment/application public id once the pool
+    /// is applied (§3.5) — the reversal annuls exactly those children. Registro lines (TNT/disciplinary/
+    /// incapacity) keep their source record's id (the REQ-014 derived-consumption key).
+    /// </summary>
+    public void BindApplicationReference(Guid applicationPublicId) =>
+        SourceReferencePublicId = applicationPublicId;
 }

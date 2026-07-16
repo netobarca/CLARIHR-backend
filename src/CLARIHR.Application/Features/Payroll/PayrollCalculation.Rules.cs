@@ -85,7 +85,8 @@ public sealed record PayrollIncomeItem(
     Guid? SourceReferencePublicId,
     bool AffectsIsss,
     bool AffectsAfp,
-    bool AffectsRenta);
+    bool AffectsRenta,
+    decimal? Units = null);
 
 /// <summary>One AUTORIZADA overtime record of the plaza (hours × factor; valued at the plaza's hour).</summary>
 public sealed record PayrollOvertimeItem(
@@ -110,7 +111,8 @@ public sealed record PayrollDeductionItem(
     Guid? SourceReferencePublicId,
     bool IsDeferrable = false,
     int DeferralOrder = 0,
-    bool IsCarryover = false);
+    bool IsCarryover = false,
+    decimal? Units = null);
 
 /// <summary>An informative employer-side item (e.g. the incapacity's employer amount — golden 5).</summary>
 public sealed record PayrollEmployerItem(
@@ -276,7 +278,7 @@ public static class PayrollCalculationRules
                 employeeLines.Add(new MutableLine(
                     employee.PersonnelFilePublicId, plaza.AssignedPositionPublicId,
                     income.ConceptCode, income.ConceptName, PayrollLineClasses.Ingreso,
-                    Units: null, BaseAmount: null, CalculatedAmount: Round2(income.Amount),
+                    Units: income.Units, BaseAmount: null, CalculatedAmount: Round2(income.Amount),
                     income.SourceModule, income.SourceReferencePublicId,
                     income.AffectsIsss, income.AffectsAfp, income.AffectsRenta, SortOrder: ++sort));
             }
@@ -308,7 +310,7 @@ public static class PayrollCalculationRules
                 employeeLines.Add(new MutableLine(
                     employee.PersonnelFilePublicId, plaza.AssignedPositionPublicId,
                     deduction.ConceptCode, deduction.ConceptName, PayrollLineClasses.Descuento,
-                    Units: null, BaseAmount: null, CalculatedAmount: Round2(deduction.Amount),
+                    Units: deduction.Units, BaseAmount: null, CalculatedAmount: Round2(deduction.Amount),
                     deduction.SourceModule, deduction.SourceReferencePublicId,
                     AffectsIsss: false, AffectsAfp: false, AffectsRenta: false, SortOrder: ++sort)
                 {

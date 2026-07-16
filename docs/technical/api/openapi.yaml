@@ -60553,6 +60553,252 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs:
+    post:
+      tags:
+        - Payroll Runs
+      summary: Generate a payroll run
+      description: 'Generates the payroll run of a Nómina × period (REQ-012): resolves the population (active
+
+        plazas whose payroll type matches the Nómina; RETIRADO profiles and employees with an issued
+
+        settlement in the period stay out), runs the pure engine (base by frequency, pool incomes,
+
+        valued overtime, registro deductions, ISSS/AFP/Renta, employer charges, minimum-income
+
+        guarantee) and persists the run with its lines and totals; the eligible pool records are
+
+        applied with origin `MOTOR` in the same transaction. Optional `employeeIds` restricts the
+
+        population. The Nómina × period admits ONE active run — a second submit yields
+
+        `409 PAYROLL_RUN_ALREADY_ACTIVE` (annul the active run to regenerate the slot); a pool record
+
+        that changes mid-generation rolls everything back with `409 PAYROLL_RUN_POOL_CONFLICT`.
+
+        Lagged not-worked-time/disciplinary inputs (REQ-014) join automatically with the
+
+        `PAYROLL_WARNING_CARRYOVER_INPUT` warning.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/preflight:
+    post:
+      tags:
+        - Payroll Runs
+      summary: Pre-flight a payroll run
+      description: 'Resolves the SAME inputs a generation would use — population, per-module input counts,
+
+        projected totals and the stable warnings (missing Renta table, missing base salary, REQ-014
+
+        lagged carryover inventory) — WITHOUT writing anything. This is the operator''s preview and the
+
+        adoption tool: the first pre-flight of a Nómina lists the historical TNT/disciplinary lags so
+
+        anything already paid by the external payroll can be excluded after generating.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/GeneratePayrollRunRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PayrollRunPreflightResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunPreflightResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunPreflightResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -83319,6 +83565,155 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    GeneratePayrollRunRequest:
+      type: object
+      properties:
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+        employeePublicIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+      additionalProperties: false
+    PayrollRunPreflightResponse:
+      type: object
+      properties:
+        employeeCount:
+          type: integer
+          format: int32
+        salaryLineCandidates:
+          type: integer
+          format: int32
+        poolIncomeCandidates:
+          type: integer
+          format: int32
+        overtimeCandidates:
+          type: integer
+          format: int32
+        poolDeductionCandidates:
+          type: integer
+          format: int32
+        notWorkedTimeInputs:
+          type: integer
+          format: int32
+        disciplinaryInputs:
+          type: integer
+          format: int32
+        incapacityInputs:
+          type: integer
+          format: int32
+        carryoverInputs:
+          type: integer
+          format: int32
+        projectedTotalIncome:
+          type: number
+          format: double
+        projectedTotalDeductions:
+          type: number
+          format: double
+        projectedTotalNet:
+          type: number
+          format: double
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollRunWarningResponse'
+      additionalProperties: false
+    PayrollRunResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+        payrollDefinitionCode:
+          type: string
+        payrollDefinitionName:
+          type: string
+        payrollTypeCode:
+          type: string
+        periodLabel:
+          type: string
+        periodStartDate:
+          type: string
+          format: date
+        periodEndDate:
+          type: string
+          format: date
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        currencyCode:
+          type: string
+        statusCode:
+          type: string
+        generatedByUserPublicId:
+          type: string
+          format: uuid
+        generatedUtc:
+          type: string
+          format: date-time
+        regeneratedCount:
+          type: integer
+          format: int32
+        employeeCount:
+          type: integer
+          format: int32
+        totalIncome:
+          type: number
+          format: double
+        totalDeductions:
+          type: number
+          format: double
+        totalEmployerCost:
+          type: number
+          format: double
+        totalNet:
+          type: number
+          format: double
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollRunWarningResponse'
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+    PayrollRunWarningResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        personnelFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        context:
+          type: string
+          nullable: true
         normalizedCode:
           type: string
           readOnly: true
