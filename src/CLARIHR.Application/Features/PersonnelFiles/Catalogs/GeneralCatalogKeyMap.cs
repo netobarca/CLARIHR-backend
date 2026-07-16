@@ -84,6 +84,8 @@ public static class GeneralCatalogKeyMap
             ["recurring-deduction-types"] = PersonnelCurriculumCatalogCategories.RecurringDeductionType,
             ["one-time-income-statuses"] = PersonnelCurriculumCatalogCategories.OneTimeIncomeStatus,
             ["overtime-record-statuses"] = PersonnelCurriculumCatalogCategories.OvertimeRecordStatus,
+            ["payroll-run-statuses"] = PersonnelCurriculumCatalogCategories.PayrollRunStatus,
+            ["payroll-period-statuses"] = PersonnelCurriculumCatalogCategories.PayrollPeriodStatus,
         };
 
     /// <summary>

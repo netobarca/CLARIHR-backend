@@ -23,6 +23,7 @@ using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.Payroll.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.Reports.Common;
@@ -798,6 +799,30 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizeOvertimeRecords,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Payroll runs ("corridas de planilla" — REQ-012 §4). ViewPayrollRuns stays AUTHN-ONLY (mirrors
+    // ViewSettlements) because besides the per-handler corporate gate (EnsureCanViewPayrollRunsAsync) the
+    // REQ-015 self-service history rides a self-or-view handler gate — a RequireAssertion here would falsely
+    // 403 the employee reading their OWN history. ManagePayrollRuns is a RequireAssertion superset of the
+    // precise handler gate (HR-only, like ManageSettlements). AuthorizePayrollRuns deliberately EXCLUDES
+    // PersonnelFiles.Admin (separation of duties + double anti-self — mirrors AuthorizeRetirement); the IAM
+    // super-admin (ManageAdministration) remains the universal fallback. Registered here BEFORE the run
+    // controllers land (PR-4…PR-7) — the governance test demands it.
+    options.AddPolicy(PersonnelFilePolicies.ViewPayrollRuns, policyBuilder => policyBuilder
+        .Combine(policy));
+    options.AddPolicy(PersonnelFilePolicies.ManagePayrollRuns, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ManagePayrollRuns,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+    options.AddPolicy(PersonnelFilePolicies.AuthorizePayrollRuns, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.AuthorizePayrollRuns,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Overtime configuration masters (overtime types, overtime justification types — REQ-007). Unlike the
     // authn-only record policies above, the masters have NO self-service channel, so these are STRICT
     // (RequireAssertion) declarative policies over the SAME View/ManageOvertimeRecords permission codes,
@@ -818,6 +843,25 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.ManageOvertimeRecords,
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
+
+    // Payroll configuration masters (payroll definitions — REQ-012 §4; work schedules join in PR-3). A NEW
+    // permission family (PayrollConfiguration.Read/Manage, ratified naming) with no self-service channel, so
+    // these are STRICT (RequireAssertion) declarative policies kept a superset of the precise
+    // IPayrollConfigurationAuthorizationService handler gate (mirrors LeaveConfigurationPolicies /
+    // OvertimeConfigurationPolicies). The master controllers carry these from PR-1.
+    options.AddPolicy(PayrollConfigurationPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PayrollConfigurationPermissionCodes.Read,
+            PayrollConfigurationPermissionCodes.Manage,
+            PayrollConfigurationPermissionCodes.ManageAdministration)));
+    options.AddPolicy(PayrollConfigurationPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PayrollConfigurationPermissionCodes.Manage,
+            PayrollConfigurationPermissionCodes.ManageAdministration)));
 
     // Cost Centers — declarative policies kept a superset of the precise
     // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /

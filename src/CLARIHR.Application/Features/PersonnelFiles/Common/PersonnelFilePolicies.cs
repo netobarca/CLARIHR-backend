@@ -408,4 +408,28 @@ public static class PersonnelFilePolicies
     /// deliberately excluded (separation of duties + triple anti-self, mirrors AuthorizeRetirement).
     /// </summary>
     public const string AuthorizeOvertimeRecords = "PersonnelFiles.AuthorizeOvertimeRecords";
+
+    /// <summary>
+    /// Read policy for payroll runs ("corridas de planilla" — REQ-012 §4). AUTHN-ONLY at the policy level
+    /// (mirrors ViewSettlements): the corporate bandeja/detail gate runs per handler
+    /// (EnsureCanViewPayrollRunsAsync) and the REQ-015 self-service history uses a self-or-view gate over the
+    /// same permission, so a RequireAssertion here would falsely 403 the employee reading their OWN history.
+    /// The run controllers that carry this arrive in PR-4…PR-7.
+    /// </summary>
+    public const string ViewPayrollRuns = "PersonnelFiles.ViewPayrollRuns";
+
+    /// <summary>
+    /// Write policy for payroll runs (generate/adjust/recalculate/regenerate/close/annul — REQ-012 §4).
+    /// HR-only, so it is a RequireAssertion superset of the precise EnsureCanManagePayrollRunsAsync handler
+    /// gate (the dedicated permission, or Admin / IAM super-admin), mirroring ManageSettlements.
+    /// Authorizing/returning is the dedicated <see cref="AuthorizePayrollRuns"/> grant.
+    /// </summary>
+    public const string ManagePayrollRuns = "PersonnelFiles.ManagePayrollRuns";
+
+    /// <summary>
+    /// Write policy for authorizing/returning a payroll run (REQ-012 §4). RequireAssertion over the
+    /// dedicated AuthorizePayrollRuns grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    public const string AuthorizePayrollRuns = "PersonnelFiles.AuthorizePayrollRuns";
 }

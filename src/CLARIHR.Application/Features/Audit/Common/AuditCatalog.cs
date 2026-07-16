@@ -228,6 +228,10 @@ public static class AuditEventTypes
     public const string OvertimeJustificationTypeActivated = "OVERTIME_JUSTIFICATION_TYPE_ACTIVATED";
     public const string OvertimeJustificationTypeInactivated = "OVERTIME_JUSTIFICATION_TYPE_INACTIVATED";
     public const string OvertimeTemplateLoaded = "OVERTIME_TEMPLATE_LOADED";
+    public const string PayrollDefinitionCreated = "PAYROLL_DEFINITION_CREATED";
+    public const string PayrollDefinitionUpdated = "PAYROLL_DEFINITION_UPDATED";
+    public const string PayrollDefinitionActivated = "PAYROLL_DEFINITION_ACTIVATED";
+    public const string PayrollDefinitionInactivated = "PAYROLL_DEFINITION_INACTIVATED";
     public const string VacationPeriodsGenerated = "VACATION_PERIODS_GENERATED";
     public const string VacationPlanSaved = "VACATION_PLAN_SAVED";
     public const string RecurringIncomeInstallmentsApplied = "RECURRING_INCOME_INSTALLMENTS_APPLIED";
@@ -457,6 +461,10 @@ public static class AuditEventTypes
         OvertimeJustificationTypeActivated,
         OvertimeJustificationTypeInactivated,
         OvertimeTemplateLoaded,
+        PayrollDefinitionCreated,
+        PayrollDefinitionUpdated,
+        PayrollDefinitionActivated,
+        PayrollDefinitionInactivated,
         VacationPeriodsGenerated,
         VacationPlanSaved,
         RecurringIncomeInstallmentsApplied,
@@ -537,6 +545,7 @@ public static class AuditEntityTypes
     public const string OvertimeType = "OvertimeType";
     public const string OvertimeJustificationType = "OvertimeJustificationType";
     public const string OvertimeConfiguration = "OvertimeConfiguration";
+    public const string PayrollDefinition = "PayrollDefinition";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -595,7 +604,8 @@ public static class AuditEntityTypes
         EmployeeRelationsConfiguration,
         OvertimeType,
         OvertimeJustificationType,
-        OvertimeConfiguration
+        OvertimeConfiguration,
+        PayrollDefinition
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

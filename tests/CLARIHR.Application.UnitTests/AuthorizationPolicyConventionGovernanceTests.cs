@@ -9,6 +9,7 @@ using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.OrgUnits;
+using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.PositionSlots;
@@ -21,6 +22,7 @@ using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.Payroll.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -210,12 +212,27 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PersonnelFilePolicies.ViewNotWorkedTimes,
         PersonnelFilePolicies.ManageNotWorkedTimes,
         PersonnelFilePolicies.ManageNotWorkedTimeTypes,
+        // Corridas de planilla (REQ-012 §4): View authn-only (la bandeja corporativa gatea por handler y el
+        // autoservicio del historial REQ-015 usa self-or-view — un RequireAssertion daría 403 falsos) +
+        // RequireAssertion Manage (HR-only, molde ManageSettlements) + AuthorizePayrollRuns que EXCLUYE
+        // PersonnelFiles.Admin (separación de funciones + doble anti-self, molde AuthorizeRetirement).
+        // Los controllers de corridas llegan en PR-4…PR-7; los maestros de configuración usan la familia
+        // estricta PayrollConfigurationPolicies (ver PayrollConfigurationPolicyNames).
+        PersonnelFilePolicies.ViewPayrollRuns,
+        PersonnelFilePolicies.ManagePayrollRuns,
+        PersonnelFilePolicies.AuthorizePayrollRuns,
     };
 
     private static readonly HashSet<string> OvertimeConfigurationPolicyNames = new(StringComparer.Ordinal)
     {
         OvertimeConfigurationPolicies.Read,
         OvertimeConfigurationPolicies.Manage,
+    };
+
+    private static readonly HashSet<string> PayrollConfigurationPolicyNames = new(StringComparer.Ordinal)
+    {
+        PayrollConfigurationPolicies.Read,
+        PayrollConfigurationPolicies.Manage,
     };
 
     private static readonly HashSet<string> CostCenterPolicyNames = new(StringComparer.Ordinal)
@@ -337,6 +354,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 LeaveConfigurationPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
 
+        if (AnyHandlerInjects(typeof(IPayrollConfigurationAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                PayrollConfigurationPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                PayrollConfigurationPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
+
         if (AnyHandlerInjects(typeof(IEmployeeRelationsConfigurationAuthorizationService)))
         {
             Assert.Contains(controllers, entry => entry.Marker is not null &&
@@ -414,6 +438,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(PositionSlotPolicyNames);
         valid.UnionWith(PersonnelFilePolicyNames);
         valid.UnionWith(OvertimeConfigurationPolicyNames);
+        valid.UnionWith(PayrollConfigurationPolicyNames);
         valid.UnionWith(CostCenterPolicyNames);
         valid.UnionWith(LeaveConfigurationPolicyNames);
         valid.UnionWith(EmployeeRelationsConfigurationPolicyNames);

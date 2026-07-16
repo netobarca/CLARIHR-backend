@@ -838,3 +838,33 @@ internal sealed class RecurringDeductionTypeCatalogItemConfiguration
     {
     }
 }
+
+internal sealed class PayrollRunStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PayrollRunStatusCatalogItem>
+{
+    public PayrollRunStatusCatalogItemConfiguration()
+        : base(
+            "payroll_run_status_catalog_items",
+            "pk_payroll_run_status_catalog_items",
+            "uq_payroll_run_status_catalog_items__public_id",
+            "uq_payroll_run_status_catalog_items__country_code",
+            "ix_payroll_run_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPayrollRunStatusCatalogItems())
+    {
+    }
+}
+
+internal sealed class PayrollPeriodStatusCatalogItemConfiguration
+    : GeneralCatalogItemConfigurationBase<PayrollPeriodStatusCatalogItem>
+{
+    public PayrollPeriodStatusCatalogItemConfiguration()
+        : base(
+            "payroll_period_status_catalog_items",
+            "pk_payroll_period_status_catalog_items",
+            "uq_payroll_period_status_catalog_items__public_id",
+            "uq_payroll_period_status_catalog_items__country_code",
+            "ix_payroll_period_status_catalog_items__country_active_sort",
+            GlobalCatalogSeedData.GetPayrollPeriodStatusCatalogItems())
+    {
+    }
+}

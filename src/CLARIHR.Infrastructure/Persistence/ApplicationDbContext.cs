@@ -316,6 +316,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OvertimeRecordStatusCatalogItem> OvertimeRecordStatusCatalogItems => Set<OvertimeRecordStatusCatalogItem>();
 
+    public DbSet<PayrollRunStatusCatalogItem> PayrollRunStatusCatalogItems => Set<PayrollRunStatusCatalogItem>();
+
+    public DbSet<PayrollPeriodStatusCatalogItem> PayrollPeriodStatusCatalogItems => Set<PayrollPeriodStatusCatalogItem>();
+
     public DbSet<HobbyCatalogItem> HobbyCatalogItems => Set<HobbyCatalogItem>();
 
     public DbSet<AssociationCatalogItem> AssociationCatalogItems => Set<AssociationCatalogItem>();

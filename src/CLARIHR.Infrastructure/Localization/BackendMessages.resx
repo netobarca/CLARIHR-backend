@@ -2932,4 +2932,25 @@
   <data name="NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>The payroll-input export requires both a start date and an end date.</value>
   </data>
+  <data name="validation.message.overtime_window_offset_requires_the_overtime_window_to_be_enabled" xml:space="preserve">
+    <value>Overtime window offset requires the overtime window to be enabled.</value>
+  </data>
+  <data name="validation.message.attendance_window_offset_requires_the_attendance_window_to_be_enabled" xml:space="preserve">
+    <value>Attendance window offset requires the attendance window to be enabled.</value>
+  </data>
+  <data name="PAYROLL_CONFIGURATION_FORBIDDEN" xml:space="preserve">
+    <value>You do not have permission to access payroll configuration administration.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_NOT_FOUND" xml:space="preserve">
+    <value>The payroll definition could not be found.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_CODE_TAKEN" xml:space="preserve">
+    <value>Another active payroll definition already uses the requested code.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_IN_USE" xml:space="preserve">
+    <value>The payroll definition is referenced by an active period or run and cannot be inactivated.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_CATALOG_INVALID" xml:space="preserve">
+    <value>The payroll type, pay period or currency code is not an active catalog code.</value>
+  </data>
 </root>

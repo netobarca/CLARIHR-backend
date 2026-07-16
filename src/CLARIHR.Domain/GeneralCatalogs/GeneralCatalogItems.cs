@@ -1620,3 +1620,72 @@ public sealed class RecurringDeductionTypeCatalogItem : GeneralCatalogItem
         int sortOrder) =>
         new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
 }
+
+/// <summary>
+/// Country-scoped catalog of payroll RUN lifecycle STATUSES (general-catalogs key
+/// <c>payroll-run-statuses</c>) backing the <c>statusCode</c> of a payroll run ("corrida", REQ-012 §1.5 —
+/// generate → authorize → close, with return-with-reason and pre-closure annulment). The canonical codes and
+/// transition sets live in <c>PayrollRunStatuses</c> (Domain/Payroll); the run aggregate arrives in M4 (PR-4).
+/// Seeded for SV.
+/// </summary>
+public sealed class PayrollRunStatusCatalogItem : GeneralCatalogItem
+{
+    private PayrollRunStatusCatalogItem()
+    {
+    }
+
+    private PayrollRunStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PayrollRunStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+/// <summary>
+/// Country-scoped catalog of payroll PERIOD lifecycle STATUSES (general-catalogs key
+/// <c>payroll-period-statuses</c>) backing the <c>statusCode</c> the period aggregate gains in M2 (PR-2 —
+/// born GENERADO, closed by its run's closure, annullable only without an active run). The canonical codes
+/// live in <c>PayrollPeriodStatuses</c> (Domain/Payroll). Seeded for SV.
+/// </summary>
+public sealed class PayrollPeriodStatusCatalogItem : GeneralCatalogItem
+{
+    private PayrollPeriodStatusCatalogItem()
+    {
+    }
+
+    private PayrollPeriodStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static PayrollPeriodStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}

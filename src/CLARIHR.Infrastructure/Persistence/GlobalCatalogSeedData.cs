@@ -757,6 +757,28 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("ONE_TIME_DEDUCTION_STATUS_CATALOG", -9944L, "SV", "ANULADO", "Anulado", 50),
     ];
 
+    // REQ-012 (planilla · motor de generación, §1.5): lifecycle of a payroll RUN ("corrida") — generate →
+    // authorize → close, with return-with-reason (AUTORIZADA→GENERADA) and pre-closure annulment. The
+    // canonical codes/sets live in Domain/Payroll/PayrollRunStatuses. Country-scoped HasData seed (SV);
+    // IDs -9970…-9973 (block -9970…-9989; -9975…-9977 are the period statuses, -9978…-9989 slack).
+    public static IEnumerable<object> GetPayrollRunStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PAYROLL_RUN_STATUS_CATALOG", -9970L, "SV", "GENERADA", "Generada", 10),
+        CreateGeneralCatalogSeed("PAYROLL_RUN_STATUS_CATALOG", -9971L, "SV", "AUTORIZADA", "Autorizada", 20),
+        CreateGeneralCatalogSeed("PAYROLL_RUN_STATUS_CATALOG", -9972L, "SV", "CERRADA", "Cerrada", 30),
+        CreateGeneralCatalogSeed("PAYROLL_RUN_STATUS_CATALOG", -9973L, "SV", "ANULADA", "Anulada", 40),
+    ];
+
+    // REQ-012 (§1.5): lifecycle of a payroll PERIOD once the calendar hangs from a Nómina (M2/PR-2) — born
+    // GENERADO, CERRADO by its run's closure (same tx), ANULADO only without an active run. Canonical codes in
+    // Domain/Payroll/PayrollPeriodStatuses. Country-scoped HasData seed (SV); IDs -9975…-9977.
+    public static IEnumerable<object> GetPayrollPeriodStatusCatalogItems() =>
+    [
+        CreateGeneralCatalogSeed("PAYROLL_PERIOD_STATUS_CATALOG", -9975L, "SV", "GENERADO", "Generado", 10),
+        CreateGeneralCatalogSeed("PAYROLL_PERIOD_STATUS_CATALOG", -9976L, "SV", "CERRADO", "Cerrado", 20),
+        CreateGeneralCatalogSeed("PAYROLL_PERIOD_STATUS_CATALOG", -9977L, "SV", "ANULADO", "Anulado", 30),
+    ];
+
     // REQ-011 (tiempos no trabajados · P-16): NO decision step — the absence already happened, so the record is
     // born REGISTRADO and can only be ANULADO (the incapacity reasoning). Country-scoped HasData seed (SV);
     // IDs -9960/-9961 (block -9960…-9969; -9965 is the ActionType TIEMPO_NO_TRABAJADO).

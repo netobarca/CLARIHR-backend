@@ -2932,4 +2932,25 @@
   <data name="NOT_WORKED_TIME_PAYROLL_INPUT_RANGE_REQUIRED" xml:space="preserve">
     <value>La exportación del insumo de planilla requiere fecha de inicio y fecha de fin.</value>
   </data>
+  <data name="validation.message.overtime_window_offset_requires_the_overtime_window_to_be_enabled" xml:space="preserve">
+    <value>El desplazamiento de la ventana de horas extras requiere que la ventana esté habilitada.</value>
+  </data>
+  <data name="validation.message.attendance_window_offset_requires_the_attendance_window_to_be_enabled" xml:space="preserve">
+    <value>El desplazamiento de la ventana de asistencia requiere que la ventana esté habilitada.</value>
+  </data>
+  <data name="PAYROLL_CONFIGURATION_FORBIDDEN" xml:space="preserve">
+    <value>No tiene permiso para acceder a la administración de la configuración de planillas.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_NOT_FOUND" xml:space="preserve">
+    <value>No se encontró la nómina.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_CODE_TAKEN" xml:space="preserve">
+    <value>Otra nómina activa ya utiliza el código solicitado.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_IN_USE" xml:space="preserve">
+    <value>La nómina está referenciada por un periodo activo o una corrida viva y no puede inactivarse.</value>
+  </data>
+  <data name="PAYROLL_DEFINITION_CATALOG_INVALID" xml:space="preserve">
+    <value>El tipo de planilla, el periodo de pago o la moneda no es un código de catálogo activo.</value>
+  </data>
 </root>

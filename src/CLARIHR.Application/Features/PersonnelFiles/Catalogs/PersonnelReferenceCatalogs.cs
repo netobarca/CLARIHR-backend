@@ -143,6 +143,8 @@ internal static class PersonnelCurriculumCatalogCategories
     public const string RecurringDeductionType = "RecurringDeductionType";
     public const string OneTimeIncomeStatus = "OneTimeIncomeStatus";
     public const string OvertimeRecordStatus = "OvertimeRecordStatus";
+    public const string PayrollRunStatus = "PayrollRunStatus";
+    public const string PayrollPeriodStatus = "PayrollPeriodStatus";
 }
 
 internal static class PersonnelCurriculumCatalogValidation

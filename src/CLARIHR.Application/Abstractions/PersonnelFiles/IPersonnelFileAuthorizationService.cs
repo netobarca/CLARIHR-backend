@@ -507,5 +507,33 @@ public interface IPersonnelFileAuthorizationService
     Task<Result> EnsureCanAuthorizeOvertimeRecordsAsync(Guid companyId, CancellationToken cancellationToken) =>
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
+    /// <summary>
+    /// Read gate for payroll runs (REQ-012 §4): the dedicated <c>PersonnelFiles.ViewPayrollRuns</c>
+    /// permission, or Admin / IAM super-admin. Payroll data exposes salaries, so corporate reads are
+    /// HR-only; the REQ-015 self-service branch (the employee reading their OWN history) is resolved by a
+    /// separate self-or-view check in the history handlers, not here.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewPayrollRunsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Write gate for payroll runs (generate/adjust/recalculate/regenerate/close/annul — REQ-012 §4): the
+    /// dedicated <c>PersonnelFiles.ManagePayrollRuns</c> permission, or Admin / IAM super-admin.
+    /// Authorizing/returning is NOT covered — see the dedicated gate below.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanManagePayrollRunsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
+    /// Gate for authorizing a payroll run or returning it with a reason (REQ-012 §4): the dedicated
+    /// <c>PersonnelFiles.AuthorizePayrollRuns</c> permission, or IAM super-admin — <c>Admin</c> is
+    /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanAuthorizePayrollRunsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
     Error TenantMismatch(RbacPermissionAction action);
 }

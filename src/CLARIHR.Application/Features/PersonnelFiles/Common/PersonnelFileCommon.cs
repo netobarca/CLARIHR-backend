@@ -464,6 +464,29 @@ public static class PersonnelFilePermissionCodes
     /// </summary>
     public const string AuthorizeOvertimeRecords = "PersonnelFiles.AuthorizeOvertimeRecords";
 
+    /// <summary>
+    /// Dedicated permission to read payroll runs ("corridas de planilla" — REQ-012 §4): the company bandeja,
+    /// the run detail with its per-employee drill, the exports and the corporate employee-history query.
+    /// Payroll data exposes salaries, so corporate reads are HR-only; the REQ-015 self-service branch (the
+    /// employee reading their OWN history) is resolved by a self-or-view handler gate, never by this
+    /// permission alone. Admin is a superset.
+    /// </summary>
+    public const string ViewPayrollRuns = "PersonnelFiles.ViewPayrollRuns";
+
+    /// <summary>
+    /// Dedicated permission to generate, adjust (overrides/inclusion), recalculate, regenerate, close and
+    /// annul payroll runs (REQ-012 §4). Admin is a superset. Authorizing/returning a run requires the
+    /// dedicated <see cref="AuthorizePayrollRuns"/> grant (double anti-self on the decision).
+    /// </summary>
+    public const string ManagePayrollRuns = "PersonnelFiles.ManagePayrollRuns";
+
+    /// <summary>
+    /// Dedicated permission to authorize a payroll run or return it with a reason (REQ-012 §4). Like
+    /// <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
+    /// (separation of duties + double anti-self); only the IAM super-admin remains a universal fallback.
+    /// </summary>
+    public const string AuthorizePayrollRuns = "PersonnelFiles.AuthorizePayrollRuns";
+
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
 }
