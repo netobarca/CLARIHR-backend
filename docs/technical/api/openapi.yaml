@@ -61506,6 +61506,531 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/query:
+    post:
+      tags:
+        - Payroll Runs
+      summary: Query the payroll-run bandeja
+      description: 'Paginated and filterable (Nómina, period, status, year) over the PERSISTED run header — the
+
+        totals are what the review froze, never recomputed (REQ-013 P-03). **`statusCounts` always
+
+        spans EVERY status** — they are the numbers of the tabs, so do not recompute them from
+
+        `items`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryPayrollRunsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunBandejaResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/export:
+    get:
+      tags:
+        - Payroll Runs
+      summary: Export the payroll-run bandeja to Excel/CSV/JSON
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+        - name: payrollDefinitionPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payrollPeriodPublicId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: statusCode
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/lines/export:
+    get:
+      tags:
+        - Payroll Runs
+      summary: Export the payroll print (run lines)
+      description: 'The payroll print (REQ-013 RF-003): every line — employee, cost center, concept, class, units,
+
+        base, calculated amount, audited override and final amount, inclusion flag and source module —
+
+        as `DETALLE` rows, followed by `TOTAL_POR_CONCEPTO` and `TOTAL_POR_CENTRO_COSTO` summary rows
+
+        computed over the INCLUDED lines.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/bank-reconciliation/export:
+    get:
+      tags:
+        - Payroll Runs
+      summary: Export the bank reconciliation of a payroll run
+      description: 'One row per employee of the run: payment method → bank → account (the profile''s designated
+
+        payment account, else the PRIMARY one) with the employee''s net over the INCLUDED lines. An
+
+        employee without a resolvable account still travels — the row carries the
+
+        `PAYROLL_WARNING_NO_BANK_ACCOUNT` warning instead of blocking the export.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: xlsx
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/payroll-runs/employee-history/query:
+    post:
+      tags:
+        - Payroll Runs
+      summary: Query an employee's payroll history across runs
+      description: 'The EMPLOYEE axis of the motor (REQ-015 RF-001): one row per run where the employee has
+
+        INCLUDED lines, with THEIR sums (income/deductions/net), newest first. Default statuses are
+
+        `CERRADA`+`AUTORIZADA` (the payment history); passing `statusCodes: ["GENERADA"]` turns the
+
+        SAME endpoint into the open-period actions/events view. The per-run drill is
+
+        `GET …/payroll-runs/{id}/employees/{personnelFilePublicId}`.'
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryPayrollRunEmployeeHistoryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeHistoryResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payroll-history:
+    get:
+      tags:
+        - Personnel Files
+      summary: Get an employee's own payroll history
+      description: 'The self-service payment history (REQ-015 RF-005): one row per `CERRADA`/`AUTORIZADA` run
+
+        where the employee has INCLUDED lines, with their income/deduction/net sums, newest first.
+
+        States are FIXED — drafts (`GENERADA`) and annulled runs NEVER appear on this surface, and
+
+        there is no payslip PDF here (F2). Access: the corporate `ViewPayrollRuns` grant OR the
+
+        personnel file linked to the caller; other files answer `404`.'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: pageSize
+          in: query
+          schema:
+            maximum: 100
+            minimum: 1
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeHistoryResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payroll-history/{payrollRunPublicId}:
+    get:
+      tags:
+        - Personnel Files
+      summary: Get the employee's own lines of one payroll run
+      description: 'The self-service drill (REQ-015 RF-005): the employee''s lines of ONE `CERRADA`/`AUTORIZADA`
+
+        run — concept, class, units, base, calculated/override/final amount, inclusion flag and the
+
+        line→source traceability — plus their income/deduction/net sums. A `GENERADA` or annulled run
+
+        answers `404` on this surface (fixed states).'
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: payrollRunPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeLinesResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
     AcceptCompanyUserInvitationRequest:
@@ -84553,6 +85078,208 @@ components:
       properties:
         reason:
           type: string
+      additionalProperties: false
+    PayrollRunBandejaResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollRunListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+      additionalProperties: false
+    PayrollRunEmployeeHistoryItemResponse:
+      type: object
+      properties:
+        payrollRunPublicId:
+          type: string
+          format: uuid
+        payrollDefinitionCode:
+          type: string
+        payrollDefinitionName:
+          type: string
+        payrollTypeCode:
+          type: string
+        periodLabel:
+          type: string
+        periodStartDate:
+          type: string
+          format: date
+        periodEndDate:
+          type: string
+          format: date
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        statusCode:
+          type: string
+        currencyCode:
+          type: string
+        totalIncome:
+          type: number
+          format: double
+        totalDeductions:
+          type: number
+          format: double
+        totalNet:
+          type: number
+          format: double
+      additionalProperties: false
+    PayrollRunEmployeeHistoryResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayrollRunEmployeeHistoryItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    PayrollRunListItemResponse:
+      type: object
+      properties:
+        payrollRunPublicId:
+          type: string
+          format: uuid
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+        payrollDefinitionCode:
+          type: string
+        payrollDefinitionName:
+          type: string
+        payrollTypeCode:
+          type: string
+        periodLabel:
+          type: string
+        periodStartDate:
+          type: string
+          format: date
+        periodEndDate:
+          type: string
+          format: date
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        currencyCode:
+          type: string
+        statusCode:
+          type: string
+        employeeCount:
+          type: integer
+          format: int32
+        totalIncome:
+          type: number
+          format: double
+        totalDeductions:
+          type: number
+          format: double
+        totalEmployerCost:
+          type: number
+          format: double
+        totalNet:
+          type: number
+          format: double
+        generatedUtc:
+          type: string
+          format: date-time
+        regeneratedCount:
+          type: integer
+          format: int32
+      additionalProperties: false
+    QueryPayrollRunEmployeeHistoryRequest:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollTypeCode:
+          type: string
+          nullable: true
+        statusCodes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        from:
+          type: string
+          format: date
+          nullable: true
+        to:
+          type: string
+          format: date
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    QueryPayrollRunsRequest:
+      type: object
+      properties:
+        payrollDefinitionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        payrollPeriodPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        statusCode:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
       additionalProperties: false
   securitySchemes:
     Bearer:

@@ -39,7 +39,9 @@ public sealed partial class ApiIntegrationTests
         string lastName,
         string employeeCode,
         string institutionalEmail,
-        decimal monthlySalary = 600m)
+        decimal monthlySalary = 600m,
+        Guid? linkedUserPublicId = null,
+        bool withBankAccount = false)
     {
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -73,9 +75,27 @@ public sealed partial class ApiIntegrationTests
             photoFilePublicId: null,
             orgUnitPublicId: null);
         file.SetTenantId(tenantId);
-        file.CompleteWithoutLinkedUser();
+        if (linkedUserPublicId is { } linkedUser)
+        {
+            file.Complete(linkedUser);
+        }
+        else
+        {
+            file.CompleteWithoutLinkedUser();
+        }
+
         dbContext.Set<PersonnelFile>().Add(file);
         await dbContext.SaveChangesAsync();
+
+        PersonnelFileBankAccount? bankAccount = null;
+        if (withBankAccount)
+        {
+            bankAccount = PersonnelFileBankAccount.Create(
+                bankCatalogItemId: null, "BANCO AGRICOLA", "USD", $"CTA-{employeeCode}", "AHORRO", isPrimary: true);
+            bankAccount.SetTenantId(tenantId);
+            file.AddBankAccount(bankAccount);
+            await dbContext.SaveChangesAsync();
+        }
 
         var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", PayrollRunHireDate, 365m);
         profile.BindToPersonnelFile(file.Id);
@@ -95,7 +115,9 @@ public sealed partial class ApiIntegrationTests
             endDate: null,
             isPrimary: true,
             isActive: true,
-            notes: null);
+            notes: null,
+            paymentMethodCode: withBankAccount ? "TRANSFERENCIA" : null,
+            paymentBankAccountPublicId: bankAccount?.PublicId);
         assignment.BindToPersonnelFile(file.Id);
         assignment.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmploymentAssignment>().Add(assignment);
@@ -779,5 +801,219 @@ public sealed partial class ApiIntegrationTests
         {
             Assert.Equal("APLICADO", doc.RootElement.GetProperty("statusCode").GetString());
         }
+    }
+
+    [Fact]
+    public async Task PayrollRuns_Bandeja_ExportsAndBankReconciliation_Square()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+
+        _ = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Cuenta", "Primaria", "EMP-PRUN-I", "cuenta.prun.i@empresa.test", withBankAccount: true);
+        _ = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Sin", "Cuenta", "EMP-PRUN-I2", "sin.prun.i@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        decimal totalNet;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+            totalNet = doc.RootElement.GetProperty("totalNet").GetDecimal();
+        }
+
+        // Bandeja: the persisted header travels as-is; statusCounts are the tab numbers.
+        var bandeja = await manager.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/query", new { });
+        var bandejaPayload = await bandeja.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == bandeja.StatusCode, $"bandeja: {(int)bandeja.StatusCode} {bandejaPayload}");
+        using (var doc = JsonDocument.Parse(bandejaPayload))
+        {
+            var item = Assert.Single(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+            Assert.Equal(runId, item.GetProperty("payrollRunPublicId").GetGuid());
+            Assert.Equal(totalNet, item.GetProperty("totalNet").GetDecimal());
+            Assert.Equal(definitionId, item.GetProperty("payrollDefinitionPublicId").GetGuid());
+            Assert.Equal(1, doc.RootElement.GetProperty("statusCounts").GetProperty("GENERADA").GetInt32());
+        }
+
+        // Filtering to another status empties the ITEMS but never the counts (they span every status).
+        var filtered = await manager.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/query", new { statusCode = "CERRADA" });
+        filtered.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await filtered.Content.ReadAsStringAsync()))
+        {
+            Assert.Empty(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+            Assert.Equal(1, doc.RootElement.GetProperty("statusCounts").GetProperty("GENERADA").GetInt32());
+        }
+
+        // Exports smoke: the two formats the client asked for (REQ-013 RF-020).
+        var csv = await manager.GetAsync($"/api/v1/companies/{scenario.TenantId}/payroll-runs/export?format=csv");
+        Assert.True(HttpStatusCode.OK == csv.StatusCode, $"csv export: {(int)csv.StatusCode}");
+        Assert.StartsWith("text/csv", csv.Content.Headers.ContentType!.MediaType);
+        var xlsx = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/export?format=xlsx");
+        Assert.True(HttpStatusCode.OK == xlsx.StatusCode, $"lines export: {(int)xlsx.StatusCode}");
+        Assert.Contains("spreadsheetml", xlsx.Content.Headers.ContentType!.MediaType);
+
+        // The payroll print carries detail AND summary rows (per concept / per cost center).
+        var linesJson = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/lines/export?format=json");
+        linesJson.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await linesJson.Content.ReadAsStringAsync()))
+        {
+            var tipos = doc.RootElement.EnumerateArray()
+                .Select(row => row.GetProperty("TipoFila").GetString())
+                .ToArray();
+            Assert.Contains("DETALLE", tipos);
+            Assert.Contains("TOTAL_POR_CONCEPTO", tipos);
+            Assert.Contains("TOTAL_POR_CENTRO_COSTO", tipos);
+        }
+
+        // Bank reconciliation: Σ of the employee nets ≡ the run's net; the account-less employee travels
+        // with the warning instead of blocking (advertir-nunca-bloquear).
+        var reconciliation = await manager.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/bank-reconciliation/export?format=json");
+        var reconciliationPayload = await reconciliation.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == reconciliation.StatusCode, $"reconciliation: {(int)reconciliation.StatusCode} {reconciliationPayload}");
+        using (var doc = JsonDocument.Parse(reconciliationPayload))
+        {
+            var rows = doc.RootElement.EnumerateArray().ToArray();
+            Assert.Equal(2, rows.Length);
+            Assert.Equal(totalNet, rows.Sum(row => row.GetProperty("Neto").GetDecimal()));
+
+            var withAccount = rows.Single(row => row.GetProperty("CodigoEmpleado").GetString() == "EMP-PRUN-I");
+            Assert.Equal("BANCO AGRICOLA", withAccount.GetProperty("Banco").GetString());
+            Assert.Equal("TRANSFERENCIA", withAccount.GetProperty("FormaPago").GetString());
+            Assert.Equal(JsonValueKind.Null, withAccount.GetProperty("Advertencia").ValueKind);
+
+            var withoutAccount = rows.Single(row => row.GetProperty("CodigoEmpleado").GetString() == "EMP-PRUN-I2");
+            Assert.Equal("PAYROLL_WARNING_NO_BANK_ACCOUNT", withoutAccount.GetProperty("Advertencia").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task PayrollRuns_EmployeeHistory_CorporateAndSelfService_FixedStates()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var manager = factory.CreateClientFor(PayrollRunManagerContext(scenario));
+        using var authorizer = factory.CreateClientFor(PayrollRunAuthorizerContext(scenario, Guid.NewGuid()));
+        var employeeUserId = Guid.NewGuid();
+        // The employee: authenticated, ZERO permissions — the self-or-view gate must carry them.
+        using var employee = factory.CreateClientFor(TestUserContext.Authenticated(employeeUserId, scenario.TenantId));
+
+        var fileA = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Historial", "Propio", "EMP-PRUN-J", "historial.prun.j@empresa.test",
+            linkedUserPublicId: employeeUserId);
+        var fileB = await SeedPayrollRunCandidateAsync(
+            scenario.TenantId, "Otro", "Expediente", "EMP-PRUN-J2", "otro.prun.j@empresa.test");
+        var (definitionId, periodId) = await CreatePayrollDefinitionWithCalendarAsync(manager, scenario.TenantId);
+
+        var generate = await GeneratePayrollRunAsync(manager, scenario.TenantId, definitionId, periodId);
+        Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+        Guid runId;
+        using (var doc = JsonDocument.Parse(await generate.Content.ReadAsStringAsync()))
+        {
+            runId = doc.RootElement.GetProperty("publicId").GetGuid();
+        }
+
+        // Corporate default = payment history (CERRADA+AUTORIZADA): the GENERADA run is NOT there…
+        var historyDefault = await manager.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/employee-history/query",
+            new { personnelFilePublicId = fileA });
+        historyDefault.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await historyDefault.Content.ReadAsStringAsync()))
+        {
+            Assert.Empty(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+        }
+
+        // …and WITH the explicit GENERADA filter the SAME endpoint is the open-period view; the row's
+        // sums square with the drill (fila ≡ Σ líneas — the PR-7 gate).
+        decimal drillNet;
+        using (var drill = await ReadEmployeeLinesAsync(manager, scenario.TenantId, runId, fileA))
+        {
+            drillNet = drill.RootElement.GetProperty("totalNet").GetDecimal();
+        }
+
+        var openPeriod = await manager.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/employee-history/query",
+            new { personnelFilePublicId = fileA, statusCodes = new[] { "GENERADA" } });
+        openPeriod.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await openPeriod.Content.ReadAsStringAsync()))
+        {
+            var row = Assert.Single(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+            Assert.Equal(runId, row.GetProperty("payrollRunPublicId").GetGuid());
+            Assert.Equal("GENERADA", row.GetProperty("statusCode").GetString());
+            Assert.Equal(drillNet, row.GetProperty("totalNet").GetDecimal());
+        }
+
+        // Self-service while GENERADA: the fixed-states surface shows NOTHING (list empty, drill 404).
+        var selfWhileDraft = await employee.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history");
+        var selfWhileDraftPayload = await selfWhileDraft.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == selfWhileDraft.StatusCode, $"self draft: {(int)selfWhileDraft.StatusCode} {selfWhileDraftPayload}");
+        using (var doc = JsonDocument.Parse(selfWhileDraftPayload))
+        {
+            Assert.Empty(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+        }
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await employee.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history/{runId}")).StatusCode);
+
+        // Authorize (other user) + close — the run becomes payment history.
+        var (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var authorize = await PatchPayrollRunAsync(
+            authorizer, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/authorization", token);
+        Assert.Equal(HttpStatusCode.OK, authorize.StatusCode);
+        (_, token, _, _) = await ReadRunAsync(manager, scenario.TenantId, runId);
+        var close = await PatchPayrollRunAsync(
+            manager, $"/api/v1/companies/{scenario.TenantId}/payroll-runs/{runId}/closure", token);
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+
+        var historyClosed = await manager.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/payroll-runs/employee-history/query",
+            new { personnelFilePublicId = fileA });
+        historyClosed.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await historyClosed.Content.ReadAsStringAsync()))
+        {
+            var row = Assert.Single(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+            Assert.Equal("CERRADA", row.GetProperty("statusCode").GetString());
+        }
+
+        // Self-service now sees their history and their OWN lines only.
+        var selfHistory = await employee.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history");
+        selfHistory.EnsureSuccessStatusCode();
+        using (var doc = JsonDocument.Parse(await selfHistory.Content.ReadAsStringAsync()))
+        {
+            var row = Assert.Single(doc.RootElement.GetProperty("items").EnumerateArray().ToArray());
+            Assert.Equal(runId, row.GetProperty("payrollRunPublicId").GetGuid());
+            Assert.Equal(drillNet, row.GetProperty("totalNet").GetDecimal());
+        }
+
+        var selfLines = await employee.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history/{runId}");
+        var selfLinesPayload = await selfLines.Content.ReadAsStringAsync();
+        Assert.True(HttpStatusCode.OK == selfLines.StatusCode, $"self lines: {(int)selfLines.StatusCode} {selfLinesPayload}");
+        using (var doc = JsonDocument.Parse(selfLinesPayload))
+        {
+            Assert.Equal(fileA, doc.RootElement.GetProperty("employeePublicId").GetGuid());
+            Assert.All(
+                doc.RootElement.GetProperty("lines").EnumerateArray(),
+                line => Assert.Equal(fileA, line.GetProperty("employeePublicId").GetGuid()));
+        }
+
+        // Someone else's file: 403 (the file exists, the caller is neither linked nor HR)…
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await employee.GetAsync($"/api/v1/personnel-files/{fileB}/payroll-history")).StatusCode);
+
+        // …an unknown file: 404 — and the corporate View grant passes the same surface.
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await employee.GetAsync($"/api/v1/personnel-files/{Guid.NewGuid()}/payroll-history")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await manager.GetAsync($"/api/v1/personnel-files/{fileA}/payroll-history")).StatusCode);
     }
 }

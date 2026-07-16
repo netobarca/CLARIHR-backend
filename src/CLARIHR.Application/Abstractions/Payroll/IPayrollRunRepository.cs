@@ -69,4 +69,54 @@ public interface IPayrollRunRepository
         long payrollDefinitionId,
         long payrollPeriodId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The corporate bandeja over the PERSISTED header (REQ-013 P-03 — never recomputed);
+    /// <c>StatusCounts</c> spans every status under the same filters minus the status one.
+    /// </summary>
+    Task<Features.Payroll.PayrollRunBandejaResponse> QueryRunsAsync(
+        Features.Payroll.QueryPayrollRunsQuery query,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<Features.Payroll.CorridaPlanillaExportRow>> GetRunExportRowsAsync(
+        Features.Payroll.ExportPayrollRunsQuery query,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The payroll print (REQ-013 RF-003): detail rows + per-concept and per-cost-center totals over the
+    /// INCLUDED lines. Null when the run does not exist in the tenant.
+    /// </summary>
+    Task<IReadOnlyCollection<Features.Payroll.ImpresionPlanillaExportRow>?> GetRunLineExportRowsAsync(
+        Guid tenantId,
+        Guid payrollRunPublicId,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One row per employee of the run with payment method → bank → account (designated or PRIMARY) and
+    /// the employee's net; a missing account travels as a warning, never a block. Null when the run does
+    /// not exist in the tenant.
+    /// </summary>
+    Task<IReadOnlyCollection<Features.Payroll.ConciliacionBancariaExportRow>?> GetBankReconciliationRowsAsync(
+        Guid tenantId,
+        Guid payrollRunPublicId,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The employee axis (REQ-015): one row per run holding INCLUDED lines of the employee, with THEIR
+    /// sums, newest first (GROUP BY over the M4 employee index).
+    /// </summary>
+    Task<Features.Payroll.PayrollRunEmployeeHistoryResponse> QueryEmployeeHistoryAsync(
+        Guid tenantId,
+        Guid personnelFilePublicId,
+        int? year,
+        Guid? payrollDefinitionPublicId,
+        string? payrollTypeCode,
+        IReadOnlyCollection<string> statusCodes,
+        DateOnly? from,
+        DateOnly? to,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
 }
