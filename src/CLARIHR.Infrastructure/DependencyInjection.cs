@@ -256,6 +256,7 @@ public static class DependencyInjection
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<ICompanyPreferenceRepository, CompanyPreferenceRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Compliance.ICompanyLegalProfileRepository, CLARIHR.Infrastructure.Compliance.CompanyLegalProfileRepository>();
+        services.AddSingleton<CLARIHR.Application.Abstractions.Compliance.IComplianceReportTemplateRenderer, CLARIHR.Infrastructure.Reports.Documents.OpenXmlComplianceReportTemplateRenderer>();
         services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICompanyCertificateSettingsRepository, CLARIHR.Infrastructure.PersonnelFiles.CompanyCertificateSettingsRepository>();
         services.AddScoped<ICompanyPreferenceAuthorizationService, CompanyPreferenceAuthorizationService>();
         services.AddScoped<ITokenService, JwtTokenService>();
