@@ -852,8 +852,7 @@
 - [x] **PR-3** — ✅ **2026-07-17 (`5284602`)**: permiso `ViewComplianceReports` (8 puntos calcados de `ViewPayrollRuns`), `RequireAssertion` estricto (sin rama de autoservicio que proteger). unit 2773/2773. Pendiente el backfill a empresas ya provisionadas (R-T2, ver Pendientes de despliegue).
 - [x] **PR-4** — ✅ **2026-07-17 (`d5db7df`)**: `GET .../payroll-runs/{id}/employer-cost-report/export` — reutiliza el exportador existente, gateado por `ViewComplianceReports`. unit 2773/2773 · integración 11/11.
 - [x] **PR-5** — ✅ **2026-07-17 (`a607428`)**: `IComplianceReportTemplateRenderer` + `OpenXmlComplianceReportTemplateRenderer` (paquete `DocumentFormat.OpenXml` 3.1.1) — localiza celdas por defined-names OOXML, probado end-to-end contra plantilla placeholder (3 tests: feliz, nombre faltante, sobrescritura). `ReportExportFileWriter` intacto. unit 2776/2776.
-- [ ] **PR-6** — Reporte F-14 (RF-001): consulta de consolidación mensual + endpoint construibles ya; **mapeo celda-por-celda bloqueado hasta recibir la plantilla oficial** (P-02)
-- [ ] **PR-7** — Reporte Planilla Única (RF-002), ídem PR-6 — **bloqueado por P-02** para el layout final
+- [x] **PR-6+PR-7** — ✅ **2026-07-17 (`db52200`)**: F-14 y Planilla Única — consulta de consolidación mensual (join `PayrollRun` CERRADA × `PayrollPeriodDefinition` Year+Month) + endpoints en nuevo `ComplianceReportsController` (trans-corrida, gateado por `ViewComplianceReports`). Layout tabular plano por ahora; **mapeo celda-por-celda con el renderer de PR-5 queda pendiente hasta recibir la plantilla oficial** (P-02). unit 2776/2776 · integración 11/11. Pendiente: tests de integración dedicados para estos 2 endpoints.
 - [ ] **PR-8** — Activación real de los gates A/B (una vez lista la campaña de captura) + openapi final + guía FE — **bloqueado por la campaña de captura, no por código** (R-T1 del plan)
 
 ### Pendientes de despliegue
