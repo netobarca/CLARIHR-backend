@@ -1,6 +1,8 @@
 using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Features.Payroll;
+using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.Payroll;
+using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -423,6 +425,163 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
             .ToList();
 
         return maxRows is { } cap ? grouped.Take(cap).ToList() : grouped;
+    }
+
+    public async Task<IReadOnlyCollection<F14ExportRow>> GetMonthlyIncomeTaxWithholdingRowsAsync(
+        Guid tenantId,
+        int year,
+        int month,
+        CancellationToken cancellationToken)
+    {
+        // RN-03/P-01/P-09 — consolidate every CERRADA run whose period falls in this calendar month,
+        // regardless of the Nómina's own frequency (mensual/quincenal/semanal all count).
+        var runIds = await (
+            from run in dbContext.Set<PayrollRun>().AsNoTracking()
+            join period in dbContext.Set<PayrollPeriodDefinition>().AsNoTracking() on run.PayrollPeriodId equals period.Id
+            where run.TenantId == tenantId &&
+                  run.StatusCode == PayrollRunStatuses.Cerrada &&
+                  period.Year == year &&
+                  period.Month == month
+            select run.Id)
+            .ToListAsync(cancellationToken);
+
+        if (runIds.Count == 0)
+        {
+            return [];
+        }
+
+        var lines = await dbContext.Set<PayrollRunLine>()
+            .AsNoTracking()
+            .Where(line => runIds.Contains(line.PayrollRunId) && line.IsIncluded && line.ConceptCode == PayrollEngineConceptCodes.Renta)
+            .Select(line => new
+            {
+                line.PersonnelFileId,
+                line.EmployeeName,
+                line.EmployeeCode,
+                BaseAmount = line.BaseAmount ?? 0m,
+                Final = line.OverrideAmount ?? line.CalculatedAmount,
+            })
+            .ToListAsync(cancellationToken);
+
+        if (lines.Count == 0)
+        {
+            return [];
+        }
+
+        var fileIds = lines.Select(line => line.PersonnelFileId).Distinct().ToList();
+        var nitByFileId = await dbContext.Set<PersonnelFileIdentification>()
+            .AsNoTracking()
+            .Where(identification => fileIds.Contains(identification.PersonnelFileId) && identification.IdentificationType == "NIT")
+            .ToDictionaryAsync(identification => identification.PersonnelFileId, identification => identification.IdentificationNumber, cancellationToken);
+
+        return lines
+            .GroupBy(line => new { line.PersonnelFileId, line.EmployeeName, line.EmployeeCode })
+            .OrderBy(group => group.Key.EmployeeName)
+            .Select(group =>
+            {
+                var nit = nitByFileId.GetValueOrDefault(group.Key.PersonnelFileId);
+                return new F14ExportRow(
+                    group.Key.EmployeeName,
+                    group.Key.EmployeeCode,
+                    nit,
+                    group.Sum(line => line.BaseAmount),
+                    group.Sum(line => line.Final),
+                    nit is null ? "Sin NIT registrado." : null);
+            })
+            .ToList();
+    }
+
+    public async Task<IReadOnlyCollection<PlanillaUnicaExportRow>> GetMonthlySocialSecurityContributionRowsAsync(
+        Guid tenantId,
+        int year,
+        int month,
+        CancellationToken cancellationToken)
+    {
+        var runIds = await (
+            from run in dbContext.Set<PayrollRun>().AsNoTracking()
+            join period in dbContext.Set<PayrollPeriodDefinition>().AsNoTracking() on run.PayrollPeriodId equals period.Id
+            where run.TenantId == tenantId &&
+                  run.StatusCode == PayrollRunStatuses.Cerrada &&
+                  period.Year == year &&
+                  period.Month == month
+            select run.Id)
+            .ToListAsync(cancellationToken);
+
+        if (runIds.Count == 0)
+        {
+            return [];
+        }
+
+        var socialSecurityConceptCodes = new[]
+        {
+            PayrollEngineConceptCodes.Isss,
+            PayrollEngineConceptCodes.IsssPatronal,
+            PayrollEngineConceptCodes.Afp,
+            PayrollEngineConceptCodes.AfpPatronal,
+        };
+
+        var lines = await dbContext.Set<PayrollRunLine>()
+            .AsNoTracking()
+            .Where(line => runIds.Contains(line.PayrollRunId) && line.IsIncluded && socialSecurityConceptCodes.Contains(line.ConceptCode))
+            .Select(line => new
+            {
+                line.PersonnelFileId,
+                line.EmployeeName,
+                line.EmployeeCode,
+                line.ConceptCode,
+                BaseAmount = line.BaseAmount ?? 0m,
+                Final = line.OverrideAmount ?? line.CalculatedAmount,
+            })
+            .ToListAsync(cancellationToken);
+
+        if (lines.Count == 0)
+        {
+            return [];
+        }
+
+        var fileIds = lines.Select(line => line.PersonnelFileId).Distinct().ToList();
+        var nupIsssByFileId = await dbContext.Set<PersonnelFileIdentification>()
+            .AsNoTracking()
+            .Where(identification => fileIds.Contains(identification.PersonnelFileId) && identification.IdentificationType == "NUP_ISSS")
+            .ToDictionaryAsync(identification => identification.PersonnelFileId, identification => identification.IdentificationNumber, cancellationToken);
+        var afpByFileId = await dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(file => fileIds.Contains(file.Id))
+            .ToDictionaryAsync(file => file.Id, file => new { file.AfpCode, file.AfpAccountNumber }, cancellationToken);
+
+        return lines
+            .GroupBy(line => new { line.PersonnelFileId, line.EmployeeName, line.EmployeeCode })
+            .OrderBy(group => group.Key.EmployeeName)
+            .Select(group =>
+            {
+                var nupIsss = nupIsssByFileId.GetValueOrDefault(group.Key.PersonnelFileId);
+                var afp = afpByFileId.GetValueOrDefault(group.Key.PersonnelFileId);
+                var isssLine = group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.Isss).ToList();
+                var warnings = new List<string>();
+                if (nupIsss is null)
+                {
+                    warnings.Add("sin NUP ISSS registrado");
+                }
+
+                if (afp?.AfpAccountNumber is null)
+                {
+                    warnings.Add("sin cuenta AFP registrada");
+                }
+
+                return new PlanillaUnicaExportRow(
+                    group.Key.EmployeeName,
+                    group.Key.EmployeeCode,
+                    nupIsss,
+                    isssLine.Sum(line => line.BaseAmount),
+                    isssLine.Sum(line => line.Final),
+                    group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.IsssPatronal).Sum(line => line.Final),
+                    afp?.AfpCode,
+                    afp?.AfpAccountNumber,
+                    group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.Afp).Sum(line => line.Final),
+                    group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.AfpPatronal).Sum(line => line.Final),
+                    warnings.Count == 0 ? null : string.Join("; ", warnings) + ".");
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyCollection<ConciliacionBancariaExportRow>?> GetBankReconciliationRowsAsync(

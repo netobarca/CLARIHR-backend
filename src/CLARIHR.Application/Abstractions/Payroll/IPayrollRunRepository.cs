@@ -114,6 +114,27 @@ public interface IPayrollRunRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// F-14 (REQ-016 RF-001): one row per employee, consolidated across every `CERRADA` run whose period
+    /// falls in the given calendar month (RN-03/P-01/P-09) — never empty-vs-null, an empty collection means
+    /// no `CERRADA` runs matched that month.
+    /// </summary>
+    Task<IReadOnlyCollection<Features.Payroll.F14ExportRow>> GetMonthlyIncomeTaxWithholdingRowsAsync(
+        Guid tenantId,
+        int year,
+        int month,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Planilla Única (REQ-016 RF-002): one row per employee, consolidated across every `CERRADA` run of
+    /// the calendar month — same consolidation rule as F-14.
+    /// </summary>
+    Task<IReadOnlyCollection<Features.Payroll.PlanillaUnicaExportRow>> GetMonthlySocialSecurityContributionRowsAsync(
+        Guid tenantId,
+        int year,
+        int month,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// The employee axis (REQ-015): one row per run holding INCLUDED lines of the employee, with THEIR
     /// sums, newest first (GROUP BY over the M4 employee index).
     /// </summary>

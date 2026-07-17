@@ -149,6 +149,51 @@ public sealed record ExportEmployerCostReportQuery(
     Guid PayrollRunId,
     int? MaxRows) : IQuery<IReadOnlyCollection<PlanillaPatronalExportRow>>;
 
+/// <summary>
+/// F-14 (REQ-016 RF-001): one row per employee, CONSOLIDATED across every `CERRADA` run whose period falls
+/// in the given calendar month (P-01/P-09) — a quincenal/semanal Nómina can contribute more than one run to
+/// the same month. <c>Advertencias</c> carries "sin NIT registrado" when applicable; it never blocks the
+/// report (RN-06). The layout here is a flat detail — the real F-14 official-template mapping (P-02) is
+/// NOT part of this PR; it lands once the business supplies the actual template file.
+/// </summary>
+public sealed record F14ExportRow(
+    string Empleado,
+    string? CodigoEmpleado,
+    string? Nit,
+    decimal SalarioGravableMes,
+    decimal RentaRetenidaMes,
+    string? Advertencias);
+
+public sealed record ExportIncomeTaxWithholdingReportQuery(
+    Guid CompanyId,
+    int Year,
+    int Month) : IQuery<IReadOnlyCollection<F14ExportRow>>;
+
+/// <summary>
+/// Planilla Única (REQ-016 RF-002): one row per employee, consolidated across every `CERRADA` run of the
+/// calendar month (same rule as F-14, RN-03/P-01/P-09) — ISSS + AFP (empleado y patronal). NUP ISSS / cuenta
+/// AFP are confirmed obligatorios (P-04); once Gate B (RF-007) is active for the tenant no row should ever
+/// be missing them — <c>Advertencias</c> exists for the transition window before that (RN-06). Same layout
+/// caveat as F-14: flat detail until the business supplies the real ISSS template (P-02).
+/// </summary>
+public sealed record PlanillaUnicaExportRow(
+    string Empleado,
+    string? CodigoEmpleado,
+    string? NupIsss,
+    decimal SalarioCotizableMes,
+    decimal IsssEmpleado,
+    decimal IsssPatronal,
+    string? CodigoAfp,
+    string? CuentaAfp,
+    decimal AfpEmpleado,
+    decimal AfpPatronal,
+    string? Advertencias);
+
+public sealed record ExportSocialSecurityContributionReportQuery(
+    Guid CompanyId,
+    int Year,
+    int Month) : IQuery<IReadOnlyCollection<PlanillaUnicaExportRow>>;
+
 public static class PayrollRunReportingConstants
 {
     /// <summary>Row-type discriminators of the payroll print export.</summary>

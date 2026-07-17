@@ -121,6 +121,50 @@ internal sealed class ExportEmployerCostReportQueryHandler(
     }
 }
 
+/// <summary>F-14 (REQ-016 RF-001) — gated by ViewComplianceReports (P-10). No run/period to find-or-404: an empty month is a valid, empty report (RF-005).</summary>
+internal sealed class ExportIncomeTaxWithholdingReportQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPayrollRunRepository runRepository)
+    : IQueryHandler<ExportIncomeTaxWithholdingReportQuery, IReadOnlyCollection<F14ExportRow>>
+{
+    public async Task<Result<IReadOnlyCollection<F14ExportRow>>> Handle(
+        ExportIncomeTaxWithholdingReportQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanViewComplianceReportsAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<F14ExportRow>>.Failure(authorizationResult.Error);
+        }
+
+        var rows = await runRepository.GetMonthlyIncomeTaxWithholdingRowsAsync(
+            query.CompanyId, query.Year, query.Month, cancellationToken);
+        return Result<IReadOnlyCollection<F14ExportRow>>.Success(rows);
+    }
+}
+
+/// <summary>Planilla Única (REQ-016 RF-002) — gated by ViewComplianceReports (P-10).</summary>
+internal sealed class ExportSocialSecurityContributionReportQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPayrollRunRepository runRepository)
+    : IQueryHandler<ExportSocialSecurityContributionReportQuery, IReadOnlyCollection<PlanillaUnicaExportRow>>
+{
+    public async Task<Result<IReadOnlyCollection<PlanillaUnicaExportRow>>> Handle(
+        ExportSocialSecurityContributionReportQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanViewComplianceReportsAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<PlanillaUnicaExportRow>>.Failure(authorizationResult.Error);
+        }
+
+        var rows = await runRepository.GetMonthlySocialSecurityContributionRowsAsync(
+            query.CompanyId, query.Year, query.Month, cancellationToken);
+        return Result<IReadOnlyCollection<PlanillaUnicaExportRow>>.Success(rows);
+    }
+}
+
 internal sealed class QueryPayrollRunEmployeeHistoryQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPayrollRunRepository runRepository)
