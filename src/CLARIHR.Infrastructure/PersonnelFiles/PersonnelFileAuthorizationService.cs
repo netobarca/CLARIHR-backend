@@ -741,6 +741,18 @@ internal sealed class PersonnelFileAuthorizationService(
             RbacPermissionAction.Update,
             cancellationToken);
 
+    public Task<Result> EnsureCanViewComplianceReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureHasAnyClaimAsync(
+            companyId,
+            new[]
+            {
+                PersonnelFilePermissionCodes.ViewComplianceReports.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.Admin.ToUpperInvariant(),
+                PersonnelFilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            },
+            RbacPermissionAction.Read,
+            cancellationToken);
+
     // AuthorizePayrollRuns deliberately EXCLUDES PersonnelFiles.Admin (separation of duties + double
     // anti-self, mirrors AuthorizeRetirement); only the IAM super-admin remains a universal fallback.
     public Task<Result> EnsureCanAuthorizePayrollRunsAsync(Guid companyId, CancellationToken cancellationToken) =>

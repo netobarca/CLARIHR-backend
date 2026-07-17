@@ -481,6 +481,14 @@ public static class PersonnelFilePermissionCodes
     public const string ManagePayrollRuns = "PersonnelFiles.ManagePayrollRuns";
 
     /// <summary>
+    /// Dedicated permission to view and download the payroll legal-compliance reports — F-14, Planilla
+    /// Única, Planilla Patronal (REQ-016). Deliberately separate from <see cref="ViewPayrollRuns"/>: these
+    /// reports concentrate NIT/DUI/NUP ISSS/AFP account of the ENTIRE payroll in one downloadable file, a
+    /// higher sensitivity than the per-run detail. Admin is a superset.
+    /// </summary>
+    public const string ViewComplianceReports = "PersonnelFiles.ViewComplianceReports";
+
+    /// <summary>
     /// Dedicated permission to authorize a payroll run or return it with a reason (REQ-012 §4). Like
     /// <see cref="AuthorizeRetirement"/>, <c>PersonnelFiles.Admin</c> is deliberately NOT a superset
     /// (separation of duties + double anti-self); only the IAM super-admin remains a universal fallback.

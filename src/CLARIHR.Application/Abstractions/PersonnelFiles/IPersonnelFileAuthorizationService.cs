@@ -527,6 +527,14 @@ public interface IPersonnelFileAuthorizationService
         Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
 
     /// <summary>
+    /// Read gate for the payroll legal-compliance reports (REQ-016): the dedicated
+    /// <c>PersonnelFiles.ViewComplianceReports</c> permission, or Admin / IAM super-admin.
+    /// </summary>
+    // Fail-closed default so test doubles need not implement it; the production service overrides it.
+    Task<Result> EnsureCanViewComplianceReportsAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(Result.Failure(AuthorizationErrors.Unauthenticated));
+
+    /// <summary>
     /// Gate for authorizing a payroll run or returning it with a reason (REQ-012 §4): the dedicated
     /// <c>PersonnelFiles.AuthorizePayrollRuns</c> permission, or IAM super-admin — <c>Admin</c> is
     /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).

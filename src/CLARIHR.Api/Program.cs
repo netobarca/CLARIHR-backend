@@ -823,6 +823,17 @@ builder.Services.AddAuthorization(options =>
             PersonnelFilePermissionCodes.AuthorizePayrollRuns,
             PersonnelFilePermissionCodes.ManageAdministration)));
 
+    // Payroll legal-compliance reports — F-14/Planilla Única/Planilla Patronal (REQ-016). Unlike
+    // ViewPayrollRuns there is no self-service branch to protect, so this is a strict RequireAssertion
+    // (dedicated permission, P-10) rather than AUTHN-only.
+    options.AddPolicy(PersonnelFilePolicies.ViewComplianceReports, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.ViewComplianceReports,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
     // Overtime configuration masters (overtime types, overtime justification types — REQ-007). Unlike the
     // authn-only record policies above, the masters have NO self-service channel, so these are STRICT
     // (RequireAssertion) declarative policies over the SAME View/ManageOvertimeRecords permission codes,

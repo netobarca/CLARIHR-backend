@@ -427,6 +427,14 @@ public static class PersonnelFilePolicies
     public const string ManagePayrollRuns = "PersonnelFiles.ManagePayrollRuns";
 
     /// <summary>
+    /// Read policy for the payroll legal-compliance reports (F-14/Planilla Única/Planilla Patronal —
+    /// REQ-016). AUTHN-ONLY at the policy level, same shape as <see cref="ViewPayrollRuns"/>: the real gate
+    /// runs per handler (EnsureCanViewComplianceReportsAsync). Dedicated on purpose (P-10) — these reports
+    /// concentrate previsional/tax data of the whole payroll in one file.
+    /// </summary>
+    public const string ViewComplianceReports = "PersonnelFiles.ViewComplianceReports";
+
+    /// <summary>
     /// Write policy for authorizing/returning a payroll run (REQ-012 §4). RequireAssertion over the
     /// dedicated AuthorizePayrollRuns grant (or IAM super-admin) — <c>PersonnelFiles.Admin</c> is
     /// deliberately excluded (separation of duties + double anti-self, mirrors AuthorizeRetirement).
