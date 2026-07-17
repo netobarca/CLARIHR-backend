@@ -39,7 +39,8 @@ internal static class PayrollRunAssembler
         IReadOnlyList<PoolApplyTarget> PoolTargets,
         IReadOnlyDictionary<Guid, PayrollPopulationRow> RowByPlaza,
         IReadOnlyDictionary<Guid, PayrollPopulationRow> PrimaryRowByFile,
-        int CarryoverCount);
+        int CarryoverCount,
+        IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions);
 
     public static AssembledRun Assemble(
         PayrollDefinition definition,
@@ -320,7 +321,7 @@ internal static class PayrollRunAssembler
             .ThenBy(target => target.RecordPublicId)
             .ToArray();
 
-        return new AssembledRun(engineInput, orderedTargets, rowByPlaza, primaryRowByFile, carryovers);
+        return new AssembledRun(engineInput, orderedTargets, rowByPlaza, primaryRowByFile, carryovers, source.ComplianceExclusions);
     }
 }
 
@@ -435,10 +436,16 @@ internal sealed class GeneratePayrollRunCommandHandler(
                 lines.Add(entity);
             }
 
-            var warningsJson = calculation.Warnings.Count == 0
-                ? null
-                : JsonSerializer.Serialize(calculation.Warnings.Select(warning => new PayrollRunWarningResponse(
-                    warning.Code, warning.PersonnelFilePublicId, warning.Context)));
+            // REQ-016 Gate B (P-11/P-12): employees excluded from this run for missing previsional data
+            // carry no line, so their warning rides the run's header-level warnings instead.
+            var allWarnings = calculation.Warnings
+                .Select(warning => new PayrollRunWarningResponse(warning.Code, warning.PersonnelFilePublicId, warning.Context))
+                .Concat(assembled.ComplianceExclusions.Select(exclusion => new PayrollRunWarningResponse(
+                    PayrollEngineWarningCodes.EmployeeExcludedPrevisionalDataMissing,
+                    exclusion.PersonnelFilePublicId,
+                    $"{exclusion.EmployeeFullName}: falta NUP ISSS y/o cuenta AFP.")))
+                .ToArray();
+            var warningsJson = allWarnings.Length == 0 ? null : JsonSerializer.Serialize(allWarnings);
 
             run.ReplaceLines(
                 lines,

@@ -76,7 +76,16 @@ public sealed record PayrollRunSourceData(
     IReadOnlyList<OneTimeDeductionPendingData> OneTimeDeductions,
     IReadOnlyList<PayrollRegistroRow> NotWorkedTimes,
     IReadOnlyList<PayrollRegistroRow> DisciplinaryActions,
-    IReadOnlyList<PayrollRegistroRow> Incapacities);
+    IReadOnlyList<PayrollRegistroRow> Incapacities,
+    IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions);
+
+/// <summary>
+/// REQ-016 Gate B (ratified P-11/P-12): an otherwise-eligible employee left OUT of the population because
+/// the tenant's payroll compliance gates are on (<c>CompanyPreference.PayrollComplianceGatesEnabled</c>) and
+/// the employee is missing NUP ISSS and/or the AFP account number. Only this employee's line is skipped —
+/// the rest of the run proceeds normally — surfaced as a header-level warning (no line exists to carry it).
+/// </summary>
+public sealed record PayrollComplianceExclusion(Guid PersonnelFilePublicId, string EmployeeFullName);
 
 /// <summary>
 /// Resolves the raw generation data of a Nómina × period (REQ-012 §3.4, molde

@@ -35,7 +35,7 @@ internal sealed class PayrollCalculationDataProvider(
         DateOnly today,
         CancellationToken cancellationToken)
     {
-        var population = await BuildPopulationAsync(tenantId, definition, period, employeeIds, cancellationToken);
+        var (population, complianceExclusions) = await BuildPopulationAsync(tenantId, definition, period, employeeIds, cancellationToken);
         var populationFileIds = population.Select(row => row.PersonnelFilePublicId).ToHashSet();
 
         var company = await dbContext.Companies
@@ -94,10 +94,11 @@ internal sealed class PayrollCalculationDataProvider(
             oneTimeDeductions,
             notWorkedTimes,
             disciplinary,
-            incapacities);
+            incapacities,
+            complianceExclusions);
     }
 
-    private async Task<IReadOnlyList<PayrollPopulationRow>> BuildPopulationAsync(
+    private async Task<(IReadOnlyList<PayrollPopulationRow> Population, IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions)> BuildPopulationAsync(
         Guid tenantId,
         PayrollDefinition definition,
         PayrollPeriodDefinition period,
@@ -140,6 +141,8 @@ internal sealed class PayrollCalculationDataProvider(
                 assignment.IsPrimary,
                 assignment.CostCenterPublicId,
                 MinimumMonthlyWage = profile != null ? profile.MinimumMonthlyWage : null,
+                HasAfpAccountNumber = file.AfpAccountNumber != null,
+                HasNupIsss = file.Identifications.Any(identification => identification.IdentificationType == "NUP_ISSS"),
             })
             .ToListAsync(cancellationToken);
 
@@ -150,7 +153,34 @@ internal sealed class PayrollCalculationDataProvider(
 
         if (filtered.Count == 0)
         {
-            return [];
+            return ([], []);
+        }
+
+        // REQ-016 Gate B (ratified P-11/P-12) — off by default; only enforced once the tenant turns its
+        // compliance gates on, after its data-capture campaign (§0.11/§2.3 of the technical plan). An
+        // employee missing either datum is excluded from THIS run (their line is skipped, not the run).
+        var gatesEnabled = await dbContext.CompanyPreferences
+            .AsNoTracking()
+            .Where(preference => preference.TenantId == tenantId)
+            .Select(preference => preference.PayrollComplianceGatesEnabled)
+            .SingleOrDefaultAsync(cancellationToken) == true;
+
+        var complianceExclusions = gatesEnabled
+            ? filtered
+                .Where(row => !row.HasAfpAccountNumber || !row.HasNupIsss)
+                .Select(row => new PayrollComplianceExclusion(row.FilePublicId, row.FullName))
+                .ToArray()
+            : [];
+
+        if (gatesEnabled)
+        {
+            var excludedIds = complianceExclusions.Select(exclusion => exclusion.PersonnelFilePublicId).ToHashSet();
+            filtered = filtered.Where(row => !excludedIds.Contains(row.FilePublicId)).ToList();
+        }
+
+        if (filtered.Count == 0)
+        {
+            return ([], complianceExclusions);
         }
 
         // Cost-center names by public id (line snapshot).
@@ -217,7 +247,7 @@ internal sealed class PayrollCalculationDataProvider(
                 monthly));
         }
 
-        return result;
+        return (result, complianceExclusions);
     }
 
     /// <summary>Round2(value × periodsPerYear / 12) — the REQ-010 monthlyization the finiquito never does.</summary>

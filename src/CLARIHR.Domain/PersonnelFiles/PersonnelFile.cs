@@ -97,6 +97,13 @@ public sealed class PersonnelFile : TenantEntity
     /// </summary>
     public string? AfpCode { get; private set; }
 
+    /// <summary>
+    /// Optional AFP account number (REQ-016 RF-007) — a sibling of <see cref="AfpCode"/> (which AFP),
+    /// this is the employee's own account number within it. Required, alongside a NUP_ISSS identification,
+    /// for payroll generation once the tenant's compliance gates are enabled (ratified P-04/P-11).
+    /// </summary>
+    public string? AfpAccountNumber { get; private set; }
+
     public string? Nationality { get; private set; }
 
     public string? PersonalEmail { get; private set; }
@@ -236,7 +243,8 @@ public sealed class PersonnelFile : TenantEntity
         Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
         string? personalTitle = null,
-        string? afpCode = null)
+        string? afpCode = null,
+        string? afpAccountNumber = null)
     {
         var normalizedInstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
@@ -254,6 +262,7 @@ public sealed class PersonnelFile : TenantEntity
         Profession = NormalizeOptionalCode(profession);
         PersonalTitle = NormalizeOptionalCode(personalTitle);
         AfpCode = NormalizeOptionalCode(afpCode);
+        AfpAccountNumber = PersonnelFileNormalization.CleanOptional(afpAccountNumber);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = normalizedInstitutionalEmail;

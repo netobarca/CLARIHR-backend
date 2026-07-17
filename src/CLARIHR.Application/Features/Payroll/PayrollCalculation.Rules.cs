@@ -56,6 +56,13 @@ public static class PayrollEngineWarningCodes
     public const string InstallmentDeferred = "PAYROLL_WARNING_INSTALLMENT_DEFERRED";
     public const string NoBaseSalary = "PAYROLL_WARNING_NO_BASE_SALARY";
     public const string CarryoverInput = "PAYROLL_WARNING_CARRYOVER_INPUT";
+
+    /// <summary>
+    /// REQ-016 Gate B (P-11/P-12): an employee was excluded from this run — no line was generated for
+    /// them — because the tenant's compliance gates are on and the employee is missing NUP ISSS and/or
+    /// the AFP account number. Header-level only (the employee has no line to carry a per-line warning).
+    /// </summary>
+    public const string EmployeeExcludedPrevisionalDataMissing = "PAYROLL_WARNING_EMPLOYEE_EXCLUDED_PREVISIONAL_DATA_MISSING";
 }
 
 /// <summary>ISSS/AFP scheme (rates + MONTHLY contribution cap; the engine prorates the cap by frequency).</summary>

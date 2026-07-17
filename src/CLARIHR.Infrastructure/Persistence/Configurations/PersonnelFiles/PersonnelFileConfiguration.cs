@@ -35,6 +35,9 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.Profession).HasColumnName("profession").HasMaxLength(120);
         builder.Property(file => file.PersonalTitle).HasColumnName("personal_title_code").HasMaxLength(80);
         builder.Property(file => file.AfpCode).HasColumnName("afp_code").HasMaxLength(80);
+
+        // REQ-016 RF-007: sibling of AfpCode — the employee's own account number within that AFP.
+        builder.Property(file => file.AfpAccountNumber).HasColumnName("afp_account_number").HasMaxLength(80);
         builder.Property(file => file.Nationality).HasColumnName("nationality").HasMaxLength(120);
         builder.Property(file => file.PersonalEmail).HasColumnName("personal_email").HasMaxLength(320);
         builder.Property(file => file.InstitutionalEmail).HasColumnName("institutional_email").HasMaxLength(320);
