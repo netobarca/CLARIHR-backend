@@ -366,6 +366,65 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
         return rows;
     }
 
+    public async Task<IReadOnlyCollection<PlanillaPatronalExportRow>?> GetEmployerCostReportRowsAsync(
+        Guid tenantId,
+        Guid payrollRunPublicId,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var run = await dbContext.Set<PayrollRun>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollRunPublicId)
+            .Select(item => new { item.Id, item.CurrencyCode })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (run is null)
+        {
+            return null;
+        }
+
+        var employerLines = await dbContext.Set<PayrollRunLine>()
+            .AsNoTracking()
+            .Where(line => line.PayrollRunId == run.Id && line.IsIncluded)
+            .Where(line => line.ConceptCode == PayrollEngineConceptCodes.Salario || line.LineClass == PayrollLineClasses.PagoPatronal)
+            .Select(line => new
+            {
+                line.EmployeeName,
+                line.EmployeeCode,
+                line.CostCenterName,
+                line.ConceptCode,
+                Final = line.OverrideAmount ?? line.CalculatedAmount,
+            })
+            .ToListAsync(cancellationToken);
+
+        var grouped = employerLines
+            .GroupBy(line => new { line.EmployeeName, line.EmployeeCode, line.CostCenterName })
+            .OrderBy(group => group.Key.EmployeeName)
+            .Select(group =>
+            {
+                var salarioBase = group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.Salario).Sum(line => line.Final);
+                var isssPatronal = group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.IsssPatronal).Sum(line => line.Final);
+                var afpPatronal = group.Where(line => line.ConceptCode == PayrollEngineConceptCodes.AfpPatronal).Sum(line => line.Final);
+                var otrasCargas = group
+                    .Where(line => line.ConceptCode != PayrollEngineConceptCodes.Salario &&
+                                   line.ConceptCode != PayrollEngineConceptCodes.IsssPatronal &&
+                                   line.ConceptCode != PayrollEngineConceptCodes.AfpPatronal)
+                    .Sum(line => line.Final);
+                return new PlanillaPatronalExportRow(
+                    group.Key.EmployeeName,
+                    group.Key.EmployeeCode,
+                    group.Key.CostCenterName,
+                    salarioBase,
+                    isssPatronal,
+                    afpPatronal,
+                    otrasCargas,
+                    isssPatronal + afpPatronal + otrasCargas,
+                    run.CurrencyCode);
+            })
+            .ToList();
+
+        return maxRows is { } cap ? grouped.Take(cap).ToList() : grouped;
+    }
+
     public async Task<IReadOnlyCollection<ConciliacionBancariaExportRow>?> GetBankReconciliationRowsAsync(
         Guid tenantId,
         Guid payrollRunPublicId,

@@ -200,6 +200,53 @@ public sealed class PayrollRunsReportingController(
             cancellationToken);
     }
 
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
+    [HttpGet("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/employer-cost-report/export")]
+    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [SwaggerOperation(
+        Summary = "Export the Planilla Patronal (employer cost report) of a payroll run",
+        Description = """
+            REQ-016 RF-003 — one row per employee of the run: salario base + cargas patronales
+            (ISSS/AFP patronal + otras, sobre las líneas INCLUIDAS). Control interno (P-05): el total del
+            reporte cuadra contra `TotalEmployerCost` de la cabecera de la corrida. Gateado por el permiso
+            dedicado `ViewComplianceReports` (P-10), no por `ViewPayrollRuns`.
+            """)]
+    public async Task<IActionResult> ExportEmployerCostReport(
+        Guid companyId,
+        Guid payrollRunId,
+        [FromQuery] string format = "xlsx",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new ExportEmployerCostReportQuery(
+                companyId, payrollRunId, reportExportDeliveryService.SynchronousReadLimit),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(
+                Result<IReadOnlyCollection<PlanillaPatronalExportRow>>.Failure(result.Error)).Result!;
+        }
+
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "planilla-patronal",
+            "EmployerCostReport",
+            AuditEntityTypes.PayrollRun,
+            "PAYROLL_RUN_EMPLOYER_COST_REPORT",
+            "Exported the Planilla Patronal (employer cost report).",
+            new { payrollRunId },
+            PersonnelFileErrors.ExportFormatInvalid,
+            cancellationToken);
+    }
+
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
     [HttpPost("api/v1/companies/{companyId:guid}/payroll-runs/employee-history/query")]
     [Consumes("application/json")]

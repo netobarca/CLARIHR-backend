@@ -104,6 +104,16 @@ public interface IPayrollRunRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Planilla Patronal (REQ-016 RF-003): one row per employee with salario base + cargas patronales
+    /// (PagoPatronal-class lines). Null when the run does not exist in the tenant.
+    /// </summary>
+    Task<IReadOnlyCollection<Features.Payroll.PlanillaPatronalExportRow>?> GetEmployerCostReportRowsAsync(
+        Guid tenantId,
+        Guid payrollRunPublicId,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// The employee axis (REQ-015): one row per run holding INCLUDED lines of the employee, with THEIR
     /// sums, newest first (GROUP BY over the M4 employee index).
     /// </summary>

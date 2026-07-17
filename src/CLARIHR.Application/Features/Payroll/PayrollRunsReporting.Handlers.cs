@@ -97,6 +97,30 @@ internal sealed class ExportPayrollRunBankReconciliationQueryHandler(
     }
 }
 
+/// <summary>Planilla Patronal (REQ-016 RF-003) — gated by the dedicated ViewComplianceReports permission (P-10), not ViewPayrollRuns.</summary>
+internal sealed class ExportEmployerCostReportQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPayrollRunRepository runRepository)
+    : IQueryHandler<ExportEmployerCostReportQuery, IReadOnlyCollection<PlanillaPatronalExportRow>>
+{
+    public async Task<Result<IReadOnlyCollection<PlanillaPatronalExportRow>>> Handle(
+        ExportEmployerCostReportQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanViewComplianceReportsAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<PlanillaPatronalExportRow>>.Failure(authorizationResult.Error);
+        }
+
+        var rows = await runRepository.GetEmployerCostReportRowsAsync(
+            query.CompanyId, query.PayrollRunId, query.MaxRows, cancellationToken);
+        return rows is null
+            ? Result<IReadOnlyCollection<PlanillaPatronalExportRow>>.Failure(PayrollRunErrors.PayrollRunNotFound)
+            : Result<IReadOnlyCollection<PlanillaPatronalExportRow>>.Success(rows);
+    }
+}
+
 internal sealed class QueryPayrollRunEmployeeHistoryQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPayrollRunRepository runRepository)

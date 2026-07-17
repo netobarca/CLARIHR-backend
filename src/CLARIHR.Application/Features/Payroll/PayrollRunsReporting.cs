@@ -128,6 +128,27 @@ public sealed record ExportPayrollRunBankReconciliationQuery(
     Guid PayrollRunId,
     int? MaxRows) : IQuery<IReadOnlyCollection<ConciliacionBancariaExportRow>>;
 
+/// <summary>
+/// Planilla Patronal (REQ-016 RF-003): one row per employee of the run with the employer cost — salario
+/// base + cargas patronales (ISSS/AFP patronal + otras, p. ej. INCAF). Control interno (P-05) para validar
+/// lo que se paga al gobierno — el total del reporte cuadra contra <c>PayrollRun.TotalEmployerCost</c>.
+/// </summary>
+public sealed record PlanillaPatronalExportRow(
+    string Empleado,
+    string? CodigoEmpleado,
+    string? CentroCosto,
+    decimal SalarioBase,
+    decimal IsssPatronal,
+    decimal AfpPatronal,
+    decimal OtrasCargasPatronales,
+    decimal CostoPatronalTotal,
+    string Moneda);
+
+public sealed record ExportEmployerCostReportQuery(
+    Guid CompanyId,
+    Guid PayrollRunId,
+    int? MaxRows) : IQuery<IReadOnlyCollection<PlanillaPatronalExportRow>>;
+
 public static class PayrollRunReportingConstants
 {
     /// <summary>Row-type discriminators of the payroll print export.</summary>
