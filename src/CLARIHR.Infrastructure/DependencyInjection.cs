@@ -255,6 +255,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<ICompanyPreferenceRepository, CompanyPreferenceRepository>();
+        services.AddScoped<CLARIHR.Application.Abstractions.Compliance.ICompanyLegalProfileRepository, CLARIHR.Infrastructure.Compliance.CompanyLegalProfileRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICompanyCertificateSettingsRepository, CLARIHR.Infrastructure.PersonnelFiles.CompanyCertificateSettingsRepository>();
         services.AddScoped<ICompanyPreferenceAuthorizationService, CompanyPreferenceAuthorizationService>();
         services.AddScoped<ITokenService, JwtTokenService>();

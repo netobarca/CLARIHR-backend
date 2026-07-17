@@ -9,6 +9,7 @@ using CLARIHR.Domain.CatalogTypes;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
+using CLARIHR.Domain.Compliance;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
@@ -60,6 +61,8 @@ public sealed class ApplicationDbContext(
     public DbSet<Company> Companies => Set<Company>();
 
     public DbSet<CompanyPreference> CompanyPreferences => Set<CompanyPreference>();
+
+    public DbSet<CompanyLegalProfile> CompanyLegalProfiles => Set<CompanyLegalProfile>();
 
     public DbSet<CommercialAddon> CommercialAddons => Set<CommercialAddon>();
 

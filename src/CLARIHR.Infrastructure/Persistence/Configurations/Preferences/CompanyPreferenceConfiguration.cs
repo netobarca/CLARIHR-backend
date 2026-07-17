@@ -105,6 +105,10 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
             .HasColumnName("max_indebtedness_percent")
             .HasColumnType("numeric(9,4)");
 
+        // REQ-016 payroll compliance gates (P-03/P-11); null/false = OFF (default).
+        builder.Property(preference => preference.PayrollComplianceGatesEnabled)
+            .HasColumnName("payroll_compliance_gates_enabled");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

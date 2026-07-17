@@ -106,6 +106,16 @@ public static class PayrollRunErrors
         "The resource was modified by another request. Refresh and try again.",
         ErrorType.Conflict);
 
+    /// <summary>
+    /// REQ-016 Gate A (ratified P-03): while the tenant's payroll compliance gates are enabled
+    /// (CompanyPreference.PayrollComplianceGatesEnabled), a company with no legal profile cannot
+    /// generate any payroll run.
+    /// </summary>
+    public static readonly Error MissingLegalProfile = new(
+        "PAYROLL_RUN_MISSING_LEGAL_PROFILE",
+        "The company does not have a legal profile configured; payroll cannot be generated until it does.",
+        ErrorType.UnprocessableEntity);
+
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch("PAYROLL_RUNS", action);
 }

@@ -160,6 +160,10 @@ public static class AuditEventTypes
     // and the audit log is tenant-scoped (see audit doc 23).
     public const string CompanyPreferencesUpdated = "COMPANY_PREFERENCES_UPDATED";
 
+    // REQ-016: employer legal profile that gates payroll generation (RF-006). Upsert-style, one event
+    // regardless of whether it was the first save or a later edit (mirrors VacationPlanSaved).
+    public const string CompanyLegalProfileSaved = "COMPANY_LEGAL_PROFILE_SAVED";
+
     // Authentication / session lifecycle (AU-3). Recorded to the NON-tenant-scoped platform audit log
     // (IPlatformAuditService) because these events happen before / outside a tenant context.
     public const string UserLoggedIn = "USER_LOGGED_IN";
@@ -409,6 +413,7 @@ public static class AuditEventTypes
         LocationLevelActivated,
         LocationLevelInactivated,
         CompanyPreferencesUpdated,
+        CompanyLegalProfileSaved,
         UserLoggedIn,
         UserLoginFailed,
         UserLoginThrottled,
@@ -557,6 +562,7 @@ public static class AuditEntityTypes
     public const string LocationHierarchy = "LocationHierarchy";
     public const string LocationLevel = "LocationLevel";
     public const string CompanyPreference = "CompanyPreference";
+    public const string CompanyLegalProfile = "CompanyLegalProfile";
     public const string ExitInterviewForm = "ExitInterviewForm";
     public const string ExitInterviewSubmission = "ExitInterviewSubmission";
     public const string MedicalClinic = "MedicalClinic";
@@ -620,6 +626,7 @@ public static class AuditEntityTypes
         LocationHierarchy,
         LocationLevel,
         CompanyPreference,
+        CompanyLegalProfile,
         ExitInterviewForm,
         ExitInterviewSubmission,
         MedicalClinic,

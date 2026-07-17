@@ -146,6 +146,15 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public decimal? MaxIndebtednessPercent { get; private set; }
 
+    /// <summary>
+    /// Payroll compliance gates (REQ-016, P-03/P-11): whether the company-legal-profile gate (RF-006) and
+    /// the employee-previsional-data gate (RF-007) are enforced when generating payroll. Null/false = OFF
+    /// (default — current generation behavior unaffected). Turned on per company only once its data-capture
+    /// campaign is complete; deliberately not exposed on the public preferences endpoint (an operational
+    /// deployment step, not customer self-service — see plan-tecnico-reportes-legales-planilla.md §2.3/§7 R-T1).
+    /// </summary>
+    public bool? PayrollComplianceGatesEnabled { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -334,6 +343,16 @@ public sealed class CompanyPreference : TenantEntity
         }
 
         MaxIndebtednessPercent = maxIndebtednessPercent;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Turns the REQ-016 payroll compliance gates on/off for this tenant (RF-006/RF-007). Not exposed on the
+    /// public preferences endpoint — set only through the internal activation path (plan §2.3/§8).
+    /// </summary>
+    public void SetPayrollCompliancePolicy(bool? gatesEnabled)
+    {
+        PayrollComplianceGatesEnabled = gatesEnabled;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

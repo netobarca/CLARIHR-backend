@@ -1,10 +1,12 @@
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Compliance;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -329,6 +331,8 @@ internal sealed class GeneratePayrollRunCommandHandler(
     IPayrollRunRepository runRepository,
     IPayrollCalculationDataProvider dataProvider,
     IPersonnelFileEmployeeRepository employeeRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
+    ICompanyLegalProfileRepository companyLegalProfileRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
@@ -343,6 +347,18 @@ internal sealed class GeneratePayrollRunCommandHandler(
         if (authorizationResult.IsFailure)
         {
             return Result<PayrollRunResponse>.Failure(authorizationResult.Error);
+        }
+
+        // REQ-016 Gate A (ratified P-03) — off by default (§0.11/§2.3 of the technical plan): only
+        // enforced once the tenant's compliance gates are turned on, after its data-capture campaign.
+        var preference = await companyPreferenceRepository.GetByTenantIdAsync(command.CompanyId, cancellationToken);
+        if (preference?.PayrollComplianceGatesEnabled == true)
+        {
+            var legalProfile = await companyLegalProfileRepository.GetByTenantIdAsync(command.CompanyId, cancellationToken);
+            if (legalProfile is null)
+            {
+                return Result<PayrollRunResponse>.Failure(PayrollRunErrors.MissingLegalProfile);
+            }
         }
 
         var context = await PayrollRunGenerationSupport.ResolveAsync(

@@ -139,6 +139,15 @@
   <data name="COMPANY_PREFERENCE_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar company preferences.</value>
   </data>
+  <data name="COMPANY_LEGAL_PROFILE_NOT_FOUND" xml:space="preserve">
+    <value>La empresa todavía no tiene un perfil legal configurado.</value>
+  </data>
+  <data name="COMPANY_LEGAL_PROFILE_ALREADY_EXISTS" xml:space="preserve">
+    <value>La empresa ya tiene un perfil legal; use el endpoint de actualización en su lugar.</value>
+  </data>
+  <data name="COMPANY_LEGAL_PROFILE_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>El perfil legal de la empresa fue modificado por otra persona; recargue e intente de nuevo.</value>
+  </data>
   <data name="COMPANY_REACTIVATION_LIMIT_REACHED" xml:space="preserve">
     <value>La cuenta actual no puede reactivate this company because the active company limit has been reached.</value>
   </data>
@@ -3006,6 +3015,9 @@
   </data>
   <data name="PAYROLL_RUN_ALREADY_ACTIVE" xml:space="preserve">
     <value>La nómina ya tiene una corrida activa para este periodo.</value>
+  </data>
+  <data name="PAYROLL_RUN_MISSING_LEGAL_PROFILE" xml:space="preserve">
+    <value>La empresa no tiene un perfil legal configurado; no se puede generar planilla hasta que lo tenga.</value>
   </data>
   <data name="PAYROLL_RUN_POOL_CONFLICT" xml:space="preserve">
     <value>Un insumo de planilla cambió mientras se generaba la corrida. Reintente la generación.</value>
