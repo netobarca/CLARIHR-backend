@@ -6,7 +6,7 @@
 | **Backend** | `feature/planilla-descuentos` (PR-1…PR-6) |
 | **Contrato** | `docs/technical/api/openapi.yaml` — 17 rutas nuevas, 26 esquemas nuevos |
 | **Permisos** | `PersonnelFiles.ViewRecurringDeductions` · `ManageRecurringDeductions` · `AuthorizeRecurringDeductions` |
-| **Prefijo** | Todo bajo `api/v1`. El código de error viaja en `extensions.code` del ProblemDetails |
+| **Prefijo** | Todo bajo `api/v1`. El código de error viaja en `code`, miembro RAÍZ del ProblemDetails (no existe un objeto `extensions` en el JSON) |
 
 ---
 
@@ -215,4 +215,4 @@ Todos por `GET api/v1/general-catalogs/{catalogKey}?countryCode=SV`.
 - `If-Match` en **todos** los writes: falta → `400`, obsoleto → `409`.
 - Los `Guid XxxId` se serializan como `xxxPublicId`.
 - Los enums viajan como **string**.
-- El código de error siempre en `extensions.code`.
+- El código de error siempre en `code`, miembro raíz (no anidado bajo `extensions`).

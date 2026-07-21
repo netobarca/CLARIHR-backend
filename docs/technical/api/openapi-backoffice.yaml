@@ -2828,7 +2828,7 @@ paths:
       - platform-subscriptions
       operationId: ChangePlatformCompanySubscriptionStatus
       summary: Change the current status of a company subscription
-      description: Applies a manual status transition or schedules a suspended-to-active reactivation under the platform transition policy and stores a durable audit trail.
+      description: Applies a manual status transition or schedules a suspended-to-active reactivation under the platform transition policy and stores a durable audit trail. Requires the current `concurrencyToken` (see `PlatformCompanySubscriptionResponse.concurrencyToken`) in the `If-Match` header — missing → 400, stale → 409 PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT.
       security:
       - Bearer: []
       parameters:
@@ -2840,6 +2840,12 @@ paths:
           format: uuid
       - name: subscriptionPublicId
         in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
         required: true
         schema:
           type: string
@@ -5665,6 +5671,7 @@ components:
       - activatedByUserId
       - activatedAtUtc
       - createdAtUtc
+      - concurrencyToken
       properties:
         subscriptionPublicId:
           type: string
@@ -5744,6 +5751,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: >-
+            Current version token — send it back in the `If-Match` header of the next
+            `PATCH .../status` call for this subscription (missing → 400, stale → 409).
     PlatformCompanySubscriptionStatusChangePreviewResponse:
       type: object
       required:

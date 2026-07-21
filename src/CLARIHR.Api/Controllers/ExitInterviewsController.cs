@@ -47,14 +47,14 @@ public sealed class ExitInterviewsController(
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
         Summary = "Save or submit the employee's exit interview",
-        Description = "Upserts the employee's exit-interview submission. With `submit = false` it is saved as a draft (resumable, non-anonymous forms only); with `submit = true` required answers are validated and the weighted 0–100 score is computed. The employee may fill their own (self-service); RRHH may capture for any.")]
+        Description = "Upserts the employee's exit-interview submission. With `submit = false` it is saved as a draft (resumable, non-anonymous forms only); with `submit = true` required answers are validated and the weighted 0–100 score is computed. The employee may fill their own (self-service); RRHH may capture for any. Because this is an upsert (not a plain update), concurrency is protected via a body field, not the `If-Match` header: `concurrencyToken` is omitted on the first save (nothing to version yet) and required on every subsequent save against the same submission (missing → `400`, stale → `409`).")]
     public async Task<ActionResult<ExitInterviewSubmissionResponse>> SaveSubmission(
         Guid publicId,
         [FromBody] SaveExitInterviewSubmissionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new SaveExitInterviewSubmissionCommand(publicId, request.Answers ?? [], request.Submit),
+            new SaveExitInterviewSubmissionCommand(publicId, request.Answers ?? [], request.Submit, request.ConcurrencyToken),
             cancellationToken);
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }

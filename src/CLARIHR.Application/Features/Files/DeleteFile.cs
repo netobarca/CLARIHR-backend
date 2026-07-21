@@ -10,7 +10,8 @@ namespace CLARIHR.Application.Features.Files;
 // --- Command ---
 
 public sealed record DeleteFileCommand(
-    Guid FilePublicId) : ICommand<DeleteFileResponse>;
+    Guid FilePublicId,
+    Guid ConcurrencyToken) : ICommand<DeleteFileResponse>;
 
 // --- Response ---
 
@@ -33,6 +34,11 @@ internal sealed class DeleteFileCommandHandler(
         if (file is null)
         {
             return Result<DeleteFileResponse>.Failure(FileErrors.FileNotFound);
+        }
+
+        if (file.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<DeleteFileResponse>.Failure(FileErrors.ConcurrencyConflict);
         }
 
         var userId = currentUserService.UserId ?? string.Empty;

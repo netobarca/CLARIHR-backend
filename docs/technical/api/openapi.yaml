@@ -666,7 +666,7 @@ paths:
       tags:
         - Account Authorization
       summary: Delete an authorization role
-      description: "Permanently deletes a custom IAM role (hard delete — there is no soft-delete state). The\ndelete is guarded: system roles cannot be deleted (`403`) and a role still assigned to users\nyields `409` (`iam.roles.in_use`). Returns `204`. Requires `Roles:Delete` (handler-gated\nRBAC)."
+      description: "Permanently deletes a custom IAM role (hard delete — there is no soft-delete state). The\ndelete is guarded: system roles cannot be deleted (`403`) and a role still assigned to users\nyields `409` (`iam.roles.in_use`). Requires the current `concurrencyToken` in the `If-Match`\nheader (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). Returns `204`. Requires\n`Roles:Delete` (handler-gated RBAC)."
       parameters:
         - name: companyPublicId
           in: path
@@ -677,6 +677,11 @@ paths:
         - name: rolePublicId
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
           schema:
             type: string
             format: uuid
@@ -9196,11 +9201,16 @@ paths:
       tags:
         - Files
       summary: Delete a file
-      description: "Soft-deletes a file (marks it `Deleted`; the stored binary is reclaimed by the background\ncleanup). Restricted to the file's uploader (`403` otherwise)."
+      description: "Soft-deletes a file (marks it `Deleted`; the stored binary is reclaimed by the background\ncleanup). Restricted to the file's uploader (`403` otherwise). Requires the current\n`concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`)."
       parameters:
         - name: filePublicId
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
           schema:
             type: string
             format: uuid
@@ -9217,6 +9227,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/DeleteFileResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Unauthorized
           content:
@@ -9243,6 +9265,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
           content:
             text/plain:
               schema:
@@ -79100,6 +79134,12 @@ components:
         instance:
           type: string
           nullable: true
+        code:
+          type: string
+          nullable: true
+        traceId:
+          type: string
+          nullable: true
       additionalProperties: { }
     QueryCertificateRequestsRequest:
       type: object
@@ -79985,6 +80025,13 @@ components:
             $ref: '#/components/schemas/ExitInterviewAnswerInput'
         submit:
           type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Omit on the first save (nothing to version yet). Required on every subsequent save
+            against the same submission — missing → 400, stale → 409 CONCURRENCY_CONFLICT.
       additionalProperties: false
     SetCompetencyRatingScaleLevelRequest:
       type: object

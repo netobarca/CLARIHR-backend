@@ -229,12 +229,14 @@ public sealed class AccountCompanyAuthorizationController(
         Description = """
             Permanently deletes a custom IAM role (hard delete — there is no soft-delete state). The
             delete is guarded: system roles cannot be deleted (`403`) and a role still assigned to users
-            yields `409` (`iam.roles.in_use`). Returns `204`. Requires `Roles:Delete` (handler-gated
-            RBAC).
+            yields `409` (`iam.roles.in_use`). Returns `204`. Requires the current `concurrencyToken` in
+            the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). Requires
+            `Roles:Delete` (handler-gated RBAC).
             """)]
     public async Task<IActionResult> DeleteRole(
         Guid companyPublicId,
         Guid rolePublicId,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         if (IsCompanyScopeMismatch(companyPublicId))
@@ -242,7 +244,9 @@ public sealed class AccountCompanyAuthorizationController(
             return Forbid();
         }
 
-        var result = await commandDispatcher.SendAsync(new DeleteIamRoleCommand(rolePublicId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(
+            new DeleteIamRoleCommand(rolePublicId, concurrencyToken),
+            cancellationToken);
         return result.IsFailure
             ? this.ToActionResult(result).Result!
             : NoContent();

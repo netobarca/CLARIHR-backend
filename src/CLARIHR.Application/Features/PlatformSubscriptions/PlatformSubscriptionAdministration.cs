@@ -384,6 +384,11 @@ internal sealed class ChangePlatformCompanySubscriptionStatusCommandHandler(
                 return Result<PlatformCompanySubscriptionResponse>.Failure(resolution.Value.PrimaryError);
             }
 
+            if (resolution.Value.Subscription.ConcurrencyToken != command.ConcurrencyToken)
+            {
+                return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.ConcurrencyConflict);
+            }
+
             var reactivationBefore = await subscriptionRepository.GetOverviewByCompanyPublicIdAsync(command.CompanyId, cancellationToken);
             var reactivationActorUserPublicId = PlatformSubscriptionAdministrationHelpers.TryParseCurrentUserId(currentUserService.UserId);
 
@@ -502,6 +507,11 @@ internal sealed class ChangePlatformCompanySubscriptionStatusCommandHandler(
         if (subscription is null)
         {
             return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound);
+        }
+
+        if (subscription.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.ConcurrencyConflict);
         }
 
         if (!SubscriptionStatusPolicy.CanTransition(

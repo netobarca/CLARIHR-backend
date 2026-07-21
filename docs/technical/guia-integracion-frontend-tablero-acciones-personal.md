@@ -11,7 +11,7 @@
 Este REQ **extiende** el tablero existente; **no cambia** la forma de `overview`/`hires`/`span-of-control`/`metadata` (contrato 100% aditivo). Convenciones de la casa:
 
 - Prefijo `api/v1`; ruta base del tablero `…/companies/{companyId}/personnel-files/dashboard/…`; la **bandeja y su export** cuelgan de `…/companies/{companyId}/personnel-actions/…` (recurso corporativo, como `settlements`).
-- Error de negocio en `problemDetails.extensions.code` (mensaje en `problemDetails.detail`, mostrar tal cual).
+- Error de negocio en `problemDetails.code` (miembro RAÍZ — no existe un objeto `extensions` en el JSON; el backend lo escribe en `ProblemDetails.Extensions`, pero `System.Text.Json` lo aplana al serializar). Mensaje en `problemDetails.detail`, mostrar tal cual.
 - Enums/códigos como **strings**; todo `Guid XxxId` se serializa/deserializa como `xxxPublicId` (aplica a los query params `Guid` y a los campos `Guid` del body).
 - Toda la reportería es **solo lectura** bajo un único permiso; **cero escrituras** desde estas pantallas.
 
@@ -305,4 +305,4 @@ Notas de render:
 | (gate estándar) | 403 | Sin `ViewReports`/`Read`/`Admin` en cualquier endpoint (sección, bandeja, export, job) |
 | `REPORT_EXPORT_...` / `413` | 413 | Export síncrono por encima del límite → usar el job asíncrono `COMPANY_PERSONNEL_ACTIONS` |
 
-Los mensajes bilingües viajan en `problemDetails.detail` (mostrar tal cual); el código de negocio en `problemDetails.extensions.code`.
+Los mensajes bilingües viajan en `problemDetails.detail` (mostrar tal cual); el código de negocio en `problemDetails.code` (miembro raíz — no anidado bajo `extensions`).

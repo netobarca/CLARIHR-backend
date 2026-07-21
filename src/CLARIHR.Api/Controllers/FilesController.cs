@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Contracts.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -108,21 +109,25 @@ public sealed class FilesController(
     [HttpDelete("api/v1/files/{filePublicId:guid}")]
     [EnableRateLimiting(FileRateLimitPolicies.Lifecycle)]
     [ProducesResponseType<DeleteFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [SwaggerOperation(
         Summary = "Delete a file",
         Description = """
             Soft-deletes a file (marks it `Deleted`; the stored binary is reclaimed by the background
-            cleanup). Restricted to the file's uploader (`403` otherwise).
+            cleanup). Restricted to the file's uploader (`403` otherwise). Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`).
             """)]
     public async Task<ActionResult<DeleteFileResponse>> Delete(
         Guid filePublicId,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeleteFileCommand(filePublicId),
+            new DeleteFileCommand(filePublicId, concurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

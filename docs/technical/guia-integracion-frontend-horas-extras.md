@@ -11,7 +11,7 @@
 El módulo registra, por empleado, **jornadas de horas extras** (fecha, tipo, duración h:m, factor, justificación). En Fase 1 **no hay motor de nómina** (P-01/P-09 — «este no es el módulo de horas extras operativo; el cálculo de valor-hora operativo será otro módulo»): cubre **registro + autorización + aplicación** y expone un **insumo exportable** que consume la nómina externa. La **única monetización** es la línea **calculada** de la liquidación (§9). Convenciones de la casa:
 
 - Prefijo `api/v1`.
-- Error de negocio en `problemDetails.extensions.code` (mensajes bilingües EN/ES/es-SV en `problemDetails.detail` — mostrar tal cual).
+- Error de negocio en `problemDetails.code` (miembro RAÍZ — no existe un objeto `extensions` en el JSON; el backend lo escribe en `ProblemDetails.Extensions`, pero `System.Text.Json` lo aplana al serializar). Mensajes bilingües EN/ES/es-SV en `problemDetails.detail` — mostrar tal cual.
 - Concurrencia optimista con `If-Match` en **todo write** (sin header → `400`; token obsoleto → `409`; el token nuevo viaja en `ETag` y en `concurrencyToken`/`overtimeRecordConcurrencyToken` del body). El `DELETE` de borrador devuelve el token del **expediente padre** en `parentConcurrencyToken`.
 - Enums/códigos como **strings**; todo `Guid XxxId` se serializa como `xxxPublicId` (p.ej. `overtimeRecordPublicId`, `overtimeTypePublicId`, `justificationTypePublicId`, `requesterFilePublicId`, `assignedPositionPublicId`, `applicationPublicId`).
 - `workDate`, `appliedDate`, `payrollPeriodEndDate`, `fromWorkDate`/`toWorkDate` viajan como `date` (`"2026-07-15"`, sin hora); `startTime`/`endTime` como `time` (`"18:30:00"`, opcionales); las fechas de auditoría (`decidedUtc`, `annulledUtc`) son `date-time` UTC.
@@ -229,7 +229,7 @@ Una hora extra puede acreditarse como **tiempo compensatorio** en vez de pagarse
 
 ## 11. Tabla de errores del módulo
 
-| `extensions.code` | HTTP | Cuándo |
+| `code` (raíz) | HTTP | Cuándo |
 |---|---|---|
 | `OVERTIME_DURATION_HOURS_INVALID` / `_MINUTES_INVALID` / `_EMPTY` | 422 | Horas < 0 / minutos fuera de 0–59 / duración total 0. |
 | `OVERTIME_FACTOR_INVALID` / `OVERTIME_FACTOR_NOTE_REQUIRED` | 422 | Factor ≤ 0 / factor distinto del tipo sin nota (P-06). |

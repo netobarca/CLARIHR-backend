@@ -70,7 +70,8 @@ public sealed record GetExitInterviewForFileQuery(Guid PersonnelFilePublicId)
 public sealed record SaveExitInterviewSubmissionCommand(
     Guid PersonnelFilePublicId,
     IReadOnlyCollection<ExitInterviewAnswerInput> Answers,
-    bool Submit)
+    bool Submit,
+    Guid? ConcurrencyToken)
     : ICommand<ExitInterviewSubmissionResponse>;
 
 public sealed record ListExitInterviewSubmissionsQuery(

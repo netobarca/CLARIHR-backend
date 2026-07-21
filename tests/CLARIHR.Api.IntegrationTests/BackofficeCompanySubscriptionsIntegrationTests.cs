@@ -253,7 +253,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
             {
                 targetStatus = SubscriptionStatus.Suspended,
                 reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
-                observations = "Mora administrativa"
+                observations = "Mora administrativa",
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(suspendResponse);
 
@@ -273,7 +274,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Active,
                 reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 observations = "Pago validado",
-                effectiveDateUtc = DateTime.UtcNow.Date
+                effectiveDateUtc = DateTime.UtcNow.Date,
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(reactivateResponse);
 
@@ -306,6 +308,83 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
     }
 
     [Fact]
+    public async Task CompanySubscriptions_ChangeStatusWithoutConcurrencyToken_ShouldReturnBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var subscriptionId = await GetCurrentSubscriptionIdAsync(client, scenario.TenantId);
+
+        // No concurrencyToken in the body → PatchJsonAsync sends no If-Match header → the strong-token
+        // binder rejects the write with 400 before the handler is ever reached.
+        var response = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Suspended,
+                reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
+                observations = "Sin token"
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanySubscriptions_ChangeStatusWithStaleConcurrencyToken_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var subscriptionId = await GetCurrentSubscriptionIdAsync(client, scenario.TenantId);
+        var staleToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId);
+
+        // Rotate the token with a real suspend, then try to act again with the now-stale value.
+        var suspendResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Suspended,
+                reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
+                observations = "Mora",
+                concurrencyToken = staleToken
+            });
+        await EnsureSuccessAsync(suspendResponse);
+
+        var staleResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Active,
+                reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+                observations = "Token viejo",
+                effectiveDateUtc = DateTime.UtcNow.Date,
+                concurrencyToken = staleToken
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, staleResponse.StatusCode);
+
+        await using var staleStream = await staleResponse.Content.ReadAsStreamAsync();
+        using var staleDocument = await JsonDocument.ParseAsync(staleStream);
+        Assert.Equal("PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT", staleDocument.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task CompanySubscriptions_StatusChangePreviewAndScheduling_ShouldExposePendingStatusChangeAndApplyViaProcessor()
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
@@ -328,7 +407,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Suspended,
                 reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
                 observations = "Bloqueo temporal",
-                effectiveDateUtc = (DateTime?)null
+                effectiveDateUtc = (DateTime?)null,
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(suspendResponse);
 
@@ -362,7 +442,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Active,
                 reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 observations = "Pago confirmado",
-                effectiveDateUtc = futureDate
+                effectiveDateUtc = futureDate,
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(scheduleResponse);
 
@@ -477,7 +558,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Suspended,
                 reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
                 observations = "Mora",
-                effectiveDateUtc = (DateTime?)null
+                effectiveDateUtc = (DateTime?)null,
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(suspendResponse);
 
@@ -488,7 +570,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Active,
                 reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 observations = "Regularizacion inicial",
-                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(2)
+                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(2),
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
         await EnsureSuccessAsync(firstScheduleResponse);
 
@@ -499,7 +582,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
                 targetStatus = SubscriptionStatus.Active,
                 reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 observations = "Intento duplicado",
-                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(3)
+                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(3),
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
 
         Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
@@ -533,7 +617,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
             {
                 targetStatus = SubscriptionStatus.Cancelled,
                 reasonCode = SubscriptionStatusChangeReasonCode.CommercialCancellation,
-                observations = "Intento sin permiso"
+                observations = "Intento sin permiso",
+                concurrencyToken = await GetCurrentSubscriptionConcurrencyTokenAsync(client, scenario.TenantId)
             });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -867,6 +952,22 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
         return document.RootElement
             .GetProperty("currentSubscription")
             .GetProperty("subscriptionPublicId")
+            .GetGuid();
+    }
+
+    // Fetched fresh right before each ChangeStatus PATCH rather than chained from a prior response,
+    // so callers don't need to reason about whether the previous action rotated the subscription's token
+    // (it does on an immediate transition, it doesn't when only a pending request is scheduled).
+    private async Task<Guid> GetCurrentSubscriptionConcurrencyTokenAsync(HttpClient client, Guid companyPublicId)
+    {
+        var response = await client.GetAsync($"/api/platform/companies/{companyPublicId}/subscription");
+        await EnsureSuccessAsync(response);
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        return document.RootElement
+            .GetProperty("currentSubscription")
+            .GetProperty("concurrencyToken")
             .GetGuid();
     }
 

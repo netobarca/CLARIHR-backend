@@ -208,9 +208,9 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
 
-        var rolePublicId = await CreateRoleAsync(client, scenario, "Rol Auditado Al Borrar");
+        var (rolePublicId, token) = await CreateRoleWithTokenAsync(client, scenario, "Rol Auditado Al Borrar");
 
-        var deleteResponse = await client.DeleteAsync(RoleUrl(scenario, rolePublicId));
+        var deleteResponse = await SendWithIfMatchAsync(client, HttpMethod.Delete, RoleUrl(scenario, rolePublicId), body: null, token);
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         // A-1: the hard delete must leave a forensic trail (ROLE_DELETED audit entry on the role).
@@ -220,6 +220,41 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
             .IgnoreQueryFilters()
             .AnyAsync(log => log.EntityId == rolePublicId && log.EventType == "ROLE_DELETED");
         Assert.True(deletionAudited);
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_DeleteRoleWithoutIfMatch_ShouldReturnBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var rolePublicId = await CreateRoleAsync(client, scenario, "Rol Sin Token Al Borrar");
+
+        // No If-Match header → the strong-token binder rejects the write with 400.
+        var deleteResponse = await client.DeleteAsync(RoleUrl(scenario, rolePublicId));
+
+        Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanyAuthorization_DeleteRoleWithStaleToken_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateAuthorizationAdminContext(scenario));
+
+        var (rolePublicId, staleToken) = await CreateRoleWithTokenAsync(client, scenario, "Rol Conflicto Al Borrar");
+
+        // Rotate the token with an unrelated patch, then try to delete with the now-stale token.
+        var firstPatch = await SendPatchWithIfMatchAsync(
+            client,
+            RoleUrl(scenario, rolePublicId),
+            """[ { "op": "replace", "path": "/description", "value": "Actualizado" } ]""",
+            staleToken);
+        Assert.Equal(HttpStatusCode.OK, firstPatch.StatusCode);
+
+        var staleDelete = await SendWithIfMatchAsync(client, HttpMethod.Delete, RoleUrl(scenario, rolePublicId), body: null, staleToken);
+
+        await AssertProblemDetailsAsync(staleDelete, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
     }
 
     private static async Task<Guid> CreateRoleAsync(HttpClient client, IntegrationTestScenario scenario, string name)
@@ -256,13 +291,15 @@ public sealed class AccountCompanyAuthorizationIntegrationTests(IntegrationTestW
         HttpClient client,
         HttpMethod method,
         string requestUri,
-        object body,
+        object? body,
         Guid concurrencyToken)
     {
-        var request = new HttpRequestMessage(method, requestUri)
+        var request = new HttpRequestMessage(method, requestUri);
+        if (body is not null)
         {
-            Content = JsonContent.Create(body, options: JsonOptions)
-        };
+            request.Content = JsonContent.Create(body, options: JsonOptions);
+        }
+
         request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
         return client.SendAsync(request);
     }

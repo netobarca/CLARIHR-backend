@@ -175,7 +175,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 row.Subscription.ModifiedUtc,
                 row.Company.Name,
                 row.Company.Slug,
-                row.Company.IsBillable))
+                row.Company.IsBillable,
+                row.Subscription.ConcurrencyToken))
             .ToListAsync(cancellationToken);
 
         var items = rows.Select(MapResponse).ToList();
@@ -255,7 +256,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 row.Subscription.ModifiedUtc,
                 row.Company.Name,
                 row.Company.Slug,
-                row.Company.IsBillable))
+                row.Company.IsBillable,
+                row.Subscription.ConcurrencyToken))
             .ToListAsync(cancellationToken);
 
         var items = rows.Select(MapListItem).ToList();
@@ -811,7 +813,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                     subscription.ModifiedUtc,
                     company.Name,
                     company.Slug,
-                    company.IsBillable))
+                    company.IsBillable,
+                    subscription.ConcurrencyToken))
                 .SingleOrDefaultAsync(cancellationToken);
 
         return row is null ? null : MapResponse(row);
@@ -986,7 +989,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 subscription.ModifiedUtc,
                 company.Name,
                 company.Slug,
-                company.IsBillable))
+                company.IsBillable,
+                subscription.ConcurrencyToken))
             .ToListAsync(cancellationToken);
 
         return rows.Select(MapResponse).ToList();
@@ -1027,7 +1031,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
             row.ActivatedByUserId,
             row.ActivatedAtUtc,
             row.CreatedAtUtc,
-            row.ModifiedAtUtc);
+            row.ModifiedAtUtc,
+            row.ConcurrencyToken);
 
     private static PlatformCompanySubscriptionListItemResponse MapListItem(SubscriptionProjection row) =>
         new(
@@ -1183,7 +1188,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
         DateTime? ModifiedAtUtc,
         string CompanyName,
         string CompanySlug,
-        bool IsBillable);
+        bool IsBillable,
+        Guid ConcurrencyToken);
 
     private sealed record PlanChangeProjection(
         Guid PlanChangeId,

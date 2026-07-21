@@ -146,6 +146,22 @@ internal sealed class SaveExitInterviewSubmissionCommandHandler(
             return Result<ExitInterviewSubmissionResponse>.Failure(ExitInterviewErrors.SubmissionAlreadySubmitted);
         }
 
+        // Upsert, not a plain update: the first save has nothing to version yet, so the concurrency
+        // token is only required from the second save onward (once `existing` is a real row).
+        if (existing is not null)
+        {
+            if (command.ConcurrencyToken is null)
+            {
+                return Result<ExitInterviewSubmissionResponse>.Failure(ErrorCatalog.Validation(
+                    new Dictionary<string, string[]> { ["concurrencyToken"] = ["The concurrencyToken is required when updating an existing exit-interview submission."] }));
+            }
+
+            if (existing.ConcurrencyToken != command.ConcurrencyToken)
+            {
+                return Result<ExitInterviewSubmissionResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            }
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {

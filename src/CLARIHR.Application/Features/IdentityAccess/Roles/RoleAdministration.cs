@@ -35,7 +35,7 @@ public sealed record UpdateIamRoleCommand(
     string? Description,
     Guid ConcurrencyToken) : ICommand<IamRoleResponse>;
 
-public sealed record DeleteIamRoleCommand(Guid RoleId) : ICommand<bool>;
+public sealed record DeleteIamRoleCommand(Guid RoleId, Guid ConcurrencyToken) : ICommand<bool>;
 
 public sealed record SyncIamRolePermissionsCommand(
     Guid RoleId,
@@ -334,6 +334,11 @@ internal sealed class DeleteIamRoleCommandHandler(
                 command.RoleId,
                 RbacPermissionAction.Delete,
                 cancellationToken));
+        }
+
+        if (role.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<bool>.Failure(IdentityAccessErrors.ConcurrencyConflict);
         }
 
         if (role.IsSystemRole)

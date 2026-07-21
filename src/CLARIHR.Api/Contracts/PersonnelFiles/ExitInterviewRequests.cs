@@ -18,4 +18,5 @@ public sealed record AssignExitInterviewFormReasonRequest(string ReasonCode);
 
 public sealed record SaveExitInterviewSubmissionRequest(
     IReadOnlyCollection<ExitInterviewAnswerInput> Answers,
-    bool Submit);
+    bool Submit,
+    Guid? ConcurrencyToken = null);

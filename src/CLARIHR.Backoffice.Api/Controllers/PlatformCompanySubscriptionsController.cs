@@ -1,3 +1,4 @@
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PlatformSubscriptions;
@@ -108,6 +109,7 @@ public sealed class PlatformCompanySubscriptionsController(
     public async Task<ActionResult<PlatformCompanySubscriptionResponse>> ChangeStatus(
         Guid companyPublicId,
         Guid subscriptionPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] ChangePlatformCompanySubscriptionStatusRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -118,7 +120,8 @@ public sealed class PlatformCompanySubscriptionsController(
                 request.TargetStatus,
                 request.ReasonCode,
                 request.Observations,
-                request.EffectiveDateUtc),
+                request.EffectiveDateUtc,
+                concurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

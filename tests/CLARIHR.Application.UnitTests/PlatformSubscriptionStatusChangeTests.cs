@@ -87,7 +87,8 @@ public sealed class PlatformSubscriptionStatusChangeTests
                 SubscriptionStatus.Active,
                 SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 "Pago confirmado",
-                UtcNow.Date.AddDays(5)),
+                UtcNow.Date.AddDays(5),
+                subscription.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -122,7 +123,8 @@ public sealed class PlatformSubscriptionStatusChangeTests
                 SubscriptionStatus.Active,
                 SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 "Pago confirmado",
-                UtcNow.Date.AddDays(2)),
+                UtcNow.Date.AddDays(2),
+                subscription.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -160,7 +162,8 @@ public sealed class PlatformSubscriptionStatusChangeTests
                 SubscriptionStatus.Active,
                 SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
                 "Pago validado",
-                UtcNow.Date),
+                UtcNow.Date,
+                subscription.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -594,7 +597,8 @@ public sealed class PlatformSubscriptionStatusChangeTests
                 subscription.ActivatedByUserPublicId,
                 subscription.ActivatedAtUtc,
                 subscription.CreatedUtc,
-                subscription.ModifiedUtc);
+                subscription.ModifiedUtc,
+                subscription.ConcurrencyToken);
         }
     }
 }

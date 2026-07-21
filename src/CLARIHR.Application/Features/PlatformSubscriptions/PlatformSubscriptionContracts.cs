@@ -32,7 +32,8 @@ public sealed record PlatformCompanySubscriptionResponse(
     Guid ActivatedByUserId,
     DateTime ActivatedAtUtc,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    Guid ConcurrencyToken);
 
 public sealed record PlatformCompanySubscriptionOverviewResponse(
     Guid CompanyId,
@@ -233,7 +234,8 @@ public sealed record ChangePlatformCompanySubscriptionStatusCommand(
     SubscriptionStatus TargetStatus,
     SubscriptionStatusChangeReasonCode ReasonCode,
     string? Observations,
-    DateTime? EffectiveDateUtc)
+    DateTime? EffectiveDateUtc,
+    Guid ConcurrencyToken)
     : ICommand<PlatformCompanySubscriptionResponse>;
 
 public sealed record PreviewPlatformCompanySubscriptionStatusChangeQuery(
