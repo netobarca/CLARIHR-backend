@@ -25,7 +25,7 @@ internal sealed class CompanyUserProvisioningService(
     IIamAdministrationRepository iamRepository,
     IInvitationTokenRepository invitationTokenRepository,
     IInvitationTokenHasher invitationTokenHasher,
-    IEmailService emailService,
+    IPendingEmailDispatcher pendingEmailDispatcher,
     IPasswordHasher passwordHasher,
     IPersonnelFileRepository personnelFileRepository,
     IUserPreferenceRepository userPreferenceRepository,
@@ -193,7 +193,9 @@ internal sealed class CompanyUserProvisioningService(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            await emailService.SendCompanyUserInvitationAsync(
+            // This service always runs inside the caller's transaction (finalization, rehire), so it
+            // can only buffer: the caller flushes after its own commit.
+            pendingEmailDispatcher.Enqueue(
                 new CompanyUserInvitationEmailMessage(
                     user.Email,
                     user.FirstName,
@@ -201,8 +203,7 @@ internal sealed class CompanyUserProvisioningService(
                     company.Name,
                     rawToken,
                     invitationExpiresUtc.Value,
-                    CompanyUserInvitationEmailKind.Invitation),
-                cancellationToken);
+                    CompanyUserInvitationEmailKind.Invitation));
         }
 
         // PV2: provisioning assigns a role (and may invite) without going through the CompanyUsers

@@ -643,20 +643,40 @@ internal sealed class TestJobProfileAuthorizationService : IJobProfileAuthorizat
     public Error TenantMismatch(RbacPermissionAction action) => Result.Failure(new Error("TenantMismatch", "Tenant mismatch", ErrorType.Forbidden)).Error;
 }
 
-internal sealed class TestAuditService : IAuditService
+/// <summary>
+/// Mirrors <c>AuditService</c>: <see cref="LogAsync"/> resolves the tenant from the ambient
+/// <c>ITenantContext</c> and throws when there is none — which is exactly what happens on an
+/// <c>[AllowAnonymous]</c> endpoint, where no JWT means no <c>tid</c> claim.
+/// <para>
+/// The previous double accepted everything, so three anonymous handlers shipped a deterministic 500
+/// while the suite stayed green. Construct it with <c>tenantId: null</c> to reproduce an anonymous
+/// request; the parameterless constructor keeps an ambient tenant for authenticated flows.
+/// </para>
+/// </summary>
+internal sealed class TestAuditService(Guid? tenantId) : IAuditService
 {
+    public TestAuditService()
+        : this(Guid.NewGuid())
+    {
+    }
+
     public List<AuditLogEntry> Entries { get; } = [];
     public List<(Guid TenantId, AuditLogEntry Entry)> TenantEntries { get; } = [];
 
     public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
     {
+        if (!tenantId.HasValue)
+        {
+            throw new InvalidOperationException("Audit logging requires a tenant context.");
+        }
+
         Entries.Add(entry);
         return Task.CompletedTask;
     }
 
-    public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
+    public Task LogForTenantAsync(Guid explicitTenantId, AuditLogEntry entry, CancellationToken cancellationToken)
     {
-        TenantEntries.Add((tenantId, entry));
+        TenantEntries.Add((explicitTenantId, entry));
         return Task.CompletedTask;
     }
 }

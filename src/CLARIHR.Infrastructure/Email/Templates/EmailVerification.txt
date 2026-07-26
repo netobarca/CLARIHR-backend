@@ -1,0 +1,9 @@
+Hola {{FIRSTNAME}},
+
+Confirma tu dirección de correo para terminar de crear tu cuenta en CLARIHR:
+
+{{ACTIONURL}}
+
+El enlace es de un solo uso y vence el {{EXPIRESUTC}} (UTC).
+
+Si no creaste esta cuenta, puedes ignorar este correo.

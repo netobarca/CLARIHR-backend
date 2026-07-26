@@ -74,7 +74,7 @@ internal sealed class RequestPasswordResetCommandHandler(
     IDateTimeProvider dateTimeProvider,
     IPasswordResetLinkBuilder passwordResetLinkBuilder,
     IPasswordResetPolicyProvider passwordResetPolicyProvider,
-    IAuditService auditService,
+    IPlatformAuditService platformAuditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<RequestPasswordResetCommand, bool>
 {
@@ -104,7 +104,10 @@ internal sealed class RequestPasswordResetCommandHandler(
             passwordResetTokenHasher.Hash(rawToken),
             expirationUtc));
 
-        await auditService.LogAsync(
+        // [AllowAnonymous]: no JWT, so no tenant context. A password reset is not tenant-scoped anyway
+        // (the same account can belong to several companies), so it audits at platform level — same as
+        // LoginCommand and ConfirmEmailVerificationCommandHandler.
+        await platformAuditService.LogAsync(
             new AuditLogEntry(
                 AuditEventTypes.UserUpdated,
                 AuditEntityTypes.User,
@@ -168,7 +171,7 @@ internal sealed class RedeemPasswordResetCommandHandler(
     IPasswordHasher passwordHasher,
     IRefreshTokenRepository refreshTokenRepository,
     IDateTimeProvider dateTimeProvider,
-    IAuditService auditService,
+    IPlatformAuditService platformAuditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<RedeemPasswordResetCommand, bool>
 {
@@ -216,7 +219,8 @@ internal sealed class RedeemPasswordResetCommandHandler(
         await refreshTokenRepository.RevokeUserTokensAsync(user.Id, AuthClientType.Core, utcNow, "password-reset", cancellationToken);
         await refreshTokenRepository.RevokeUserTokensAsync(user.Id, AuthClientType.Platform, utcNow, "password-reset", cancellationToken);
 
-        await auditService.LogAsync(
+        // [AllowAnonymous] — platform-level audit, see RequestPasswordResetCommandHandler.
+        await platformAuditService.LogAsync(
             new AuditLogEntry(
                 AuditEventTypes.UserUpdated,
                 AuditEntityTypes.User,

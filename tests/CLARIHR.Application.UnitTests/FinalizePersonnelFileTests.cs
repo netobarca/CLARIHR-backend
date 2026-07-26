@@ -269,6 +269,7 @@ public sealed class FinalizePersonnelFileTests
             userRepository,
             auditService,
             tenantContext,
+            new TestPendingEmailDispatcher(),
             unitOfWork);
     }
 

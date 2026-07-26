@@ -59,6 +59,12 @@ public sealed class CompanyUserManagementTests
 
     private static TestAuditService CreateAuditService() => new();
 
+    /// <summary>
+    /// Audit double for the <c>[AllowAnonymous]</c> invitation-accept flow: no JWT means no ambient
+    /// tenant, so any handler that reaches <c>IAuditService.LogAsync</c> must blow up here too.
+    /// </summary>
+    private static TestAuditService CreateAnonymousAuditService() => new(tenantId: null);
+
     [Fact]
     public async Task Handle_WhenInvitingNewUser_ShouldCreatePendingUserMembershipInvitationAndIamUser()
     {
@@ -342,6 +348,7 @@ public sealed class CompanyUserManagementTests
         Assert.True(result.IsFailure);
         Assert.Equal(CompanyUserErrors.RoleNotFound.Code, result.Error.Code);
         Assert.Empty(fixture.AuditService.Entries);
+        Assert.Empty(fixture.AuditService.TenantEntries);
     }
 
     [Fact]
@@ -357,7 +364,11 @@ public sealed class CompanyUserManagementTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var entry = Assert.Single(fixture.AuditService.Entries);
+        // Provisioning always audits with an explicit tenant (it can run from an anonymous or
+        // background context where the ambient tenant is absent) — never through LogAsync.
+        Assert.Empty(fixture.AuditService.Entries);
+        var (auditedTenantId, entry) = Assert.Single(fixture.AuditService.TenantEntries);
+        Assert.Equal(TenantId, auditedTenantId);
         Assert.Equal(AuditEventTypes.UserInvited, entry.EventType);
         Assert.Equal(AuditActions.Invite, entry.Action);
         Assert.Equal(AuditEntityTypes.User, entry.EntityType);
@@ -380,6 +391,7 @@ public sealed class CompanyUserManagementTests
         Assert.True(result.IsFailure);
         Assert.Equal(CompanyUserErrors.RoleNotFound.Code, result.Error.Code);
         Assert.Empty(fixture.AuditService.Entries);
+        Assert.Empty(fixture.AuditService.TenantEntries);
     }
 
     [Fact]
@@ -404,7 +416,9 @@ public sealed class CompanyUserManagementTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, result.Value);
-        var entry = Assert.Single(fixture.AuditService.Entries);
+        Assert.Empty(fixture.AuditService.Entries);
+        var (auditedTenantId, entry) = Assert.Single(fixture.AuditService.TenantEntries);
+        Assert.Equal(TenantId, auditedTenantId);
         Assert.Equal(AuditEventTypes.UserUpdated, entry.EventType);
         Assert.Equal(AuditActions.Update, entry.Action);
         Assert.Equal(user.PublicId, entry.EntityId);
@@ -436,7 +450,7 @@ public sealed class CompanyUserManagementTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value);
-        Assert.Equal(2, fixture.AuditService.Entries.Count);
+        Assert.Equal(2, fixture.AuditService.TenantEntries.Count);
         Assert.Equal(1, fixture.UserRepository.GetByPublicIdsCallCount);
         Assert.Equal(1, fixture.UserCompanyRepository.GetMembershipsCallCount);
         Assert.Equal(1, fixture.IamRepository.GetUsersByTenantAndLinkedUserPublicIdsCallCount);
@@ -623,7 +637,9 @@ public sealed class CompanyUserManagementTests
         var invitationTokenRepository = new TestInvitationTokenRepository();
         var passwordHasher = new TestPasswordHasher();
         var tokenService = new TestTokenService();
-        var auditService = CreateAuditService();
+        // Anonymous endpoint: no ambient tenant. If the handler ever goes back to IAuditService.LogAsync,
+        // this double throws and the whole activation rolls back — exactly the production 500.
+        var auditService = CreateAnonymousAuditService();
         var unitOfWork = new TestUnitOfWork();
         var utcNow = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
 
@@ -674,7 +690,12 @@ public sealed class CompanyUserManagementTests
         Assert.Equal(TenantId, tokenService.LastTenantId);
         Assert.Equal("access-token", result.Value.AccessToken);
         Assert.Equal("refresh-token", result.Value.RefreshToken);
-        Assert.Equal(AuditEventTypes.UserActivated, auditService.Entries.Single().EventType);
+        // The audit must ride the explicit-tenant path (LogForTenantAsync) against the invitation's
+        // company — never the ambient one, which does not exist on an anonymous request.
+        Assert.Empty(auditService.Entries);
+        var (auditedTenantId, auditedEntry) = Assert.Single(auditService.TenantEntries);
+        Assert.Equal(TenantId, auditedTenantId);
+        Assert.Equal(AuditEventTypes.UserActivated, auditedEntry.EventType);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
@@ -716,7 +737,7 @@ public sealed class CompanyUserManagementTests
             new TestPasswordHasher(),
             new TestTokenService(),
             new FixedDateTimeProvider(utcNow),
-            CreateAuditService(),
+            CreateAnonymousAuditService(),
             unitOfWork);
 
         var result = await handler.Handle(
@@ -741,7 +762,7 @@ public sealed class CompanyUserManagementTests
             new TestPasswordHasher(),
             new TestTokenService(),
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)),
-            CreateAuditService(),
+            CreateAnonymousAuditService(),
             new TestUnitOfWork());
 
         var result = await handler.Handle(
@@ -1139,15 +1160,41 @@ public sealed class CompanyUserManagementTests
         public string Hash(string token) => $"HASH::{token}";
     }
 
-    private sealed class TestEmailService : IEmailService
+    /// <summary>
+    /// Doubles as the transport (<see cref="IEmailService"/>) and the buffer
+    /// (<see cref="IPendingEmailDispatcher"/>) so a test can tell the two apart:
+    /// <c>Messages</c> only fills once <see cref="FlushAsync"/> runs — i.e. after the handler's
+    /// transaction committed. A handler that enqueues but never flushes leaves <c>Messages</c> empty
+    /// and its assertion fails, which is exactly the regression worth catching.
+    /// </summary>
+    private sealed class TestEmailService : IEmailService, IPendingEmailDispatcher
     {
+        private readonly List<CompanyUserInvitationEmailMessage> _pending = [];
+
+        /// <summary>Messages actually delivered (post-commit).</summary>
         public List<CompanyUserInvitationEmailMessage> Messages { get; } = [];
+
+        public bool HasPending => _pending.Count > 0;
 
         public Task SendCompanyUserInvitationAsync(CompanyUserInvitationEmailMessage message, CancellationToken cancellationToken)
         {
             Messages.Add(message);
             return Task.CompletedTask;
         }
+
+        public void Enqueue(CompanyUserInvitationEmailMessage message) => _pending.Add(message);
+
+        public async Task FlushAsync(CancellationToken cancellationToken)
+        {
+            var messages = _pending.ToArray();
+            _pending.Clear();
+            foreach (var message in messages)
+            {
+                await SendCompanyUserInvitationAsync(message, cancellationToken);
+            }
+        }
+
+        public void Discard() => _pending.Clear();
     }
 
     private sealed class TestCompanyRepository : ICompanyRepository
@@ -1694,19 +1741,37 @@ public sealed class CompanyUserManagementTests
             Task.FromResult(result);
     }
 
-    private sealed class TestAuditService : IAuditService
+    /// <summary>
+    /// Mirrors <c>AuditService</c>: <see cref="LogAsync"/> needs an ambient tenant and throws without
+    /// one, which is what an <c>[AllowAnonymous]</c> endpoint always gets (no JWT → no <c>tid</c> claim).
+    /// Anonymous flows must be built with <c>tenantId: null</c> so the production failure mode shows up
+    /// here instead of only in the deployed API.
+    /// </summary>
+    private sealed class TestAuditService(Guid? tenantId) : IAuditService
     {
+        public TestAuditService()
+            : this(Guid.NewGuid())
+        {
+        }
+
         public List<AuditLogEntry> Entries { get; } = [];
+
+        public List<(Guid TenantId, AuditLogEntry Entry)> TenantEntries { get; } = [];
 
         public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
         {
+            if (!tenantId.HasValue)
+            {
+                throw new InvalidOperationException("Audit logging requires a tenant context.");
+            }
+
             Entries.Add(entry);
             return Task.CompletedTask;
         }
 
-        public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
+        public Task LogForTenantAsync(Guid explicitTenantId, AuditLogEntry entry, CancellationToken cancellationToken)
         {
-            Entries.Add(entry);
+            TenantEntries.Add((explicitTenantId, entry));
             return Task.CompletedTask;
         }
     }

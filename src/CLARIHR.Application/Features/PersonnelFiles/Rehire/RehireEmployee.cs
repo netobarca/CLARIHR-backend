@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PositionSlots;
@@ -72,6 +73,7 @@ internal sealed class RehireEmployeeCommandHandler(
     IUserRepository userRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
+    IPendingEmailDispatcher pendingEmailDispatcher,
     IUnitOfWork unitOfWork)
     : ICommandHandler<RehireEmployeeCommand, RehireEmployeeResponse>
 {
@@ -243,6 +245,7 @@ internal sealed class RehireEmployeeCommandHandler(
             if (finalization.IsFailure)
             {
                 await transaction.RollbackAsync(cancellationToken);
+                pendingEmailDispatcher.Discard();
                 return Result<RehireEmployeeResponse>.Failure(finalization.Error);
             }
 
@@ -281,12 +284,18 @@ internal sealed class RehireEmployeeCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+
+            // The rehire may have re-provisioned an account; its invitation e-mail was buffered inside
+            // the transaction and only becomes safe to deliver here.
+            await pendingEmailDispatcher.FlushAsync(cancellationToken);
+
             return Result<RehireEmployeeResponse>.Success(
                 new RehireEmployeeResponse(after, finalization.Value.User, finalization.Value.InvitationExpiresUtc));
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            pendingEmailDispatcher.Discard();
             throw;
         }
     }

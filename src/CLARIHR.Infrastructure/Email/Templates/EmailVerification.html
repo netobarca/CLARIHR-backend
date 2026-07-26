@@ -1,0 +1,30 @@
+<!--
+  Placeholders: {{FIRSTNAME}} {{LASTNAME}} {{ACTIONURL}} {{EXPIRESUTC}}
+-->
+<title>Confirma tu correo en CLARIHR</title>
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2933;max-width:560px;margin:0 auto;padding:24px">
+  <h1 style="font-size:20px;margin:0 0 16px">Hola {{FIRSTNAME}},</h1>
+
+  <p style="margin:0 0 16px">
+    Confirma tu dirección de correo para terminar de crear tu cuenta en CLARIHR.
+  </p>
+
+  <p style="margin:0 0 24px">
+    <a href="{{ACTIONURL}}"
+       style="display:inline-block;background:#1f6feb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:bold">
+      Confirmar mi correo
+    </a>
+  </p>
+
+  <p style="margin:0 0 8px;color:#52606d;font-size:13px">
+    El enlace es de un solo uso y vence el {{EXPIRESUTC}} (UTC).
+  </p>
+  <p style="margin:0 0 16px;color:#52606d;font-size:13px">
+    Si el botón no funciona, copia esta dirección en tu navegador:<br />
+    <span style="word-break:break-all">{{ACTIONURL}}</span>
+  </p>
+
+  <p style="margin:24px 0 0;color:#7b8794;font-size:12px">
+    Si no creaste esta cuenta, puedes ignorar este correo.
+  </p>
+</div>

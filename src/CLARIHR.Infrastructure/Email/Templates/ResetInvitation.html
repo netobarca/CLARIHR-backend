@@ -1,0 +1,33 @@
+<!--
+  Placeholders: {{FIRSTNAME}} {{LASTNAME}} {{COMPANYNAME}} {{ACTIONURL}} {{EXPIRESUTC}}
+  Re-sent invitation: the previous link was revoked, so the copy has to say so — otherwise the user
+  tries the old mail, it fails, and it reads as a broken system.
+-->
+<title>Tu nuevo enlace de activación en CLARIHR</title>
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2933;max-width:560px;margin:0 auto;padding:24px">
+  <h1 style="font-size:20px;margin:0 0 16px">Hola {{FIRSTNAME}},</h1>
+
+  <p style="margin:0 0 16px">
+    Te reenviamos el enlace para activar tu cuenta de <strong>{{COMPANYNAME}}</strong> en CLARIHR.
+  </p>
+
+  <p style="margin:0 0 24px">
+    <a href="{{ACTIONURL}}"
+       style="display:inline-block;background:#1f6feb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:bold">
+      Activar mi cuenta
+    </a>
+  </p>
+
+  <p style="margin:0 0 8px;color:#52606d;font-size:13px">
+    Este enlace reemplaza al anterior: el que recibiste antes ya no funciona. Vence el
+    {{EXPIRESUTC}} (UTC) y es de un solo uso.
+  </p>
+  <p style="margin:0 0 16px;color:#52606d;font-size:13px">
+    Si el botón no funciona, copia esta dirección en tu navegador:<br />
+    <span style="word-break:break-all">{{ACTIONURL}}</span>
+  </p>
+
+  <p style="margin:24px 0 0;color:#7b8794;font-size:12px">
+    Si no esperabas este correo, puedes ignorarlo.
+  </p>
+</div>

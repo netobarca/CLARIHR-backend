@@ -55,6 +55,7 @@ using CLARIHR.Infrastructure.OrgStructureCatalogs;
 using CLARIHR.Infrastructure.Overtime;
 using CLARIHR.Infrastructure.Payroll;
 using CLARIHR.Infrastructure.EducationCatalogs;
+using CLARIHR.Infrastructure.Email;
 using CLARIHR.Infrastructure.Files.Azure;
 using CLARIHR.Infrastructure.Files.Configuration;
 using CLARIHR.Infrastructure.Files;
@@ -126,10 +127,11 @@ public static class DependencyInjection
         services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
         services.AddScoped<ICompanyOwnershipPolicy, CompanyOwnershipPolicy>();
         services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
-        services.AddScoped<IEmailService, LoggingEmailService>();
+        // IEmailService / IAuthEmailService / IPendingEmailDispatcher / IInvitationLinkBuilder are all
+        // registered here, behind the Email:Provider switch (default: Logging).
+        services.AddEmailDelivery(configuration);
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
-        services.AddScoped<IAuthEmailService, LoggingAuthEmailService>();
         services.AddScoped<IPasswordResetLinkBuilder, PasswordResetLinkBuilder>();
         services.AddScoped<IPasswordResetPolicyProvider, PasswordResetPolicyProvider>();
         services.AddScoped<IEmailVerificationLinkBuilder, EmailVerificationLinkBuilder>();

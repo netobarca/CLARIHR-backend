@@ -38,9 +38,22 @@ Storage__AzureBlob__UseManagedIdentity = true        # sin AccountKey en prod
 Reporting__Pdf__Engine = Gotenberg                   # o QuestPdf
 Reporting__Pdf__Gotenberg__BaseUrl = http://<gotenberg-host>:3000
 Swagger__Enabled = false
+
+# Correo transaccional — invitaciones, reset de contraseña, verificación.
+# Provider=Logging NO envía nada (solo registra): es el default seguro. Ponerlo en
+# Brevo SOLO después de verificar el dominio (SPF/DKIM) — ver brevo-email-setup.md.
+# Las plantillas NO se configuran aquí: viven en el repo.
+Email__Provider = Logging                            # Logging | Brevo
+Email__Brevo__ApiKey = <brevo-api-key>               # secreto
+Email__Brevo__SenderEmail = no-reply@<dominio-verificado>
+Authentication__Invitation__FrontendAcceptUrl = https://<frontend>/accept-invitation
+Authentication__PasswordReset__FrontendResetUrl = https://<frontend>/reset-password
+Authentication__EmailVerification__FrontendVerifyUrl = https://<frontend>/verify-email
 ```
 
 > De dónde sale cada valor: ver `local-environment-setup.md §3` y `§4`. **No reutilizar** las credenciales expuestas en §N1 (rotarlas).
+
+> Las tres URLs de correo traen `http://localhost:3000` por defecto. Si se despliega sin cambiarlas, los correos salen pero sus enlaces no llevan a ninguna parte — un fallo silencioso, sin error en los logs. Comandos `az` listos para copiar en `brevo-email-setup.md §5.1`.
 
 ---
 

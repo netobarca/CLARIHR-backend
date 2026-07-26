@@ -27,7 +27,7 @@ internal sealed class CreateCompanyUserCommandHandler(
     IIamAdministrationRepository iamRepository,
     IInvitationTokenRepository invitationTokenRepository,
     IInvitationTokenHasher invitationTokenHasher,
-    IEmailService emailService,
+    IPendingEmailDispatcher pendingEmailDispatcher,
     ICompanyUserAuthorizationService authorizationService,
     IRbacAuthorizationService rbacAuthorizationService,
     ITenantContext tenantContext,
@@ -193,7 +193,8 @@ internal sealed class CreateCompanyUserCommandHandler(
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await emailService.SendCompanyUserInvitationAsync(
+        // Buffered, not sent: the transaction is still open here and the provider call is remote.
+        pendingEmailDispatcher.Enqueue(
             new CompanyUserInvitationEmailMessage(
                 user.Email,
                 user.FirstName,
@@ -201,10 +202,12 @@ internal sealed class CreateCompanyUserCommandHandler(
                 company.Name,
                 rawToken,
                 invitationExpiresUtc,
-                CompanyUserInvitationEmailKind.Invitation),
-            cancellationToken);
+                CompanyUserInvitationEmailKind.Invitation));
 
         await transaction.CommitAsync(cancellationToken);
+
+        // Only now is the invitation token durable, so the mail can point at something real.
+        await pendingEmailDispatcher.FlushAsync(cancellationToken);
 
         logger.LogInformation(
             "CompanyUserInvited tenant {TenantId} user {UserPublicId} roleCount {RoleCount}",

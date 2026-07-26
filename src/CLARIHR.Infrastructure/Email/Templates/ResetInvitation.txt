@@ -1,0 +1,10 @@
+Hola {{FIRSTNAME}},
+
+Te reenviamos el enlace para activar tu cuenta de {{COMPANYNAME}} en CLARIHR:
+
+{{ACTIONURL}}
+
+Este enlace reemplaza al anterior: el que recibiste antes ya no funciona.
+Vence el {{EXPIRESUTC}} (UTC) y es de un solo uso.
+
+Si no esperabas este correo, puedes ignorarlo.

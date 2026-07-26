@@ -21,7 +21,7 @@ public sealed class PasswordResetAdministrationTests
         var userRepository = new TestPasswordResetUserRepository(user);
         var tokenRepository = new TestPasswordResetTokenRepository();
         var emailService = new TestAuthEmailService();
-        var auditService = new TestAuditService();
+        var auditService = new TestPlatformAuditService();
         var handler = new RequestPasswordResetCommandHandler(
             userRepository,
             tokenRepository,
@@ -58,7 +58,7 @@ public sealed class PasswordResetAdministrationTests
             new TestPasswordHasher(),
             refreshTokenRepository,
             new FixedDateTimeProvider(new DateTime(2026, 4, 23, 12, 30, 0, DateTimeKind.Utc)),
-            new TestAuditService(),
+            new TestPlatformAuditService(),
             new TestUnitOfWork());
 
         var result = await handler.Handle(
@@ -266,23 +266,6 @@ file sealed class TestRefreshTokenRepository : IRefreshTokenRepository
     }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-}
-
-file sealed class TestAuditService : IAuditService
-{
-    public List<AuditLogEntry> Entries { get; } = [];
-
-    public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
-    {
-        Entries.Add(entry);
-        return Task.CompletedTask;
-    }
-
-    public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
-    {
-        Entries.Add(entry);
-        return Task.CompletedTask;
-    }
 }
 
 file sealed class TestUnitOfWork : IUnitOfWork

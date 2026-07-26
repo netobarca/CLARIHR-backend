@@ -22,7 +22,7 @@ internal sealed class ResetInvitationCommandHandler(
     ICompanyRepository companyRepository,
     IInvitationTokenRepository invitationTokenRepository,
     IInvitationTokenHasher invitationTokenHasher,
-    IEmailService emailService,
+    IPendingEmailDispatcher pendingEmailDispatcher,
     ICompanyUserAuthorizationService authorizationService,
     ITenantContext tenantContext,
     IFieldPermissionService fieldPermissionService,
@@ -128,7 +128,8 @@ internal sealed class ResetInvitationCommandHandler(
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await emailService.SendCompanyUserInvitationAsync(
+        // Buffered while the transaction is open; delivered right after the commit below.
+        pendingEmailDispatcher.Enqueue(
             new CompanyUserInvitationEmailMessage(
                 user.Email,
                 user.FirstName,
@@ -136,10 +137,11 @@ internal sealed class ResetInvitationCommandHandler(
                 company.Name,
                 rawToken,
                 invitationExpiresUtc,
-                CompanyUserInvitationEmailKind.ResetInvitation),
-            cancellationToken);
+                CompanyUserInvitationEmailKind.ResetInvitation));
 
         await transaction.CommitAsync(cancellationToken);
+
+        await pendingEmailDispatcher.FlushAsync(cancellationToken);
 
         logger.LogInformation(
             "CompanyUserInvitationReset tenant {TenantId} user {UserPublicId}",

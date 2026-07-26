@@ -106,7 +106,12 @@ internal sealed class AcceptCompanyUserInvitationCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            await auditService.LogAsync(
+            // The endpoint is [AllowAnonymous]: there is no JWT, so ITenantContext.TenantId is null and
+            // IAuditService.LogAsync would throw ("Audit logging requires a tenant context."), rolling back
+            // the activation above. The tenant is already resolved here, so log against it explicitly —
+            // same rule as CompanyUserProvisioningService.
+            await auditService.LogForTenantAsync(
+                resolution.CompanyPublicId,
                 new AuditLogEntry(
                     AuditEventTypes.UserActivated,
                     AuditEntityTypes.User,

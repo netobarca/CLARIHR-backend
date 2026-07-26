@@ -78,6 +78,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
     IUserRepository userRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
+    IPendingEmailDispatcher pendingEmailDispatcher,
     IUnitOfWork unitOfWork)
     : ICommandHandler<FinalizePersonnelFileCommand, FinalizePersonnelFileResponse>
 {
@@ -144,6 +145,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             if (finalization.IsFailure)
             {
                 await transaction.RollbackAsync(cancellationToken);
+                pendingEmailDispatcher.Discard();
                 return Result<FinalizePersonnelFileResponse>.Failure(finalization.Error);
             }
 
@@ -166,6 +168,11 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+
+            // Finalization may have provisioned a user account; its invitation e-mail was buffered
+            // inside the transaction and only becomes safe to deliver here.
+            await pendingEmailDispatcher.FlushAsync(cancellationToken);
+
             return Result<FinalizePersonnelFileResponse>.Success(
                 new FinalizePersonnelFileResponse(
                     after,
@@ -175,6 +182,7 @@ internal sealed class FinalizePersonnelFileCommandHandler(
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            pendingEmailDispatcher.Discard();
             throw;
         }
     }

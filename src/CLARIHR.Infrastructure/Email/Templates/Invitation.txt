@@ -1,0 +1,10 @@
+Hola {{FIRSTNAME}},
+
+{{COMPANYNAME}} te creó una cuenta en CLARIHR. Para activarla y definir tu contraseña,
+entra al siguiente enlace:
+
+{{ACTIONURL}}
+
+El enlace es de un solo uso y vence el {{EXPIRESUTC}} (UTC).
+
+Si no esperabas esta invitación, puedes ignorar este correo.
