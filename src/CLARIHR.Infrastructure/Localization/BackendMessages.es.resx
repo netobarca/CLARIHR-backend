@@ -148,6 +148,12 @@
   <data name="COMPANY_LEGAL_PROFILE_CONCURRENCY_CONFLICT" xml:space="preserve">
     <value>El perfil legal de la empresa fue modificado por otra persona; recargue e intente de nuevo.</value>
   </data>
+  <data name="COMPANY_LEGAL_PROFILE_LEGAL_REPRESENTATIVE_NOT_FOUND" xml:space="preserve">
+    <value>El representante legal indicado no existe en esta empresa.</value>
+  </data>
+  <data name="COMPANY_LEGAL_PROFILE_LEGAL_REPRESENTATIVE_INACTIVE" xml:space="preserve">
+    <value>El representante legal indicado está inactivo y no puede firmar los reportes legales.</value>
+  </data>
   <data name="COMPANY_REACTIVATION_LIMIT_REACHED" xml:space="preserve">
     <value>La cuenta actual no puede reactivate this company because the active company limit has been reached.</value>
   </data>
@@ -1194,6 +1200,12 @@
   </data>
   <data name="validation.message.employercontributionaccountcode_format_is_invalid" xml:space="preserve">
     <value>El formato de EmployerContributionAccountCode no es valido.</value>
+  </data>
+  <data name="validation.message.employer_nit_must_follow_the_format" xml:space="preserve">
+    <value>El NIT patronal debe seguir el formato ####-######-###-#.</value>
+  </data>
+  <data name="validation.message.isss_employer_registration_number_accepts_digits_and_dashes_only" xml:space="preserve">
+    <value>El número de registro patronal del ISSS solo acepta dígitos y guiones.</value>
   </data>
   <data name="validation.message.enddate_is_required_when_iscurrentlystudying_is_false" xml:space="preserve">
     <value>EndDate es requerido cuando IsCurrentlyStudying es falso.</value>

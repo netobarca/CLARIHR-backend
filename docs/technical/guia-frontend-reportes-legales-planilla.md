@@ -66,7 +66,7 @@ Permiso: `ViewComplianceReports` en ambos.
 
 ## 5. Pendiente de este cierre — léelo antes de anunciar la funcionalidad
 
-- [ ] `openapi.yaml` no se ha regenerado todavía contra el swagger real con los endpoints de este documento — verificar el contrato exacto antes de tipar el cliente FE contra esta guía.
+- [x] ~~`openapi.yaml` no se ha regenerado todavía contra el swagger real~~ → **regenerado (2026-08-03)**: ya incluye `legal-profile` y los 2 `compliance-reports`. Ojo con dos renombres que la regeneración destapó: el parámetro de ruta es `companyPublicId` (no `companyId`) y la respuesta del perfil legal expone `publicId` (no `id`). Detalle en [guia-integracion-frontend-perfil-legal-patronal.md](guia-integracion-frontend-perfil-legal-patronal.md).
 - [ ] El campo `afpAccountNumber` no es editable todavía por los endpoints públicos de expediente (§2) — no ofrecer el campo en la UI hasta que ese follow-up cierre.
 - [ ] Confirmar con el equipo de datos que el catálogo `NUP_ISSS` (`identification_type_catalog_items`, país SV) esté sembrado en cada ambiente antes de anunciar la captura de este dato a los usuarios.
 - [ ] F-14 y Planilla Única: el layout es tabular plano, no la plantilla oficial — comunicar esta limitación al usuario final si se libera en este estado.

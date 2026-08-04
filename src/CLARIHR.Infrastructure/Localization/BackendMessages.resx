@@ -148,6 +148,12 @@
   <data name="COMPANY_LEGAL_PROFILE_CONCURRENCY_CONFLICT" xml:space="preserve">
     <value>The company legal profile was modified by someone else; reload and try again.</value>
   </data>
+  <data name="COMPANY_LEGAL_PROFILE_LEGAL_REPRESENTATIVE_NOT_FOUND" xml:space="preserve">
+    <value>The referenced legal representative does not exist in this company.</value>
+  </data>
+  <data name="COMPANY_LEGAL_PROFILE_LEGAL_REPRESENTATIVE_INACTIVE" xml:space="preserve">
+    <value>The referenced legal representative is inactive and cannot sign the compliance reports.</value>
+  </data>
   <data name="COMPANY_REACTIVATION_LIMIT_REACHED" xml:space="preserve">
     <value>The current account cannot reactivate this company because the active company limit has been reached.</value>
   </data>
@@ -1194,6 +1200,12 @@
   </data>
   <data name="validation.message.employercontributionaccountcode_format_is_invalid" xml:space="preserve">
     <value>EmployerContributionAccountCode format is invalid.</value>
+  </data>
+  <data name="validation.message.employer_nit_must_follow_the_format" xml:space="preserve">
+    <value>Employer NIT must follow the ####-######-###-# format.</value>
+  </data>
+  <data name="validation.message.isss_employer_registration_number_accepts_digits_and_dashes_only" xml:space="preserve">
+    <value>ISSS employer registration number accepts digits and dashes only.</value>
   </data>
   <data name="validation.message.enddate_is_required_when_iscurrentlystudying_is_false" xml:space="preserve">
     <value>EndDate is required when IsCurrentlyStudying is false.</value>
