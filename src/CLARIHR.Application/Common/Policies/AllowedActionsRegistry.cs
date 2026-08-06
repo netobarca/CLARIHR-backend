@@ -10,6 +10,7 @@ using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.Payroll.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -205,6 +206,34 @@ public static class AllowedActionsRegistry
             PositionDescriptionCatalogPermissionCodes.ManageAdministration,
             supportsActivate: false,
             supportsInactivate: false);
+
+        // Payroll configuration masters — one shared Read/Manage pair governs the family, but each master
+        // keeps its own resource key for allowed-actions evaluation, so both need an entry. This family
+        // names its manage-level code `.Manage` rather than the `.Admin` the older families use; the codes
+        // below mirror PayrollConfigurationPolicies exactly. Both masters expose create, edit, activate and
+        // inactivate, and neither exposes delete.
+        yield return Policy(
+            PayrollConfigurationPermissionCodes.PayrollDefinitionsResourceKey,
+            PayrollConfigurationPermissionCodes.Read,
+            PayrollConfigurationPermissionCodes.Manage,
+            PayrollConfigurationPermissionCodes.ManageAdministration);
+        yield return Policy(
+            PayrollConfigurationPermissionCodes.WorkSchedulesResourceKey,
+            PayrollConfigurationPermissionCodes.Read,
+            PayrollConfigurationPermissionCodes.Manage,
+            PayrollConfigurationPermissionCodes.ManageAdministration);
+
+        // Payroll configuration masters — one shared Read/Manage pair governs the family, but each master
+        // keeps its own resource key for allowed-actions evaluation, so both need an entry. This family
+        // names its manage-level code `.Manage` rather than the `.Admin` the older families use; the codes
+        // below mirror PayrollConfigurationPolicies exactly. Both masters expose create, edit, activate and
+        // inactivate, and neither exposes delete.
+
+        // Payroll configuration masters — one shared Read/Manage pair governs the family, but each master
+        // keeps its own resource key for allowed-actions evaluation, so both need an entry. This family
+        // names its manage-level code `.Manage` rather than the `.Admin` the older families use; the codes
+        // below mirror PayrollConfigurationPolicies exactly. Both masters expose create, edit, activate and
+        // inactivate, and neither exposes delete.
 
         // JobProfiles family (profiles + sub-resources) — gated by Admin.
         yield return Policy(
