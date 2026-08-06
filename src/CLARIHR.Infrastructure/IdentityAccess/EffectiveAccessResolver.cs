@@ -1,26 +1,14 @@
-using System.Collections.Concurrent;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace CLARIHR.Infrastructure.IdentityAccess;
 
 /// <inheritdoc />
 internal sealed class EffectiveAccessResolver(
     ApplicationDbContext dbContext,
-    IMemoryCache cache) : IEffectiveAccessResolver
+    EffectiveAccessCache cache) : IEffectiveAccessResolver
 {
-    // Safety net for multi-instance deployments only: an InvalidateUser/InvalidateTenant raised on one
-    // instance never reaches the others, so the TTL bounds how long a stale grant can survive there. On a
-    // single instance revocation is immediate. Keep this short — it IS the revocation window in a farm.
-    private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(60);
-
-    // IMemoryCache cannot enumerate or drop keys by prefix, so tenant-wide invalidation is done by bumping a
-    // generation counter that participates in the cache key: every previously cached entry for that tenant
-    // becomes unreachable at once and is evicted later by its own TTL.
-    private static readonly ConcurrentDictionary<Guid, long> TenantGenerations = new();
-
     public async Task<EffectiveAccess> ResolveAsync(
         Guid userPublicId,
         Guid tenantId,
@@ -31,22 +19,15 @@ internal sealed class EffectiveAccessResolver(
             return EffectiveAccess.None;
         }
 
-        var cacheKey = BuildUserKey(userPublicId, tenantId);
-        if (cache.TryGetValue(cacheKey, out EffectiveAccess? cached) && cached is not null)
+        if (cache.TryGet(userPublicId, tenantId, out var cached))
         {
             return cached;
         }
 
         var resolved = await QueryAsync(userPublicId, tenantId, cancellationToken);
-        _ = cache.Set(cacheKey, resolved, CacheLifetime);
+        cache.Store(userPublicId, tenantId, resolved);
         return resolved;
     }
-
-    public void InvalidateUser(Guid userPublicId, Guid tenantId) =>
-        cache.Remove(BuildUserKey(userPublicId, tenantId));
-
-    public void InvalidateTenant(Guid tenantId) =>
-        _ = TenantGenerations.AddOrUpdate(tenantId, 1, static (_, current) => current + 1);
 
     private async Task<EffectiveAccess> QueryAsync(
         Guid userPublicId,
@@ -93,7 +74,4 @@ internal sealed class EffectiveAccessResolver(
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static value => value, StringComparer.Ordinal)
             .ToArray();
-
-    private static string BuildUserKey(Guid userPublicId, Guid tenantId) =>
-        $"effective-access:{tenantId:N}:{TenantGenerations.GetValueOrDefault(tenantId)}:{userPublicId:N}";
 }

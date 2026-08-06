@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Files;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -19,6 +20,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace CLARIHR.Api.IntegrationTests;
@@ -346,6 +348,13 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
             services.AddSingleton<IFileStorageProvider>(Storage);
             services.AddSingleton<IFileStorageProviderResolver>(
                 static serviceProvider => new SingleFileStorageProviderResolver(serviceProvider.GetRequiredService<InMemoryReportExportStorage>()));
+
+            // Same substitution as IntegrationTestWebApplicationFactory, and required for the same reason:
+            // these tests declare the access they need through the X-Test-* headers, and the headers only
+            // reach authorization through the resolver. Without this the real resolver runs instead, finds
+            // no IAM rows for an actor these tests never seed, and every request 403s.
+            services.RemoveAll<IEffectiveAccessResolver>();
+            services.AddScoped<IEffectiveAccessResolver, HeaderEffectiveAccessResolver>();
         });
     }
 

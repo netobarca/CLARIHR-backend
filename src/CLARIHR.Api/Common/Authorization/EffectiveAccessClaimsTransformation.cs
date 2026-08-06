@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Tenancy;
 using Microsoft.AspNetCore.Authentication;
 
 namespace CLARIHR.Api.Common.Authorization;
@@ -39,7 +40,7 @@ internal sealed class EffectiveAccessClaimsTransformation(IEffectiveAccessResolv
             return principal;
         }
 
-        if (!Guid.TryParse(principal.FindFirstValue("tid"), out var tenantId))
+        if (!TryReadTenantId(principal, out var tenantId))
         {
             // No active tenant on the token (platform clients, or a session before the first company was
             // provisioned). There is no tenant to resolve permissions in, so the caller simply has none.
@@ -63,5 +64,22 @@ internal sealed class EffectiveAccessClaimsTransformation(IEffectiveAccessResolv
 
         principal.AddIdentity(identity);
         return principal;
+    }
+
+    // The token is minted with a plain `tid`, but the bearer handler's inbound claim mapping has already
+    // renamed it by the time the principal gets here. Reading a single spelling silently yields "no tenant"
+    // on every real request, which reads as "this caller has no permissions" and 403s the whole API.
+    private static bool TryReadTenantId(ClaimsPrincipal principal, out Guid tenantId)
+    {
+        foreach (var claimType in TenantClaimTypes.All)
+        {
+            if (Guid.TryParse(principal.FindFirstValue(claimType), out tenantId))
+            {
+                return true;
+            }
+        }
+
+        tenantId = Guid.Empty;
+        return false;
     }
 }

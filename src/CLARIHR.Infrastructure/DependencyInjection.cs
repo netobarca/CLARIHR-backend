@@ -258,6 +258,11 @@ public static class DependencyInjection
         services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICompanyCertificateSettingsRepository, CLARIHR.Infrastructure.PersonnelFiles.CompanyCertificateSettingsRepository>();
         services.AddScoped<ICompanyPreferenceAuthorizationService, CompanyPreferenceAuthorizationService>();
         services.AddScoped<ITokenService, JwtTokenService>();
+        // Singleton, and depending on nothing but IMemoryCache: the interceptor below is built while
+        // ApplicationDbContext's options are, so its dependencies must never reach back to a DbContext.
+        services.AddSingleton<EffectiveAccessCache>();
+        services.AddSingleton<IEffectiveAccessInvalidator>(serviceProvider =>
+            serviceProvider.GetRequiredService<EffectiveAccessCache>());
         services.AddScoped<IEffectiveAccessResolver, EffectiveAccessResolver>();
         services.AddScoped<EffectiveAccessInvalidationInterceptor>();
         services.AddScoped<IRbacAuthorizationService, RbacAuthorizationService>();

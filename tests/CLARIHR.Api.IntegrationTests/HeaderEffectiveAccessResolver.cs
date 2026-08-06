@@ -18,20 +18,12 @@ namespace CLARIHR.Api.IntegrationTests;
 /// </summary>
 internal sealed class HeaderEffectiveAccessResolver(IHttpContextAccessor httpContextAccessor) : IEffectiveAccessResolver
 {
+    // Nothing is cached here — every call re-reads the current request's headers — so there is no
+    // invalidation half to stand in for.
     public Task<EffectiveAccess> ResolveAsync(Guid userPublicId, Guid tenantId, CancellationToken cancellationToken) =>
         Task.FromResult(new EffectiveAccess(
             Read(TestAuthenticationHandler.RolesHeader),
             Read(TestAuthenticationHandler.PermissionsHeader)));
-
-    public void InvalidateUser(Guid userPublicId, Guid tenantId)
-    {
-        // Nothing is cached here: every call re-reads the current request's headers.
-    }
-
-    public void InvalidateTenant(Guid tenantId)
-    {
-        // Nothing is cached here: every call re-reads the current request's headers.
-    }
 
     private string[] Read(string headerName)
     {

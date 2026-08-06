@@ -8,13 +8,6 @@ internal sealed class HttpTenantContext(
     IHttpContextAccessor httpContextAccessor,
     AmbientTenantContext ambientTenantContext) : ITenantContext
 {
-    private static readonly string[] TenantClaimTypes =
-    [
-        "tid",
-        "tenantid",
-        "http://schemas.microsoft.com/identity/claims/tenantid"
-    ];
-
     public Guid? TenantId
     {
         get
@@ -30,7 +23,7 @@ internal sealed class HttpTenantContext(
                 return null;
             }
 
-            foreach (var claimType in TenantClaimTypes)
+            foreach (var claimType in TenantClaimTypes.All)
             {
                 var tenantClaim = user.FindFirstValue(claimType);
                 if (Guid.TryParse(tenantClaim, out var tenantId))

@@ -16,8 +16,12 @@ namespace CLARIHR.Infrastructure.IdentityAccess;
 /// most edits already invalidate every holder of that role; resolving exactly which users are touched would
 /// add queries to save a cache drop that costs one query per active user, on an operation that happens a
 /// handful of times a day.
+///
+/// It takes <see cref="IEffectiveAccessInvalidator"/> and NOT <see cref="IEffectiveAccessResolver"/>. This
+/// type is constructed while ApplicationDbContext's own options are being built, so depending on anything
+/// that needs a DbContext closes a cycle the container cannot see and deadlocks the process on startup.
 /// </summary>
-internal sealed class EffectiveAccessInvalidationInterceptor(IEffectiveAccessResolver resolver) : SaveChangesInterceptor
+internal sealed class EffectiveAccessInvalidationInterceptor(IEffectiveAccessInvalidator invalidator) : SaveChangesInterceptor
 {
     private readonly HashSet<Guid> _pendingTenantIds = [];
 
@@ -38,7 +42,7 @@ internal sealed class EffectiveAccessInvalidationInterceptor(IEffectiveAccessRes
         // Invalidate only once the write actually landed, so a failed save cannot evict a valid cache entry.
         foreach (var tenantId in _pendingTenantIds)
         {
-            resolver.InvalidateTenant(tenantId);
+            invalidator.InvalidateTenant(tenantId);
         }
 
         _pendingTenantIds.Clear();

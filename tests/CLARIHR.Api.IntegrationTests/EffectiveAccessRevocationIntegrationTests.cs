@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,34 @@ public sealed class EffectiveAccessRevocationIntegrationTests(CoreJwtIntegration
             claim.Type is "permission" or "permissions" or "role" or System.Security.Claims.ClaimTypes.Role);
     }
 
+    /// <summary>
+    /// Splits the pipeline in half. If this passes and the revocation test still 403s, the rows and the
+    /// query are right and the fault is downstream (claims transformation, principal, policy); if this
+    /// fails, nothing downstream can work.
+    /// </summary>
+    [Fact]
+    public async Task Resolver_ShouldReturnTheOwnersAccess_FromTheDatabase()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var token = await RegisterActivateAndLoginAsync(client);
+        var companyPublicId = await CreateCompanyAsync(client, token);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var userPublicId = await dbContext.AuthUsers
+            .Where(user => user.NormalizedEmail == Email.ToLowerInvariant())
+            .Select(user => user.PublicId)
+            .SingleAsync();
+
+        var resolver = scope.ServiceProvider.GetRequiredService<IEffectiveAccessResolver>();
+        var access = await resolver.ResolveAsync(userPublicId, companyPublicId, CancellationToken.None);
+
+        Assert.NotEmpty(access.Roles);
+        Assert.Contains("ORGSTRUCTURECATALOGS.READ", access.Permissions);
+    }
+
     [Fact]
     public async Task RevokingRoleAssignments_ShouldDenyOnTheVeryNextRequest_WithTheSameToken()
     {
@@ -56,14 +85,29 @@ public sealed class EffectiveAccessRevocationIntegrationTests(CoreJwtIntegration
         var probeUrl = $"/api/v1/companies/{companyPublicId}/organization-structure-catalogs/unit-types";
 
         var granted = await GetAsync(client, tenantToken, probeUrl);
-        Assert.Equal(HttpStatusCode.OK, granted.StatusCode);
+        await AssertStatusAsync(granted, HttpStatusCode.OK);
 
         await RemoveAllRoleAssignmentsAsync(companyPublicId);
 
         // Same token, unexpired. Under the old design the JWT carried the permissions and this would still
         // return 200 for up to 15 minutes.
         var denied = await GetAsync(client, tenantToken, probeUrl);
-        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        await AssertStatusAsync(denied, HttpStatusCode.Forbidden);
+    }
+
+    // A bare status comparison on an authorization probe says "403" and nothing about which gate fired.
+    // The body carries the error code, and that is the whole difference between a five-minute diagnosis
+    // and an afternoon of guessing.
+    private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
+    {
+        if (response.StatusCode == expected)
+        {
+            return;
+        }
+
+        Assert.Fail(
+            $"Expected {expected} from {response.RequestMessage?.RequestUri}, got {response.StatusCode}. " +
+            $"Body: {await response.Content.ReadAsStringAsync()}");
     }
 
     private async Task<string> RegisterActivateAndLoginAsync(HttpClient client)
