@@ -44,6 +44,7 @@ public sealed record PersonnelFileListItemResponse(
     string? PersonalTitleCode,
     string? PersonalTitleName,
     string? AfpCode,
+    string? AfpAccountNumber,
     Guid? OrgUnitId,
     Guid? LinkedUserId,
     bool IsActive,
@@ -83,6 +84,7 @@ public sealed record PersonnelFileResponse(
     string? PersonalTitleCode,
     string? PersonalTitleName,
     string? AfpCode,
+    string? AfpAccountNumber,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -156,6 +158,7 @@ public sealed record CreatePersonnelFileCommand(
     string? ProfessionCode,
     string? PersonalTitleCode,
     string? AfpCode,
+    string? AfpAccountNumber,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -178,6 +181,7 @@ public sealed record UpdatePersonnelFileCommand(
     string? ProfessionCode,
     string? PersonalTitleCode,
     string? AfpCode,
+    string? AfpAccountNumber,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -288,6 +292,10 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.AfpCode))
             .WithMessage("AfpCode format is invalid.");
+        // The AFP account number is a free-form identifier issued by the pension fund, not a code from
+        // a catalog, so it gets length + normalization only. 80 matches the column.
+        RuleFor(command => command.AfpAccountNumber)
+            .MaximumLength(80);
         RuleFor(command => command.BirthCountryCode)
             .MaximumLength(3)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -344,6 +352,10 @@ internal sealed class UpdatePersonnelFileCommandValidator : AbstractValidator<Up
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.AfpCode))
             .WithMessage("AfpCode format is invalid.");
+        // The AFP account number is a free-form identifier issued by the pension fund, not a code from
+        // a catalog, so it gets length + normalization only. 80 matches the column.
+        RuleFor(command => command.AfpAccountNumber)
+            .MaximumLength(80);
         RuleFor(command => command.BirthCountryCode)
             .MaximumLength(3)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -385,6 +397,7 @@ internal sealed class PersonnelFilePatchState
         ProfessionCode = file.Profession;
         PersonalTitleCode = file.PersonalTitle;
         AfpCode = file.AfpCode;
+        AfpAccountNumber = file.AfpAccountNumber;
         Nationality = file.Nationality;
         PersonalEmail = file.PersonalEmail;
         InstitutionalEmail = file.InstitutionalEmail;
@@ -408,6 +421,7 @@ internal sealed class PersonnelFilePatchState
     public string? ProfessionCode { get; set; }
     public string? PersonalTitleCode { get; set; }
     public string? AfpCode { get; set; }
+    public string? AfpAccountNumber { get; set; }
     public string? Nationality { get; set; }
     public string? PersonalEmail { get; set; }
     public string? InstitutionalEmail { get; set; }

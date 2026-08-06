@@ -19,6 +19,7 @@ public sealed class CreatePersonnelFileRequest
     public string? ProfessionCode { get; init; }
     public string? PersonalTitleCode { get; init; }
     public string? AfpCode { get; init; }
+    public string? AfpAccountNumber { get; init; }
     public string? Nationality { get; init; }
     public string? PersonalEmail { get; init; }
     public string? InstitutionalEmail { get; init; }
@@ -46,6 +47,7 @@ public sealed record UpdatePersonnelFileRequest(
     string? ProfessionCode,
     string? PersonalTitleCode,
     string? AfpCode,
+    string? AfpAccountNumber,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
@@ -73,6 +75,7 @@ public sealed class PatchPersonnelFileRequest
     public string? ProfessionCode { get; set; }
     public string? PersonalTitleCode { get; set; }
     public string? AfpCode { get; set; }
+    public string? AfpAccountNumber { get; set; }
     public string? Nationality { get; set; }
     public string? PersonalEmail { get; set; }
     public string? InstitutionalEmail { get; set; }

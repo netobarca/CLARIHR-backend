@@ -5655,7 +5655,7 @@ paths:
       tags:
         - Competency Framework
       summary: Update a competency conduct
-      description: Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -5852,7 +5852,7 @@ paths:
       tags:
         - Competency Framework
       summary: Activate a competency conduct
-      description: Activates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Activates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -5943,7 +5943,7 @@ paths:
       tags:
         - Competency Framework
       summary: Inactivate a competency conduct
-      description: Inactivates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Inactivates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -6034,7 +6034,7 @@ paths:
       tags:
         - Competency Framework
       summary: Replace a competency conduct's behaviors
-      description: Replaces the conduct's behaviors collection. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Replaces the conduct''s behaviors collection. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -6136,7 +6136,7 @@ paths:
       tags:
         - Competency Framework
       summary: Get the company's active competency rating scale
-      description: Returns the company's active competency rating scale (numeric range or discrete levels). When none is configured, `isConfigured` is false and `scale` is null.
+      description: 'Returns the company''s active competency rating scale (numeric range or discrete levels). When none is configured, `isConfigured` is false and `scale` is null.'
       parameters:
         - name: companyPublicId
           in: path
@@ -6368,7 +6368,7 @@ paths:
       tags:
         - Competency Framework
       summary: Get a single competency matrix item
-      description: Returns one competency matrix item of the job profile with its derived competency / type / behavior-level triple, its conducts, and the current `concurrencyToken` for use in the `If-Match` header of a subsequent update.
+      description: 'Returns one competency matrix item of the job profile with its derived competency / type / behavior-level triple, its conducts, and the current `concurrencyToken` for use in the `If-Match` header of a subsequent update.'
       parameters:
         - name: jobProfilePublicId
           in: path
@@ -6435,7 +6435,7 @@ paths:
       tags:
         - Competency Framework
       summary: Replace a competency matrix item
-      description: Replaces all fields of an existing competency matrix item. The item references its competency conducts (`conductPublicIds`, at least one required); the competency / type / behavior level are derived from those conducts and must not be supplied. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors (including no conducts) return `400`; matrix-constraint violations (duplicate item tuple, conducts of differing competency/type/behavior-level, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.
+      description: 'Replaces all fields of an existing competency matrix item. The item references its competency conducts (`conductPublicIds`, at least one required); the competency / type / behavior level are derived from those conducts and must not be supplied. Requires the item''s current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors (including no conducts) return `400`; matrix-constraint violations (duplicate item tuple, conducts of differing competency/type/behavior-level, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: jobProfilePublicId
           in: path
@@ -6643,7 +6643,7 @@ paths:
       tags:
         - Competency Framework
       summary: Remove a competency matrix item
-      description: Deletes the specified competency matrix item. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Returns the parent job profile's updated concurrency token so the caller can continue mutating the profile without an extra round-trip.
+      description: 'Deletes the specified competency matrix item. Requires the item''s current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Returns the parent job profile''s updated concurrency token so the caller can continue mutating the profile without an extra round-trip.'
       parameters:
         - name: jobProfilePublicId
           in: path
@@ -6740,7 +6740,7 @@ paths:
       tags:
         - Competency Framework
       summary: Add a competency matrix item
-      description: Creates a single competency matrix item under the job profile. The item references its competency conducts (`conductPublicIds`, at least one required); the item's competency, competency type and behavior level are derived from those conducts and must not be supplied. Returns `201`; the `Location` header points to the created item and its `concurrencyToken` is returned in the body and the `ETag` header. A duplicate item tuple, conducts of differing competency/type/behavior-level, an `Archived` job profile, or exceeding the per-profile item cap return `409`.
+      description: 'Creates a single competency matrix item under the job profile. The item references its competency conducts (`conductPublicIds`, at least one required); the item''s competency, competency type and behavior level are derived from those conducts and must not be supplied. Returns `201`; the `Location` header points to the created item and its `concurrencyToken` is returned in the body and the `ETag` header. A duplicate item tuple, conducts of differing competency/type/behavior-level, an `Archived` job profile, or exceeding the per-profile item cap return `409`.'
       parameters:
         - name: jobProfilePublicId
           in: path
@@ -7165,7 +7165,7 @@ paths:
       tags:
         - Competency Framework
       summary: Update an occupational pyramid level
-      description: Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -7362,7 +7362,7 @@ paths:
       tags:
         - Competency Framework
       summary: Activate an occupational pyramid level
-      description: Activates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Activates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -7453,7 +7453,7 @@ paths:
       tags:
         - Competency Framework
       summary: Inactivate an occupational pyramid level
-      description: Inactivates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+      description: 'Inactivates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.'
       parameters:
         - name: publicId
           in: path
@@ -10530,7 +10530,7 @@ paths:
       tags:
         - Exit Interviews
       summary: List exit-interview forms
-      description: Lists the tenant's exit-interview forms, optionally filtered by status, associated retirement reason, or name.
+      description: 'Lists the tenant''s exit-interview forms, optionally filtered by status, associated retirement reason, or name.'
       parameters:
         - name: status
           in: query
@@ -10575,7 +10575,7 @@ paths:
       tags:
         - Exit Interviews
       summary: Create an exit-interview form (header)
-      description: Creates a draft form with its header (name, description, anonymous flag). The definition (groups/fields/options) is then saved via the `definition` endpoint.
+      description: 'Creates a draft form with its header (name, description, anonymous flag). The definition (groups/fields/options) is then saved via the `definition` endpoint.'
       requestBody:
         content:
           application/json:
@@ -10629,7 +10629,7 @@ paths:
       tags:
         - Exit Interviews
       summary: Get an exit-interview form (full definition)
-      description: Returns the form header plus its groups, fields and options. The `concurrencyToken` is required in the `If-Match` header of subsequent writes.
+      description: 'Returns the form header plus its groups, fields and options. The `concurrencyToken` is required in the `If-Match` header of subsequent writes.'
       parameters:
         - name: publicId
           in: path
@@ -10793,7 +10793,7 @@ paths:
       tags:
         - Exit Interviews
       summary: Publish an exit-interview form
-      description: Validates the draft definition (≥1 field, coherent options/range) and publishes it. Requires the `If-Match` header.
+      description: 'Validates the draft definition (≥1 field, coherent options/range) and publishes it. Requires the `If-Match` header.'
       parameters:
         - name: publicId
           in: path
@@ -11042,7 +11042,7 @@ paths:
       tags:
         - Exit Interviews
       summary: Resolve the form applicable to a retirement reason
-      description: Returns the active published exit-interview form associated to the given retirement reason, or `hasForm = false` when none applies (the interview is optional).
+      description: 'Returns the active published exit-interview form associated to the given retirement reason, or `hasForm = false` when none applies (the interview is optional).'
       parameters:
         - name: reasonCode
           in: query
@@ -11078,7 +11078,7 @@ paths:
       tags:
         - Exit Interviews
       summary: Open the employee's exit interview
-      description: Returns the exit-interview form applicable to the employee's retirement reason (or `hasForm = false`) plus the employee's current submission, if any. The employee may open their own (self-service); RRHH may open any.
+      description: 'Returns the exit-interview form applicable to the employee''s retirement reason (or `hasForm = false`) plus the employee''s current submission, if any. The employee may open their own (self-service); RRHH may open any.'
       parameters:
         - name: publicId
           in: path
@@ -11177,7 +11177,7 @@ paths:
       tags:
         - Exit Interviews
       summary: List exit-interview submissions (RRHH)
-      description: Lists submitted/draft exit interviews for the tenant, optionally filtered by retirement reason or period (YYYY-MM). RRHH-only (D-14); anonymous submissions are listed without any link to the employee.
+      description: 'Lists submitted/draft exit interviews for the tenant, optionally filtered by retirement reason or period (YYYY-MM). RRHH-only (D-14); anonymous submissions are listed without any link to the employee.'
       parameters:
         - name: reasonCode
           in: query
@@ -29634,8 +29634,8 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  ? '/api/v1/personnel-files/{publicId}/economic-aid-requests/{economicAidRequestPublicId}/documents/{documentPublicId}/read-url'
-  : get:
+  '/api/v1/personnel-files/{publicId}/economic-aid-requests/{economicAidRequestPublicId}/documents/{documentPublicId}/read-url':
+    get:
       tags:
         - Personnel Files
       summary: Get a time-limited download URL for an economic-aid request document
@@ -32489,8 +32489,8 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  ? '/api/v1/personnel-files/{publicId}/off-payroll-transactions/{offPayrollTransactionPublicId}/documents/{documentPublicId}/read-url'
-  : get:
+  '/api/v1/personnel-files/{publicId}/off-payroll-transactions/{offPayrollTransactionPublicId}/documents/{documentPublicId}/read-url':
+    get:
       tags:
         - Personnel Files
       summary: Get a time-limited download URL for an off-payroll transaction document
@@ -33255,8 +33255,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  ? '/api/v1/personnel-files/{publicId}/one-time-deductions/{oneTimeDeductionPublicId}/applications/{applicationPublicId}/annulment'
-  : patch:
+  '/api/v1/personnel-files/{publicId}/one-time-deductions/{oneTimeDeductionPublicId}/applications/{applicationPublicId}/annulment':
+    patch:
       tags:
         - Personnel Files
       summary: Revert the application of a one-time deduction
@@ -49980,7 +49980,7 @@ paths:
     get:
       tags:
         - Personnel Files
-      summary: HR analytics dashboard — composition, demographics, structure and quality overview
+      summary: 'HR analytics dashboard — composition, demographics, structure and quality overview'
       description: "Read-only aggregate indicators over the company's employees: headcount (total/active/inactive),\nbreakdowns by category (record type, employment status, contract type, position category,\nfunctional area, org unit, work center), age and seniority distributions (parametrizable ranges),\nmarital status, expediente freshness (updated vs outdated — D-08), HR-staff-per-100 ratio (D-06)\nand position occupancy (plazas ocupadas/vacantes — D-13), plus the distribution by contractual\npayroll type (byPayrollType — bucket \"Sin dato\" for unclassified plazas). Honors the common dimension\nfilters (year, functionalAreaId, orgUnitId, positionCategoryId, jobProfileId, workCenterId, plus the\nREQ-004 payrollTypeCode and costCenterId) and the includeInactive toggle (D-03). The month filter is\naccepted but only affects the flow sections (personnel-actions/movements); snapshots ignore it.\nRequires the ViewReports or Read permission (gated in the handler)."
       parameters:
         - name: companyPublicId
@@ -53456,8 +53456,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  ? '/api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/installments/{installmentPublicId}/annulment'
-  : patch:
+  '/api/v1/personnel-files/{publicId}/recurring-deductions/{recurringDeductionPublicId}/installments/{installmentPublicId}/annulment':
+    patch:
       tags:
         - Personnel Files
       summary: Annul an applied charge of a recurring deduction
@@ -53795,7 +53795,7 @@ paths:
       tags:
         - Personnel Files
       summary: Export the pending / overdue charges to Excel/CSV/JSON
-      description: Exports the same projection as the pending-charges bandeja (same filters), with the creditor and the capital/interest split. HR-only.
+      description: 'Exports the same projection as the pending-charges bandeja (same filters), with the creditor and the capital/interest split. HR-only.'
       parameters:
         - name: companyPublicId
           in: path
@@ -54846,8 +54846,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  ? '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/installments/{installmentPublicId}/annulment'
-  : patch:
+  '/api/v1/personnel-files/{publicId}/recurring-incomes/{recurringIncomePublicId}/installments/{installmentPublicId}/annulment':
+    patch:
       tags:
         - Personnel Files
       summary: Annul an applied installment
@@ -69572,6 +69572,9 @@ components:
         afpCode:
           type: string
           nullable: true
+        afpAccountNumber:
+          type: string
+          nullable: true
         nationality:
           type: string
           nullable: true
@@ -69604,7 +69607,7 @@ components:
           type: string
           format: uuid
           nullable: true
-      additionalProperties: {}
+      additionalProperties: { }
     CreatePositionCategoryClassificationRequest:
       type: object
       properties:
@@ -69745,7 +69748,7 @@ components:
           type: string
         format:
           type: string
-        parameters: {}
+        parameters: { }
       additionalProperties: false
     CreateSalaryTabulatorChangeRequestRequest:
       type: object
@@ -79580,6 +79583,9 @@ components:
         afpCode:
           type: string
           nullable: true
+        afpAccountNumber:
+          type: string
+          nullable: true
         orgUnitPublicId:
           type: string
           format: uuid
@@ -79902,6 +79908,9 @@ components:
           type: string
           nullable: true
         afpCode:
+          type: string
+          nullable: true
+        afpAccountNumber:
           type: string
           nullable: true
         nationality:
@@ -80314,6 +80323,9 @@ components:
           type: string
           nullable: true
         afpCode:
+          type: string
+          nullable: true
+        afpAccountNumber:
           type: string
           nullable: true
         nationality:
@@ -81533,7 +81545,7 @@ components:
         instance:
           type: string
           nullable: true
-      additionalProperties: {}
+      additionalProperties: { }
     QueryCertificateRequestsRequest:
       type: object
       properties:
@@ -86540,6 +86552,9 @@ components:
         afpCode:
           type: string
           nullable: true
+        afpAccountNumber:
+          type: string
+          nullable: true
         nationality:
           type: string
           nullable: true
@@ -87902,8 +87917,8 @@ components:
   securitySchemes:
     Bearer:
       type: http
-      description: Paste only the raw accessToken JWT value. Do not include the word Bearer, quotes, commas, or any other JSON characters.
+      description: 'Paste only the raw accessToken JWT value. Do not include the word Bearer, quotes, commas, or any other JSON characters.'
       scheme: bearer
       bearerFormat: JWT
 security:
-  - Bearer: []
+  - Bearer: [ ]

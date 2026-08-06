@@ -403,6 +403,7 @@ public sealed class FinalizePersonnelFileTests
             file.PersonalTitle,
             null,
             file.AfpCode,
+            file.AfpAccountNumber,
             file.Nationality,
             file.PersonalEmail,
             file.InstitutionalEmail,

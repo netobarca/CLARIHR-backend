@@ -60,6 +60,7 @@ public sealed class PersonnelFileAdministrationValidationTests
             ProfessionCode: null,
             PersonalTitleCode: null,
             AfpCode: null,
+            AfpAccountNumber: null,
             Nationality: null,
             PersonalEmail: null,
             InstitutionalEmail: null,

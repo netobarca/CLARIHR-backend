@@ -243,7 +243,8 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
                     photoWritePlan.PersistedPhotoFilePublicId,
                     values.OrgUnitId,
                     values.PersonalTitleCode,
-                    values.AfpCode);
+                    values.AfpCode,
+                    values.AfpAccountNumber);
             }
             catch (InvalidOperationException)
             {

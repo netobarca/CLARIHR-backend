@@ -47,6 +47,7 @@ public sealed record PersonnelFilePersonalInfoResponse(
     string? PersonalTitleCode,
     string? PersonalTitleName,
     string? AfpCode,
+    string? AfpAccountNumber,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,

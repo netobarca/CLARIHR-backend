@@ -45,7 +45,8 @@ public sealed class PersonnelFile : TenantEntity
         Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
         string? personalTitle,
-        string? afpCode)
+        string? afpCode,
+        string? afpAccountNumber)
     {
         PublicId = publicId;
         RecordType = recordType;
@@ -56,6 +57,7 @@ public sealed class PersonnelFile : TenantEntity
         Profession = NormalizeOptionalCode(profession);
         PersonalTitle = NormalizeOptionalCode(personalTitle);
         AfpCode = NormalizeOptionalCode(afpCode);
+        AfpAccountNumber = PersonnelFileNormalization.CleanOptional(afpAccountNumber);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
@@ -194,7 +196,8 @@ public sealed class PersonnelFile : TenantEntity
         Guid? orgUnitPublicId,
         IReadOnlyCollection<PersonnelFileIdentification>? identifications = null,
         string? personalTitle = null,
-        string? afpCode = null)
+        string? afpCode = null,
+        string? afpAccountNumber = null)
     {
         var file = new PersonnelFile(
             Guid.NewGuid(),
@@ -215,7 +218,8 @@ public sealed class PersonnelFile : TenantEntity
             photoFilePublicId,
             orgUnitPublicId,
             personalTitle,
-            afpCode);
+            afpCode,
+            afpAccountNumber);
 
         if (identifications is not null)
         {

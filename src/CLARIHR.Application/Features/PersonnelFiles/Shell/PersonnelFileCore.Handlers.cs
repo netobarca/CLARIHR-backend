@@ -200,7 +200,8 @@ internal sealed class CreatePersonnelFileCommandHandler(
             photoFilePublicId: null,
             command.OrgUnitId,
             personalTitle: command.PersonalTitleCode,
-            afpCode: command.AfpCode);
+            afpCode: command.AfpCode,
+            afpAccountNumber: command.AfpAccountNumber);
         personnelFile.SetTenantId(command.CompanyId);
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -233,7 +234,8 @@ internal sealed class CreatePersonnelFileCommandHandler(
             photoWritePlan.PersistedPhotoFilePublicId,
             command.OrgUnitId,
             command.PersonalTitleCode,
-            command.AfpCode);
+            command.AfpCode,
+            command.AfpAccountNumber);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -430,6 +432,7 @@ internal sealed class PatchPersonnelFileCommandHandler(
             state.ProfessionCode,
             state.PersonalTitleCode,
             state.AfpCode,
+            state.AfpAccountNumber,
             state.Nationality,
             state.PersonalEmail,
             state.InstitutionalEmail,

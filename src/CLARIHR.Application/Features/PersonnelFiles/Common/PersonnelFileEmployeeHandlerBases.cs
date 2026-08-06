@@ -1102,7 +1102,8 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
             personnelFile.PhotoFilePublicId,
             personnelFile.OrgUnitPublicId,
             personnelFile.PersonalTitle,
-            personnelFile.AfpCode);
+            personnelFile.AfpCode,
+            personnelFile.AfpAccountNumber);
     }
 
     /// <summary>

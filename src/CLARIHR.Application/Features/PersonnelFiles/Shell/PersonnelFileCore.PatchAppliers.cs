@@ -131,6 +131,12 @@ internal static class PersonnelFilePatchApplier
             return Result.Success();
         }
 
+        if (IsSegment(property, "afpAccountNumber"))
+        {
+            state.AfpAccountNumber = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
         if (IsSegment(property, "nationality"))
         {
             state.Nationality = isRemove ? null : ReadNullableString(value, path);
