@@ -20,6 +20,46 @@
 
 **Estados:** 🔴 PENDIENTE · 🟡 EN DESARROLLO · 🟢 COMPLETADO · ⏸️ BLOQUEADO
 
+---
+
+## Cómo se prueba durante el desarrollo (regla vigente desde 2026-08-06)
+
+> **Se corre SOLO la sección del flujo que ya se validó manualmente.** El producto se está ajustando de punta
+> a punta, sección por sección; correr los 743 tests de integración para validar una sección responde en
+> ~70 min una pregunta de 2 y **entierra la señal que importa** entre el ruido de módulos que todavía no se
+> han tocado a mano. La regresión completa se reserva para **antes de desplegar**.
+
+```bash
+./docs/technical/operations/scripts/test-seccion.sh unidades-organizativas
+./docs/technical/operations/scripts/test-seccion.sh --lista       # las 20 secciones
+./docs/technical/operations/scripts/test-seccion.sh OrgUnits_Create   # filtro libre
+```
+
+Funciona sin anotar nada porque los tests ya se llaman `Seccion_LoQueHace`: **la sección es el prefijo del
+método**.
+
+**Recorrido del flujo** — actualizar esta línea al avanzar:
+auth ✅ · empresas ✅ · representantes legales ✅ · **unidades organizativas ◀ en curso** · centros de costo ·
+centros de trabajo · ubicaciones · puestos · competencias · expedientes · contratación · nómina · ausencias ·
+disciplina · catálogos · reportes · auditoría · backoffice · guardrails
+
+**Tiempos medidos por sección** (5-6 s por test, casi todo reset de base):
+`representantes-legales` 7 · `unidades-organizativas` 25 (**2m27s**) · `centros-de-costo` 19 ·
+`expedientes` 40 (~4m) · `empresas` y `puestos` 82 (~8m) · `nomina` 208 (~20m, la más pesada).
+
+**Trampas que ya costaron tiempo:**
+- **Nunca compilar con una corrida viva**: `dotnet build` sobrescribe DLL en uso y produce fallos
+  irreproducibles. El script se niega a arrancar si detecta un `testhost`.
+- **El reloj de `dotnet test` no distingue trabajo de máquina dormida**: una corrida reportó «9 h 32 m»
+  siendo ~73 min de trabajo real. Para saber si algo está colgado, mirar **CPU**, no duración:
+  `ps -Ao pid,pcpu,etime,args | grep testhost` — **0% sostenido = deadlock**. `caffeinate -i -w <pid>` evita
+  que la Mac duerma durante una corrida larga.
+- **Optimizar el reset de base está PARADO a propósito.** Medido: `CREATE DATABASE ... TEMPLATE` = **0.09 s**
+  contra ~5.5 s de replicar 136 migraciones y 0.96 s de truncar las 255 tablas (que además borra ~1001 filas
+  de catálogo sembradas por migración). Bajaría la suite completa de ~70 min a ~10-20 min, pero **con esta
+  regla ya no se corre la suite completa durante el desarrollo**, así que solo importa para la regresión
+  pre-despliegue. No está descartado, está despriorizado.
+
 > **📌 2026-07-15 — UNIFICACIÓN LOCAL A MASTER**: `master` ya contenía `feature/vacaciones-incapacidades` (REQ-001…007, mismo commit `ca94d8c`); `feature/planilla-descuentos` (REQ-008…011) se unificó por **fast-forward** junto con los docs de planificación de REQ-012…015. Las notas «pendiente de merge a master» de las secciones REQ-001…REQ-011 quedan **SALDADAS en local**. Sigue pendiente: **push al remoto** (cuando se decida) y los **checklists de despliegue** por REQ (vigentes).
 
 ---
@@ -869,6 +909,7 @@
 - [ ] Archivos de plantilla oficial de F-14 y Planilla Única recibidos e integrados con el renderer de PR-5 (bloquea el layout final de RF-001/RF-002 — plan §8).
 - [x] ~~Wirear `PersonnelFile.AfpAccountNumber` en los DTOs públicos de expediente~~ → **HECHO 2026-08-06**. Alcance real mayor que «4 DTOs»: 12 archivos. Además de los 4 DTOs (`PersonnelFileListItemResponse`, `PersonnelFileResponse`, `CreatePersonnelFileCommand`, `UpdatePersonnelFileCommand`) hicieron falta el validador (largo 80, **sin** validación de catálogo: el número de cuenta lo emite la AFP, no es un código de catálogo como `AfpCode`), el `PersonnelFilePatchState` + su aplicador de JSON Patch, `PersonnelFilePersonalInfoResponse`, los 3 contratos de la API, el controller, 6 proyecciones del repositorio y **el dominio**: `PersonnelFile.Create()` y su constructor privado **no aceptaban el campo** (solo `UpdatePersonalInfo` lo hacía), que es exactamente por qué había quedado a medias. **Trampa**: el campo vive en la superficie *personal-info*, no en el shell — el shell no expone ni `afpCode`.
 - [ ] Confirmar que el catálogo `NUP_ISSS` (`identification_type_catalog_items`, país SV) esté sembrado en cada ambiente antes de anunciar la captura de este dato (se crea vía System Catalog Administration, igual que DUI/NIT — no hay seed automático para ningún tipo de identificación en este sistema).
+- [ ] **`CompanyLegalProfile` (RF-006) no tiene NINGÚN test de integración** — descubierto 2026-08-06 al mapear las secciones de prueba: no es que no se encontraran, no existen. Los 3 endpoints (`GET/POST/PUT .../legal-profile`) están sin red, y el Gate A depende de ellos. Cubrir al llegar a esa sección del flujo.
 - [ ] Tests de integración dedicados dueños del caso POSITIVO de los gates (encendido → exclusión real) y de los 2 endpoints nuevos de F-14/Planilla Única — hoy verificados por build + inspección + que la suite existente no se rompió, no por un test end-to-end propio. **(Parcial 2026-08-06: `afpAccountNumber` ya tiene 2 tests de round-trip end-to-end — `ApiIntegrationTests.AfpAccountNumber.cs`, verificados en rojo antes que en verde anulando la proyección del repositorio. Falta la parte de gates y los 2 endpoints.)**
 - [ ] M1/M2 aplicadas en el entorno de destino.
 
