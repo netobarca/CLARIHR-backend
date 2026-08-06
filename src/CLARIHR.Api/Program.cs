@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Authorization;
+using Microsoft.AspNetCore.Authentication;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
@@ -371,6 +372,11 @@ builder.Services.AddRateLimiter(options =>
     // equivalent of login, which is limited at 5/min), so it gets an auth-style per-user+tenant limiter.
     options.AddPolicy(AccountCompanyRateLimitPolicies.Switch, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:AccountCompanies:Switch:PermitLimit", 10));
 });
+// Resolves the caller's effective roles and permissions from the database on every authenticated request
+// and attaches them to the principal. Authorization is not carried in the access token, so revoking a role
+// or deactivating a user takes effect on the next request rather than when the token expires. Transient:
+// it depends on request-scoped services.
+builder.Services.AddTransient<IClaimsTransformation, EffectiveAccessClaimsTransformation>();
 builder.Services.AddAuthorization(options =>
 {
     var policy = new AuthorizationPolicyBuilder()
@@ -1026,7 +1032,7 @@ var app = builder.Build();
 
 LogJwtConfiguration(app.Logger, app.Configuration);
 
-await app.Services.InitializeInfrastructureAsync(app.Logger, app.Environment.IsDevelopment());
+await app.Services.InitializeInfrastructureAsync(app.Logger);
 
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
@@ -1036,6 +1042,19 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "CLARIHR API v1");
         options.RoutePrefix = "swagger";
         options.DisplayRequestDuration();
+
+        // The document is ~3.8 MB (887 operations, 949 schemas) and Swagger UI keeps all of it in an
+        // Immutable.js Redux store: every keystroke in a "Try it out" field dispatches an action that
+        // re-runs the selectors and re-renders the tree, so the cost per keypress scales with whatever
+        // is mounted. These two settings cut what is mounted; they change nothing in the contract.
+
+        // Drops the trailing "Schemas" block — 949 models — out of the DOM entirely.
+        options.DefaultModelsExpandDepth(-1);
+
+        // Tag groups start collapsed instead of listing all 887 operations; the filter box is how you
+        // get to the one you are testing.
+        options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+        options.EnableFilter();
     });
 }
 

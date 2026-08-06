@@ -322,6 +322,12 @@
   <data name="LEGAL_REPRESENTATIVE_ACTIVE_MIN_REQUIRED" xml:space="preserve">
     <value>La compania debe tener al menos un legal representative activo.</value>
   </data>
+  <data name="LEGAL_REPRESENTATIVE_DOCUMENT_TYPE_INVALID" xml:space="preserve">
+    <value>El tipo de documento no es un documento de identidad válido para el país de la empresa.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_DOCUMENT_NUMBER_INVALID" xml:space="preserve">
+    <value>El número de documento no corresponde al formato de su tipo de documento.</value>
+  </data>
   <data name="LEGAL_REPRESENTATIVE_DOCUMENT_CONFLICT" xml:space="preserve">
     <value>Otro legal representative ya usa document solicitado.</value>
   </data>

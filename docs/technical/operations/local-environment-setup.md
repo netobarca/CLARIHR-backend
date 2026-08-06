@@ -21,6 +21,7 @@
 git clone <repo-url> && cd CLARIHR-backend
 
 # 2. Levantar servicios locales (Postgres + Azurite + Gotenberg)
+#    OJO: docker-compose.yml NO se versiona — creá el tuyo con §2.0 antes de este paso
 docker compose up -d
 
 # 3. Crear la config local desde la plantilla versionada (NO se versiona; tiene tus valores locales)
@@ -37,6 +38,53 @@ dotnet run --project src/CLARIHR.Api
 ```
 
 La plantilla ya apunta a los servicios de `docker compose`, así que **con esos pasos exporta PDF/CSV/XLSX en local sin tocar Azure**. Para usuario seed de pruebas (`dev@clarihr.local` / `DevPassword123!`) ver `README.md`.
+
+### 2.0 `docker-compose.yml` no se versiona — creá el tuyo
+
+El archivo está en `.gitignore`: los servicios locales son de cada quien. **Un clon nuevo no lo trae**, así
+que hay que crearlo antes del paso 2. Esta es la definición mínima que espera el resto de la documentación
+—puertos y credenciales incluidos, porque `appsettings.Development.json.example` apunta a ellos—:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    container_name: clarihr-postgres
+    environment:
+      POSTGRES_USER: clarihr
+      POSTGRES_PASSWORD: clarihr
+      POSTGRES_DB: clarihr_dev
+    ports:
+      - "5433:5432"     # host 5433, NO 5432 — ver el aviso de §2.1
+    volumes:
+      - clarihr-pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: clarihr-azurite
+    command: "azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck"
+    ports:
+      - "10000:10000"
+    volumes:
+      - clarihr-azurite:/data
+    restart: unless-stopped
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: clarihr-gotenberg
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  clarihr-pgdata:
+  clarihr-azurite:
+```
+
+> Si cambiás puertos, nombres de contenedor o credenciales, ajustá también
+> `appsettings.Development.json` y la cadena que usan los tests de integración (`localhost:5433`).
+> El `Dockerfile` **sí** se versiona: es la receta de construcción de la API, no tooling local.
 
 ### 2.1 Servicios de `docker compose`
 

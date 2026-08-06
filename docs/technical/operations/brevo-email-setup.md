@@ -247,6 +247,7 @@ Este proyecto **ya está configurado con `user-secrets`** (ahí viven la cadena 
 
 ```bash
 docker compose up -d                          # postgres :5433, azurite :10000, gotenberg :3000
+# (docker-compose.yml no se versiona — ver local-environment-setup.md §2.0)
 dotnet run --project src/CLARIHR.Api
 ```
 

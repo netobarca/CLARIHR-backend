@@ -20,3 +20,6 @@ appsettings.*.local.json
 .env
 .env.*
 !.env.example
+
+# Local dev services — not versioned; each developer keeps their own (see docs/technical/operations/local-environment-setup.md)
+docker-compose.yml

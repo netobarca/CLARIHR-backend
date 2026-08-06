@@ -8,8 +8,8 @@ namespace CLARIHR.Infrastructure.Leave;
 
 /// <summary>
 /// El Salvador leave-configuration template (Anexo A.2 risks + D-08 types + Anexo A.3 holidays).
-/// Mirrors <see cref="CompetencyFramework.CompetencyFrameworkSeedService"/>: guarded existence
-/// checks make it idempotent so it is safe to run on every provisioning and on every
+/// Seeded because the ISSS tables and the national holidays are fixed by law, not by the company.
+/// Guarded existence checks make it idempotent so it is safe to run on every provisioning and on every
 /// <c>load-template</c> call. The guards key on the tenant's <c>NormalizedCode</c> (risks/types)
 /// or <c>Date</c> (holidays): an existing row is skipped even when it was edited or inactivated,
 /// so the seeder never overwrites tenant edits — it only creates the missing template rows.
@@ -25,7 +25,7 @@ internal sealed class LeaveTemplateSeeder(
     {
         // Push the ambient tenant so the fail-closed global query filter scopes the idempotency
         // guards below to this tenant in every call path (the provisioning hook runs without an
-        // HTTP tenant claim). Mirrors CompetencyFrameworkSeedService.EnsureSeededAsync.
+        // HTTP tenant claim).
         using var tenantScope = ambientTenantContext.Push(tenantId);
 
         var (risksCreated, riskParametersCreated, risksSkipped) =

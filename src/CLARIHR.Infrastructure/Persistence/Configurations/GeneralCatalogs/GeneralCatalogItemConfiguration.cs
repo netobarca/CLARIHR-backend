@@ -51,8 +51,9 @@ internal abstract class GeneralCatalogItemConfigurationBase<TCatalogItem>(
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
 
-        // Most general catalogs are seeded per-country at runtime (DevSeedService); the ones that must
-        // exist in every environment opt in by passing static HasData here (see EmploymentStatusCatalogItem).
+        // Nothing is seeded at runtime any more (the dev seed is gone; every environment starts empty), so a
+        // general catalog reaches the database only by opting in to static HasData here — which then applies to
+        // EVERY environment alike (see EmploymentStatusCatalogItem). Anything not listed is loaded through the API.
         if (seedData is not null)
         {
             builder.HasData(seedData);

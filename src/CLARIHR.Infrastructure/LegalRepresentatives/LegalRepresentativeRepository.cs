@@ -17,6 +17,28 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             legalRepresentative => legalRepresentative.PublicId == legalRepresentativeId,
             cancellationToken);
 
+    public Task<string?> GetCompanyCountryCodeAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.Companies
+            .AsNoTracking()
+            // Company is the tenant root, not a tenant-scoped row, and it is looked up BY its own public id
+            // — which IS the tenant id. Intentional tenant filter bypass: scoping is the lookup key itself.
+            .IgnoreQueryFilters()
+            .Where(company => company.PublicId == tenantId)
+            .Select(company => company.CountryCode)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<bool> IdentificationTypeExistsAsync(
+        string countryCode,
+        string normalizedCode,
+        CancellationToken cancellationToken) =>
+        dbContext.IdentificationTypeCatalogItems
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.CountryCode == countryCode &&
+                        item.NormalizedCode == normalizedCode &&
+                        item.IsActive,
+                cancellationToken);
+
     public Task<bool> ExistsOutsideTenantAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.

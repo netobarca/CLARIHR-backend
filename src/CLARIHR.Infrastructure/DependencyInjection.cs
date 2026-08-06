@@ -156,7 +156,6 @@ public static class DependencyInjection
         services.AddScoped<IOrgUnitAuthorizationService, OrgUnitAuthorizationService>();
         services.AddScoped<IOrgStructureCatalogRepository, OrgStructureCatalogRepository>();
         services.AddScoped<IOrgStructureCatalogAuthorizationService, OrgStructureCatalogAuthorizationService>();
-        services.AddScoped<IOrgStructureCatalogSeedService, OrgStructureCatalogSeedService>();
         services.AddScoped<IJobProfileRepository, JobProfileRepository>();
         services.AddScoped<IJobCatalogRepository, JobCatalogRepository>();
         services.AddScoped<IJobProfileCompensationRepository, JobProfileCompensationRepository>();
@@ -166,7 +165,6 @@ public static class DependencyInjection
         // so cross-context consumers (JobProfiles, SalaryTabulator) inject only what they use.
         services.AddScoped<IPositionCatalogLookup>(sp => sp.GetRequiredService<IPositionDescriptionCatalogRepository>());
         services.AddScoped<IPositionDescriptionCatalogAuthorizationService, PositionDescriptionCatalogAuthorizationService>();
-        services.AddScoped<PositionDescriptionCatalogSeedService>();
         services.AddScoped<CatalogTypes.CatalogTypeDescriptorSeedService>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<IPositionSlotAuthorizationService, PositionSlotAuthorizationService>();
@@ -176,7 +174,6 @@ public static class DependencyInjection
         services.AddScoped<ILeaveConfigurationAuthorizationService, LeaveConfigurationAuthorizationService>();
         services.AddScoped<ILeaveTemplateSeeder, LeaveTemplateSeeder>();
         services.AddScoped<IEmployeeRelationsConfigurationAuthorizationService, EmployeeRelationsConfigurationAuthorizationService>();
-        services.AddScoped<IEmployeeRelationsTemplateSeeder, EmployeeRelationsTemplateSeeder>();
         services.AddScoped<IRecognitionTypeRepository, RecognitionTypeRepository>();
         services.AddScoped<IDisciplinaryActionTypeRepository, DisciplinaryActionTypeRepository>();
         services.AddScoped<IDisciplinaryActionCauseRepository, DisciplinaryActionCauseRepository>();
@@ -203,7 +200,6 @@ public static class DependencyInjection
         services.AddScoped<IPersonnelFileVacationRepository, PersonnelFileVacationRepository>();
         services.AddScoped<ICompetencyFrameworkRepository, CompetencyFrameworkRepository>();
         services.AddScoped<ICompetencyFrameworkAuthorizationService, CompetencyFrameworkAuthorizationService>();
-        services.AddScoped<ICompetencyFrameworkSeedService, CompetencyFrameworkSeedService>();
         services.AddScoped<ILegalRepresentativeRepository, LegalRepresentativeRepository>();
         services.AddScoped<ILegalRepresentativeAuthorizationService, LegalRepresentativeAuthorizationService>();
         services.AddScoped<LegalRepresentativePositionTitleCatalogSeedService>();
@@ -262,10 +258,11 @@ public static class DependencyInjection
         services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.ICompanyCertificateSettingsRepository, CLARIHR.Infrastructure.PersonnelFiles.CompanyCertificateSettingsRepository>();
         services.AddScoped<ICompanyPreferenceAuthorizationService, CompanyPreferenceAuthorizationService>();
         services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IEffectiveAccessResolver, EffectiveAccessResolver>();
+        services.AddScoped<EffectiveAccessInvalidationInterceptor>();
         services.AddScoped<IRbacAuthorizationService, RbacAuthorizationService>();
         services.AddScoped<IIamAdministrationRepository, IamAdministrationRepository>();
         services.AddScoped<IIamAdministrationAuthorizationService, IamAdministrationAuthorizationService>();
-        services.AddScoped<DevSeedService>();
         services.AddSingleton<IFieldPermissionOverrideCache, FieldPermissionOverrideCache>();
         services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();
@@ -285,6 +282,9 @@ public static class DependencyInjection
 
             optionsBuilder.EnableDetailedErrors();
             optionsBuilder.EnableSensitiveDataLogging(false);
+            // Drops the tenant's cached effective access whenever an IAM write lands, so revoking a role or
+            // deactivating a user takes effect on the very next request instead of waiting out the cache TTL.
+            optionsBuilder.AddInterceptors(serviceProvider.GetRequiredService<EffectiveAccessInvalidationInterceptor>());
 
             PostgreSqlOptionsConfigurator.Configure(optionsBuilder, databaseOptions.ConnectionString);
         });

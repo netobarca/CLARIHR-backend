@@ -7,12 +7,15 @@ using Microsoft.EntityFrameworkCore;
 namespace CLARIHR.Infrastructure.Overtime;
 
 /// <summary>
-/// El Salvador overtime configuration template (Anexo A.2: 4 overtime types with the reference factors
-/// HED 2.00 / HEN 2.50 / HEDF 4.00 / HENF 5.00 — editable per company — and 6 justification types).
-/// Mirrors <c>EmployeeRelationsTemplateSeeder</c>: guarded existence checks (keyed on the tenant's
-/// <c>NormalizedCode</c>) make it idempotent so it is safe to run on every provisioning and on every
-/// <c>load-template</c> call. An existing row is skipped even when it was edited or inactivated, so the
-/// seeder never overwrites tenant edits — it only creates the missing template rows.
+/// Seeds the 4 legal overtime types for a company (Art. 168/169/171/175 CT: HED 2.00 / HEN 2.50 /
+/// HEDF 4.00 / HENF 5.00). Runs once, at provisioning.
+///
+/// Justification types are NOT seeded: why a company authorises overtime is company specific, the catalog
+/// supports no DELETE (only activate/inactivate), and a seeded guess would be permanent noise. The company
+/// creates its own through <c>POST /companies/{companyPublicId}/overtime-justification-types</c>.
+///
+/// Guarded existence checks (keyed on the tenant's <c>NormalizedCode</c>) keep it idempotent; an existing row
+/// is skipped even when edited or inactivated, so tenant edits are never overwritten.
 /// </summary>
 internal sealed class OvertimeTemplateSeeder(
     ApplicationDbContext dbContext,
@@ -23,24 +26,17 @@ internal sealed class OvertimeTemplateSeeder(
         CancellationToken cancellationToken)
     {
         // Push the ambient tenant so the fail-closed global query filter scopes the idempotency guards below
-        // to this tenant in every call path (the provisioning hook runs without an HTTP tenant claim).
-        // Mirrors EmployeeRelationsTemplateSeeder.ApplyTemplateAsync.
+        // to this tenant (the provisioning hook runs without an HTTP tenant claim).
         using var tenantScope = ambientTenantContext.Push(tenantId);
 
         var (typesCreated, typesSkipped) = await ApplyOvertimeTypesAsync(tenantId, cancellationToken);
-        var (justificationsCreated, justificationsSkipped) =
-            await ApplyOvertimeJustificationTypesAsync(tenantId, cancellationToken);
 
-        if (typesCreated + justificationsCreated > 0)
+        if (typesCreated > 0)
         {
             _ = await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return new OvertimeTemplateSeedResult(
-            typesCreated,
-            justificationsCreated,
-            typesSkipped,
-            justificationsSkipped);
+        return new OvertimeTemplateSeedResult(typesCreated, typesSkipped);
     }
 
     private async Task<(int Created, int Skipped)> ApplyOvertimeTypesAsync(
@@ -79,40 +75,6 @@ internal sealed class OvertimeTemplateSeeder(
         return (created, skipped);
     }
 
-    private async Task<(int Created, int Skipped)> ApplyOvertimeJustificationTypesAsync(
-        Guid tenantId,
-        CancellationToken cancellationToken)
-    {
-        var existingCodes = (await dbContext.Set<OvertimeJustificationType>()
-                .AsNoTracking()
-                .Where(type => type.TenantId == tenantId)
-                .Select(type => type.NormalizedCode)
-                .ToListAsync(cancellationToken))
-            .ToHashSet(StringComparer.Ordinal);
-
-        var created = 0;
-        var skipped = 0;
-
-        foreach (var template in OvertimeJustificationTypeTemplates)
-        {
-            if (existingCodes.Contains(template.Code))
-            {
-                skipped++;
-                continue;
-            }
-
-            var type = OvertimeJustificationType.Create(
-                template.Code,
-                template.Name,
-                template.Description,
-                template.SortOrder);
-            type.SetTenantId(tenantId);
-            dbContext.Set<OvertimeJustificationType>().Add(type);
-            created++;
-        }
-
-        return (created, skipped);
-    }
 
     // ---------------------------------------------------------------------------------------
     // Template data — El Salvador (ratified Anexo A.2). Codes are already normalized (upper). The factors
@@ -127,17 +89,7 @@ internal sealed class OvertimeTemplateSeeder(
         new("HENF", "Hora extra nocturna en día de descanso/asueto", 5.00m, "Día de descanso o asueto trabajado, jornada nocturna (Art. 171/175 CT).", 40),
     ];
 
-    private static readonly OvertimeJustificationTemplate[] OvertimeJustificationTypeTemplates =
-    [
-        new("PICO_PRODUCCION", "Pico de producción / mayor demanda", null, 10),
-        new("CIERRE_CONTABLE", "Cierre contable o de periodo", null, 20),
-        new("PROYECTO_ESPECIAL", "Proyecto o entrega especial", null, 30),
-        new("EMERGENCIA", "Emergencia o contingencia operativa", null, 40),
-        new("MANTENIMIENTO", "Mantenimiento o soporte fuera de jornada", null, 50),
-        new("OTRO", "Otra", null, 60),
-    ];
 
     private sealed record OvertimeTypeTemplate(string Code, string Name, decimal DefaultFactor, string? PayrollEffectDescription, int SortOrder);
 
-    private sealed record OvertimeJustificationTemplate(string Code, string Name, string? Description, int SortOrder);
 }

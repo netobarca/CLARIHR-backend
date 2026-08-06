@@ -49,9 +49,11 @@ internal abstract class PersonnelReferenceCatalogItemConfigurationBase<TCatalogI
         builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
             .HasDatabaseName(countryActiveSortIndexName);
 
-        // Most reference catalogs are seeded per-country at runtime (DevSeedService); the ones that must exist in
-        // every environment opt in by passing static HasData here (insurance types/ranges — same proven pattern as
-        // the general catalogs). The parent type must be seeded for the range FK to resolve in the same migration.
+        // Nothing is seeded at runtime any more (the dev seed is gone; every environment starts empty), so a
+        // reference catalog reaches the database only by opting in to static HasData here (insurance types/ranges —
+        // same proven pattern as the general catalogs), which then applies to EVERY environment alike. Anything not
+        // listed is loaded through the API. The parent type must be seeded for the range FK to resolve in the same
+        // migration.
         if (seedData is not null)
         {
             builder.HasData(seedData);

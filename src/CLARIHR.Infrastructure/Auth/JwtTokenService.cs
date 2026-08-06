@@ -24,7 +24,6 @@ internal sealed class JwtTokenService(
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
     IUserPreferenceRepository userPreferenceRepository,
-    IIamAdministrationRepository iamRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
     IPlatformAuditService platformAuditService,
@@ -36,26 +35,25 @@ internal sealed class JwtTokenService(
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: true, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
     }
 
     public async Task<Result<AuthTokenResult>> GenerateLoginAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: false, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
     }
 
     public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
-        GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: true, cancellationToken);
+        GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
 
     public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
-        GenerateInternalAsync(user, tenantId: null, AuthClientType.Platform, includeAuthorizationClaims: false, cancellationToken);
+        GenerateInternalAsync(user, tenantId: null, AuthClientType.Platform, cancellationToken);
 
     private async Task<Result<AuthTokenResult>> GenerateInternalAsync(
         User user,
         Guid? tenantId,
         AuthClientType clientType,
-        bool includeAuthorizationClaims,
         CancellationToken cancellationToken)
     {
         var jwtOptions = options.Value;
@@ -68,7 +66,7 @@ internal sealed class JwtTokenService(
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
         var refreshExpiresAt = issuedAt.AddDays(jwtOptions.RefreshTokenExpirationDays);
 
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, includeAuthorizationClaims, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
             JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
@@ -225,7 +223,7 @@ internal sealed class JwtTokenService(
         var tenantId = clientType == AuthClientType.Core
             ? await userCompanyRepository.GetActivePrimaryCompanyPublicIdAsync(user.Id, cancellationToken)
             : null;
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, includeAuthorizationClaims: true, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
             JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
@@ -244,7 +242,6 @@ internal sealed class JwtTokenService(
         User user,
         Guid? tenantId,
         AuthClientType clientType,
-        bool includeAuthorizationClaims,
         CancellationToken cancellationToken)
     {
         var claims = new List<Claim>
@@ -271,52 +268,11 @@ internal sealed class JwtTokenService(
         var language = await userPreferenceRepository.ResolveLanguageAsync(user.Id, cancellationToken) ?? DefaultLanguage;
         claims.Add(new Claim(LanguageClaimType, language));
 
-        if (!includeAuthorizationClaims)
-        {
-            return claims;
-        }
-
-        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
-            tenantId.Value,
-            user.PublicId,
-            includeRoles: true,
-            cancellationToken);
-        if (iamUser is not null)
-        {
-            var roleClaims = iamUser.RoleAssignments
-                .Select(static assignment => assignment.Role.NormalizedName)
-                .Where(static role => !string.IsNullOrWhiteSpace(role))
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static role => role, StringComparer.Ordinal);
-
-            foreach (var role in roleClaims)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-                claims.Add(new Claim("role", role));
-            }
-
-            var permissionClaims = iamUser.RoleAssignments
-                .SelectMany(static assignment => assignment.Role.PermissionAssignments)
-                .Select(static assignment => assignment.Permission.NormalizedCode)
-                .Where(static permission => !string.IsNullOrWhiteSpace(permission))
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static permission => permission, StringComparer.Ordinal);
-
-            foreach (var permission in permissionClaims)
-            {
-                claims.Add(new Claim("permission", permission));
-            }
-
-            return claims;
-        }
-
-        var fallbackRole = await userCompanyRepository.GetRoleNormalizedNameAsync(user.Id, tenantId.Value, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(fallbackRole))
-        {
-            claims.Add(new Claim(ClaimTypes.Role, fallbackRole));
-            claims.Add(new Claim("role", fallbackRole));
-        }
-
+        // Authorization is deliberately NOT carried here. Roles and permissions are resolved per request
+        // from the current database state (see IEffectiveAccessResolver), which is what makes revocation
+        // take effect immediately instead of when this token expires. It also keeps the token small: an
+        // owner holds ~117 permissions, which as claims made the token ~5 KB on EVERY request and left
+        // little headroom before proxy header limits.
         return claims;
     }
 

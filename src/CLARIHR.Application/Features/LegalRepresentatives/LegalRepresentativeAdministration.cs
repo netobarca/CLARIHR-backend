@@ -257,7 +257,7 @@ internal sealed class CreateLegalRepresentativeCommandValidator : AbstractValida
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
-            .Must(LegalRepresentativeValidationRules.IsValidDocumentNumber)
+            .Must((instance, value) => LegalRepresentativeValidationRules.IsValidDocumentNumber(instance.DocumentType, value))
             .WithMessage("DocumentNumber format is invalid.");
         RuleFor(command => command.PositionTitle)
             .NotEmpty()
@@ -299,7 +299,7 @@ internal sealed class UpdateLegalRepresentativeCommandValidator : AbstractValida
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
-            .Must(LegalRepresentativeValidationRules.IsValidDocumentNumber)
+            .Must((instance, value) => LegalRepresentativeValidationRules.IsValidDocumentNumber(instance.DocumentType, value))
             .WithMessage("DocumentNumber format is invalid.");
         RuleFor(command => command.PositionTitle)
             .NotEmpty()
@@ -622,7 +622,23 @@ internal sealed class CreateLegalRepresentativeCommandHandler(
             return Result<LegalRepresentativeResponse>.Failure(authorizationResult.Error);
         }
 
-        var normalizedDocumentNumber = command.DocumentNumber.Trim().ToUpperInvariant();
+        // The company's country decides which identity documents exist and what shape they have, so both
+        // checks live here rather than in the validator, which cannot see the tenant.
+        var countryCode = await repository.GetCompanyCountryCodeAsync(command.CompanyId, cancellationToken);
+        var normalizedDocumentType = LegalRepresentativeValidationRules.NormalizeDocumentType(command.DocumentType);
+        if (!await repository.IdentificationTypeExistsAsync(countryCode ?? string.Empty, normalizedDocumentType, cancellationToken))
+        {
+            return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.DocumentTypeInvalid);
+        }
+
+        if (!LegalRepresentativeValidationRules.IsValidDocumentNumber(countryCode, command.DocumentType, command.DocumentNumber))
+        {
+            return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.DocumentNumberFormatInvalid);
+        }
+
+        // Must use the SAME rule the domain stores with (separators stripped), or the duplicate check
+        // compares a punctuated string against stripped values and never matches.
+        var normalizedDocumentNumber = LegalRepresentativeValidationRules.StripSeparators(command.DocumentNumber);
         if (await repository.DocumentExistsAsync(
                 command.CompanyId,
                 command.DocumentType,
@@ -656,7 +672,15 @@ internal sealed class CreateLegalRepresentativeCommandHandler(
             if (command.IsPrimary)
             {
                 var currentPrimary = await repository.GetActivePrimaryAsync(command.CompanyId, excludingLegalRepresentativePublicId: null, cancellationToken);
-                currentPrimary?.ClearPrimary();
+
+                if (currentPrimary is not null)
+                {
+                    currentPrimary.ClearPrimary();
+                    // Flushed before the insert — see SetPrimaryLegalRepresentativeCommandHandler.
+                    // This path happens to survive on EF's current statement ordering, but that ordering
+                    // is not a contract: pinning it here keeps all three primary-switch paths identical.
+                    _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+                }
             }
 
             repository.Add(legalRepresentative);
@@ -730,7 +754,23 @@ internal sealed class UpdateLegalRepresentativeCommandHandler(
             return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.StateRuleViolation);
         }
 
-        var normalizedDocumentNumber = command.DocumentNumber.Trim().ToUpperInvariant();
+        // The company's country decides which identity documents exist and what shape they have, so both
+        // checks live here rather than in the validator, which cannot see the tenant.
+        var countryCode = await repository.GetCompanyCountryCodeAsync(legalRepresentative.TenantId, cancellationToken);
+        var normalizedDocumentType = LegalRepresentativeValidationRules.NormalizeDocumentType(command.DocumentType);
+        if (!await repository.IdentificationTypeExistsAsync(countryCode ?? string.Empty, normalizedDocumentType, cancellationToken))
+        {
+            return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.DocumentTypeInvalid);
+        }
+
+        if (!LegalRepresentativeValidationRules.IsValidDocumentNumber(countryCode, command.DocumentType, command.DocumentNumber))
+        {
+            return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.DocumentNumberFormatInvalid);
+        }
+
+        // Must use the SAME rule the domain stores with (separators stripped), or the duplicate check
+        // compares a punctuated string against stripped values and never matches.
+        var normalizedDocumentNumber = LegalRepresentativeValidationRules.StripSeparators(command.DocumentNumber);
         if (await repository.DocumentExistsAsync(
                 legalRepresentative.TenantId,
                 command.DocumentType,
@@ -753,7 +793,14 @@ internal sealed class UpdateLegalRepresentativeCommandHandler(
                     legalRepresentative.TenantId,
                     legalRepresentative.PublicId,
                     cancellationToken);
-                currentPrimary?.ClearPrimary();
+
+                if (currentPrimary is not null)
+                {
+                    currentPrimary.ClearPrimary();
+                    // Flushed before the promotion — see SetPrimaryLegalRepresentativeCommandHandler:
+                    // the partial unique index is evaluated per statement and cannot be deferred.
+                    _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+                }
             }
 
             legalRepresentative.Update(
@@ -1007,7 +1054,17 @@ internal sealed class SetPrimaryLegalRepresentativeCommandHandler(
                 legalRepresentative.TenantId,
                 legalRepresentative.PublicId,
                 cancellationToken);
-            currentPrimary?.ClearPrimary();
+
+            if (currentPrimary is not null)
+            {
+                currentPrimary.ClearPrimary();
+                // The demotion is flushed on its own, BEFORE the promotion:
+                // ux_legal_representatives__tenant_primary_active is a partial UNIQUE INDEX, evaluated
+                // per statement and not deferrable. Batched together, EF is free to order the promotion
+                // first, leaving two (primary, active) rows for an instant — Postgres rejects it and the
+                // caller gets a 500. Both writes stay inside the surrounding transaction.
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
 
             legalRepresentative.SetPrimary();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);

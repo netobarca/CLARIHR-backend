@@ -127,7 +127,7 @@ public partial class Program
 
         LogJwtConfiguration(app.Logger, app.Configuration);
 
-        await app.Services.InitializeInfrastructureAsync(app.Logger, app.Environment.IsDevelopment());
+        await app.Services.InitializeInfrastructureAsync(app.Logger);
 
         var commandExitCode = await TryExecuteCommandAsync(args, app.Services, app.Logger);
         if (commandExitCode.HasValue)

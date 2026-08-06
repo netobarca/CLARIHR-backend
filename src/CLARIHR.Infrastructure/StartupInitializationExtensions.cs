@@ -1,9 +1,7 @@
 using CLARIHR.Infrastructure.CatalogTypes;
 using CLARIHR.Infrastructure.LegalRepresentatives;
-using CLARIHR.Infrastructure.PositionDescriptionCatalogs;
 using CLARIHR.Infrastructure.Persistence;
 using CLARIHR.Application.Abstractions.Companies;
-using CLARIHR.Application.Abstractions.CompetencyFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,10 +14,11 @@ public static class StartupInitializationExtensions
     private const int InitializationMaxAttempts = 6;
     private static readonly TimeSpan InitializationRetryDelay = TimeSpan.FromSeconds(5);
 
+    // No environment gets demo data — Development included. Every database comes up empty and is configured
+    // from scratch through the API, so what a developer sees locally is exactly what a new customer sees.
     public static async Task InitializeInfrastructureAsync(
         this IServiceProvider services,
         ILogger logger,
-        bool isDevelopment = false,
         CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; attempt <= InitializationMaxAttempts; attempt++)
@@ -30,9 +29,7 @@ public static class StartupInitializationExtensions
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var positionTitleCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativePositionTitleCatalogSeedService>();
                 var representationTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeRepresentationTypeCatalogSeedService>();
-                var positionDescriptionCatalogSeedService = scope.ServiceProvider.GetRequiredService<PositionDescriptionCatalogSeedService>();
                 var catalogTypeDescriptorSeedService = scope.ServiceProvider.GetRequiredService<CatalogTypeDescriptorSeedService>();
-                var competencyFrameworkSeedService = scope.ServiceProvider.GetRequiredService<ICompetencyFrameworkSeedService>();
                 var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
 
                 await dbContext.Database.MigrateAsync(cancellationToken);
@@ -41,15 +38,15 @@ public static class StartupInitializationExtensions
                 await catalogTypeDescriptorSeedService.EnsureSeededAsync(cancellationToken);
                 await planEntitlementService.EnsureSystemPlanDefaultsAsync(cancellationToken);
 
-                if (isDevelopment)
-                {
-                    var devSeedService = scope.ServiceProvider.GetRequiredService<DevSeedService>();
-                    await devSeedService.SeedAsync(cancellationToken);
-                }
-
-                await positionDescriptionCatalogSeedService.EnsureSeededAsync(cancellationToken);
-                await competencyFrameworkSeedService.EnsureSeededAsync(cancellationToken);
-
+                // Nothing tenant-scoped is backfilled here any more (same rule as CompanyProvisioningService).
+                // Two backfills used to run on every startup for EVERY tenant and were removed: the
+                // position-description catalogs (functions, contract types, strategic objectives, equipment,
+                // responsibilities, category/classification tree) and the competency framework. Both describe how
+                // a company organises and evaluates its jobs, which the system cannot guess, and neither can be
+                // deleted afterwards (activate/inactivate only). The position-description seeder additionally
+                // planted a DEPARTAMENTO org-unit type as the FK anchor of its seeded classification, leaking a
+                // guessed org-unit type into every tenant. What stays above is platform-level: migrations, the
+                // system catalog descriptors and the plan entitlement defaults.
                 return;
             }
             catch (Exception exception) when (IsInitializationUnavailable(exception) && attempt < InitializationMaxAttempts)

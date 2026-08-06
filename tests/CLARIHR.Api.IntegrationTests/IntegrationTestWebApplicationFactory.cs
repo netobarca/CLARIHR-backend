@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -58,6 +59,12 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
             // and exercise the AU-1 register -> verify flow end-to-end.
             services.RemoveAll<IAuthEmailService>();
             services.AddSingleton<IAuthEmailService>(_authEmails);
+
+            // Tests declare the access they need through the X-Test-* headers. Feeding them in HERE, as the
+            // resolver, keeps the production pipeline intact end to end (resolver → claims transformation →
+            // principal → RBAC) instead of letting the auth handler shortcut past it.
+            services.RemoveAll<IEffectiveAccessResolver>();
+            services.AddScoped<IEffectiveAccessResolver, HeaderEffectiveAccessResolver>();
         });
     }
 

@@ -66,7 +66,15 @@ public sealed class CompanyLegalProfilesController(
                 request.LegalRepresentativePublicId),
             cancellationToken);
 
-        return this.ToCreatedAtActionResult(result, nameof(Get), _ => new { companyId }, value => value.ConcurrencyToken);
+        // PublicContractRouteConvention rewrites the route token `{companyId}` to `{companyPublicId}`,
+        // so the Location route value MUST be keyed `companyPublicId`. Keyed `companyId` the route cannot
+        // be resolved and CreatedAtActionResult throws while formatting — the record is already committed,
+        // so the caller gets a 500 for a creation that actually succeeded.
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(Get),
+            _ => new { companyPublicId = companyId },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut]

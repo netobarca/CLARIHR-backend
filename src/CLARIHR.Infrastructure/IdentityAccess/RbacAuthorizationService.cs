@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 namespace CLARIHR.Infrastructure.IdentityAccess;
 
 internal sealed class RbacAuthorizationService(
-    ApplicationDbContext dbContext,
     ICurrentUserService currentUserService,
     ITenantContext tenantContext,
     IPlanEntitlementService planEntitlementService,
@@ -52,38 +51,18 @@ internal sealed class RbacAuthorizationService(
             return Deny(AuthorizationErrors.Denied(definition.ResourceKey, action, GetEndpoint()), definition.ResourceKey, action);
         }
 
-        if (currentUserService.Permissions.Contains(IdentityPermissionCodes.ManageAdministration, StringComparer.OrdinalIgnoreCase) ||
-            currentUserService.Permissions.Contains(definition.ManagePermissionCode, StringComparer.OrdinalIgnoreCase))
+        // One evaluation path, one comparison semantic. The permissions on the principal are resolved from
+        // the database on every request (IEffectiveAccessResolver via claims transformation), so there is
+        // nothing stale to second-guess and no second query to fall back to: what is here IS current.
+        var granted = currentUserService.Permissions;
+
+        if (granted.Contains(IdentityPermissionCodes.ManageAdministration, StringComparer.OrdinalIgnoreCase) ||
+            granted.Contains(definition.ManagePermissionCode, StringComparer.OrdinalIgnoreCase))
         {
             return Result.Success();
         }
 
-        if (RbacAuthorizationEvaluator.IsAllowed(currentUserService.Permissions, definition.ScreenKey, action))
-        {
-            return Result.Success();
-        }
-
-        if (!Guid.TryParse(currentUserService.UserId, out var userPublicId))
-        {
-            return Deny(AuthorizationErrors.Unauthenticated, definition.ResourceKey, action);
-        }
-
-        var grantedCodes = await dbContext.IamUsers
-            .AsNoTracking()
-            .Where(user => user.LinkedUserPublicId == userPublicId && user.IsActive)
-            .SelectMany(user => user.RoleAssignments)
-            .SelectMany(assignment => assignment.Role.PermissionAssignments)
-            .Select(assignment => assignment.Permission.NormalizedCode)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        if (grantedCodes.Contains(IdentityPermissionCodes.ManageAdministration.ToUpperInvariant(), StringComparer.Ordinal) ||
-            grantedCodes.Contains(definition.ManagePermissionCode.ToUpperInvariant(), StringComparer.Ordinal))
-        {
-            return Result.Success();
-        }
-
-        return RbacAuthorizationEvaluator.IsAllowed(grantedCodes, definition.ScreenKey, action)
+        return RbacAuthorizationEvaluator.IsAllowed(granted, definition.ScreenKey, action)
             ? Result.Success()
             : Deny(AuthorizationErrors.Denied(definition.ResourceKey, action, GetEndpoint()), definition.ResourceKey, action);
     }

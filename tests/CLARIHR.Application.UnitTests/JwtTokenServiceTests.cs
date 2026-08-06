@@ -54,7 +54,9 @@ public sealed class JwtTokenServiceTests
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", jwt.Claims.Single(claim => claim.Type == "tid").Value);
-        Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        // Authorization never travels in the token: roles and permissions are resolved per request from the
+        // database, so revoking one takes effect immediately instead of when this token expires.
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type is ClaimTypes.Role or "role" or "permission" or "permissions");
         Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
@@ -114,7 +116,7 @@ public sealed class JwtTokenServiceTests
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal(targetTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
-        Assert.Equal("AUDITOR B", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type is ClaimTypes.Role or "role" or "permission" or "permissions");
         Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
@@ -201,7 +203,9 @@ public sealed class JwtTokenServiceTests
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Tokens.AccessToken);
         Assert.Equal(primaryTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
-        Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        // Authorization never travels in the token: roles and permissions are resolved per request from the
+        // database, so revoking one takes effect immediately instead of when this token expires.
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type is ClaimTypes.Role or "role" or "permission" or "permissions");
         Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
@@ -264,7 +268,6 @@ public sealed class JwtTokenServiceTests
             userRepository,
             userCompanyRepository,
             userPreferenceRepository,
-            new TestIamAdministrationRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
             new TestPlatformAuditService(),

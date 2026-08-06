@@ -114,6 +114,49 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Equal(1, planEntitlementService.EnsureCalls);
     }
 
+    /// <summary>
+    /// A new company is seeded only with what the law or the geography fixes — the overtime types carry the
+    /// legal factors (Art. 168/169/171/175 CT), so provisioning must invoke their seeder.
+    ///
+    /// Everything a company defines for itself — org-unit types, functional areas, overtime justifications,
+    /// recognitions, disciplinary actions and their causes — is deliberately NOT seeded and has no
+    /// template-load endpoint: none of those catalogs can be deleted afterwards (activate/inactivate only),
+    /// so a seeded guess would be permanent noise in every tenant that does not match it.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenProvisioningACompany_ShouldSeedTheLegalOvertimeTypes()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var planEntitlementService = new TestPlanEntitlementService();
+        var unitOfWork = new TestUnitOfWork();
+        var overtimeSeeder = new TestOvertimeTemplateSeeder();
+        var user = CreatePersistedUser("seed@company.com");
+        userRepository.Seed(user);
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            planEntitlementService,
+            unitOfWork,
+            overtimeSeeder);
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Seed Co", "SV", CreateInitialLegalRepresentative()),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(overtimeSeeder.WasCalled);
+    }
+
     [Fact]
     public async Task Handle_WhenUserAlreadyProvisioned_ShouldReturnAlreadyProvisionedAndRepairOwnerRbac()
     {
@@ -424,7 +467,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         TestIamAdministrationRepository iamRepository,
         TestLegalRepresentativeRepository legalRepresentativeRepository,
         IPlanEntitlementService planEntitlementService,
-        TestUnitOfWork unitOfWork)
+        TestUnitOfWork unitOfWork,
+        TestOvertimeTemplateSeeder? overtimeSeeder = null)
     {
         var commercialPlanRepository = new TestCommercialPlanRepository();
 
@@ -439,11 +483,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestCountryCatalogRepository(),
             new TestCompanyPreferenceRepository(),
             new TestLocationSeedService(),
-            new TestOrgStructureCatalogSeedService(),
-            new TestCompetencyFrameworkSeedService(),
             new TestLeaveTemplateSeeder(),
-            new TestEmployeeRelationsTemplateSeeder(),
-            new TestOvertimeTemplateSeeder(),
+            overtimeSeeder ?? new TestOvertimeTemplateSeeder(),
             new TestWorkScheduleTemplateSeeder(),
             planEntitlementService,
             unitOfWork,
@@ -510,22 +551,6 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private sealed class TestOrgStructureCatalogSeedService : IOrgStructureCatalogSeedService
-    {
-        public Task InitializeDefaultsAsync(
-            Guid tenantId,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
-    private sealed class TestCompetencyFrameworkSeedService : ICompetencyFrameworkSeedService
-    {
-        public Task InitializeDefaultsAsync(
-            Guid tenantId,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task EnsureSeededAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
     private sealed class TestLeaveTemplateSeeder : ILeaveTemplateSeeder
     {
         public Task<LeaveTemplateSeedResult> ApplyTemplateAsync(
@@ -535,20 +560,17 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             Task.FromResult(new LeaveTemplateSeedResult(0, 0, 0, 0, 0, 0, 0));
     }
 
-    private sealed class TestEmployeeRelationsTemplateSeeder : CLARIHR.Application.Abstractions.EmployeeRelations.IEmployeeRelationsTemplateSeeder
-    {
-        public Task<CLARIHR.Application.Abstractions.EmployeeRelations.EmployeeRelationsTemplateSeedResult> ApplyTemplateAsync(
-            Guid tenantId,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new CLARIHR.Application.Abstractions.EmployeeRelations.EmployeeRelationsTemplateSeedResult(0, 0, 0, 0, 0, 0));
-    }
-
     private sealed class TestOvertimeTemplateSeeder : CLARIHR.Application.Abstractions.Overtime.IOvertimeTemplateSeeder
     {
+        public bool WasCalled { get; private set; }
+
         public Task<CLARIHR.Application.Abstractions.Overtime.OvertimeTemplateSeedResult> ApplyTemplateAsync(
             Guid tenantId,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new CLARIHR.Application.Abstractions.Overtime.OvertimeTemplateSeedResult(0, 0, 0, 0));
+            CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+            return Task.FromResult(new CLARIHR.Application.Abstractions.Overtime.OvertimeTemplateSeedResult(0, 0));
+        }
     }
 
     private sealed class TestWorkScheduleTemplateSeeder : CLARIHR.Application.Abstractions.Payroll.IWorkScheduleTemplateSeeder
@@ -1201,6 +1223,12 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
     private sealed class TestLegalRepresentativeRepository : ILegalRepresentativeRepository
     {
+        public Task<string?> GetCompanyCountryCodeAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("SV");
+
+        public Task<bool> IdentificationTypeExistsAsync(string countryCode, string normalizedCode, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public List<LegalRepresentative> Items { get; } = [];
 
         public void Add(LegalRepresentative legalRepresentative)

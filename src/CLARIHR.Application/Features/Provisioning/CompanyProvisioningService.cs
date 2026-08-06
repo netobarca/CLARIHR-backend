@@ -34,10 +34,7 @@ internal sealed class CompanyProvisioningService(
     ICountryCatalogRepository countryCatalogRepository,
     ICompanyPreferenceRepository companyPreferenceRepository,
     ILocationSeedService locationSeedService,
-    IOrgStructureCatalogSeedService orgStructureCatalogSeedService,
-    ICompetencyFrameworkSeedService competencyFrameworkSeedService,
     ILeaveTemplateSeeder leaveTemplateSeeder,
-    IEmployeeRelationsTemplateSeeder employeeRelationsTemplateSeeder,
     IOvertimeTemplateSeeder overtimeTemplateSeeder,
     IWorkScheduleTemplateSeeder workScheduleTemplateSeeder,
     IPlanEntitlementService planEntitlementService,
@@ -156,11 +153,30 @@ internal sealed class CompanyProvisioningService(
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, adminRole.Id, request.MakePrimary));
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        // A new company is seeded ONLY with what the law or the geography fixes — never with a guess about
+        // how this particular company is organised. Nothing here can be deleted afterwards (these catalogs
+        // expose activate/inactivate, no DELETE), so seeding a guess leaves permanent noise in every tenant
+        // that does not happen to match it.
+        //
+        // Seeded automatically (the company cannot invent these):
+        //   · country location hierarchy
+        //   · incapacity types + risks and national holidays (ISSS / Código de Trabajo)
+        //   · the 4 overtime types with their legal factors (Art. 168/169/171/175 CT)
+        //   · the 44 h ordinary work schedule (Art. 161 CT)
+        //
+        // Deliberately NOT seeded — the company defines its own from scratch. There is no example to load:
+        // how a company divides itself, why it authorises overtime or how it recognises and sanctions its
+        // people is not something the system can guess, and none of these catalogs can be deleted afterwards
+        // (they only support activate/inactivate), so a seeded guess would be permanent noise.
+        //   · org-unit types and functional areas
+        //   · position-description catalogs and the position category/classification tree
+        //   · recognitions, disciplinary actions and their causes
+        //   · overtime justification types
+        //   · competency framework — a 1–5 discrete scale is as much a guess as 1–4 or A–E. The company
+        //     creates its own; until it does, `GET .../competency-rating-scale` reports isConfigured = false,
+        //     which is the honest answer, not a defect to paper over with a default.
         await locationSeedService.InitializeDefaultsAsync(company.PublicId, country.Code, country.Name, cancellationToken);
-        await orgStructureCatalogSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
-        await competencyFrameworkSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
         _ = await leaveTemplateSeeder.ApplyTemplateAsync(company.PublicId, dateTimeProvider.UtcNow.Year, cancellationToken);
-        _ = await employeeRelationsTemplateSeeder.ApplyTemplateAsync(company.PublicId, cancellationToken);
         _ = await overtimeTemplateSeeder.ApplyTemplateAsync(company.PublicId, cancellationToken);
         _ = await workScheduleTemplateSeeder.ApplyTemplateAsync(company.PublicId, cancellationToken);
 

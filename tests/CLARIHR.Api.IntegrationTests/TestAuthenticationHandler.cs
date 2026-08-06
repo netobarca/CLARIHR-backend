@@ -41,17 +41,11 @@ internal sealed class TestAuthenticationHandler(
             claims.Add(new Claim("tid", tenantIdValues.ToString()));
         }
 
-        foreach (var role in SplitHeaderValues(RolesHeader))
-        {
-            claims.Add(new Claim(ClaimTypes.Role, role));
-            claims.Add(new Claim("role", role));
-        }
-
-        foreach (var permission in SplitHeaderValues(PermissionsHeader))
-        {
-            claims.Add(new Claim("permission", permission));
-        }
-
+        // Roles and permissions are deliberately NOT injected here. They reach the principal the same way
+        // they do in production — through EffectiveAccessClaimsTransformation — with
+        // HeaderEffectiveAccessResolver reading the X-Test-* headers as the source. Injecting them here as
+        // well would give the actor the union of the headers and the seeded IAM rows, which trips the rules
+        // that deny for holding too much.
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);

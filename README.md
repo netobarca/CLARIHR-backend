@@ -2,7 +2,7 @@ CLARIHR backend
 
 ## Desarrollo local (Docker Compose)
 
-Requisitos: .NET SDK 10 y Docker. El entorno `Development` **no versiona secretos** (§N1): `appsettings.Development.json` está en `.gitignore`; se crea desde la plantilla `*.example` versionada, que apunta a los servicios locales de `docker-compose.yml` (sin dependencia de Azure).
+Requisitos: .NET SDK 10 y Docker. El entorno `Development` **no versiona secretos** (§N1): `appsettings.Development.json` está en `.gitignore`; se crea desde la plantilla `*.example` versionada, que apunta a los servicios locales de `docker-compose.yml` (sin dependencia de Azure). **`docker-compose.yml` no se versiona**: creá el tuyo con la definición de `docs/technical/operations/local-environment-setup.md` §2.0.
 
 ```bash
 docker compose up -d                 # postgres + azurite (storage) + gotenberg (PDF)

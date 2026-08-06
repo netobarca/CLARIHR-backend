@@ -118,6 +118,12 @@ arranca inexistente hasta que alguien lo llene.
 
 Hacer `POST` cuando ya existe devuelve `409 COMPANY_LEGAL_PROFILE_ALREADY_EXISTS`.
 
+> **Bug corregido el 2026-08-03 — relevante si probaron antes de esa fecha.** El `POST` devolvía
+> `500` (`No route matches the supplied values`) **aunque el registro sí se creaba**: la transacción
+> confirmaba y luego fallaba al armar la cabecera `Location`. Para el frontend se veía como un fallo,
+> y el reintento daba `409 ALREADY_EXISTS` sobre un perfil que acababa de crearse — muy confuso de
+> diagnosticar. Ya arreglado: el `POST` responde `201` con `Location` y `ETag` correctos.
+
 ---
 
 ## 4. Concurrencia
@@ -150,9 +156,29 @@ antes que por formato.
 Conviene replicar estos patrones del lado del cliente para dar retroalimentación inmediata, pero el
 servidor manda: antes existían campos de texto libre y un NIT mal escrito llegaba impreso al F-14.
 
-Mensajes de error (localizados, llegan en `es`):
-- `El NIT patronal debe seguir el formato ####-######-###-#.`
-- `El número de registro patronal del ISSS solo acepta dígitos y guiones.`
+Un `400` trae los mensajes así (verificado contra la API real, con `Accept-Language: es`):
+
+```jsonc
+{
+  "status": 400,
+  "code": "common.validation",
+  "detail": "Se encontraron uno o mas errores de validacion.",
+  "errors": {
+    "": [                                    // ← ojo con la clave VACÍA
+      "El NIT patronal debe seguir el formato ####-######-###-#.",
+      "El número de registro patronal del ISSS solo acepta dígitos y guiones."
+    ]
+  }
+}
+```
+
+> **Los mensajes por campo llegan todos bajo la clave `""`, no bajo el nombre del campo.** Es una
+> limitación preexistente de este endpoint: los validadores usan accesores lambda, así que
+> FluentValidation no puede derivar el nombre de la propiedad, y le pasa a **todos** los campos del
+> perfil legal, no solo a los dos nuevos. Consecuencia práctica: no se puede mapear el error al input
+> automáticamente. Las opciones son mostrar los mensajes como lista a nivel de formulario, o
+> reconocerlos por su texto. Si les estorba, avisen y se refactoriza el validador para exponer los
+> nombres de campo.
 
 ### Representante legal enlazado
 

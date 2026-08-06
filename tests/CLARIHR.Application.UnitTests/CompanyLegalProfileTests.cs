@@ -279,6 +279,12 @@ public sealed class CompanyLegalProfileLegalRepresentativeResolutionTests
 
     private sealed class FakeLegalRepresentativeRepository : ILegalRepresentativeRepository
     {
+        public Task<string?> GetCompanyCountryCodeAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("SV");
+
+        public Task<bool> IdentificationTypeExistsAsync(string countryCode, string normalizedCode, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public LegalRepresentative? InTenant { get; init; }
 
         public bool ExistsOutsideTenant { get; init; }

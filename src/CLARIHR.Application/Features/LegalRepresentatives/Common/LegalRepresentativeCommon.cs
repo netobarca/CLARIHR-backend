@@ -49,8 +49,62 @@ public static partial class LegalRepresentativeValidationRules
     public static bool IsValidName(string value) =>
         NameRegex().IsMatch(value.Trim());
 
-    public static bool IsValidDocumentNumber(string value) =>
-        DocumentRegex().IsMatch(value.Trim());
+    /// <summary>
+    /// Validates the document number against the rules of its own document type. A generic "letters,
+    /// digits and separators" check accepts things that cannot exist — a DUI of ten digits, for instance —
+    /// and a malformed number is not a harmless typo here: identity is <c>(type, number)</c>, so an
+    /// impossible DUI silently becomes a second person for someone who already exists.
+    ///
+    /// Separators are stripped before matching because they carry no information: the same DUI written
+    /// <c>01234567-8</c> or <c>012345678</c> is the same document, and the domain normalizes it the same
+    /// way before storing it.
+    /// </summary>
+    public static bool IsValidDocumentNumber(string? documentType, string value) =>
+        IsValidDocumentNumber(countryCode: null, documentType, value);
+
+    /// <summary>
+    /// Format rules are keyed by (country, type), not by type alone: a document code only means something
+    /// inside its country. DUI is Salvadoran; a Colombian CC has its own shape, and nothing stops two
+    /// countries from reusing a code for different documents. Unknown combinations fall back to the generic
+    /// alphabet check rather than rejecting — a country we have not written rules for yet must still be
+    /// usable.
+    /// </summary>
+    public static bool IsValidDocumentNumber(string? countryCode, string? documentType, string value)
+    {
+        var digits = StripSeparators(value);
+        if (digits.Length == 0)
+        {
+            return false;
+        }
+
+        var key = $"{NormalizeDocumentType(countryCode)}:{NormalizeDocumentType(documentType)}";
+
+        return key switch
+        {
+            // DUI: 8 digits plus one check digit. Art. 3 Ley Especial Reguladora del DUI.
+            "SV:DUI" => DuiRegex().IsMatch(digits),
+
+            // NIT: ####-######-###-#. Same shape the employer NIT already enforces in Compliance.
+            "SV:NIT" => NitRegex().IsMatch(digits),
+
+            // Passports, residence cards and every country without dedicated rules yet.
+            _ => DocumentRegex().IsMatch(value.Trim())
+        };
+    }
+
+    /// <summary>
+    /// Drops every non-alphanumeric character. Shared by the validator and the uniqueness comparison so
+    /// both agree on what "the same document" means.
+    /// </summary>
+    public static string StripSeparators(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : SeparatorRegex().Replace(value, string.Empty).ToUpperInvariant();
+
+    public static string NormalizeDocumentType(string? documentType) =>
+        string.IsNullOrWhiteSpace(documentType)
+            ? string.Empty
+            : documentType.Trim().ToUpperInvariant();
 
     public static bool IsValidPositionTitle(string value) =>
         PositionRegex().IsMatch(value.Trim());
@@ -60,6 +114,17 @@ public static partial class LegalRepresentativeValidationRules
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_./-]{0,79}$", RegexOptions.CultureInvariant)]
     private static partial Regex DocumentRegex();
+
+    /// <summary>DUI without separators: 8 digits + check digit.</summary>
+    [GeneratedRegex(@"^\d{9}$", RegexOptions.CultureInvariant)]
+    private static partial Regex DuiRegex();
+
+    /// <summary>NIT without separators: ####-######-###-# collapsed to 14 digits.</summary>
+    [GeneratedRegex(@"^\d{14}$", RegexOptions.CultureInvariant)]
+    private static partial Regex NitRegex();
+
+    [GeneratedRegex(@"[^A-Za-z0-9]", RegexOptions.CultureInvariant)]
+    private static partial Regex SeparatorRegex();
 
     [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} '&().,/-]{0,149}$", RegexOptions.CultureInvariant)]
     private static partial Regex PositionRegex();
@@ -84,6 +149,16 @@ public static class LegalRepresentativeErrors
         "LEGAL_REPRESENTATIVE_NOT_FOUND",
         "The legal representative could not be found.",
         ErrorType.NotFound);
+
+    public static readonly Error DocumentTypeInvalid = new(
+        "LEGAL_REPRESENTATIVE_DOCUMENT_TYPE_INVALID",
+        "The document type is not a valid identity document for the company's country.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error DocumentNumberFormatInvalid = new(
+        "LEGAL_REPRESENTATIVE_DOCUMENT_NUMBER_INVALID",
+        "The document number does not match the format of its document type.",
+        ErrorType.UnprocessableEntity);
 
     public static readonly Error DocumentConflict = new(
         "LEGAL_REPRESENTATIVE_DOCUMENT_CONFLICT",
@@ -142,7 +217,7 @@ internal sealed class InitialLegalRepresentativeInputValidator : AbstractValidat
         RuleFor(input => input.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
-            .Must(LegalRepresentativeValidationRules.IsValidDocumentNumber)
+            .Must((instance, value) => LegalRepresentativeValidationRules.IsValidDocumentNumber(instance.DocumentType, value))
             .WithMessage("DocumentNumber format is invalid.");
 
         RuleFor(input => input.PositionTitle)

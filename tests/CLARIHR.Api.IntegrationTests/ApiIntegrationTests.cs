@@ -124,7 +124,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var switchToken = new JwtSecurityTokenHandler().ReadJwtToken(switchPayload.AccessToken);
         var tid = switchToken.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(companyPayload.PublicId.ToString(), tid);
-        Assert.Equal("ADMIN DE EMPRESA", switchToken.Claims.Single(claim => claim.Type == "role").Value);
+        // The token proves identity and active tenant only. Roles and permissions are resolved per request
+        // from the database, so they must not travel here — that is what makes revocation immediate.
+        Assert.DoesNotContain(switchToken.Claims, static claim => claim.Type is "role" or "permission");
     }
 
     [Fact]
@@ -1164,7 +1166,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(scenario.OtherTenantId.ToString(), tid);
-        Assert.Equal("AUDITOR B", token.Claims.Single(claim => claim.Type == "role").Value);
+        Assert.DoesNotContain(token.Claims, static claim => claim.Type is "role" or "permission");
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

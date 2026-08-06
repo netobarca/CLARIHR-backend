@@ -12,6 +12,23 @@ public interface ILegalRepresentativeRepository
 
     Task<bool> ExistsOutsideTenantAsync(Guid legalRepresentativeId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves the company's country, which decides WHICH identity documents are valid: a DUI only exists
+    /// in El Salvador, a cédula de ciudadanía only in Colombia.
+    /// </summary>
+    Task<string?> GetCompanyCountryCodeAsync(Guid tenantId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// True when the code is an active identity document type for that country. Legal representatives share
+    /// this catalog with personnel files: a legal representative is a person and is identified by the same
+    /// documents as an employee, so a second vocabulary would let the same human be registered twice under
+    /// two different type codes.
+    /// </summary>
+    Task<bool> IdentificationTypeExistsAsync(
+        string countryCode,
+        string normalizedCode,
+        CancellationToken cancellationToken);
+
     Task<bool> DocumentExistsAsync(
         Guid tenantId,
         string documentType,
