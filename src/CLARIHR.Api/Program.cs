@@ -403,6 +403,17 @@ builder.Services.AddAuthorization(options =>
             JobProfilePermissionCodes.Admin,
             JobProfilePermissionCodes.ManageAdministration)));
 
+    // H-01 — state transitions (publish / reopen / archive) of JobProfileResolutionController.
+    // JobProfiles.Admin is deliberately ABSENT: whoever drafts the descriptor does not automatically
+    // get to approve it (separation of duties, mirrors PersonnelFiles.AuthorizePayrollRuns). Only the
+    // IAM super-admin remains a universal fallback.
+    options.AddPolicy(JobProfilePolicies.Publish, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            JobProfilePermissionCodes.Publish,
+            JobProfilePermissionCodes.ManageAdministration)));
+
     // Catalog writes gate on the CatalogAdmin scope (mirrors EnsureCanManageCatalogsAsync),
     // NOT the generic JobProfilePolicies.Manage — keeping the declarative policy a superset
     // of the handler gate so a JobCatalogs.Admin-only admin is not falsely 403'd.

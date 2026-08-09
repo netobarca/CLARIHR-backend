@@ -5594,18 +5594,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         });
         reqResponse.EnsureSuccessStatusCode();
 
-        var refetchResponse = await client.GetAsync($"/api/v1/job-profiles/{updated.Id}");
-        refetchResponse.EnsureSuccessStatusCode();
-        var refetched = await refetchResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        var refetched = await GetJobProfileAsync(client, updated.Id);
 
-        using var publishRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{updated.Id}")
-        {
-            Content = new StringContent(
-                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{refetched!.ConcurrencyToken}\"");
+        // H-01: the transition lives on its own endpoint behind JobProfiles.Publish.
+        using var publishRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{updated.Id}/publication");
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{refetched.ConcurrencyToken}\"");
         var publishResponse = await client.SendAsync(publishRequest);
         publishResponse.EnsureSuccessStatusCode();
 
@@ -5615,7 +5610,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     }
 
     [Fact]
-    public async Task JobProfiles_UpdatePublishedProfile_ShouldAllowEditingPositionCategory()
+    public async Task JobProfiles_UpdatePublishedProfile_ShouldReturn422()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
@@ -5624,82 +5619,386 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PUB-EDIT");
 
-        // Regression: editing the core of a PUBLISHED profile (here, assigning the position category) via
-        // PUT must succeed. It previously returned 422 JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING because the
-        // guard evaluated the update mutation (which always carries empty collections) instead of the
-        // persisted requirements/functions of the profile.
+        // H-01: this test used to assert the OPPOSITE — that a published profile stayed freely editable.
+        // That was the defect: an approved job descriptor with plazas and employees hanging off it could be
+        // rewritten with the same permission used to draft it, with no state transition and no trace.
         using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
         {
-            Content = JsonContent.Create(new
-            {
-                code = "JP-PUB-EDIT",
-                title = "Titulo Actualizado",
-                objective = "Objetivo del puesto.",
-                orgUnitPublicId = orgUnit.Id,
-                reportsToJobProfilePublicId = (Guid?)null,
-                positionCategoryPublicId = category.Id,
-                decisionScope = "Operacion",
-                assignedResources = "Recursos",
-                responsibilities = "Responsabilidades del puesto.",
-                marketSalaryReference = "Mercado",
-                valuationNotes = "Notas",
-                effectiveFromUtc = (DateTime?)null,
-                effectiveToUtc = (DateTime?)null,
-                allowInlineCatalogCreate = false
-            })
+            Content = JsonContent.Create(BuildJobProfileUpdatePayload("JP-PUB-EDIT", "Titulo Actualizado", orgUnit.Id, category.Id))
         };
         updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_STATE_RULE_VIOLATION");
+
+        // The descriptor is untouched.
+        var detail = await GetJobProfileAsync(client, published.Id);
+        Assert.Equal(JobProfileStatus.Published, detail.Status);
+        Assert.Equal(published.Title, detail.Title);
+    }
+
+    [Fact]
+    public async Task JobProfiles_AddFunctionToPublishedProfile_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-COLL", "Direccion Coleccion", "Direccion");
+
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PUB-COLL");
+
+        // The freeze covers the 9 child collections, not only the core — otherwise the descriptor could be
+        // rewritten one function at a time while its status still claimed to be approved.
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{published.Id}/functions", new
+        {
+            functionType = "General",
+            description = "Funcion agregada despues de publicar",
+            sortOrder = 9
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_STATE_RULE_VIOLATION");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Reopen_ThenEdit_ThenRepublish_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-REOPEN", "Direccion Reapertura", "Direccion");
+        var category = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
+
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-REOPEN");
+        var publishedVersion = published.Version;
+
+        // Reopen with a reason — the controlled way to correct an approved descriptor.
+        using var reopenRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{published.Id}/reopening")
+        {
+            Content = JsonContent.Create(new { reason = "Correccion del objetivo acordada con el area." })
+        };
+        reopenRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        var reopenResponse = await client.SendAsync(reopenRequest);
+        reopenResponse.EnsureSuccessStatusCode();
+
+        var reopened = await reopenResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(reopened);
+        Assert.Equal(JobProfileStatus.Draft, reopened!.Status);
+        Assert.True(reopened.Version > publishedVersion);
+
+        // Now editable again — this is the original intent of the old test: assigning the position category.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
+        {
+            Content = JsonContent.Create(BuildJobProfileUpdatePayload("JP-REOPEN", "Titulo Actualizado", orgUnit.Id, category.Id))
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{reopened.ConcurrencyToken}\"");
         var updateResponse = await client.SendAsync(updateRequest);
 
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         var updated = await updateResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(updated);
-        Assert.Equal(JobProfileStatus.Published, updated!.Status);
-        Assert.Equal("Titulo Actualizado", updated.Title);
+        Assert.Equal("Titulo Actualizado", updated!.Title);
 
-        var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{published.Id}");
-        detailResponse.EnsureSuccessStatusCode();
-        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
-        Assert.NotNull(detail);
-        Assert.Equal(category.Id, detail!.PositionCategoryId);
-        Assert.Equal(JobProfileStatus.Published, detail.Status);
+        var republished = await EnsureJobProfilePublishedAsync(client, published.Id);
+        Assert.Equal(JobProfileStatus.Published, republished.Status);
+        Assert.True(republished.Version > reopened.Version);
+
+        var detail = await client.GetAsync($"/api/v1/job-profiles/{published.Id}");
+        detail.EnsureSuccessStatusCode();
+        var entity = await detail.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        Assert.NotNull(entity);
+        Assert.Equal(category.Id, entity!.PositionCategoryId);
     }
 
     [Fact]
-    public async Task JobProfiles_UpdatePublishedProfile_WithoutObjective_ShouldReturnUnprocessableEntity()
+    public async Task JobProfiles_Reopen_WithoutReason_ShouldReturn400()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
-        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-GUARD", "Direccion Guard", "Direccion");
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-NOREASON", "Direccion Sin Motivo", "Direccion");
 
-        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PUB-GUARD");
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-NOREASON");
 
-        // The published guard must still reject an edit that would drop the profile below the publish
-        // minimums (here, clearing the mandatory objective) on a profile that is already Published.
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
+        // The reason is the change-control record of why an approved descriptor was unfrozen.
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{published.Id}/reopening")
         {
-            Content = JsonContent.Create(new
-            {
-                code = "JP-PUB-GUARD",
-                title = "Titulo",
-                objective = (string?)null,
-                orgUnitPublicId = orgUnit.Id,
-                reportsToJobProfilePublicId = (Guid?)null,
-                decisionScope = "Operacion",
-                assignedResources = "Recursos",
-                responsibilities = "Responsabilidades del puesto.",
-                marketSalaryReference = "Mercado",
-                valuationNotes = "Notas",
-                effectiveFromUtc = (DateTime?)null,
-                effectiveToUtc = (DateTime?)null,
-                allowInlineCatalogCreate = false
-            })
+            Content = JsonContent.Create(new { reason = "   " })
         };
-        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
-        var updateResponse = await client.SendAsync(updateRequest);
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
 
-        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING");
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task JobProfiles_Reopen_WhenDraft_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var draft = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REOPEN-DRAFT", "Perfil Borrador");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{draft.Id}/reopening")
+        {
+            Content = JsonContent.Create(new { reason = "Motivo cualquiera." })
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{draft.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_STATE_RULE_VIOLATION");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Publish_WhenArchived_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-ARCH", "Direccion Archivada", "Direccion");
+
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-ARCHIVED");
+
+        using var archiveRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{published.Id}/archival");
+        archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        var archiveResponse = await client.SendAsync(archiveRequest);
+        archiveResponse.EnsureSuccessStatusCode();
+
+        var archived = await archiveResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(archived);
+        Assert.Equal(JobProfileStatus.Archived, archived!.Status);
+
+        // Republishing an archived profile used to report PUBLISH_REQUIREMENTS_MISSING — a misleading error
+        // for what is really a state conflict.
+        using var publishRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{published.Id}/publication");
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{archived.ConcurrencyToken}\"");
+        var publishResponse = await client.SendAsync(publishRequest);
+
+        await AssertProblemDetailsAsync(publishResponse, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_STATE_RULE_VIOLATION");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Patch_WithStatusPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var draft = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PATCH-STATUS", "Perfil Patch Status");
+
+        // H-01: /status was the door through which any profile administrator could publish. Transitions now
+        // live on JobProfileResolutionController behind the dedicated JobProfiles.Publish grant.
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{draft.Id}")
+        {
+            Content = new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{draft.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task JobProfiles_Publish_WithAdminButWithoutPublishPermission_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        // Drafted by a full profile administrator...
+        using var adminClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(adminClient, scenario.TenantId, "DIR-JP-SOD", "Direccion SoD", "Direccion");
+        var draft = await CreateJobProfileAsync(adminClient, scenario.TenantId, "JP-SOD", "Perfil SoD", orgUnit.Id);
+
+        await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/functions", new
+        {
+            functionType = "General",
+            description = "Funcion",
+            sortOrder = 1
+        });
+        await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/requirements", new
+        {
+            requirementType = "Experience",
+            description = "Experiencia",
+            sortOrder = 1
+        });
+
+        var ready = await GetJobProfileAsync(adminClient, draft.Id);
+
+        // ...but publishing needs the dedicated grant. JobProfiles.Admin deliberately does not imply it.
+        using var drafterClient = factory.CreateClientFor(CreateJobProfileDrafterContext(scenario));
+        using var publishRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{draft.Id}/publication");
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{ready.ConcurrencyToken}\"");
+
+        var response = await drafterClient.SendAsync(publishRequest);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        // And the profile really did stay a draft.
+        var unchanged = await GetJobProfileAsync(adminClient, draft.Id);
+        Assert.Equal(JobProfileStatus.Draft, unchanged.Status);
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithDraftJobProfile_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS-DRAFT", "Direccion", "Direccion");
+        var draft = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PS-DRAFT", "Perfil Borrador", orgUnit.Id);
+
+        // H-01: the original defect. A draft descriptor — unreviewed, unapproved — used to spawn plazas
+        // exactly like a published one.
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-DRAFT",
+            title = "Plaza sobre borrador",
+            jobProfilePublicId = draft.Id,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithArchivedJobProfile_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS-ARCH", "Direccion", "Direccion");
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PS-ARCH");
+
+        using var archiveRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{published.Id}/archival");
+        archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        (await client.SendAsync(archiveRequest)).EnsureSuccessStatusCode();
+
+        // Archived is "not published" too — the gate is expressed as a positive requirement, not as a
+        // blacklist of one state.
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-ARCH",
+            title = "Plaza sobre archivado",
+            jobProfilePublicId = published.Id,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WhenProfileReopenedToDraft_ShouldReturn422_AndExistingSlotSurvives()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS-REOPEN", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PS-REOPEN", "Perfil", orgUnit.Id);
+        var existing = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-REOPEN-1", "Plaza previa", profile.Id, 1);
+
+        var published = await GetJobProfileAsync(client, profile.Id);
+        using var reopenRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{profile.Id}/reopening")
+        {
+            Content = JsonContent.Create(new { reason = "Revision del descriptor." })
+        };
+        reopenRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{published.ConcurrencyToken}\"");
+        (await client.SendAsync(reopenRequest)).EnsureSuccessStatusCode();
+
+        // Reopening blocks NEW plazas...
+        var blocked = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-REOPEN-2",
+            title = "Plaza nueva",
+            jobProfilePublicId = profile.Id,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+        await AssertProblemDetailsAsync(blocked, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED");
+
+        // ...and leaves the ones that already exist alone. The state governs new writes, never records
+        // that are already there — otherwise correcting a typo in a descriptor would break payroll.
+        var survivor = await client.GetAsync($"/api/v1/position-slots/{existing.Id}");
+        survivor.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithProfileFromAnotherTenant_ShouldNotReportNotPublished()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        // The new branch must not cannibalise the tenant-mismatch / not-found path: an unknown profile is
+        // still 404, not "not published".
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-FOREIGN",
+            title = "Plaza perfil ajeno",
+            jobProfilePublicId = Guid.NewGuid(),
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "POSITION_SLOT_JOB_PROFILE_NOT_FOUND");
+    }
+
+    private static object BuildJobProfileUpdatePayload(string code, string title, Guid orgUnitId, Guid? positionCategoryId) => new
+    {
+        code,
+        title,
+        objective = "Objetivo del puesto.",
+        orgUnitPublicId = orgUnitId,
+        reportsToJobProfilePublicId = (Guid?)null,
+        positionCategoryPublicId = positionCategoryId,
+        decisionScope = "Operacion",
+        assignedResources = "Recursos",
+        responsibilities = "Responsabilidades del puesto.",
+        marketSalaryReference = "Mercado",
+        valuationNotes = "Notas",
+        effectiveFromUtc = (DateTime?)null,
+        effectiveToUtc = (DateTime?)null,
+        allowInlineCatalogCreate = false
+    };
 
     private async Task<JobProfileItem> CreatePublishedJobProfileAsync(
         HttpClient client,
@@ -5727,8 +6026,28 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var created = await createResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(created);
 
-        // Publishing requires at least one function and one requirement.
-        var functionResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{created!.Id}/functions", new
+        return await EnsureJobProfilePublishedAsync(client, created!.Id);
+    }
+
+    /// <summary>
+    /// H-01 — brings a job profile to <c>Published</c>, which every downstream consumer now requires: a
+    /// position slot cannot be created against a draft descriptor. Idempotent, so callers that share one
+    /// profile across several slots (or publish twice) are safe.
+    /// <para>
+    /// Publishing needs objective + responsibilities + at least one function + at least one requirement,
+    /// and it goes through <c>PATCH .../publication</c> — a <c>/status</c> patch op is rejected with 400
+    /// because the transitions answer to the dedicated <c>JobProfiles.Publish</c> grant.
+    /// </para>
+    /// </summary>
+    private async Task<JobProfileItem> EnsureJobProfilePublishedAsync(HttpClient client, Guid jobProfilePublicId)
+    {
+        var current = await GetJobProfileAsync(client, jobProfilePublicId);
+        if (current.Status == JobProfileStatus.Published)
+        {
+            return current;
+        }
+
+        var functionResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{jobProfilePublicId}/functions", new
         {
             functionType = "General",
             description = "Funcion principal del puesto",
@@ -5736,7 +6055,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         });
         functionResponse.EnsureSuccessStatusCode();
 
-        var requirementResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{created.Id}/requirements", new
+        var requirementResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{jobProfilePublicId}/requirements", new
         {
             requirementType = "Experience",
             description = "Experiencia requerida",
@@ -5744,25 +6063,54 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         });
         requirementResponse.EnsureSuccessStatusCode();
 
-        var refetchResponse = await client.GetAsync($"/api/v1/job-profiles/{created.Id}");
-        refetchResponse.EnsureSuccessStatusCode();
-        var refetched = await refetchResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
-        Assert.NotNull(refetched);
+        var refetched = await GetJobProfileAsync(client, jobProfilePublicId);
 
-        using var publishRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{created.Id}")
-        {
-            Content = new StringContent(
-                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
-        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{refetched!.ConcurrencyToken}\"");
+        using var publishRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{jobProfilePublicId}/publication");
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{refetched.ConcurrencyToken}\"");
+
         var publishResponse = await client.SendAsync(publishRequest);
         publishResponse.EnsureSuccessStatusCode();
+
         var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(published);
         Assert.Equal(JobProfileStatus.Published, published!.Status);
         return published;
+    }
+
+    /// <summary>
+    /// H-01 — takes a published profile back to <c>Draft</c> so its descriptor can be edited. Returns the
+    /// reopened profile, whose <c>concurrencyToken</c> is the one a follow-up write must use.
+    /// </summary>
+    private async Task<JobProfileItem> ReopenJobProfileAsync(HttpClient client, Guid jobProfilePublicId, string reason)
+    {
+        var current = await GetJobProfileAsync(client, jobProfilePublicId);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{jobProfilePublicId}/reopening")
+        {
+            Content = JsonContent.Create(new { reason })
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var reopened = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(reopened);
+        Assert.Equal(JobProfileStatus.Draft, reopened!.Status);
+        return reopened;
+    }
+
+    private async Task<JobProfileItem> GetJobProfileAsync(HttpClient client, Guid jobProfilePublicId)
+    {
+        var response = await client.GetAsync($"/api/v1/job-profiles/{jobProfilePublicId}");
+        response.EnsureSuccessStatusCode();
+        var profile = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(profile);
+        return profile!;
     }
 
     [Fact]
@@ -6630,13 +6978,11 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PUB-UPD", "Perfil Publicado");
 
-        var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{profile.Id}")
-        {
-            Content = new StringContent(
-                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
-                Encoding.UTF8,
-                "application/json-patch+json")
-        };
+        // No function and no requirement yet — the four content preconditions of Publish() must still bite
+        // on the dedicated transition endpoint.
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/job-profiles/{profile.Id}/publication");
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{profile.ConcurrencyToken}\"");
 
         var response = await client.SendAsync(request);
@@ -7914,6 +8260,42 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT");
     }
 
+    /// <summary>
+    /// H-01 GUARDIAN. Publishing freezes the descriptor and its 9 collections, but the competency matrix is
+    /// deliberately NOT part of that freeze: it is an operational overlay on an approved descriptor, so it
+    /// must stay writable while the profile is published.
+    /// <para>
+    /// This is the test that fails loudly if the freeze ever leaks into the domain. The matrix reaches the
+    /// aggregate through <c>JobProfile.BumpVersion()</c>, which is intentionally guarded by the WEAKER
+    /// invariant (not-archived). Routing it through <c>BumpDescriptorVersion()</c> — or extending the
+    /// strict check to cover <c>BumpVersion()</c> — compiles clean and silently makes every matrix write on
+    /// a published profile throw. If this test goes red, that is what happened.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task CompetencyFramework_MatrixAdd_OnPublishedProfile_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-PUB", "Perfil Publicado Matriz");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-PUB", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-PUB", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-PUB", "Estrategico");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-PUB-1");
+        var conduct = await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, behaviorLevel.Id, "Conducta publicada.", 1);
+
+        var published = await EnsureJobProfilePublishedAsync(client, profile.Id);
+        Assert.Equal(JobProfileStatus.Published, published.Status);
+
+        var item = await AddMatrixItemAsync(client, profile.Id, level.Id, new[] { conduct.Id }, "Evidencia esperada.", 1);
+        Assert.NotEqual(Guid.Empty, item.ItemPublicId);
+
+        // The profile is still published — the matrix write is an overlay edit, not a descriptor edit.
+        var after = await GetJobProfileAsync(client, profile.Id);
+        Assert.Equal(JobProfileStatus.Published, after.Status);
+    }
+
     [Fact]
     public async Task CompetencyFramework_GetMatrix_ShouldReturnItemsAndToken()
     {
@@ -8368,6 +8750,11 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DER", "Plaza Derivada", profile.Id, 1);
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
 
+        // H-01: creating the plaza published the descriptor, which froze it. Correcting its org unit now
+        // goes through a reopening — and the point of this test survives intact: the slot's derived org unit
+        // and cost center still follow the profile, and the plaza itself is untouched by the reopening.
+        var reopened = await ReopenJobProfileAsync(client, profile.Id, "Cambio de unidad organizativa.");
+
         var updateProfileResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
         {
             code = profile.Code,
@@ -8415,7 +8802,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
-            concurrencyToken = profile.ConcurrencyToken
+            concurrencyToken = reopened.ConcurrencyToken
         });
         updateProfileResponse.EnsureSuccessStatusCode();
 
@@ -8629,6 +9016,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-AUD", "Direccion", "Direccion");
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-AUD", "Perfil", orgUnit.Id);
+        // H-01: a plaza needs a published descriptor. This test POSTs the slot directly instead of going
+        // through CreatePositionSlotAsync, so it has to publish on its own.
+        await EnsureJobProfilePublishedAsync(client, profile.Id);
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
@@ -9206,6 +9596,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             "Direccion",
             costCenterCode: "CC-INACTIVE");
         var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-PS-CC", "Perfil", orgUnit.Id);
+        // H-01: publish first, so the assertion below still exercises the COST CENTER rule. Without this the
+        // request would fail earlier with POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED — same 422, wrong reason.
+        await EnsureJobProfilePublishedAsync(slotClient, profile.Id);
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -10147,6 +10540,20 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             scenario.ActorUserId,
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
+
+    /// <summary>
+    /// H-01 — a profile administrator WITHOUT the publish grant. This is the separation of duties made
+    /// testable: <c>JobProfiles.Admin</c> must not carry the right to approve a descriptor.
+    /// </summary>
+    private static TestUserContext CreateJobProfileDrafterContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            JobProfilePermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin);
@@ -10156,6 +10563,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             scenario.ActorUserId,
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin,
@@ -10185,6 +10593,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             scenario.TenantId,
             CompetencyFrameworkPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             JobProfilePermissionCodes.CatalogAdmin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin);
@@ -10195,6 +10604,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             scenario.TenantId,
             CompetencyFrameworkPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             JobProfilePermissionCodes.CatalogAdmin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
@@ -10211,6 +10621,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionDescriptionCatalogPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin);
 
@@ -10221,6 +10632,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionDescriptionCatalogPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
@@ -10236,6 +10648,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             CostCenterPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionSlotPermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin);
@@ -10247,6 +10660,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             CostCenterPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionSlotPermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin,
@@ -10812,6 +11226,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Guid jobProfileId,
         int maxEmployees)
     {
+        // H-01: a plaza can only exist against a PUBLISHED descriptor. This is the single lever for every
+        // slot-creating test in the suite, which is why the gate landed here instead of in ~27 call sites.
+        await EnsureJobProfilePublishedAsync(client, jobProfileId);
+
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
         {
             code,
@@ -11542,7 +11960,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         JobProfileStatus Status,
         Guid? OrgUnitId,
         string? OrgUnitName,
-        Guid ConcurrencyToken);
+        Guid ConcurrencyToken,
+        // H-01: every publish / reopen cycle increments it, which is what makes the cycle traceable.
+        int Version = 0);
 
     private sealed record JobProfileEntityItem(
         Guid Id,

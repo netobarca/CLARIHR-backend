@@ -46,6 +46,7 @@ public static class ProvisioningConstants
         new("PositionDescriptionCatalogs.Admin", "Administrar catalogos de descripcion de puesto", "Administracion completa de catalogos de descripcion de puesto.", PositionDescriptionCatalogsModuleKey, "PositionDescriptionCatalogs", "Manage"),
         new("JobProfiles.Read", "Leer perfiles de puesto", "Consulta del manual descriptivo de puestos.", JobProfilesModuleKey, "JobProfiles", "Read"),
         new("JobProfiles.Admin", "Administrar perfiles de puesto", "Administracion completa de perfiles de puesto.", JobProfilesModuleKey, "JobProfiles", "Manage"),
+        new("JobProfiles.Publish", "Publicar perfiles de puesto", "Publicar, reabrir y archivar perfiles de puesto. No implicado por la administracion de perfiles.", JobProfilesModuleKey, "JobProfiles", "Publish"),
         new("JobCatalogs.Admin", "Administrar catalogos de puestos", "Administracion de catalogos del manual de puestos.", JobProfilesModuleKey, "JobCatalogs", "Manage"),
         new("PositionSlots.Read", "Leer plazas", "Consulta de plazas y estructura de dependencias.", PositionSlotsModuleKey, "PositionSlots", "Read"),
         new("PositionSlots.Admin", "Administrar plazas", "Administracion completa de plazas y ocupacion.", PositionSlotsModuleKey, "PositionSlots", "Manage"),

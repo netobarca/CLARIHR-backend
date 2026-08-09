@@ -307,6 +307,9 @@
   <data name="JOB_PROFILE_STATE_CONFLICT" xml:space="preserve">
     <value>The requested action is not allowed for the current profile state.</value>
   </data>
+  <data name="JOB_PROFILE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>The job profile status does not allow the requested change. A published profile must be reopened first.</value>
+  </data>
   <data name="JobProfileWorkingCondition.NameRequired" xml:space="preserve">
     <value>A name is required for the working condition.</value>
   </data>
@@ -723,6 +726,9 @@
   </data>
   <data name="POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED" xml:space="preserve">
     <value>The selected job profile does not resolve to an active contract type.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED" xml:space="preserve">
+    <value>The selected job profile is not published. Publish the job profile before creating or updating position slots.</value>
   </data>
   <data name="POSITION_SLOT_COST_CENTER_INVALID" xml:space="preserve">
     <value>The cost center inferred from the job profile organization unit does not exist or is inactive for the company.</value>

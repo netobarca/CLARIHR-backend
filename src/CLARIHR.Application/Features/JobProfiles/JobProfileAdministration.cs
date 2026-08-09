@@ -1293,16 +1293,9 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
-        if (profile.Status == JobProfileStatus.Published &&
-            !JobProfileCommandSupport.MeetsPublishedMinimumRequirements(
-                command.Objective,
-                command.Responsibilities,
-                profile.Requirements,
-                profile.Functions))
-        {
-            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
-        }
-
+        // H-01: the old "a published profile must stay above its publish bar" check is gone — a published
+        // profile cannot be edited at all now. Leaving it would return PUBLISH_REQUIREMENTS_MISSING or
+        // STATE_RULE_VIOLATION for the same operation depending on the payload's content.
         var before = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile response could not be resolved before update.");
 
@@ -1329,9 +1322,9 @@ internal sealed class UpdateJobProfileCommandHandler(
                     command.EffectiveFromUtc,
                     command.EffectiveToUtc);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.FromDomainException(ex));
             }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -1436,22 +1429,6 @@ internal sealed class PatchJobProfileCommandHandler(
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return Result<JobProfileCoreResponse>.Failure(validation.Error);
-            }
-
-            if (patchState.StatusTouched &&
-                patchState.Status == JobProfileStatus.Archived &&
-                profile.Status == JobProfileStatus.Archived)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return Result<JobProfileCoreResponse>.Success(before);
-            }
-
-            if (patchState.StatusTouched &&
-                patchState.Status == JobProfileStatus.Draft &&
-                profile.Status != JobProfileStatus.Draft)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
             }
 
             if (await repository.CodeExistsAsync(profile.TenantId, patchState.Code.Trim().ToUpperInvariant(), profile.Id, cancellationToken))
@@ -1562,17 +1539,7 @@ internal sealed class PatchJobProfileCommandHandler(
                 return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
             }
 
-            if (profile.Status == JobProfileStatus.Published &&
-                !JobProfileCommandSupport.MeetsPublishedMinimumRequirements(
-                    patchState.Objective,
-                    patchState.Responsibilities,
-                    profile.Requirements,
-                    profile.Functions))
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
-            }
-
+            // H-01: see the note in the PUT handler — the freeze supersedes this check.
             try
             {
                 profile.UpdateCore(
@@ -1593,47 +1560,20 @@ internal sealed class PatchJobProfileCommandHandler(
                     patchState.EffectiveFromUtc,
                     patchState.EffectiveToUtc);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
                 await transaction.RollbackAsync(cancellationToken);
-                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.FromDomainException(ex));
             }
 
-            var statusTransition = JobProfileStatusTransition.None;
-            if (patchState.StatusTouched && patchState.Status != profile.Status)
-            {
-                switch (patchState.Status)
-                {
-                    case JobProfileStatus.Published:
-                        try
-                        {
-                            profile.Publish();
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            await transaction.RollbackAsync(cancellationToken);
-                            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
-                        }
-                        statusTransition = JobProfileStatusTransition.Published;
-                        break;
-                    case JobProfileStatus.Archived:
-                        profile.Archive();
-                        statusTransition = JobProfileStatusTransition.Archived;
-                        break;
-                }
-            }
-
+            // H-01: no status transition happens here any more — see JobProfileResolutionController.
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved after patch.");
 
-            var (eventType, action, description) = statusTransition switch
-            {
-                JobProfileStatusTransition.Published => (AuditEventTypes.JobProfilePublished, AuditActions.Update, $"Published job profile {profile.Code}."),
-                JobProfileStatusTransition.Archived => (AuditEventTypes.JobProfileArchived, AuditActions.Archive, $"Archived job profile {profile.Code}."),
-                _ => (AuditEventTypes.JobProfileUpdated, AuditActions.Update, $"Patched job profile {profile.Code}."),
-            };
+            var (eventType, action, description) =
+                (AuditEventTypes.JobProfileUpdated, AuditActions.Update, $"Patched job profile {profile.Code}.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -1659,13 +1599,6 @@ internal sealed class PatchJobProfileCommandHandler(
     }
 }
 
-internal enum JobProfileStatusTransition
-{
-    None = 0,
-    Published = 1,
-    Archived = 2
-}
-
 internal sealed class JobProfilePatchState
 {
     private JobProfilePatchState(JobProfile profile, JobProfileCoreResponse before)
@@ -1687,7 +1620,6 @@ internal sealed class JobProfilePatchState
         EffectiveFromUtc = profile.EffectiveFromUtc;
         EffectiveToUtc = profile.EffectiveToUtc;
         AllowInlineCatalogCreate = false;
-        Status = profile.Status;
     }
 
     public string Code { get; set; }
@@ -1714,8 +1646,8 @@ internal sealed class JobProfilePatchState
     public DateTime? EffectiveToUtc { get; set; }
     public bool EffectiveRangeTouched { get; set; }
     public bool AllowInlineCatalogCreate { get; set; }
-    public JobProfileStatus Status { get; set; }
-    public bool StatusTouched { get; set; }
+
+    // H-01: Status / StatusTouched removed — the applier no longer accepts /status.
 
     public static JobProfilePatchState From(JobProfile profile, JobProfileCoreResponse before) => new(profile, before);
 }
@@ -1921,32 +1853,17 @@ internal static class JobProfilePatchApplier
             return Result.Success();
         }
 
+        // H-01: /status is no longer patchable here. A JSON Patch on the profile answers to the ordinary
+        // Manage policy, so allowing it would hand the publish right to every profile administrator —
+        // the transitions live on JobProfileResolutionController behind JobProfiles.Publish.
         if (IsSegment(property, "status"))
         {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "Status cannot be removed.");
-            }
-
-            state.Status = ReadStatus(value, path);
-            state.StatusTouched = true;
-            return Result.Success();
+            return ValidationFailure(
+                path,
+                "Status cannot be patched. Use PATCH /job-profiles/{publicId}/publication, /reopening or /archival.");
         }
 
         return ValidationFailure(path, $"Unsupported patch path '{path}'.");
-    }
-
-    private static JobProfileStatus ReadStatus(JsonElement? value, string path)
-    {
-        var raw = ReadNullableString(value, path);
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            throw new JobProfilePatchValueException(path, "Status is required.");
-        }
-
-        return Enum.TryParse<JobProfileStatus>(raw, ignoreCase: true, out var parsed) && Enum.IsDefined(typeof(JobProfileStatus), parsed)
-            ? parsed
-            : throw new JobProfilePatchValueException(path, $"Status '{raw}' is not a valid value.");
     }
 
     private static string[] ParsePath(string path) =>
@@ -2786,7 +2703,7 @@ internal static class JobProfilePolicyAdapter
                 SupportsPublish: true,
                 PublishAllowed: canManageProfiles,
                 PublishableStates: [JobProfileStatus.Draft.ToString()],
-                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+                NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -2812,7 +2729,7 @@ internal static class JobProfilePolicyAdapter
                 SupportsPublish: true,
                 PublishAllowed: canManageProfiles,
                 PublishableStates: [JobProfileStatus.Draft.ToString()],
-                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+                NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -2836,7 +2753,7 @@ internal static class JobProfilePolicyAdapter
                 SupportsPublish: true,
                 PublishAllowed: canManageProfiles,
                 PublishableStates: [JobProfileStatus.Draft.ToString()],
-                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+                NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -2861,7 +2778,7 @@ internal static class JobProfilePolicyAdapter
                 SupportsPublish: true,
                 PublishAllowed: canManageProfiles,
                 PublishableStates: [JobProfileStatus.Draft.ToString()],
-                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+                NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -2869,15 +2786,10 @@ internal static class JobProfilePolicyAdapter
 
 internal static class JobProfileCommandSupport
 {
-    public static bool MeetsPublishedMinimumRequirements(
-        string? objective,
-        string? responsibilities,
-        IReadOnlyCollection<JobProfileRequirement> requirements,
-        IReadOnlyCollection<JobProfileFunction> functions) =>
-        !string.IsNullOrWhiteSpace(objective) &&
-        !string.IsNullOrWhiteSpace(responsibilities) &&
-        requirements.Count > 0 &&
-        functions.Count > 0;
+    // H-01: MeetsPublishedMinimumRequirements was removed. It mirrored the four preconditions of
+    // JobProfile.Publish() so a published profile could not be edited below its own publish bar; with the
+    // descriptor frozen on publication there is nothing left to keep above it, and the domain remains the
+    // single place those four conditions live.
 
     public static bool HasReportsToAlsoAsDependentPosition(
         long? reportsToInternalId,

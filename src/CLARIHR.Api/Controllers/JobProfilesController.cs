@@ -239,9 +239,13 @@ public sealed class JobProfilesController(
             Requires the `If-Match` header with the current `concurrencyToken`
             to prevent lost updates.
 
-            Unlike `PUT /job-profiles/{publicId}`, this endpoint **can change the
-            `status`** field, making it the supported mechanism for job profile
-            **status transitions**.
+            **`status` is NOT patchable here** (H-01). A patch on `/status` is rejected with `400`: the
+            transitions answer to the dedicated `JobProfiles.Publish` grant, which this endpoint's
+            `Manage` policy does not carry. Use `PATCH /job-profiles/{publicId}/publication`,
+            `/reopening` or `/archival` instead.
+
+            Only a `Draft` profile can be patched. Once published the descriptor is frozen
+            (`422 JOB_PROFILE_STATE_RULE_VIOLATION`) until it is reopened.
             """)]
     public async Task<ActionResult<JobProfileCoreResponse>> Patch(
         Guid publicId,
@@ -260,10 +264,9 @@ public sealed class JobProfilesController(
 
     public sealed class UpdateJobProfileRequest : JobProfileMutationRequest;
 
-    public sealed class PatchJobProfileRequest : JobProfileMutationRequest
-    {
-        public JobProfileStatus? Status { get; set; }
-    }
+    // H-01: `status` was removed from the patch contract. Keeping it would advertise a field the applier
+    // now rejects, and it was the door through which any profile administrator could publish.
+    public sealed class PatchJobProfileRequest : JobProfileMutationRequest;
 
     public abstract class JobProfileMutationRequest
     {

@@ -635,11 +635,22 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public void InvalidateCategoryCache(Guid tenantId) { }
 }
 
-internal sealed class TestJobProfileAuthorizationService : IJobProfileAuthorizationService
+/// <summary>
+/// H-01: <paramref name="canPublish"/> is a real switch, not decoration — the publish grant is a
+/// separate permission that <c>JobProfiles.Admin</c> does not imply, so a double that always allows it
+/// would turn that guardrail into a comment. Defaults to <c>true</c> so existing callers are unaffected.
+/// </summary>
+internal sealed class TestJobProfileAuthorizationService(bool canPublish = true) : IJobProfileAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
     public Task<Result> EnsureCanManageProfilesAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
     public Task<Result> EnsureCanManageCatalogsAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+
+    public Task<Result> EnsureCanPublishProfilesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        Task.FromResult(canPublish
+            ? Result.Success()
+            : Result.Failure(new Error("JOB_PROFILES_FORBIDDEN", "Forbidden", ErrorType.Forbidden)));
+
     public Error TenantMismatch(RbacPermissionAction action) => Result.Failure(new Error("TenantMismatch", "Tenant mismatch", ErrorType.Forbidden)).Error;
 }
 

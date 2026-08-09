@@ -206,7 +206,7 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _requirements.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileRequirement GetRequirement(Guid publicId) =>
@@ -217,14 +217,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _requirements.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddFunction(JobProfileFunction item, bool bumpVersion = true)
     {
         EnsureEditable();
         _functions.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileFunction GetFunction(Guid publicId) =>
@@ -235,14 +235,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _functions.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddRelation(JobProfileRelation item, bool bumpVersion = true)
     {
         EnsureEditable();
         _relations.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileRelation GetRelation(Guid publicId) =>
@@ -253,14 +253,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _relations.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddCompetency(JobProfileCompetency item, bool bumpVersion = true)
     {
         EnsureEditable();
         _competencies.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileCompetency GetCompetency(Guid publicId) =>
@@ -271,14 +271,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _competencies.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddTraining(JobProfileTraining item, bool bumpVersion = true)
     {
         EnsureEditable();
         _trainings.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileTraining GetTraining(Guid publicId) =>
@@ -289,14 +289,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _trainings.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddBenefit(JobProfileBenefit item, bool bumpVersion = true)
     {
         EnsureEditable();
         _benefits.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileBenefit GetBenefit(Guid publicId) =>
@@ -307,14 +307,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _benefits.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddWorkingCondition(JobProfileWorkingCondition item, bool bumpVersion = true)
     {
         EnsureEditable();
         _workingConditions.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileWorkingCondition GetWorkingCondition(Guid publicId) =>
@@ -325,14 +325,14 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _workingConditions.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public void AddDependentPosition(JobProfileDependentPosition item, bool bumpVersion = true)
     {
         EnsureEditable();
         _dependentPositions.Add(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileDependentPosition GetDependentPosition(Guid publicId) =>
@@ -343,10 +343,26 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         _dependentPositions.Remove(item);
-        if (bumpVersion) BumpVersion();
+        if (bumpVersion) BumpDescriptorVersion();
     }
 
+    /// <summary>
+    /// Version bump that is allowed on a PUBLISHED profile. Only the competency matrix uses it: the
+    /// matrix is an operational overlay on an approved descriptor, not part of the descriptor, so it
+    /// keeps working after publication (H-01 scope decision). Descriptor writes must use
+    /// <see cref="BumpDescriptorVersion"/> instead.
+    /// </summary>
     public void BumpVersion()
+    {
+        EnsureNotArchived();
+        Version++;
+    }
+
+    /// <summary>
+    /// H-01 — version bump for writes to the DESCRIPTOR (the profile core and its 9 collections).
+    /// Refuses on a published profile: the approved descriptor is frozen until <see cref="Reopen"/>.
+    /// </summary>
+    public void BumpDescriptorVersion()
     {
         EnsureEditable();
         Version++;
@@ -354,7 +370,13 @@ public sealed class JobProfile : TenantEntity
 
     public void Publish()
     {
-        EnsureEditable();
+        // H-01: an explicit state guard. Without it, publishing an ARCHIVED profile fell through to
+        // EnsureEditable() and surfaced as PUBLISH_REQUIREMENTS_MISSING — a misleading error for what
+        // is really a state conflict.
+        if (Status != JobProfileStatus.Draft)
+        {
+            throw new JobProfileStateException("Only a draft job profile can be published.");
+        }
 
         if (string.IsNullOrWhiteSpace(Objective))
         {
@@ -382,6 +404,23 @@ public sealed class JobProfile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    /// <summary>
+    /// H-01 — <c>Published</c> → <c>Draft</c>, the controlled way to correct an approved descriptor.
+    /// The reason lives in the audit trail, not on the aggregate. Existing position slots and their
+    /// occupants are deliberately untouched: the state governs new downstream writes only.
+    /// </summary>
+    public void Reopen()
+    {
+        if (Status != JobProfileStatus.Published)
+        {
+            throw new JobProfileStateException("Only a published job profile can be reopened.");
+        }
+
+        Status = JobProfileStatus.Draft;
+        Version++;
+        RefreshConcurrencyToken();
+    }
+
     public void Archive()
     {
         if (Status == JobProfileStatus.Archived)
@@ -395,11 +434,36 @@ public sealed class JobProfile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    /// <summary>
+    /// H-01 — the DESCRIPTOR invariant, and the one every mutator of this aggregate routes through: an
+    /// approved (published) job descriptor is a document with employment and audit value, so it is
+    /// immutable until explicitly reopened, and an archived one is frozen for good.
+    /// <para>
+    /// Deliberately NOT the same check as <see cref="EnsureNotArchived"/>. The weaker one exists because
+    /// <see cref="BumpVersion"/> routes through it, and the competency matrix — an operational overlay
+    /// that stays writable on a published profile — is its only caller.
+    /// </para>
+    /// </summary>
     private void EnsureEditable()
+    {
+        EnsureNotArchived();
+
+        if (Status == JobProfileStatus.Published)
+        {
+            throw new JobProfileStateException(
+                "Published job profiles cannot be modified. Reopen the profile first.");
+        }
+    }
+
+    /// <summary>
+    /// The weaker invariant: only an ARCHIVED profile is frozen. Reached exclusively through
+    /// <see cref="BumpVersion"/> — see the note there before adding callers.
+    /// </summary>
+    private void EnsureNotArchived()
     {
         if (Status == JobProfileStatus.Archived)
         {
-            throw new InvalidOperationException("Archived job profiles cannot be modified.");
+            throw new JobProfileStateException("Archived job profiles cannot be modified.");
         }
     }
 

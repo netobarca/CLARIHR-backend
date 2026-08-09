@@ -16,11 +16,55 @@ swagger real.
 | 4. Puestos, plazas y tabulador | escrita — pendiente de ejecutar |
 | 5. Nómina: definición, calendario y jornadas | escrita — pendiente de ejecutar |
 | 6. Políticas operativas y usuarios | escrita — pendiente de ejecutar |
-| 7. Expedientes de empleado | pendiente |
-| 8. Transacciones y corrida de planilla | pendiente |
+| 7. Expedientes de empleado | escrita — camino crítico (alta, identificación, asignación, salario, cuenta, ocupación) |
+| 8. Transacciones y corrida de planilla | escrita — insumos por canal, corrida, revisión, autorización con anti-self, cierre y salidas |
 
 **Las secciones 3 a 6 son el requisito completo para poder crear expedientes y transaccionar.** Al final
 de la 6 hay una lista de verificación única: si todo eso pasa, la empresa está lista.
+
+> **§6.5 va después de §7.** Los planes de vacaciones exigen un `personnelFilePublicId` por línea, así
+> que el orden ejecutable es **§6.1 – §6.4 · §6.6 → §7 → §6.5**. No es un error de numeración del
+> playbook: es una dependencia que no se ve hasta que se intenta crear el plan.
+
+**Mapa de controladores**
+
+Cada paso abre con el bloque de endpoints que se consumen y, debajo, el controlador que los implementa.
+Todas las rutas son relativas a `src/CLARIHR.Api/Controllers/`. Este índice es el atajo para ir directo
+al código cuando una respuesta no cuadra:
+
+| Paso | Controlador(es) |
+|---|---|
+| 1. Autenticación | `AuthController` |
+| 2. Empresa | `AccountCompanyCatalogsController` · `AccountCompaniesController` · `AccountCompanyAccessController` · `CompanyPreferencesController` |
+| 2.8 Representantes legales | `LegalRepresentativesController` |
+| 2.9 Perfil legal patronal | `CompanyLegalProfilesController` |
+| 3.1 Geografía | `LocationLevelsController` · `LocationHierarchyController` · `LocationGroupsController` |
+| 3.2 Tipos de centro de trabajo | `WorkCenterTypesController` |
+| 3.3 Centros de trabajo | `WorkCentersController` |
+| 3.4 Catálogos de estructura | `OrganizationStructureCatalogsController` |
+| 3.5 Centros de costo | `CostCenterTypesController` · `CostCentersController` |
+| 3.6 Unidades organizativas | `OrganizationUnitsController` |
+| 4.1 Catálogos de clasificación | `JobProfilesController` (manifiesto) · `JobProfileInternalCatalogsController` · `OccupationalPyramidLevelsController` · `JobCatalogsController` · `PositionDescriptionCatalogItemsController` · `PositionCategoryClassificationsController` · `PositionCategoriesController` |
+| 4.2 Perfiles de puesto | `JobProfilesController` + un controlador por cada una de las 9 colecciones hijas (`JobProfileFunctionsController`, `JobProfileRequirementsController`, …) · `JobProfileCompetencyMatrixController` |
+| 4.3 Tabulador salarial | `SalaryTabulatorController` |
+| 4.4 Plazas | `PositionSlotsController` |
+| 5.1 Definición de nómina | `PayrollDefinitionsController` |
+| 5.2 Calendario de periodos | `PayrollPeriodsController` |
+| 5.3 Jornadas | `WorkSchedulesController` |
+| 5.4 Asuetos | `CompanyHolidaysController` |
+| 5.5 Tablas de Renta | `IncomeTaxBracketsController` |
+| 5.6 Conceptos | `CompensationConceptTypesController` · `SettlementConceptsController` |
+| 6.1 Catálogos vacíos | `OvertimeJustificationTypesController` · `RecognitionTypesController` · `DisciplinaryActionTypesController` · `DisciplinaryActionCausesController` |
+| 6.2 Tipos de horas extra | `OvertimeTypesController` |
+| 6.3 Incapacidades y clínicas | `IncapacityTypesController` · `IncapacityRisksController` · `MedicalClinicsController` · `LeaveConfigurationController` |
+| 6.4 Tiempos no trabajados | `NotWorkedTimeTypesController` · `CompensatoryTimeTypesController` |
+| 6.5 Planes de vacaciones | `VacationPlansController` |
+| 6.6 Constancias y ayuda económica | `CompanyCertificateSettingsController` · `CompanyPreferencesController` — las **solicitudes** son sección 7 (`EconomicAidRequestsController`, `CertificateRequestsController`) |
+| 6.7 Roles y usuarios | `AccountCompanyAuthorizationController` · `AccountCompanyAccessController` · `CompanyUsersController` |
+
+> **Dos raíces, no una.** `/api/v1/account/…` es la superficie de la **cuenta** del usuario (qué empresas
+> tengo, a cuál entro); `/api/v1/companies/{c}/…` es la del **tenant** ya elegido. Un endpoint pedido en la
+> raíz equivocada responde `404`, no `403`, y se pierde tiempo buscando un permiso que no era el problema.
 
 ---
 
@@ -59,6 +103,24 @@ Parámetros vigentes del ambiente (de `appsettings.json`; un ambiente puede sobr
 ---
 
 ## 1. Autenticación
+
+```
+POST /api/v1/auth/register                        # 1.1
+POST /api/v1/auth/login                           # 1.2
+POST /api/v1/auth/refresh                         # 1.3
+POST /api/v1/auth/password-reset/request          # 1.4
+POST /api/v1/auth/password-reset/validate         # 1.4
+POST /api/v1/auth/password-reset/redeem           # 1.4
+POST /api/v1/auth/email-verification/resend       # 1.5
+POST /api/v1/auth/email-verification/confirm      # 1.5
+POST /api/v1/auth/external                        # 1.6
+POST /api/v1/auth/company-user-invitations/accept # 1.7
+POST /api/v1/auth/logout                          # 1.8
+```
+
+**Controlador:** `AuthController.cs` — los once son del mismo controlador. Diez son `[AllowAnonymous]`;
+**`logout` es la única excepción (`[Authorize]`)**, así que exige un access token válido. No hay RBAC en
+ninguno.
 
 ### 1.1 · Registro local — `POST /api/v1/auth/register`
 
@@ -403,6 +465,35 @@ hay que tenerlo claro antes de prometer "cierre de sesión inmediato".
 Arranca con sesión iniciada (paso 1.2). De acá sale el `companyPublicId` que usan todas las secciones
 siguientes.
 
+```
+# 2.1 · catálogos previos (sin contexto de empresa)
+GET            /api/v1/account/companies/countries
+GET            /api/v1/account/companies/company-types
+GET            /api/v1/account/companies/legal-representative-position-titles
+GET            /api/v1/account/companies/legal-representative-representation-types
+
+# 2.2 – 2.5 · la empresa y el contexto
+GET,POST       /api/v1/account/companies
+GET,PUT,PATCH  /api/v1/account/companies/{companyPublicId}
+PATCH          /api/v1/account/companies/{companyPublicId}/archive | /reactivate
+POST           /api/v1/account/companies/{companyPublicId}/switch
+GET            /api/v1/account/companies/{companyPublicId}/access-context
+
+# 2.7 · preferencias
+GET,PUT,PATCH  /api/v1/companies/{companyPublicId}/preferences
+
+# 2.8 – 2.9 · ver los bloques de cada paso
+```
+
+**Controladores:** catálogos → `AccountCompanyCatalogsController.cs` · empresa, `switch`, `archive`,
+`reactivate` → `AccountCompaniesController.cs` · `access-context` → `AccountCompanyAccessController.cs` ·
+`preferences` → `CompanyPreferencesController.cs`
+
+> **`{companyPublicId}` va bajo `/account/companies/…` para el ciclo de vida de la empresa, y bajo
+> `/companies/…` para todo lo demás.** Son dos raíces distintas: `/account/…` es la superficie de la
+> cuenta del usuario (qué empresas tengo, a cuál entro); `/companies/{c}/…` es la superficie del tenant
+> ya elegido. Confundirlas da `404`, no `403`.
+
 > **Bug conocido en este tramo.** El arreglo del `POST /legal-profile` —que devuelve `500` aunque el
 > registro **sí se crea**— está en el árbol local pero **no commiteado ni desplegado**. Afecta al paso
 > 2.10. Verificado con `git show HEAD` el 2026-08-04.
@@ -625,6 +716,8 @@ GET    /api/v1/legal-representatives/{publicId}/usage
 GET    /api/v1/companies/{companyPublicId}/legal-representatives/export
 ```
 
+**Controlador:** `LegalRepresentativesController.cs`
+
 Empezar listando: debe aparecer el creado en 2.2.
 
 **Reglas que conviene ejercitar, porque son invariantes de base de datos:**
@@ -664,6 +757,8 @@ GET   /api/v1/companies/{companyPublicId}/legal-profile
 POST  /api/v1/companies/{companyPublicId}/legal-profile
 PUT   /api/v1/companies/{companyPublicId}/legal-profile
 ```
+
+**Controlador:** `CompanyLegalProfilesController.cs`
 
 **a) Estado inicial** — debe dar `404`:
 
@@ -791,6 +886,8 @@ PATCH /api/v1/location-groups/{id}/move
 PATCH /api/v1/location-groups/{id}/activate | /inactivate
 ```
 
+**Controladores:** `location-groups` → `LocationGroupsController.cs` · `location-hierarchy` → `LocationHierarchyController.cs` · `location-levels` → `LocationLevelsController.cs`
+
 El aprovisionamiento siembra la jerarquía del país (para El Salvador: País → Departamento →
 Municipio) con sus 14 departamentos y municipios.
 
@@ -820,6 +917,8 @@ GET,POST /api/v1/companies/{c}/work-center-types
 GET,PUT,PATCH /api/v1/work-center-types/{id}
 PATCH /api/v1/work-center-types/{id}/activate | /inactivate
 ```
+
+**Controlador:** `WorkCenterTypesController.cs`
 
 ```jsonc
 {
@@ -857,6 +956,8 @@ GET,POST /api/v1/companies/{c}/work-centers
 GET,PUT,PATCH /api/v1/work-centers/{id}
 PATCH /api/v1/work-centers/{id}/activate | /inactivate | /reassign-group
 ```
+
+**Controlador:** `WorkCentersController.cs`
 
 ```jsonc
 {
@@ -902,6 +1003,8 @@ GET,POST /api/v1/companies/{c}/organization-structure-catalogs/functional-areas
 GET,PUT  /api/v1/organization-structure-catalogs/unit-types/{id}
 PATCH    /api/v1/organization-structure-catalogs/unit-types/{id}/activate | /inactivate
 ```
+
+**Controlador:** `OrganizationStructureCatalogsController.cs`
 
 > **Los dos catálogos llegan VACÍOS.** Una empresa nueva no trae ni un tipo de unidad ni un área
 > funcional. Cómo se divide una empresa no es algo que el sistema pueda adivinar, y ninguno de estos
@@ -1080,6 +1183,8 @@ GET,PUT,PATCH /api/v1/cost-center-types/{publicId}
 PATCH         /api/v1/cost-center-types/{publicId}/activate | /inactivate
 ```
 
+**Controlador:** `CostCenterTypesController.cs`
+
 ```jsonc
 {
   "code": "OPERATIVO",
@@ -1127,6 +1232,8 @@ GET,PUT,PATCH /api/v1/cost-centers/{publicId}
 PATCH         /api/v1/cost-centers/{publicId}/activate | /inactivate
 GET           /api/v1/cost-centers/{publicId}/usage
 ```
+
+**Controlador:** `CostCentersController.cs`
 
 ```jsonc
 {
@@ -1186,6 +1293,8 @@ GET      /api/v1/companies/{c}/organization-units/diagram-export
 GET,PUT,PATCH /api/v1/organization-units/{id}
 PATCH    /api/v1/organization-units/{id}/activate | /inactivate | /move
 ```
+
+**Controlador:** `OrganizationUnitsController.cs`
 
 ```jsonc
 {
@@ -1385,24 +1494,65 @@ empleado ocupa, así que sin esta sección no hay expedientes.
 
 ### 4.1 · Catálogos de clasificación
 
+**El orden de abajo es de dependencia, no de listado: ejecutar de arriba hacia abajo.** La categoría de
+puesto es el final de una cadena de tres escalones, no un catálogo suelto.
+
 ```
-GET,POST /api/v1/companies/{c}/occupational-pyramid-levels
-GET,POST /api/v1/companies/{c}/position-categories
-GET,POST /api/v1/companies/{c}/position-category-classifications
-GET,POST /api/v1/companies/{c}/job-catalogs/{category}
-GET,POST /api/v1/companies/{c}/position-description-catalogs/{catalogType}/items
+# 0 · el mapa — leer antes de escribir nada
 GET      /api/v1/job-profiles/catalog-manifest
 GET      /api/v1/job-profiles/internal-catalogs
+
+# 1 · independientes — no dependen de ningún otro catálogo
+GET,POST /api/v1/companies/{c}/occupational-pyramid-levels
+GET,POST /api/v1/companies/{c}/job-catalogs/{category}
+
+# 2 · los dos ejes de catálogo de la clasificación
+GET,POST /api/v1/companies/{c}/position-description-catalogs/position-function-types/items
+GET,POST /api/v1/companies/{c}/position-description-catalogs/position-contract-types/items
+#          el tercer eje es el TIPO DE UNIDAD, ya cargado en 3.4
+
+# 3 · clasificación — exige los tres ejes ACTIVOS
+GET,POST /api/v1/companies/{c}/position-category-classifications
+
+# 4 · categoría — exige una clasificación existente
+GET,POST /api/v1/companies/{c}/position-categories
+
+# resto de los catálogos de descripción (los otros 12 slugs) — se usan en 4.2
+GET,POST /api/v1/companies/{c}/position-description-catalogs/{catalogType}/items
 ```
+
+**Controladores**, en el mismo orden de dependencia del bloque:
+
+| Endpoint | Controlador |
+|---|---|
+| `job-profiles/catalog-manifest` | `JobProfilesController.cs` |
+| `job-profiles/internal-catalogs` | `JobProfileInternalCatalogsController.cs` |
+| `occupational-pyramid-levels` | `OccupationalPyramidLevelsController.cs` |
+| `job-catalogs/{category}` | `JobCatalogsController.cs` |
+| `position-description-catalogs/{catalogType}/items` | `PositionDescriptionCatalogItemsController.cs` |
+| `position-category-classifications` | `PositionCategoryClassificationsController.cs` |
+| `position-categories` | `PositionCategoriesController.cs` |
+
+> Los tres últimos comparten módulo de aplicación
+> (`Features/PositionDescriptionCatalogs/PositionDescriptionCatalogAdministration.cs`) y **la misma
+> `[AuthorizationPolicySet]`**: quien puede escribir uno puede escribir los tres.
 
 Empezar por `catalog-manifest`: enumera qué catálogos alimentan el perfil de puesto y con qué claves. Es el
 mapa de esta sección.
+
+> **Anotar en la corrida:** el manifiesto mapea el campo `jobProfile.positionCategoryPublicId` al catálogo
+> `PositionFunctionType` (`JobProfileCatalogBindingMap.cs:109`), no a `position-categories`. Puede ser
+> deliberado —la categoría se alcanza a través de la clasificación, cuyo primer eje **es** un tipo de
+> función— pero conviene confirmarlo con el equipo antes de que el frontend lo consuma como binding literal.
 
 | Prueba | Esperado |
 |---|---|
 | `GET occupational-pyramid-levels` en empresa nueva | Lista — anotar si viene vacía |
 | `POST` un nivel, luego `inactivate` | `201` / `200` |
-| `position-category-classifications` | **Referencia tipos de unidad** (sección 3.4). Con catálogo vacío no se puede clasificar |
+| `POST position-categories` sin `classificationPublicId` | `400` — el campo es `Guid` **no anulable** y el validador lo exige `NotEmpty` |
+| `POST position-categories` con una clasificación inexistente | `POSITION_CATEGORY_CLASSIFICATION_NOT_FOUND` |
+| `POST position-category-classifications` con cualquier eje vacío o inactivo | `POSITION_DESCRIPTION_CATALOG_RELATED_ITEM_NOT_FOUND` (función/contrato) · `ORG_UNIT_TYPE_NOT_FOUND` (tipo de unidad) |
+| Repetir la terna (función, contrato, tipo de unidad) | `POSITION_CATEGORY_CLASSIFICATION_DUPLICATE_AXES` — la unicidad es sobre la **terna**, no sobre el código |
 
 > **Enlace con la sección 3:** una clasificación de categoría de puesto retiene el tipo de unidad. Es la
 > segunda cosa que puede bloquear `ORG_STRUCTURE_CATALOG_IN_USE` al inactivar un tipo (el bloqueo solo
@@ -1410,9 +1560,10 @@ mapa de esta sección.
 > salida es inactivar primero la clasificación).
 
 **Conjunto de datos — niveles de la pirámide ocupacional** (7 escalones de responsabilidad, paralelos pero
-independientes de los escalones de unidad de 3.4.0):
+independientes de los escalones de unidad de 3.4.0). Es el único catálogo de la sección que no depende de
+nada más, por eso va primero:
 
-| Escalón | `code` | `name` | `sortOrder` |
+| Escalón | `code` | `name` | `levelOrder` |
 |---|---|---|---|
 | 1 | `DIRECTIVO` | Directivo | 10 |
 | 2 | `GERENCIAL` | Gerencial | 20 |
@@ -1422,15 +1573,115 @@ independientes de los escalones de unidad de 3.4.0):
 | 6 | `OPERATIVO` | Operativo | 60 |
 | 7 | `APOYO` | Apoyo | 70 |
 
-**Categorías de puesto** (5, sin jerarquía):
+```
+GET  /api/v1/companies/{c}/occupational-pyramid-levels     # ?isActive & ?q & ?page & ?pageSize
+GET  /api/v1/occupational-pyramid-levels/{publicId}        # el tenant sale del JWT
+POST /api/v1/companies/{c}/occupational-pyramid-levels
+PUT,PATCH /api/v1/occupational-pyramid-levels/{publicId}
+PATCH /api/v1/occupational-pyramid-levels/{publicId}/activate | /inactivate
+```
 
-| `code` | `name` |
+**Controlador:** `OccupationalPyramidLevelsController.cs`
+
+```json
+{ "code": "DIRECTIVO", "name": "Directivo", "levelOrder": 10, "description": null }
+```
+
+> **El campo es `levelOrder`, no `sortOrder`** — es el único catálogo de la sección que rompe esa
+> convención (`CreateOccupationalPyramidLevelRequest`, controlador línea 171; en la BD la columna es
+> `level_order`). Mandando `sortOrder` el valor llega en `0` y el validador lo rechaza con `400`
+> (`GreaterThan(0)`).
+>
+> Y **`levelOrder` es único**, a diferencia del `sortOrder` libre de los demás catálogos: repetirlo
+> devuelve `OCCUPATIONAL_PYRAMID_LEVEL_ORDER_CONFLICT`; el código repetido,
+> `OCCUPATIONAL_PYRAMID_LEVEL_CODE_CONFLICT`. Límites: `code` ≤ 50, `name` ≤ **120** (no 150),
+> `description` ≤ 500.
+>
+> **Este catálogo no vive en el módulo de puestos.** Está en `Features/CompetencyFramework/`, con tag
+> Swagger *Competency Framework* y `[ResourceActions(CompetencyFrameworkPermissionCodes.ResourceKey)]` —
+> distinto del `PositionDescriptionCatalogPolicies` que comparten los otros tres catálogos de 4.1. Si el
+> `POST` da `403` y los de posiciones no, el permiso que falta es el del marco de competencias.
+
+**Tipos de función de puesto** — primer eje de la clasificación.
+`POST .../position-description-catalogs/position-function-types/items`, cuerpo `code`, `name`,
+`description?`, `sortOrder`:
+
+| `code` | `name` | `sortOrder` |
+|---|---|---|
+| `DIRECTIVA` | Directiva | 10 |
+| `OPERATIVA` | Operativa | 20 |
+| `TECNICA` | Técnica | 30 |
+| `COMERCIAL` | Comercial | 40 |
+| `ADMINISTRATIVA` | Administrativa | 50 |
+
+> `DIRECTIVA` queda **sin usar** por ninguna clasificación, a propósito: es el control para probar
+> `inactivate` sobre un ítem libre (`200`) contra uno en uso (`POSITION_DESCRIPTION_CATALOG_IN_USE`).
+
+**Tipos de contrato de puesto** — segundo eje. Los tres del Código de Trabajo salvadoreño.
+`POST .../position-description-catalogs/position-contract-types/items`:
+
+| `code` | `name` | `sortOrder` |
+|---|---|---|
+| `INDEFINIDO` | Contrato por tiempo indefinido | 10 |
+| `PLAZO_FIJO` | Contrato a plazo fijo | 20 |
+| `POR_OBRA` | Contrato por obra o servicio | 30 |
+
+**Clasificaciones de categoría de puesto** (5). El tercer eje —`orgUnitTypePublicId`— sale de los tipos de
+unidad de **3.4.0**, que ya están cargados. Cuerpo: `code`, `name`, `description?`,
+`positionFunctionTypePublicId`, `positionContractTypePublicId`, `orgUnitTypePublicId`, `sortOrder`:
+
+| `code` | `name` | Función | Contrato | Tipo de unidad | `sortOrder` |
+|---|---|---|---|---|---|
+| `CLAS-AEREO` | Tripulaciones de vuelo | `OPERATIVA` | `INDEFINIDO` | `JEFATURA` | 10 |
+| `CLAS-TECNICO` | Mantenimiento e ingeniería | `TECNICA` | `INDEFINIDO` | `GERENCIA` | 20 |
+| `CLAS-TIERRA` | Servicio en tierra | `OPERATIVA` | `INDEFINIDO` | `DEPARTAMENTO` | 30 |
+| `CLAS-COMERCIAL` | Comercial y carga | `COMERCIAL` | `INDEFINIDO` | `GERENCIA` | 40 |
+| `CLAS-ADMIN` | Administración y soporte | `ADMINISTRATIVA` | `INDEFINIDO` | `AREA` | 50 |
+
+**Lo que este conjunto está diseñado para probar:**
+
+| Caso | Dónde se ve |
 |---|---|
-| `OPERATIVO_AEREO` | Operativo aéreo (tripulaciones) |
-| `TECNICO_AERONAUTICO` | Técnico aeronáutico |
-| `OPERATIVO_TIERRA` | Operativo en tierra |
-| `COMERCIAL` | Comercial |
-| `ADMINISTRATIVO` | Administrativo |
+| La unicidad es de la **terna**, no de un eje | `CLAS-AEREO` y `CLAS-TIERRA` comparten función y contrato, y difieren solo en el tipo de unidad |
+| Lo mismo por el otro lado | `CLAS-TECNICO` y `CLAS-COMERCIAL` comparten contrato y tipo de unidad, y difieren solo en la función |
+| Duplicado real | Reenviar cualquiera de las cinco con otro `code` → `POSITION_CATEGORY_CLASSIFICATION_DUPLICATE_AXES` |
+| Bloqueo cruzado con la sección 3, **aislado** | `AREA` es el único tipo de unidad de 3.4.0 que **ninguna** unidad del organigrama de 3.6.1 usa. Con `CLAS-ADMIN` activa, inactivarlo devuelve `ORG_STRUCTURE_CATALOG_IN_USE` — y la clasificación es la única causa posible. Es la comprobación que la receta de 3.4.1 pide y que con cualquier otro tipo quedaría ambigua |
+
+**Categorías de puesto** (5, sin jerarquía entre sí). **`classificationPublicId` es obligatorio** —
+`Guid` no anulable, validado `NotEmpty`—: sin las clasificaciones de arriba no se puede crear ninguna.
+
+| `code` | `name` | Clasificación | `sortOrder` |
+|---|---|---|---|
+| `OPERATIVO_AEREO` | Operativo aéreo (tripulaciones) | `CLAS-AEREO` | 10 |
+| `TECNICO_AERONAUTICO` | Técnico aeronáutico | `CLAS-TECNICO` | 20 |
+| `OPERATIVO_TIERRA` | Operativo en tierra | `CLAS-TIERRA` | 30 |
+| `COMERCIAL` | Comercial | `CLAS-COMERCIAL` | 40 |
+| `ADMINISTRATIVO` | Administrativo | `CLAS-ADMIN` | 50 |
+
+```jsonc
+{
+  "code": "OPERATIVO_AEREO",
+  "name": "Operativo aéreo (tripulaciones)",
+  "description": null,
+  "classificationPublicId": "<publicId de CLAS-AEREO>",   // obligatorio
+  "sortOrder": 10
+}
+```
+
+> **Dentro de esta misma sección conviven dos convenciones de escritura**, y confundirlas cuesta una
+> corrida entera. Verificado leyendo los cuatro controladores:
+>
+> | Recurso | Verbos que existen | Cómo se inactiva |
+> |---|---|---|
+> | `occupational-pyramid-levels` | `GET` `POST` `PUT` `PATCH` + `/activate` `/inactivate` | ruta dedicada |
+> | `position-description-catalogs/…/items` | `GET` `POST` `PATCH` | `PATCH` `/isActive` |
+> | `position-category-classifications` | `GET` `POST` `PATCH` | `PATCH` `/isActive` |
+> | `position-categories` | `GET` `POST` `PATCH` | `PATCH` `/isActive` |
+>
+> En los tres últimos **`PUT` y `DELETE` devuelven `405` a propósito**: el `PATCH` —media type
+> `application/json-patch+json`, con `If-Match`— es el único verbo de mutación, y el reemplazo total se
+> expresa como un documento de `replace` por cada campo. La inactivación es
+> `[{ "op": "replace", "path": "/isActive", "value": false }]`.
 
 > **Dos jerarquías que no se corresponden**, y es intencional: un `Piloto Comandante` es nivel
 > `PROFESIONAL` pero cobra más que un `GERENCIAL`, y cuelga de una `JEFATURA` en el organigrama. Sirve para
@@ -1443,20 +1694,23 @@ GET,POST      /api/v1/companies/{c}/job-profiles
 GET,PUT,PATCH /api/v1/job-profiles/{publicId}
 ```
 
-Y ocho colecciones hijas, todas con el mismo patrón `GET,POST` en la colección y
-`GET,PUT,PATCH,DELETE` en el elemento:
+**Controlador:** `JobProfilesController.cs`
 
-```
-/api/v1/job-profiles/{id}/functions              · funciones
-/api/v1/job-profiles/{id}/requirements           · requisitos
-/api/v1/job-profiles/{id}/competencies           · competencias
-/api/v1/job-profiles/{id}/working-conditions     · condiciones de trabajo
-/api/v1/job-profiles/{id}/relations              · relaciones
-/api/v1/job-profiles/{id}/dependent-positions    · puestos dependientes
-/api/v1/job-profiles/{id}/benefits               · prestaciones
-/api/v1/job-profiles/{id}/trainings              · formación
-/api/v1/job-profiles/{id}/compensations          · compensación
-```
+Y **nueve** colecciones hijas, todas con el mismo patrón `GET,POST` en la colección y
+`GET,PUT,PATCH,DELETE` en el elemento. **Una por controlador** — no hay un controlador genérico de
+sub-recursos:
+
+| Endpoint (`/api/v1/job-profiles/{id}/…`) | Qué es | Controlador |
+|---|---|---|
+| `/functions` | funciones | `JobProfileFunctionsController.cs` |
+| `/requirements` | requisitos | `JobProfileRequirementsController.cs` |
+| `/competencies` | competencias | `JobProfileCompetenciesController.cs` |
+| `/working-conditions` | condiciones de trabajo | `JobProfileWorkingConditionsController.cs` |
+| `/relations` | relaciones | `JobProfileRelationsController.cs` |
+| `/dependent-positions` | puestos dependientes | `JobProfileDependentPositionsController.cs` |
+| `/benefits` | prestaciones | `JobProfileBenefitsController.cs` |
+| `/trainings` | formación | `JobProfileTrainingsController.cs` |
+| `/compensations` | compensación | `JobProfileCompensationsController.cs` |
 
 **Estas colecciones sí tienen `DELETE`**, a diferencia de los catálogos de la sección 3. Vale la pena
 comprobarlo: agregar una función y borrarla debe dejar el perfil limpio.
@@ -1468,6 +1722,8 @@ GET   /api/v1/job-profiles/{id}/competency-matrix
 POST  /api/v1/job-profiles/{id}/competency-matrix/items
 GET   /api/v1/job-profiles/{id}/competency-matrix/export
 ```
+
+**Controlador:** `JobProfileCompetencyMatrixController.cs`
 
 Requiere la **escala de calificación** y las **conductas de competencia**
 (`/companies/{c}/competency-conducts`). **Ninguna de las dos viene sembrada:** `GET
@@ -1540,6 +1796,8 @@ GET,PUT  /api/v1/salary-tabulator/change-requests/{id}
 GET      /api/v1/salary-tabulator/change-requests/{id}/impact
 ```
 
+**Controlador:** `SalaryTabulatorController.cs`
+
 > **El tabulador no se edita directamente.** No hay `POST` de líneas: se crea una **solicitud de cambio**,
 > se consulta su `impact` y se aplica. Es el único maestro del sistema con ese flujo, y es fácil buscar un
 > `POST /lines` que no existe.
@@ -1560,6 +1818,8 @@ GET           /api/v1/companies/{c}/position-slots/graph
 GET           /api/v1/companies/{c}/position-slots/export
 GET           /api/v1/companies/{c}/position-slots/diagram-export
 ```
+
+**Controlador:** `PositionSlotsController.cs`
 
 Campos clave: `jobProfilePublicId`, `workCenterPublicId`, `directDependencyPositionSlotPublicId`,
 `maxEmployees`, `configuredBaseSalary`, `effectiveFromUtc`.
@@ -1665,6 +1925,8 @@ GET,PUT  /api/v1/payroll-definitions/{publicId}
 PATCH    /api/v1/payroll-definitions/{publicId}/activation | /inactivation
 ```
 
+**Controlador:** `PayrollDefinitionsController.cs`
+
 Campos: `code`, `name`, `payrollTypeCode`, `payPeriodCode`, `totalPeriods`, `guaranteesMinimumIncome`,
 `currencyCode`, ventanas de captura de horas extra y asistencia con su desfase en días.
 
@@ -1683,6 +1945,8 @@ GET,POST /api/v1/companies/{c}/payroll-periods
 GET,PUT  /api/v1/payroll-periods/{publicId}
 PATCH    /api/v1/payroll-periods/{publicId}/activate | /inactivate
 ```
+
+**Controlador:** `PayrollPeriodsController.cs`
 
 Generar el año completo y verificar:
 
@@ -1703,6 +1967,8 @@ GET,POST /api/v1/companies/{c}/work-schedules
 GET,PUT  /api/v1/work-schedules/{publicId}
 PATCH    /api/v1/work-schedules/{publicId}/activation | /inactivation
 ```
+
+**Controlador:** `WorkSchedulesController.cs`
 
 Viene sembrada `JORNADA_ORDINARIA` de 44 h. Crear las que falten con sus días
 (`dayOfWeek`, `startTime`, `endTime`, `mealStart`, `mealEnd`).
@@ -1725,6 +1991,8 @@ GET,PUT  /api/v1/company-holidays/{publicId}
 PATCH    /api/v1/company-holidays/{publicId}/activate | /inactivate
 ```
 
+**Controlador:** `CompanyHolidaysController.cs`
+
 Vienen los **11 del año en curso**. Verificar que estén los nueve nacionales y **cargar los del año
 siguiente antes de generar su calendario**.
 
@@ -1736,6 +2004,8 @@ como día normal.
 ```
 GET,PUT /api/v1/income-tax-brackets
 ```
+
+**Controlador:** `IncomeTaxBracketsController.cs`
 
 **Una empresa nueva no tiene tramos.** Sin ellos la planilla corre y retiene **$0.00 de ISR en todos los
 empleados**, sin error ni advertencia. Es el fallo más silencioso de toda la configuración.
@@ -1770,6 +2040,8 @@ GET /api/v1/compensation-concept-types
 GET /api/v1/settlement-concepts
 ```
 
+**Controladores:** `compensation-concept-types` → `CompensationConceptTypesController.cs` · `settlement-concepts` → `SettlementConceptsController.cs`
+
 Solo lectura — son catálogos de sistema. Comprobar que respondan con listas no vacías: si están vacíos, el
 motor de planilla y el de finiquitos no tienen con qué calcular.
 
@@ -1784,12 +2056,12 @@ Lo último antes de personas. Varias de estas son las que dejaron de sembrarse s
 Consecuencia del cambio de sembrado del 2026-08-04. **Sin ellos, el módulo transaccional correspondiente no
 se puede usar.**
 
-| Catálogo | Endpoint | Necesario para |
-|---|---|---|
-| Justificaciones de horas extra | `GET,POST /companies/{c}/overtime-justification-types` | Registrar horas extra |
-| Tipos de reconocimiento | `GET,POST /companies/{c}/recognition-types` | Registrar reconocimientos |
-| Tipos de amonestación | `GET,POST /companies/{c}/disciplinary-action-types` | Registrar amonestaciones |
-| Causas de amonestación | `GET,POST /companies/{c}/disciplinary-action-causes` | Registrar amonestaciones |
+| Catálogo | Endpoint | Controlador | Necesario para |
+|---|---|---|---|
+| Justificaciones de horas extra | `GET,POST /companies/{c}/overtime-justification-types` | `OvertimeJustificationTypesController.cs` | Registrar horas extra |
+| Tipos de reconocimiento | `GET,POST /companies/{c}/recognition-types` | `RecognitionTypesController.cs` | Registrar reconocimientos |
+| Tipos de amonestación | `GET,POST /companies/{c}/disciplinary-action-types` | `DisciplinaryActionTypesController.cs` | Registrar amonestaciones |
+| Causas de amonestación | `GET,POST /companies/{c}/disciplinary-action-causes` | `DisciplinaryActionCausesController.cs` | Registrar amonestaciones |
 
 **Prueba clave:** intentar registrar una hora extra **antes** de crear justificaciones, y anotar qué error
 da. Es exactamente lo que le va a pasar a un cliente nuevo.
@@ -1799,6 +2071,8 @@ da. Es exactamente lo que le va a pasar a un cliente nuevo.
 ```
 GET,POST /api/v1/companies/{c}/overtime-types
 ```
+
+**Controlador:** `OvertimeTypesController.cs`
 
 Vienen los 4 legales. **Verificar los factores: `HED` 2.00, `HEN` 2.50, `HEDF` 4.00, `HENF` 5.00.** Son
 editables pero los fija el Código de Trabajo; si alguno llega distinto, la planilla calcula mal en silencio.
@@ -1812,6 +2086,8 @@ GET,POST /api/v1/companies/{c}/medical-clinics
 POST     /api/v1/companies/{c}/leave-configuration/load-template
 ```
 
+**Controladores:** `incapacity-risks` → `IncapacityRisksController.cs` · `incapacity-types` → `IncapacityTypesController.cs` · `leave-configuration` → `LeaveConfigurationController.cs` · `medical-clinics` → `MedicalClinicsController.cs`
+
 Tipos y riesgos vienen sembrados (6 tipos). **Verificar el marcador de riesgo profesional** en
 `ACCIDENTE_TRABAJO` y `ENFERMEDAD_PROFESIONAL`: cambia el cálculo del subsidio.
 
@@ -1824,6 +2100,8 @@ GET,POST /api/v1/companies/{c}/not-worked-time-types
 POST     /api/v1/companies/{c}/not-worked-time-configuration/load-template
 GET,POST /api/v1/companies/{c}/compensatory-time-types
 ```
+
+**Controladores:** `not-worked-time-types` y `not-worked-time-configuration/load-template` → `NotWorkedTimeTypesController.cs` · `compensatory-time-types` → `CompensatoryTimeTypesController.cs`
 
 Los tiempos no trabajados **nunca** se sembraron solos: o se cargan con su plantilla o se crean a mano. Es
 el único `load-template` que sigue siendo la vía normal.
@@ -1839,18 +2117,32 @@ GET,PUT  /api/v1/companies/{c}/vacation-plans/{vacationPlanPublicId}
 PATCH    /api/v1/companies/{c}/vacation-plans/{vacationPlanPublicId}/annulment
 ```
 
+**Controlador:** `VacationPlansController.cs`
+
 Las reglas base (15 días, arranque en asueto, día de descanso) ya se fijaron en las preferencias de empresa
 (paso 2.7). Acá se prueban los planes concretos.
 
 ### 6.6 · Constancias y ayuda económica
 
 ```
-GET,PUT /api/v1/companies/{c}/certificate-settings
-GET,POST /api/v1/companies/{c}/economic-aid-requests
+GET,PUT  /api/v1/companies/{c}/certificate-settings
+GET,PUT  /api/v1/companies/{c}/preferences          # minimumSeniorityMonthsForEconomicAid
 ```
+
+**Controladores:** `certificate-settings` → `CompanyCertificateSettingsController.cs` · `preferences` → `CompanyPreferencesController.cs`
 
 `certificate-settings` define el encabezado y la firma de las constancias laborales. Sin configurarlo, la
 emisión falla o sale sin membrete.
+
+> **Corregido:** este bloque listaba `GET,POST /api/v1/companies/{c}/economic-aid-requests`, que **no
+> existe**. La ayuda económica no tiene superficie a nivel de empresa: todo cuelga del expediente —
+> `GET,POST /api/v1/personnel-files/{publicId}/economic-aid-requests` y sus `PATCH /resolution`,
+> `/disbursement`, `/cancel` (`EconomicAidRequestsController.cs`)— y por lo tanto se prueba en la
+> **sección 7**, no acá. Lo único que sí se configura a nivel de empresa en este paso es
+> `minimumSeniorityMonthsForEconomicAid` dentro de las preferencias (paso 2.7), que es el gate de
+> antigüedad mínima para solicitar. Lo mismo aplica a las constancias: la **configuración** es de empresa,
+> pero las **solicitudes** viven en `personnel-files/{publicId}/certificate-requests`, con bandeja
+> corporativa en `companies/{c}/certificate-requests/query` y `/export`.
 
 ### 6.7 · Roles, permisos y usuarios
 
@@ -1864,6 +2156,8 @@ GET,POST      /api/v1/company/users
 PATCH         /api/v1/company/users/{publicId}/deactivate | /reactivate
 POST          /api/v1/company/users/{publicId}/reset-invitation
 ```
+
+**Controladores:** `authorization/roles`, `authorization/users/{u}/roles` → `AccountCompanyAuthorizationController.cs` · `authorization/role-builder-catalog`, `authorization/resource-policies/{k}` → `AccountCompanyAccessController.cs` · `company/users` → `CompanyUsersController.cs`
 
 `role-builder-catalog` lista todos los permisos asignables — es la referencia para armar roles.
 
@@ -1928,12 +2222,556 @@ curl -s "$API/api/v1/income-tax-brackets" -H "Authorization: Bearer $TOKEN" \
 
 ---
 
+## 7. Expedientes de empleado
+
+**§6.5 (planes de vacaciones) depende de esta sección**, no al revés: cada línea del plan exige un
+`personnelFilePublicId`. Por eso §7 se ejecuta antes de cerrar §6. El orden real es
+**§6.1 – §6.4 · §6.6 → §7 → §6.5**.
+
+El módulo son **47 controladores y 395 rutas** — más superficie que §3 a §6 juntas. Esta sección cubre
+solo el **camino crítico**: lo mínimo para que un empleado quede asignado y pagable. Lo transaccional
+(horas extra, incapacidades, permisos, ayudas, constancias, liquidaciones) es §8.
+
+### 7.0 · El camino crítico, en orden de dependencia
+
+```
+1. POST  /api/v1/companies/{c}/personnel-files                  PersonnelFilesController
+2. POST  /api/v1/personnel-files/{id}/identifications           PersonnelFilePersonalInfoController
+3. POST  /api/v1/personnel-files/{id}/bank-accounts             PersonnelFileCompensationController
+4. POST  /api/v1/personnel-files/{id}/assigned-positions        PersonnelFileEmploymentController  ← el pivote
+5. PATCH /api/v1/personnel-files/{id}/finalize                  PersonnelFileEmploymentController  ← saca de Draft
+6. PUT   /api/v1/personnel-files/{id}/employment-information    PersonnelFileEmploymentController
+7. POST  /api/v1/personnel-files/{id}/compensation-concepts     PersonnelFileCompensationConceptsController
+8. PATCH /api/v1/position-slots/{id}/occupancy                  PositionSlotsController
+```
+
+> **El paso 5 es obligatorio y no es evidente.** El expediente nace en `LifecycleStatus = Draft`, y en
+> `Draft` los pasos 6 y 7 responden `422 PERSONNEL_FILE_STATE_RULE_VIOLATION` — un mensaje que **no
+> menciona** `Draft`, ni `Completed`, ni `finalize`. La condición es
+> `IsCompletedEmployee = RecordType == Employee && LifecycleStatus == Completed`
+> (`PersonnelFile.cs:146`), y el único camino a `Completed` es `PATCH /finalize` con `If-Match`.
+>
+> Lo que desorienta: **identificaciones, cuenta bancaria y asignación de plaza SÍ funcionan en `Draft`**.
+> Solo información de empleo y compensación exigen `Completed`. No hay frontera visible.
+>
+> `finalize` acepta `{ "createUserAccount": true|false, "positionSlotPublicId": "…" }` — provisiona la
+> cuenta de usuario del empleado si se pide. **No es el retiro**: el retiro vive en
+> `/personnel-files/{id}/retirement-requests` (`RetirementRequestsController`).
+
+> **El salario NO está en el expediente ni en la asignación.** Vive en `compensation-concepts`, atado a
+> `assignedPositionPublicId` — o sea **por plaza**. Un empleado con dos plazas tiene dos `SALARIO_BASE`,
+> uno por cada una, y pueden ser distintos. Es el error de modelo más frecuente al integrar.
+
+**Dos comportamientos que hay que conocer antes de empezar:**
+
+1. **ISSS y AFP se auto-sugieren al crear la asignación.** `CompensationConceptSuggestionService`
+   agrega los egresos de ley con `isSystemSuggested: true`, precargados del catálogo —
+   **ISSS 3.00 % / 7.50 % patronal** y **AFP 7.25 % / 8.75 %**, en `MENSUAL` y `USD`— con alcance a la
+   plaza nueva. Es idempotente: no duplica si ya existe uno activo. **No hay que crearlos a mano**, y si
+   alguien los crea, aparecen duplicados con el sugerido.
+2. **La ocupación de la plaza no se actualiza sola.** Verificado en el handler: la asignación no toca
+   `occupiedEmployees`. Hay que llamar el paso 7 aparte, o los reportes de dotación muestran 0 ocupados
+   con la plaza llena.
+
+### 7.1 · Cascarón del expediente
+
+```
+POST /api/v1/companies/{c}/personnel-files
+```
+
+Obligatorios: `firstName`, `lastName`, `birthDate`. Todo lo demás opcional.
+
+```jsonc
+{
+  "recordType": "EMPLEADO",
+  "firstName": "Marta Elena", "lastName": "Quintanilla Rivas",
+  "birthDate": "1988-03-14",
+  "maritalStatusCode": null, "professionCode": null, "personalTitleCode": null,
+  "afpCode": null, "afpAccountNumber": null, "nationality": "SV",
+  "personalEmail": "marta.quintanilla@example.sv", "institutionalEmail": null,
+  "personalPhone": "+503 7777-0001", "institutionalPhone": null,
+  "birthCountryCode": "SV", "birthDepartmentCode": null, "birthMunicipalityCode": null,
+  "photoFilePublicId": null, "orgUnitPublicId": null
+}
+```
+
+> **Los sub-recursos no se aceptan en el `create`.** Si mandás `items`, responde `400` con un mensaje
+> que apunta a `POST .../identifications`. El cascarón primero, las partes después.
+
+### 7.2 · Identificaciones — DUI y NIT
+
+```
+POST /api/v1/personnel-files/{id}/identifications
+```
+
+Cuerpo: `identificationTypeCode`, `identificationNumber`, `issuedDate?`, `expiryDate?`, `issuer?`,
+`isPrimary`.
+
+**Los tipos vienen sembrados** en `identification_type_catalog_items` —por país, con su regex de
+formato— y **no** en `document_type_catalog_items`, que es otra feature:
+
+| `code` | Nombre | `numberFormat` |
+|---|---|---|
+| `DUI` | DUI | `^\d{8}-\d$` |
+| `NIT` | NIT | `^\d{4}-\d{6}-\d{3}-\d$` |
+| `PASSPORT` | Pasaporte | `^[A-Z0-9]{6,12}$` |
+| `RESIDENT_CARD` | Carné de residente | `^[A-Za-z0-9-]{5,20}$` |
+
+El número se valida contra el regex del tipo, sobre el valor recortado y en mayúsculas. Un tipo sin
+formato configurado solo pasa la validación genérica. **Un regex inválido cargado por un admin falla
+seguro (no-op), nunca bloquea escrituras.**
+
+| Prueba | Esperado |
+|---|---|
+| `DUI` con formato `12345678-9` | `201` |
+| `DUI` sin guion (`123456789`) | Rechazo por formato |
+| `NIT` con formato `0614-140388-101-2` | `201` |
+| Dos identificaciones con `isPrimary: true` | Anotar el comportamiento |
+
+### 7.3 · Información de empleo (perfil slim)
+
+```
+PUT /api/v1/personnel-files/{id}/employment-information
+```
+
+Cuerpo: `employeeCode`, `employmentStatusCode`, `hireDate`, `institutionalEmail`, `minimumMonthlyWage`.
+
+> **Es un perfil deliberadamente delgado.** La antigüedad se computa de `hireDate`, no se almacena; y
+> los datos de contrato viven en la **asignación**, no acá.
+
+`employmentStatusCode` sale de `employment_status_catalog_items`, sembrado:
+`ACTIVO` · `INCAPACIDAD` · `LICENCIA` · `RETIRADO` · `SUSPENDIDO`.
+
+> **`institutionalEmail` re-sincroniza el login** del usuario de empresa asociado. Editarlo no es
+> cosmético.
+
+### 7.4 · Asignación de plaza — el pivote
+
+```
+GET,POST      /api/v1/personnel-files/{id}/assigned-positions
+GET,PUT,PATCH,DELETE  /api/v1/personnel-files/{id}/assigned-positions/{assignmentId}
+```
+
+**Solo dos campos son obligatorios**: `assignmentTypeCode` y `positionSlotPublicId`.
+
+```jsonc
+{
+  "assignmentTypeCode": "INDEFINIDO",          // obligatorio
+  "positionSlotPublicId": "<de 4.4>",          // obligatorio
+  "contractTypeCode": "INDEFINIDO",
+  "workdayCode": "JORNADA_ORDINARIA",          // debe existir y estar ACTIVA — mayúsculas exactas
+  "payrollTypeCode": "QUINCENAL",
+  "orgUnitPublicId": null, "workCenterPublicId": null, "costCenterPublicId": null,
+  "startDate": "2026-01-16", "endDate": null,
+  "isPrimary": true, "isActive": true, "notes": null,
+  "paymentMethodCode": "TRANSFERENCIA",
+  "paymentBankAccountPublicId": null,          // se llena después de 7.6
+  "restDayOfWeek": 0                           // 0=domingo … 6=sábado
+}
+```
+
+Catálogos sembrados que alimentan este cuerpo:
+
+| Campo | Catálogo | Valores |
+|---|---|---|
+| `assignmentTypeCode` | `assignment_type_catalog_items` | `INDEFINIDO` · `CONTRATO` · `PLAZO_FIJO` · `POR_OBRA` · `INTERINO` · `AD_HONOREM` · `LEY_SALARIOS` · `RECARGO_FUNCIONES` · `SERVICIOS_PROFESIONALES` |
+| `paymentMethodCode` | `payment_method_catalog_items` | `TRANSFERENCIA` · `CHEQUE` · `EFECTIVO` · `BOLETA` |
+| `workdayCode` | las jornadas de **5.3** | el código **es** el vínculo: no hay FK ni snapshot |
+
+| Prueba | Esperado |
+|---|---|
+| `workdayCode` que no existe o está inactivo | `422 WORK_SCHEDULE_INVALID` |
+| `workdayCode` omitido | `201` — es **opcional** (empleado sin horario) |
+| Asignar más empleados que `maxEmployees` de la plaza | Anotar: ¿bloquea o deja pasar? |
+| Segunda asignación con `isPrimary: true` | Anotar cuál queda primaria |
+| `restDayOfWeek` fuera de 0–6 | Rechazo |
+
+### 7.5 · Salario — conceptos de compensación
+
+```
+POST /api/v1/personnel-files/{id}/compensation-concepts
+```
+
+```jsonc
+{
+  "assignedPositionPublicId": "<la asignación de 7.4>",   // ← ata el sueldo a la PLAZA
+  "nature": "Ingreso",
+  "conceptTypeCode": "SALARIO_BASE",
+  "deductionClass": null,
+  "calculationType": "Fixed",
+  "value": 1200.00,                 // MENSUAL, el motor prorratea a la quincena
+  "calculationBaseCode": null, "employerRate": null, "contributionCap": null,
+  "currencyCode": "USD",
+  "payPeriodCode": "MENSUAL",
+  "counterpartyName": null, "externalReference": null,
+  "startDate": "2026-01-16", "endDate": null,
+  "isActive": true, "notes": null
+}
+```
+
+**El valor se registra MENSUAL y crudo**, no quincenalizado: el motor deriva `diaria = mensual / 30` y
+`hora = diaria / 8`. Es el mismo criterio que usan los egresos de ley auto-sugeridos, que nacen en
+`MENSUAL`.
+
+Enums: `nature` = `Ingreso` | `Egreso` · `calculationType` = `Fixed` | `Percentage` ·
+`deductionClass` = `Ley` | `Interno` | `Externo`.
+
+`conceptTypeCode` sale de los **19 tipos** de `compensation-concept-types` (§5.6 — recordar que ese
+endpoint necesita `?countryCode=SV`). El que marca el sueldo es el que tiene `isBaseSalary`.
+
+> **Mismo perfil, distinto salario.** El sueldo es por plaza y por persona: dos empleados en la misma
+> plaza `PL-TCP-001` (banda 800–1,400) pueden ganar 900 y 1,250. Y un empleado multi-plaza gana lo de
+> cada plaza por separado.
+
+### 7.6 · Cuenta bancaria
+
+```
+POST /api/v1/personnel-files/{id}/bank-accounts
+```
+
+Cuerpo: `bankPublicId`, `currencyCode`, `accountNumber`, `accountTypeCode`, `isPrimary`.
+
+Ambos catálogos vienen sembrados: **8 bancos** (`BANCO_AGRICOLA`, `CUSCATLAN`, `BAC`, `CITIBANK`, …) y
+5 tipos de cuenta (`AHORRO` · `CORRIENTE` · `PLANILLA` · `A_LA_VISTA` · `OTRO`).
+
+Solo hace falta si el `paymentMethodCode` de la asignación es `TRANSFERENCIA`. Después conviene volver
+a la asignación con un `PUT` para llenar `paymentBankAccountPublicId`.
+
+### 7.7 · Ocupación de la plaza
+
+```
+PATCH /api/v1/position-slots/{id}/occupancy      { "occupiedEmployees": 9 }
+```
+
+Paso manual, porque la asignación no lo hace. Al terminar, `occupiedEmployees` de cada plaza debe
+igualar la cantidad de asignaciones activas que la referencian.
+
+### 7.9 · Tres trampas de formato y de datos, verificadas en vivo
+
+**Las fechas deben ir en UTC explícito.** Una fecha sin zona produce un `500`, no un `400`:
+
+| `startDate` enviado a `assigned-positions` | Respuesta |
+|---|---|
+| `"2026-08-01"` | **`500`** — *"Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'"* |
+| `"2026-08-01T00:00:00Z"` | correcto |
+
+Aplica a todo campo `DateTime` del módulo: `birthDate`, `hireDate`, `issuedDate`, `startDate`.
+
+**La asignación no puede empezar antes de la vigencia de la plaza.** `SlotIsEffectiveFor`
+(`EmploymentAssignments.Rules.cs:134`) la rechaza con
+`422 EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_NOT_ASSIGNABLE`, igual que si la plaza está `Suspended`. Son
+**dos fechas distintas y está bien que lo sean**: el `hireDate` del empleado puede ser 2024 (su
+antigüedad) y el `startDate` de la asignación 2026 (cuando se creó esa plaza).
+
+**El catálogo de bancos es multi-país y el validador filtra.** De los 8 bancos sembrados, 4 son `SV` y
+4 son `US`; con la empresa en `SV`, los de `US` devuelven
+`400 BankPublicId must reference an active bank catalog item for the company country`. Usar solo
+`BANCO_AGRICOLA`, `CUSCATLAN`, `BAC`, `DAVIVIENDA`.
+
+**Y el alta tiene límite de tasa:** 20 expedientes por minuto por usuario+tenant, ventana fija, sin
+cola (`RateLimiting:PersonnelFiles:Create:PermitLimit`, default 20). Una carga de 59 necesita pautarse
+en lotes o manejar el `429`.
+
+#### 7.8 · Conjunto de datos — 59 expedientes, 60 asignaciones
+
+Se llenan **los 60 cupos** de las 33 plazas de 4.4. Son 59 personas porque una tiene dos plazas.
+
+Reglas del conjunto:
+
+| Regla | Detalle |
+|---|---|
+| Salario | **dentro de la banda** de la línea del tabulador de su perfil, **variando entre personas de la misma plaza** — no todos con el `configuredBaseSalary` |
+| `payPeriodCode` | `MENSUAL` para todos, valor crudo |
+| `hireDate` | escalonadas entre 2024 y 2026, para que la antigüedad computada varíe |
+| `employeeCode` | consecutivo `EMP-0001` … `EMP-0059` |
+| Identificaciones | `DUI` a todos; `NIT` a los de nivel `DIRECTIVO` y `GERENCIAL` |
+| Cuenta bancaria | a todos, `paymentMethodCode: TRANSFERENCIA` |
+
+**Casos que este conjunto debe ejercitar:**
+
+| Caso | Cómo |
+|---|---|
+| Varias personas en la misma plaza con **salarios distintos** | los 9 de `PL-TCP-001`, los 5 de `PL-CMDTE-001` |
+| **Empleado multi-plaza** | dos asignaciones, una `isPrimary: true`, salario propio en cada una |
+| **Empleado sin jornada** | un director sin `workdayCode` — materializa [H-19] y permite probar si le paga horas extra |
+| **Salario mínimo exacto** | el ocupante de `PL-RECEP-001` en `$408.80` |
+| **Salario fuera de banda** (negativo) | intentar `$12,000` en una plaza de banda 7,000–11,000 → anotar si rechaza; es la validación R-3 que el comentario de `PositionSlotSalaryRange` dice que existe para el empleado |
+| Plaza con un solo cupo vs pool | `PL-DG-001` (1) contra `PL-TCP-001` (9) |
+
+**Verificación de cierre:**
+
+```bash
+curl -s "$API/api/v1/companies/$COMPANY/personnel-files?pageSize=100" -H "Authorization: Bearer $TOKEN" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print('expedientes:', d.get('totalCount'), '→ esperado 59')"
+```
+
+Y en base de datos, que la ocupación cuadre con las asignaciones:
+
+```sql
+select s.code, s.max_employees, s.occupied_employees, count(a.id) as asignaciones
+from position_slots s
+left join personnel_file_employment_assignments a
+       on a.position_slot_public_id = s.public_id and a.is_active
+group by s.code, s.max_employees, s.occupied_employees
+having s.occupied_employees <> count(a.id) or count(a.id) > s.max_employees;
+-- debe devolver 0 filas
+```
+
+> La asignación referencia la plaza por **`position_slot_public_id`** (uuid), no por la clave interna —
+> es un vínculo por identificador público, igual que `workdayCode` lo es por código.
+
+---
+
+## 8. Transacciones y corrida de planilla
+
+La sección que cierra el ciclo. Son **26 módulos transaccionales con 180 rutas**, más la corrida en sí
+(20 rutas entre generación, resolución y reportes). No se prueba todo: se prueba **un periodo completo
+de punta a punta** con al menos un insumo de cada canal que el motor consume, y después los casos
+negativos del ciclo de vida.
+
+### 8.0 · Los ocho canales que el motor consume
+
+El `preflight` es el mapa de la sección: su respuesta enumera exactamente qué mira el motor.
+
+```
+POST /api/v1/companies/{c}/payroll-runs/preflight     PayrollRunsController
+     { "payrollDefinitionPublicId": "…", "payrollPeriodPublicId": "…", "employeeIds": null }
+```
+
+Devuelve `PayrollRunPreflightResponse`:
+
+| Campo | Canal que alimenta | Módulo de origen |
+|---|---|---|
+| `employeeCount` | población de la corrida | asignaciones activas de §7 |
+| `salaryLineCandidates` | salario base | `compensation-concepts` (§7.7) |
+| `poolIncomeCandidates` | ingresos cíclicos y eventuales | `recurring-incomes` · `one-time-incomes` |
+| `poolDeductionCandidates` | descuentos cíclicos y eventuales | `recurring-deductions` · `one-time-deductions` |
+| `overtimeCandidates` | horas extra | `overtime-records` |
+| `notWorkedTimeInputs` | tiempos no trabajados | `not-worked-times` |
+| `disciplinaryInputs` | amonestaciones con descuento | `disciplinary-actions` |
+| `incapacityInputs` | incapacidades | `incapacities` |
+| `carryoverInputs` | arrastre de periodos anteriores | derivado de líneas de corridas previas |
+
+Más `projectedTotalIncome`, `projectedTotalDeductions`, `projectedTotalNet` y un `warnings[]`.
+
+> **Correr el `preflight` ANTES de generar, siempre.** Es la única forma de ver la proyección y las
+> advertencias sin crear nada, y de detectar que un canal viene en cero porque falta un insumo — no
+> porque no haya nada que pagar.
+
+**Las siete advertencias del motor**, todas no bloqueantes:
+
+| Código | Qué significa |
+|---|---|
+| `PAYROLL_WARNING_NO_BASE_SALARY` | el empleado no tiene `SALARIO_BASE` activo en su plaza |
+| `PAYROLL_WARNING_BASE_UNDEFINED` | hay concepto pero sin valor resoluble |
+| `PAYROLL_WARNING_RENTA_BRACKETS_MISSING` | **sin tramos de ISR el impuesto sale en cero** (ver §5.5) |
+| `PAYROLL_WARNING_NO_BANK_ACCOUNT` | no hay cuenta para depositar; sale en la conciliación bancaria |
+| `PAYROLL_WARNING_EMPLOYEE_EXCLUDED_PREVISIONAL_DATA_MISSING` | falta AFP/ISSS → **el empleado queda fuera de la corrida** |
+| `PAYROLL_WARNING_INSTALLMENT_DEFERRED` | una cuota de descuento se posterga por tope de endeudamiento |
+| `PAYROLL_WARNING_CARRYOVER_INPUT` | el insumo viene arrastrado de un periodo anterior |
+
+La quinta es la más peligrosa: **excluye al empleado** y es solo una advertencia.
+
+### 8.1 · Cargar un insumo de cada canal
+
+Antes de generar hay que sembrar transacciones dentro de la **ventana de captura** del periodo (§5.2:
+`overtimeEntryStart`/`overtimeEntryEnd`, derivadas del desfase de la nómina). Fuera de la ventana los
+registros se rechazan con `OVERTIME_ENTRY_WINDOW_CLOSED` y equivalentes.
+
+```
+POST /personnel-files/{id}/overtime-records                 OvertimeRecordsController
+PATCH /personnel-files/{id}/overtime-records/{r}/resolution  OvertimeRecordResolutionController
+POST /personnel-files/{id}/incapacities                     PersonnelFileIncapacitiesController
+POST /personnel-files/{id}/not-worked-times                  NotWorkedTimesController
+POST /personnel-files/{id}/recurring-incomes                 RecurringIncomesController
+POST /personnel-files/{id}/one-time-incomes                  OneTimeIncomesController
+POST /personnel-files/{id}/recurring-deductions              RecurringDeductionsController
+POST /personnel-files/{id}/one-time-deductions               OneTimeDeductionsController
+POST /personnel-files/{id}/disciplinary-actions              PersonnelFileDisciplinaryActionsController
+POST /personnel-files/{id}/compensatory-time-credits         PersonnelFileCompensatoryTimeCreditsController
+POST /personnel-files/{id}/compensatory-time-absences        PersonnelFileCompensatoryTimeAbsencesController
+```
+
+> **Casi todos tienen un `/resolution` o `/decision` aparte, con anti-autoservicio.** El insumo se
+> registra en un estado de revisión y **solo cuenta para la planilla cuando está autorizado** — quien
+> registra no puede autorizar. Es la separación de funciones de §6.7: sin dos usuarios no se llega a
+> generar nada. Los dos creados en la corrida (`solicitante.tabulador@` y `aprobador.tabulador@`)
+> sirven para esto.
+
+⚠️ **Los adjuntos están bloqueados.** `document_type_catalog_items` está vacío y **no existe endpoint
+que lo llene** (ver el registro de hallazgos, H-22), y el campo `documentTypeCatalogItemPublicId` es
+obligatorio en los `POST .../documents`. Eso impide probar completos los flujos que exigen respaldo:
+incapacidades con `incapacityRequiresDocument: true`, créditos de tiempo compensatorio, amonestaciones,
+reclamos médicos y ayuda económica. **Anotarlo y seguir**: el resto del canal sí se puede probar.
+
+### 8.2 · Generar la corrida
+
+```
+POST  /api/v1/companies/{c}/payroll-runs                    PayrollRunsController
+      { "payrollDefinitionPublicId": "…", "payrollPeriodPublicId": "…", "employeeIds": null }
+GET   /api/v1/companies/{c}/payroll-runs/{id}
+GET   /api/v1/companies/{c}/payroll-runs/{id}/employees/{personnelFilePublicId}
+```
+
+`employeeIds` en `null` corre toda la población; con lista, la restringe.
+
+| Prueba | Esperado |
+|---|---|
+| Generar sin tramos de ISR cargados | `200` con `PAYROLL_WARNING_RENTA_BRACKETS_MISSING` y **ISR en 0** |
+| Generar dos veces el mismo periodo | `PAYROLL_RUN_ALREADY_ACTIVE` |
+| Generar sin perfil legal patronal (§2.9) | `PAYROLL_RUN_MISSING_LEGAL_PROFILE` |
+| Un empleado sin AFP/ISSS | queda **excluido**, con advertencia — verificar que no aparezca en las líneas |
+| Un empleado sin cuenta bancaria | aparece en las líneas pero con advertencia; sale en la conciliación |
+
+### 8.3 · Revisión: ajustar, recalcular, regenerar
+
+```
+PATCH /payroll-runs/{id}/lines/{linePublicId}     ajuste manual de una línea
+PATCH /payroll-runs/{id}/recalculation            recálculo selectivo
+PATCH /payroll-runs/{id}/regeneration             regenerar desde los insumos
+```
+
+| Prueba | Esperado |
+|---|---|
+| Ajustar una línea calculada por el sistema | `PAYROLL_RUN_LINE_NOT_ADJUSTABLE` — las líneas de motor no se editan a mano |
+| Ajustar una línea admisible | `200`, y el total de la corrida se recalcula |
+| `regeneration` tras agregar un insumo nuevo | el insumo aparece; **los ajustes manuales previos se pierden** — confirmarlo y anotarlo |
+| `recalculation` de un solo empleado | solo cambia ese empleado |
+
+> **La diferencia entre `recalculation` y `regeneration` es la que más confunde.** Vale dejar anotado en
+> la corrida qué conserva cada una.
+
+### 8.4 · Autorizar y cerrar — dos pasos, con anti-self
+
+```
+PATCH /companies/{c}/payroll-runs/{id}/authorization   PayrollRunResolutionController
+PATCH /companies/{c}/payroll-runs/{id}/return          { motivo }  ← única reapertura antes del cierre
+PATCH /companies/{c}/payroll-runs/{id}/closure         PayrollRunsController
+PATCH /companies/{c}/payroll-runs/{id}/annulment       { motivo }
+```
+
+Estados: `GENERADA → AUTORIZADA → CERRADA`, con `ANULADA` como salida. El periodo tiene su propio ciclo
+(`GENERADO → CERRADO → ANULADO`) y **el cierre de la corrida cierra el periodo con ella**.
+
+| Prueba | Esperado |
+|---|---|
+| Autorizar con el **mismo usuario** que generó | `PAYROLL_RUN_SELF_AUTHORIZATION_FORBIDDEN` |
+| Autorizar con un segundo usuario | `200` → `AUTORIZADA` |
+| `return` sin motivo | `PAYROLL_RUN_RETURN_REASON_REQUIRED` |
+| `return` con motivo | vuelve a `GENERADA` y se puede volver a ajustar |
+| Cerrar sin autorizar | `PAYROLL_RUN_STATE_RULE_VIOLATION` |
+| Cerrar autorizada | `200` → `CERRADA`, y el periodo pasa a `CERRADO` |
+| Ajustar una línea de una corrida `CERRADA` | rechazo por estado |
+| `annulment` sin motivo | `PAYROLL_RUN_ANNULMENT_REASON_REQUIRED` |
+| `annulment` con motivo | **anulación simétrica**: verificar que los insumos consumidos vuelvan a estar disponibles |
+
+> La anulación es el caso más valioso de la sección: tiene que **devolver** los insumos que la corrida
+> había consumido (horas extra aplicadas, cuotas de descuento, arrastres). Si no los devuelve, quedan
+> pagados y consumidos a la vez.
+
+### 8.5 · Salidas: boletas, exports y conciliación
+
+```
+GET  /payroll-runs/{id}/employees/{pf}/slip                  boleta individual (PDF)
+GET  /payroll-runs/{id}/slips                                lote de boletas (zip)
+GET  /payroll-runs/{id}/lines/export                         detalle de líneas
+GET  /payroll-runs/{id}/bank-reconciliation/export           conciliación bancaria
+GET  /payroll-runs/{id}/employer-cost-report/export          costo patronal
+GET  /companies/{c}/payroll-runs/export                      listado de corridas
+POST /companies/{c}/payroll-runs/query                       bandeja con filtros
+POST /companies/{c}/payroll-runs/employee-history/query       historial trans-corridas
+GET  /personnel-files/{id}/payroll-history                   autoservicio del empleado
+GET  /personnel-files/{id}/payroll-history/{runId}
+```
+
+**Controladores:** `PayrollRunsReportingController` · `PersonnelFilePayrollHistoryController`
+
+| Prueba | Esperado |
+|---|---|
+| Boleta de un empleado de una corrida `GENERADA` | anotar si la emite o exige `CERRADA` |
+| Lote de boletas | zip con una por empleado |
+| Conciliación bancaria | los empleados sin cuenta salen marcados |
+| `payroll-history` del empleado | solo estados **`CERRADA`/`AUTORIZADA`**; el periodo abierto muestra `GENERADA` |
+| Autoservicio con el token del propio empleado | `200`; con el de otro empleado, `403` |
+
+> Los exports JSON del módulo usan **PascalCase** en las claves, a diferencia del resto de la API. No es
+> un error de serialización: es el contrato de los exports.
+
+### 8.6 · Los casos que solo se ven con el conjunto completo
+
+Con los 59 empleados y las 60 asignaciones de §7 ya sembradas, esta sección puede cerrar tres cosas que
+ninguna otra revela:
+
+| Caso | Cómo se prueba | Qué se está verificando |
+|---|---|---|
+| **Empleado sin jornada** | registrar horas extra al Director General (`PL-DG-001`, sin `workdayCode`) y llevarlas hasta la planilla | si el sistema le paga horas extra a alguien sin horario — cierra H-19 |
+| **Hora extra dentro de la jornada** | registrar 09:00–11:00 a alguien con jornada 08:00–17:00 y ver si se paga | el doble pago de H-20 |
+| **Empleado multi-plaza** | generar con la persona que tiene dos asignaciones | si produce dos juegos de líneas, una por plaza, y cómo se acumula el ISR |
+| **Salario mínimo exacto** | el ocupante de `PL-RECEP-001` en `$408.80` | que el ISR salga en 0 (bajo el exento de `$550` mensual) y que ISSS/AFP se calculen sobre el mínimo |
+
+### 8.7 · Cierre de la sección
+
+```bash
+curl -s -X POST "$API/api/v1/companies/$COMPANY/payroll-runs/query" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}' \
+  | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+items=d.get('items',d) if isinstance(d,dict) else d
+print('corridas:', len(items))
+for r in items: print(' ', r.get('code') or r.get('publicId','')[:8], '|', r.get('statusCode'), '|', r.get('totalNet'))"
+```
+
+Y en base de datos, que la corrida cuadre con sus líneas:
+
+```sql
+select r.status_code,
+       count(distinct r.id)                                             corridas,
+       count(l.id)                                                      lineas,
+       count(distinct l.personnel_file_id)                              empleados,
+       sum(case when l.line_class = 'Ingreso'
+                then coalesce(l.override_amount, l.calculated_amount) end) ingresos,
+       sum(case when l.line_class = 'Descuento'
+                then coalesce(l.override_amount, l.calculated_amount) end) descuentos,
+       sum(case when l.line_class = 'PagoPatronal'
+                then coalesce(l.override_amount, l.calculated_amount) end) costo_patronal,
+       count(*) filter (where l.override_amount is not null)            ajustes_manuales
+from payroll_runs r
+left join payroll_run_lines l on l.payroll_run_id = r.id and l.is_included
+group by r.status_code;
+```
+
+> **El monto efectivo de una línea es `coalesce(override_amount, calculated_amount)`**: el motor escribe
+> `calculated_amount` y el ajuste manual de §8.3 llena `override_amount` sin borrar el calculado, así que
+> la línea conserva la evidencia de qué calculó el sistema y qué cambió una persona (con
+> `override_note` y `adjusted_by_user_id`). `is_included = false` marca las líneas excluidas de la
+> corrida, que **no** deben sumarse.
+>
+> `line_class` tiene tres valores: `Ingreso`, `Descuento` y **`PagoPatronal`** — el costo patronal
+> (ISSS 7.50 % y AFP 8.75 %) viaja como línea propia, no descontada al empleado. Sumar sin filtrar por
+> clase infla el total.
+
+| Verificación | Esperado |
+|---|---|
+| Empleados en la corrida | 59 menos los excluidos por datos previsionales |
+| Líneas por empleado | al menos salario base + ISSS + AFP + ISR |
+| El multi-plaza | dos juegos de líneas de salario |
+| Suma de netos | igual al `projectedTotalNet` del `preflight`, salvo ajustes manuales |
+
+---
+
 ## Registro de la corrida — secciones 4 a 6
 
 | Paso | Endpoint | Esperado | Obtenido | Fecha | Notas |
 |---|---|---|---|---|---|
-| 4.1 | `job-profiles/catalog-manifest` | `200` | | | mapa de la sección |
-| 4.1 | `POST occupational-pyramid-levels` / `position-categories` | `201` | | | |
+| 4.1 | `job-profiles/catalog-manifest` | `200` | | | mapa de la sección; anotar el binding de `positionCategoryPublicId` |
+| 4.1 | `POST occupational-pyramid-levels` (7) | `201` | | | único catálogo de la sección sin dependencias |
+| 4.1 | `POST position-function-types` (5) / `position-contract-types` (3) | `201` | | | ejes 1 y 2 de la clasificación |
+| 4.1 | `POST position-category-classifications` (5) | `201` | | | exige los 3 ejes **activos**; eje 3 = tipos de unidad de 3.4 |
+| 4.1n | terna (función, contrato, tipo de unidad) repetida | `POSITION_CATEGORY_CLASSIFICATION_DUPLICATE_AXES` | | | la unicidad es de la terna, no del código |
+| 4.1 | `POST position-categories` (5) | `201` | | | `classificationPublicId` **obligatorio** |
+| 4.1n | `POST position-categories` sin `classificationPublicId` | `400` | | | `Guid` no anulable + `NotEmpty` |
+| 4.1n | `inactivate` de `DIRECTIVA` (libre) vs un tipo de función en uso | `200` / `POSITION_DESCRIPTION_CATALOG_IN_USE` | | | vía `PATCH /isActive`, no hay ruta dedicada |
+| 4.1n | `inactivate` del tipo de unidad `AREA` con `CLAS-ADMIN` activa | `ORG_STRUCTURE_CATALOG_IN_USE` | | | bloqueo aislado: `AREA` no la usa ninguna unidad |
 | 4.2 | `POST job-profiles` + 9 colecciones hijas | `201` | | | probar UN perfil completo |
 | 4.2 | `DELETE` de una colección hija | `204` | | | acá sí hay DELETE |
 | 4.2 | `competency-rating-scale` en empresa nueva | `isConfigured: false` | | | crear la escala ANTES de la matriz |

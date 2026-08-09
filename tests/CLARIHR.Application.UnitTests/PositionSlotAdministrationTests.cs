@@ -15,6 +15,7 @@ using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionSlots;
 using FluentValidation.TestHelper;
 using System.Reflection;
@@ -264,7 +265,8 @@ public sealed class PositionSlotAdministrationTests
             PositionCategoryClassificationId: null,
             ContractTypeId: null,
             ContractTypeCode: null,
-            ContractTypeName: null));
+            ContractTypeName: null,
+            JobProfileStatus: JobProfileStatus.Published));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new CreatePositionSlotCommandHandler(
@@ -337,7 +339,8 @@ public sealed class PositionSlotAdministrationTests
             PositionCategoryClassificationId: null,
             ContractTypeId: initialContractTypeId,
             ContractTypeCode: "TEMP-01",
-            ContractTypeName: "Temporal"));
+            ContractTypeName: "Temporal",
+            JobProfileStatus: JobProfileStatus.Published));
         repository.RegisterLookup(new PositionSlotJobProfileLookup(
             InternalJobProfileId: 30,
             JobProfileId: replacementJobProfileId,
@@ -348,7 +351,8 @@ public sealed class PositionSlotAdministrationTests
             PositionCategoryClassificationId: null,
             ContractTypeId: null,
             ContractTypeCode: null,
-            ContractTypeName: null));
+            ContractTypeName: null,
+            JobProfileStatus: JobProfileStatus.Published));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new UpdatePositionSlotCommandHandler(
@@ -417,7 +421,8 @@ public sealed class PositionSlotAdministrationTests
             PositionCategoryClassificationId: null,
             ContractTypeId: null,
             ContractTypeCode: null,
-            ContractTypeName: null));
+            ContractTypeName: null,
+            JobProfileStatus: JobProfileStatus.Published));
 
         var iamRepository = new TestIamAdministrationRepository();
         var role = IamRole.Create("Supervisor", "Supervisor role", isSystemRole: false);
@@ -495,7 +500,8 @@ public sealed class PositionSlotAdministrationTests
             PositionCategoryClassificationId: null,
             ContractTypeId: null,
             ContractTypeCode: null,
-            ContractTypeName: null));
+            ContractTypeName: null,
+            JobProfileStatus: JobProfileStatus.Published));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new UpdatePositionSlotDependenciesCommandHandler(

@@ -317,6 +317,10 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
          join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
              on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
          from contractType in contractTypeGroup.DefaultIfEmpty()
+         // H-01: the predicate stays existence+tenant on purpose. The Published gate lives in
+         // ResolveJobProfileLookupAsync so a draft profile yields 422 NOT_PUBLISHED ("publish it
+         // first") instead of collapsing into the 404 NOT_FOUND branch for a profile the caller
+         // is looking at in the picker.
          where profile.TenantId == tenantId && profile.PublicId == jobProfileId
          select new PositionSlotJobProfileLookup(
              profile.Id,
@@ -328,7 +332,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              classification != null ? classification.PublicId : null,
              contractType != null ? contractType.PublicId : null,
              contractType != null ? contractType.Code : null,
-             contractType != null ? contractType.Name : null))
+             contractType != null ? contractType.Name : null,
+             profile.Status))
         .SingleOrDefaultAsync(cancellationToken);
 
     // §PS3: single source of truth for the wide slot join. The 4 read endpoints

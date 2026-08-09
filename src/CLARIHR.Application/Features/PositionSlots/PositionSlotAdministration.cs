@@ -14,6 +14,7 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Application.Features.Reports.Common;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionSlots;
 using FluentValidation;
 
@@ -175,7 +176,8 @@ public sealed record PositionSlotJobProfileLookup(
     Guid? PositionCategoryClassificationId,
     Guid? ContractTypeId,
     string? ContractTypeCode,
-    string? ContractTypeName);
+    string? ContractTypeName,
+    JobProfileStatus JobProfileStatus);
 
 public sealed record SearchPositionSlotsQuery(
     Guid CompanyId,
@@ -1475,6 +1477,18 @@ internal static class PositionSlotCommandSupport
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, "Unmapped PositionSlotDomainErrorCode — add a branch here.")
     };
 
+    /// <summary>
+    /// Resolves the job profile a plaza is being pointed at, and refuses it unless the descriptor is
+    /// PUBLISHED (H-01). The gate lives here rather than in the repository predicate on purpose: filtering
+    /// the query would send a draft profile down the <c>lookup is null</c> branch, and since
+    /// <c>JobProfileExistsOutsideTenantAsync</c> returns <c>false</c> for a same-tenant profile the caller
+    /// would get <c>404 POSITION_SLOT_JOB_PROFILE_NOT_FOUND</c> for a profile they are looking at on
+    /// screen — a phantom-data bug report instead of "publish it first".
+    /// <para>
+    /// Its only two callers are the create and update handlers, which are exactly the writes that must be
+    /// gated, so the rule has a single home and cannot be forgotten on a new call site.
+    /// </para>
+    /// </summary>
     public static async Task<Result<PositionSlotJobProfileLookup>> ResolveJobProfileLookupAsync(
         Guid tenantId,
         Guid jobProfileId,
@@ -1486,7 +1500,9 @@ internal static class PositionSlotCommandSupport
         var lookup = await repository.GetJobProfileLookupAsync(tenantId, jobProfileId, cancellationToken);
         if (lookup is not null)
         {
-            return Result<PositionSlotJobProfileLookup>.Success(lookup);
+            return lookup.JobProfileStatus == JobProfileStatus.Published
+                ? Result<PositionSlotJobProfileLookup>.Success(lookup)
+                : Result<PositionSlotJobProfileLookup>.Failure(PositionSlotErrors.JobProfileNotPublished);
         }
 
         return Result<PositionSlotJobProfileLookup>.Failure(

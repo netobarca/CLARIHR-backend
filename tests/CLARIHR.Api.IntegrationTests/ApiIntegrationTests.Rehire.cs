@@ -38,6 +38,7 @@ public sealed partial class ApiIntegrationTests
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionDescriptionCatalogPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin);
 

@@ -417,6 +417,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             scenario.ActorUserId,
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.Publish,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             CompetencyFrameworkPermissionCodes.Admin);

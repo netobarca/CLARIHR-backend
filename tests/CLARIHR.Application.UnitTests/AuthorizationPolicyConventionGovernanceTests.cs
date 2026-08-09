@@ -68,6 +68,8 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         JobProfilePolicies.Read,
         JobProfilePolicies.Manage,
         JobProfilePolicies.ManageCatalogs,
+        // H-01 — write policy of JobProfileResolutionController (publish / reopen / archive).
+        JobProfilePolicies.Publish,
     };
 
     private static readonly HashSet<string> PositionDescriptionCatalogPolicyNames = new(StringComparer.Ordinal)

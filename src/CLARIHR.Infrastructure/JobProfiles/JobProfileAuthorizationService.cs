@@ -24,6 +24,9 @@ internal sealed class JobProfileAuthorizationService(
     public Task<Result> EnsureCanManageProfilesAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureAuthorizedAsync(companyId, PermissionScope.ProfileAdmin, cancellationToken);
 
+    public Task<Result> EnsureCanPublishProfilesAsync(Guid companyId, CancellationToken cancellationToken) =>
+        EnsureAuthorizedAsync(companyId, PermissionScope.PublishProfiles, cancellationToken);
+
     public Task<Result> EnsureCanManageCatalogsAsync(Guid companyId, CancellationToken cancellationToken) =>
         EnsureAuthorizedAsync(companyId, PermissionScope.CatalogAdmin, cancellationToken);
 
@@ -89,6 +92,13 @@ internal sealed class JobProfileAuthorizationService(
                 JobProfilePermissionCodes.Admin.ToUpperInvariant(),
                 JobProfilePermissionCodes.ManageAdministration.ToUpperInvariant()
             ],
+            // H-01: Admin is deliberately EXCLUDED — a profile administrator drafts and edits, but does
+            // not approve. Only the IAM super-admin remains a universal fallback.
+            PermissionScope.PublishProfiles =>
+            [
+                JobProfilePermissionCodes.Publish.ToUpperInvariant(),
+                JobProfilePermissionCodes.ManageAdministration.ToUpperInvariant()
+            ],
             PermissionScope.CatalogAdmin =>
             [
                 JobProfilePermissionCodes.CatalogAdmin.ToUpperInvariant(),
@@ -105,6 +115,7 @@ internal sealed class JobProfileAuthorizationService(
     {
         Read = 1,
         ProfileAdmin = 2,
-        CatalogAdmin = 3
+        CatalogAdmin = 3,
+        PublishProfiles = 4
     }
 }

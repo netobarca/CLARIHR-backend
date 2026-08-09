@@ -242,8 +242,12 @@ internal sealed class AddJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
         }
 
-        var profileInternalId = await repository.ResolveJobProfileInternalIdAsync(tenantContext.TenantId.Value, command.JobProfileId, cancellationToken);
-        if (!profileInternalId.HasValue)
+        // H-01: the aggregate is loaded (not just its internal id) so this write routes through
+        // BumpDescriptorVersion() like the other 8 collections. Resolving only the id let compensation
+        // be created, updated and patched on an ARCHIVED profile, and would have bypassed the
+        // published-descriptor freeze too.
+        var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
+        if (profile is null)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(
                 await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
@@ -251,7 +255,7 @@ internal sealed class AddJobProfileCompensationCommandHandler(
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        if (await repository.ProfileHasCompensationAsync(profileInternalId.Value, cancellationToken))
+        if (await repository.ProfileHasCompensationAsync(profile.Id, cancellationToken))
         {
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.CompensationAlreadyExists);
         }
@@ -267,12 +271,13 @@ internal sealed class AddJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.SalaryTabulatorLineInactiveForCompensation);
         }
 
-        var compensation = JobProfileCompensation.Create(profileInternalId.Value, line.Id, command.Notes);
+        var compensation = JobProfileCompensation.Create(profile.Id, line.Id, command.Notes);
         compensation.SetTenantId(tenantContext.TenantId.Value);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            profile.BumpDescriptorVersion();
             repository.Add(compensation);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -332,13 +337,21 @@ internal sealed class UpdateJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
         }
 
-        var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
-        if (compensation is null)
+        // H-01: load the aggregate so this write routes through BumpDescriptorVersion(). See the note in
+        // AddJobProfileCompensationCommandHandler.
+        var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
+        if (profile is null)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(
                 await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : JobProfileErrors.CompensationNotFound);
+                    : JobProfileErrors.JobProfileNotFound);
+        }
+
+        var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
+        if (compensation is null)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.CompensationNotFound);
         }
 
         if (compensation.ConcurrencyToken != command.ConcurrencyToken)
@@ -362,6 +375,7 @@ internal sealed class UpdateJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            profile.BumpDescriptorVersion();
             compensation.Update(line.Id, command.Notes);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -414,13 +428,21 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
         }
 
-        var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
-        if (compensation is null)
+        // H-01: load the aggregate so this write routes through BumpDescriptorVersion(). See the note in
+        // AddJobProfileCompensationCommandHandler.
+        var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
+        if (profile is null)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(
                 await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : JobProfileErrors.CompensationNotFound);
+                    : JobProfileErrors.JobProfileNotFound);
+        }
+
+        var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
+        if (compensation is null)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.CompensationNotFound);
         }
 
         if (compensation.ConcurrencyToken != command.ConcurrencyToken)
@@ -462,6 +484,7 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            profile.BumpDescriptorVersion();
             compensation.Update(line.Id, patchState.Notes);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -540,7 +563,7 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            profile.BumpVersion();
+            profile.BumpDescriptorVersion();
             repository.Remove(compensation);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 

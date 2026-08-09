@@ -9,6 +9,13 @@ public interface IJobProfileAuthorizationService
 
     Task<Result> EnsureCanManageProfilesAsync(Guid companyId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// H-01 — gate of the state transitions (publish / reopen / archive). Requires
+    /// <c>JobProfiles.Publish</c>, which <c>JobProfiles.Admin</c> deliberately does NOT imply, so the
+    /// person who drafts a descriptor is not automatically the one who approves it.
+    /// </summary>
+    Task<Result> EnsureCanPublishProfilesAsync(Guid companyId, CancellationToken cancellationToken);
+
     Task<Result> EnsureCanManageCatalogsAsync(Guid companyId, CancellationToken cancellationToken);
 
     Error TenantMismatch(RbacPermissionAction action);

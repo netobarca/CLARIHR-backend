@@ -79,6 +79,16 @@ public static class PositionSlotErrors
         "The selected job profile does not resolve to an active contract type.",
         ErrorType.UnprocessableEntity);
 
+    /// <summary>
+    /// H-01 — a plaza can only exist against an APPROVED job descriptor. 422 (not 404) on purpose: the
+    /// profile exists and the caller can see it in the picker; what is unprocessable is its state, and the
+    /// remedy is to publish it.
+    /// </summary>
+    public static readonly Error JobProfileNotPublished = new(
+        "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED",
+        "The selected job profile is not published. Publish the job profile before creating or updating position slots.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error CostCenterInvalid = new(
         "POSITION_SLOT_COST_CENTER_INVALID",
         "The cost center inferred from the job profile organization unit does not exist or is inactive for the company.",

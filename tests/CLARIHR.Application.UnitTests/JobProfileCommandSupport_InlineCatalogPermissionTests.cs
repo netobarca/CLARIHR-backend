@@ -154,6 +154,9 @@ public sealed class JobProfileCommandSupport_InlineCatalogPermissionTests
                 ? Task.FromResult(Result.Success())
                 : Task.FromResult(Result.Failure(JobProfileErrors.Forbidden));
 
+        public Task<Result> EnsureCanPublishProfilesAsync(Guid companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(Result.Success());
+
         public Error TenantMismatch(RbacPermissionAction action) =>
             new("TenantMismatch", "Tenant mismatch.", ErrorType.Forbidden);
     }

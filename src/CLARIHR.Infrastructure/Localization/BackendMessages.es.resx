@@ -307,6 +307,9 @@
   <data name="JOB_PROFILE_STATE_CONFLICT" xml:space="preserve">
     <value>La accion solicitada no esta permitida para el profile state.</value>
   </data>
+  <data name="JOB_PROFILE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>El estado del perfil de puesto no permite el cambio solicitado. Un perfil publicado debe reabrirse primero.</value>
+  </data>
   <data name="JobProfileWorkingCondition.NameRequired" xml:space="preserve">
     <value>Se requiere un nombre para la condicion de trabajo.</value>
   </data>
@@ -723,6 +726,9 @@
   </data>
   <data name="POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED" xml:space="preserve">
     <value>El perfil de puesto seleccionado no resuelve a un tipo de contrato activo.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED" xml:space="preserve">
+    <value>El perfil de puesto seleccionado no esta publicado. Publique el perfil antes de crear o actualizar plazas.</value>
   </data>
   <data name="POSITION_SLOT_COST_CENTER_INVALID" xml:space="preserve">
     <value>El cost center inferred from the job profile organization unit does not exist or is inactive for the company.</value>

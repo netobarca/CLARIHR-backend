@@ -2702,8 +2702,9 @@ Familias de rutas:
 - `/api/v1/job-profiles/{publicId}/vacancy-template`
 - `/api/v1/job-profiles/{publicId}/print`
 - `/api/v1/job-profiles/{publicId}/export`
-- `/api/v1/job-profiles/{publicId}/publish`
-- `/api/v1/job-profiles/{publicId}/archive`
+- `/api/v1/job-profiles/{publicId}/publication`
+- `/api/v1/job-profiles/{publicId}/reopening`
+- `/api/v1/job-profiles/{publicId}/archival`
 - `/api/v1/job-profiles/{jobProfilePublicId}/requirements`
 - `/api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}`
 - `/api/v1/job-profiles/{jobProfilePublicId}/functions`
@@ -2801,7 +2802,7 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `GET /api/v1/job-profiles/{jobProfilePublicId}/compensations` permanece sin paginar porque el modelo actual permite una sola compensacion por perfil; el handler aplica cap duro de `1` item antes de responder `IReadOnlyCollection<JobProfileCompensationItemResponse>`.
 - `PUT /job-profiles/{publicId}` y `PATCH /job-profiles/{publicId}` tambien requieren `If-Match` y responden con `ETag`; `PUT` ya no acepta `concurrencyToken` en body y `PATCH` ya no acepta `/concurrencyToken`.
 - Todos los endpoints `PATCH` que consumen `application/json-patch+json` en este bloque aplican hardening uniforme: maximo `50` operaciones RFC 6902 por documento y limite de body de `64 KiB`. Si el cliente excede `50` operaciones responde `400 common.validation`; si excede el tamano permitido el servidor rechaza la peticion con `413`.
-- `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive` y `GET /job-profiles/{publicId}` no cambian contrato por este ajuste.
+- `PUT /job-profiles/{publicId}/competency-matrix` y `GET /job-profiles/{publicId}` no cambian contrato por este ajuste. Las transiciones de estado se movieron a `/publication`, `/reopening` y `/archival` (H-01).
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{publicId}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
@@ -2969,9 +2970,23 @@ Route family:
 - `GET /api/v1/job-profiles/{publicId}/export`
 - `POST /api/v1/companies/{companyId}/job-profiles`
 - `PUT /api/v1/job-profiles/{publicId}`
-- `PATCH /api/v1/job-profiles/{publicId}`
-- `PATCH /api/v1/job-profiles/{publicId}/publish`
-- `PATCH /api/v1/job-profiles/{publicId}/archive`
+- `PATCH /api/v1/job-profiles/{publicId}` — **no cambia el estado** (H-01: un patch a `/status` responde `400`)
+- `PATCH /api/v1/job-profiles/{publicId}/publication` — `Draft` → `Published`, **congela el descriptor**
+- `PATCH /api/v1/job-profiles/{publicId}/reopening` — `Published` → `Draft`, **motivo obligatorio** en el body
+- `PATCH /api/v1/job-profiles/{publicId}/archival` — `Draft`/`Published` → `Archived`
+
+Las tres transiciones viven en `JobProfileResolutionController` y exigen el permiso **`JobProfiles.Publish`**,
+que `JobProfiles.Admin` **no implica** (separacion de funciones: quien redacta no aprueba). Las tres piden
+`If-Match` con el `concurrencyToken` vigente.
+
+Publicar es tambien lo que habilita el uso aguas abajo: **no se puede crear ni re-apuntar una plaza contra un
+perfil que no este `Published`** (`422 POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED`). Reabrir o archivar **no
+afecta las plazas ya creadas ni a sus ocupantes** — el estado gobierna escrituras nuevas, no registros
+existentes. La **matriz de competencias queda fuera del congelamiento**: exige un perfil publicado y sigue
+editable mientras lo este.
+
+Codigos nuevos: `JOB_PROFILE_STATE_RULE_VIOLATION` (422, el descriptor esta congelado o archivado, o la
+transicion es ilegal) y `POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED` (422).
 
 Uso principal:
 

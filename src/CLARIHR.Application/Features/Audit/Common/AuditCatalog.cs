@@ -68,6 +68,10 @@ public static class AuditEventTypes
     public const string JobProfileCreated = "JOB_PROFILE_CREATED";
     public const string JobProfileUpdated = "JOB_PROFILE_UPDATED";
     public const string JobProfilePublished = "JOB_PROFILE_PUBLISHED";
+
+    /// <summary>H-01 — <c>Published</c> → <c>Draft</c>. The mandatory reason lives in this entry.</summary>
+    public const string JobProfileReopened = "JOB_PROFILE_REOPENED";
+
     public const string JobProfileArchived = "JOB_PROFILE_ARCHIVED";
     public const string JobProfileCompensationCreated = "JOB_PROFILE_COMPENSATION_CREATED";
     public const string JobProfileCompensationUpdated = "JOB_PROFILE_COMPENSATION_UPDATED";
@@ -329,6 +333,7 @@ public static class AuditEventTypes
         JobProfileCompensationUpdated,
         JobProfileCompensationDeleted,
         JobProfilePublished,
+        JobProfileReopened,
         JobProfileArchived,
         JobCatalogItemCreated,
         JobCatalogItemUpdated,

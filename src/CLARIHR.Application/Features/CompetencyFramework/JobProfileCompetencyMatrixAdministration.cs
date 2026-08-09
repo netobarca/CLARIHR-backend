@@ -12,6 +12,7 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles;
+using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using FluentValidation;
@@ -429,7 +430,7 @@ internal sealed class AddJobProfileCompetencyMatrixItemCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -540,7 +541,7 @@ internal sealed class UpdateJobProfileCompetencyMatrixItemCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -670,7 +671,7 @@ internal sealed class PatchJobProfileCompetencyMatrixItemCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileCompetencyMatrixItemResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -744,7 +745,7 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {

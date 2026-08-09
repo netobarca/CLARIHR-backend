@@ -342,7 +342,7 @@ internal sealed class AddJobProfileRequirementCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileRequirementResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileRequirementResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -446,7 +446,7 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
                 descriptionResult.Value.Description,
                 command.SortOrder);
 
-            profile.BumpVersion();
+            profile.BumpDescriptorVersion();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -472,7 +472,7 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileRequirementResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileRequirementResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -593,7 +593,7 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
                 descriptionResult.Value.Description,
                 patchState.SortOrder);
 
-            profile.BumpVersion();
+            profile.BumpDescriptorVersion();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -619,7 +619,7 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileRequirementResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileRequirementResponse>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -698,7 +698,7 @@ internal sealed class RemoveJobProfileRequirementCommandHandler(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {

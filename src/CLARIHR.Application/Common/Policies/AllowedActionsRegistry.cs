@@ -306,10 +306,10 @@ public static class AllowedActionsRegistry
     // away from Archived). Mirrors the per-state gating the JobProfilePolicyAdapter applies on reads.
     private static ResourceState JobProfileStateExtractor(object? dto) => dto switch
     {
-        JobProfileListItemResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
-        JobProfileResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
-        JobProfileCoreResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
-        JobProfileEntityResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Archived.ToString()]),
+        JobProfileListItemResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]),
+        JobProfileResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]),
+        JobProfileCoreResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]),
+        JobProfileEntityResponse profile => new ResourceState(profile.Status.ToString(), profile.IsActive, NonEditableStates: [JobProfileStatus.Published.ToString(), JobProfileStatus.Archived.ToString()]),
         _ => new ResourceState(),
     };
 

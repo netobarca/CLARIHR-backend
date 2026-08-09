@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.JobProfiles;
 
 namespace CLARIHR.Application.Features.JobProfiles.Common;
 
@@ -20,6 +21,15 @@ public static class JobProfilePermissionCodes
 {
     public const string Read = "JobProfiles.Read";
     public const string Admin = "JobProfiles.Admin";
+
+    /// <summary>
+    /// H-01 — the state-transition grant (publish / reopen / archive). Deliberately NOT implied by
+    /// <see cref="Admin"/>: whoever drafts the descriptor does not automatically get to approve it.
+    /// Mirrors <c>PersonnelFiles.AuthorizePayrollRuns</c>. Only the IAM super-admin
+    /// (<see cref="ManageAdministration"/>) remains a universal fallback.
+    /// </summary>
+    public const string Publish = "JobProfiles.Publish";
+
     public const string CatalogAdmin = "JobCatalogs.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "JOB_PROFILES";
@@ -167,6 +177,16 @@ public static class JobProfileErrors
         "The requested action is not allowed for the current profile state.",
         ErrorType.Conflict);
 
+    /// <summary>
+    /// H-01 — the descriptor's state forbids the write: it is published (frozen until reopened) or
+    /// archived, or the requested status transition is illegal. 422 matches the convention of the rest of
+    /// the system (<c>PAYROLL_RUN_STATE_RULE_VIOLATION</c>, <c>SETTLEMENT_STATE_RULE_VIOLATION</c>).
+    /// </summary>
+    public static readonly Error StateRuleViolation = new(
+        "JOB_PROFILE_STATE_RULE_VIOLATION",
+        "The job profile status does not allow the requested change. A published profile must be reopened first.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error PublishRequirementsMissing = new(
         "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING",
         "The job profile does not meet the minimum requirements to be published.",
@@ -196,6 +216,15 @@ public static class JobProfileErrors
         "CONCURRENCY_CONFLICT",
         "The resource was modified by another request. Refresh and try again.",
         ErrorType.Conflict);
+
+    /// <summary>
+    /// H-01 — maps a domain <see cref="InvalidOperationException"/> to a catalogued error. A state
+    /// invariant (<see cref="JobProfileStateException"/>: frozen or archived descriptor, illegal
+    /// transition) becomes 422 <see cref="StateRuleViolation"/>; anything else keeps the previous 409
+    /// shape but stops leaking the raw domain message to the client.
+    /// </summary>
+    public static Error FromDomainException(InvalidOperationException exception) =>
+        exception is JobProfileStateException ? StateRuleViolation : StateConflict;
 
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(JobProfilePermissionCodes.ResourceKey, action);
