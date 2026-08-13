@@ -539,9 +539,12 @@ public sealed class PersonnelFileIncapacityDocument : TenantEntity
         int sizeBytes,
         string? observations)
     {
-        if (documentTypeCatalogItemId is <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId is 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         if (filePublicId == Guid.Empty)
@@ -616,9 +619,12 @@ public sealed class PersonnelFileIncapacityDocument : TenantEntity
         long? documentTypeCatalogItemId,
         string? observations)
     {
-        if (documentTypeCatalogItemId is <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId is 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         DocumentTypeCatalogItemId = documentTypeCatalogItemId;

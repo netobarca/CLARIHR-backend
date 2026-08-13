@@ -21,6 +21,8 @@ internal sealed class PersonnelFileSettlementConfiguration : IEntityTypeConfigur
         builder.Property(item => item.AssignedPositionPublicId).HasColumnName("assigned_position_public_id");
         builder.Property(item => item.PositionNameSnapshot).HasColumnName("position_name_snapshot").HasMaxLength(300);
         builder.Property(item => item.PlazaStartDate).HasColumnName("plaza_start_date");
+        // H-28 — el ancla de la antigüedad, snapshot al crear (la fecha de ingreso a la empresa).
+        builder.Property(item => item.SeniorityStartDate).HasColumnName("seniority_start_date");
         builder.Property(item => item.CostCenterPublicId).HasColumnName("cost_center_public_id");
         builder.Property(item => item.CostCenterNameSnapshot).HasColumnName("cost_center_name_snapshot").HasMaxLength(300);
         builder.Property(item => item.RetirementDate).HasColumnName("retirement_date");

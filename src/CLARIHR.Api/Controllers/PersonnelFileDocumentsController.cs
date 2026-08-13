@@ -191,7 +191,7 @@ public sealed class PersonnelFileDocumentsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a document from a personnel file",
@@ -201,7 +201,7 @@ public sealed class PersonnelFileDocumentsController(
             with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteDocument(
+    public async Task<ActionResult> DeleteDocument(
         Guid publicId,
         Guid documentPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -211,7 +211,7 @@ public sealed class PersonnelFileDocumentsController(
             new DeletePersonnelFileDocumentCommand(publicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Observations ────────────────────────────────────────────────────────────

@@ -27,8 +27,9 @@ public sealed record PersonnelFileEmploymentAssignmentResponse(
     Guid? OrgUnitId,
     Guid? WorkCenterId,
     Guid? CostCenterId,
-    DateTime StartDate,
-    DateTime? EndDate,
+    // H-26/H-28 — un día, no un instante: alineado con el agregado y la columna `date`.
+    DateOnly StartDate,
+    DateOnly? EndDate,
     bool IsPrimary,
     bool IsActive,
     string? Notes,
@@ -57,8 +58,9 @@ public sealed record EmploymentAssignmentInput(
     Guid? OrgUnitId,
     Guid? WorkCenterId,
     Guid? CostCenterId,
-    DateTime StartDate,
-    DateTime? EndDate,
+    // H-26/H-28 — un día, no un instante: alineado con el agregado y la columna `date`.
+    DateOnly StartDate,
+    DateOnly? EndDate,
     bool IsPrimary,
     bool IsActive,
     string? Notes,
@@ -83,7 +85,7 @@ public sealed record DeletePersonnelFileEmploymentAssignmentCommand(
     Guid PersonnelFileId,
     Guid EmploymentAssignmentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileEmploymentAssignmentPatchOperation(
     string Op,
@@ -201,8 +203,8 @@ internal sealed class PersonnelFileEmploymentAssignmentPatchState
     public Guid? OrgUnitId { get; set; }
     public Guid? WorkCenterId { get; set; }
     public Guid? CostCenterId { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
     public bool IsPrimary { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; }

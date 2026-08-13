@@ -80,7 +80,7 @@ internal sealed class AddPersonnelFileDisciplinaryActionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileDisciplinaryActionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileDisciplinaryActionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var tenantId = personnelFile.TenantId;

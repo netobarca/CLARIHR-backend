@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
+
 namespace CLARIHR.Domain.PersonnelFiles;
 
-public static class PersonnelFileNormalization
+public static partial class PersonnelFileNormalization
 {
     public static string Clean(string value, string paramName)
     {
@@ -24,6 +26,19 @@ public static class PersonnelFileNormalization
 
     public static string NormalizeName(string value) =>
         Clean(value, nameof(value)).ToUpperInvariant();
+
+    /// <summary>
+    /// H-27 — normaliza un número de CUENTA BANCARIA quitando todo separador antes de pasar a mayúsculas, así la
+    /// clave de unicidad es la cuenta y no cómo alguien la puntuó: <c>0001-1111-2222</c> y <c>000111112222</c> son
+    /// una cuenta, no dos, y la plata va al mismo lugar. Mismo criterio que
+    /// <c>LegalRepresentativeNormalization.NormalizeDocumentNumber</c>, que ya lo decidió para los documentos.
+    /// Respalda el índice único de (expediente, banco, número normalizado, moneda).
+    /// </summary>
+    public static string NormalizeAccountNumber(string value) =>
+        AccountSeparatorRegex().Replace(Clean(value, nameof(value)), string.Empty).ToUpperInvariant();
+
+    [GeneratedRegex(@"[^A-Za-z0-9]", RegexOptions.CultureInvariant)]
+    private static partial Regex AccountSeparatorRegex();
 
     public static string NormalizeCode(string value) =>
         Clean(value, nameof(value)).ToUpperInvariant();

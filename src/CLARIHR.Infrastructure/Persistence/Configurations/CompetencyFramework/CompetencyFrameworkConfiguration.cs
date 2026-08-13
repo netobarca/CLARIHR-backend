@@ -28,11 +28,11 @@ internal sealed class OccupationalPyramidLevelConfiguration : IEntityTypeConfigu
 
         builder.Property(level => level.Name)
             .HasColumnName("name")
-            .HasMaxLength(120);
+            .HasMaxLength(150);
 
         builder.Property(level => level.NormalizedName)
             .HasColumnName("normalized_name")
-            .HasMaxLength(120);
+            .HasMaxLength(150);
 
         builder.Property(level => level.LevelOrder)
             .HasColumnName("level_order");
@@ -377,11 +377,11 @@ internal sealed class CompetencyRatingScaleConfiguration : IEntityTypeConfigurat
 
         builder.Property(scale => scale.Name)
             .HasColumnName("name")
-            .HasMaxLength(120);
+            .HasMaxLength(150);
 
         builder.Property(scale => scale.NormalizedName)
             .HasColumnName("normalized_name")
-            .HasMaxLength(120);
+            .HasMaxLength(150);
 
         builder.Property(scale => scale.ScaleType)
             .HasColumnName("scale_type")
@@ -457,7 +457,7 @@ internal sealed class CompetencyRatingScaleLevelConfiguration : IEntityTypeConfi
 
         builder.Property(level => level.Label)
             .HasColumnName("label")
-            .HasMaxLength(120);
+            .HasMaxLength(150);
 
         builder.Property(level => level.Value)
             .HasColumnName("value")

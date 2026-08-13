@@ -153,6 +153,94 @@ public sealed class PayrollRunsReportingController(
             cancellationToken);
     }
 
+    [HttpPost("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/employees/query")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PayrollRunEmployeeMatrixResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Query the payroll matrix (one row per employee)",
+        Description = """
+            The payroll matrix: **one row per employee** of the run, pivoted server-side over its INCLUDED lines —
+            days (period, unpaid, incapacity by payer, and the paid equivalent), income split into salary, bonuses,
+            commissions, overtime, non-deductible reimbursements and aguinaldo, then ISSS / AFP / Renta and the
+            external and internal deductions, with the totals and the net.
+
+            `totales` is computed over the WHOLE run and travels with every page — do not recompute it from
+            `items`, which only carries the current page. The `otrosIngresos` / `otrosDescuentos` buckets exist so
+            that `ingresoTotal − totalDescuentos = liquidoAPagar` always squares, even for a concept the catalog
+            never classified.
+
+            A multi-plaza employee is ONE row: that is how the engine computes and what the law requires (the
+            statutory deductions live at employee level and cannot be split per plaza). The period days are taken
+            once, never summed across plazas.
+            """)]
+    public async Task<ActionResult<PayrollRunEmployeeMatrixResponse>> QueryEmployeeMatrix(
+        Guid companyId,
+        Guid payrollRunId,
+        [FromBody] QueryPayrollRunEmployeeMatrixRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new QueryPayrollRunEmployeeMatrixQuery(
+                companyId,
+                payrollRunId,
+                request.PageNumber ?? 1,
+                request.PageSize ?? 25),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
+    [HttpGet("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/employees/export")]
+    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [SwaggerOperation(
+        Summary = "Export the payroll matrix (one row per employee)",
+        Description = """
+            The same matrix as `employees/query`, as a file, over the same server-side pivot — the two surfaces are
+            guaranteed to give the same number. The last row is the run's TOTAL, so the file squares against the
+            run header without adding up the rows by hand.
+            """)]
+    public async Task<IActionResult> ExportEmployeeMatrix(
+        Guid companyId,
+        Guid payrollRunId,
+        [FromQuery] string format = "xlsx",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new ExportPayrollRunEmployeeMatrixQuery(
+                companyId, payrollRunId, reportExportDeliveryService.SynchronousReadLimit),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(
+                Result<IReadOnlyCollection<PlanillaEmpleadoRow>>.Failure(result.Error)).Result!;
+        }
+
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "payroll-run-employees",
+            "PlanillaPorEmpleado",
+            AuditEntityTypes.PayrollRun,
+            "PAYROLL_RUN_EMPLOYEE_MATRIX",
+            "Exported the payroll matrix (one row per employee).",
+            new { payrollRunId },
+            PersonnelFileErrors.ExportFormatInvalid,
+            cancellationToken);
+    }
+
     [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/payroll-runs/{payrollRunId:guid}/bank-reconciliation/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
@@ -371,6 +459,11 @@ public sealed class PayrollRunsReportingController(
 
         return File(zipBuffer.ToArray(), "application/zip", $"boletas-{shortRun}.zip");
     }
+
+    /// <summary>H-29 — cuerpo de la matriz por empleado: solo paginación (el filtro es la corrida de la ruta).</summary>
+    public sealed record QueryPayrollRunEmployeeMatrixRequest(
+        int? PageNumber,
+        int? PageSize);
 
     public sealed record QueryPayrollRunsRequest(
         Guid? PayrollDefinitionPublicId,

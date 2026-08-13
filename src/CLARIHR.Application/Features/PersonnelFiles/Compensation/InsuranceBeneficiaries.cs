@@ -61,7 +61,7 @@ public sealed record DeletePersonnelFileInsuranceBeneficiaryCommand(
     Guid InsurancePublicId,
     Guid BeneficiaryPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileInsuranceBeneficiaryPatchOperation(
     string Op,

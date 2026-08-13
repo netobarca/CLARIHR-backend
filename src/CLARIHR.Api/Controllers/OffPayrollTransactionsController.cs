@@ -177,7 +177,7 @@ public sealed class OffPayrollTransactionsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/off-payroll-transactions/{offPayrollTransactionPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Deactivate (soft-delete) an off-payroll transaction",
@@ -186,7 +186,7 @@ public sealed class OffPayrollTransactionsController(
             Requires the `If-Match` header with the current `concurrencyToken`. Returns the parent personnel
             file's refreshed concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteOffPayrollTransaction(
+    public async Task<ActionResult> DeleteOffPayrollTransaction(
         Guid publicId,
         Guid offPayrollTransactionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -196,7 +196,7 @@ public sealed class OffPayrollTransactionsController(
             new DeletePersonnelFileOffPayrollTransactionCommand(publicId, offPayrollTransactionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Off-payroll transaction documents (receipts / comprobantes) ──────────────
@@ -297,7 +297,7 @@ public sealed class OffPayrollTransactionsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/off-payroll-transactions/{offPayrollTransactionPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a supporting document from an off-payroll transaction",
@@ -305,7 +305,7 @@ public sealed class OffPayrollTransactionsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header
             with the document's current `concurrencyToken`.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteOffPayrollTransactionDocument(
+    public async Task<ActionResult> DeleteOffPayrollTransactionDocument(
         Guid publicId,
         Guid offPayrollTransactionPublicId,
         Guid documentPublicId,
@@ -316,7 +316,7 @@ public sealed class OffPayrollTransactionsController(
             new DeleteOffPayrollTransactionDocumentCommand(publicId, offPayrollTransactionPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     private static OffPayrollTransactionInput ToInput(AddOffPayrollTransactionRequest request) =>

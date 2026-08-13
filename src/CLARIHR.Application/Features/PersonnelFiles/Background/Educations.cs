@@ -73,7 +73,7 @@ public sealed record DeletePersonnelFileEducationCommand(
     Guid PersonnelFileId,
     Guid EducationPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileEducationPatchOperation(
     string Op,

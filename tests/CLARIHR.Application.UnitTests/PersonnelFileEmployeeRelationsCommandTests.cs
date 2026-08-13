@@ -271,7 +271,8 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.EmployeeRelations);
     }
 

@@ -59,7 +59,7 @@ public sealed record DeletePersonnelFilePerformanceEvaluationCommand(
     Guid PersonnelFileId,
     Guid EvaluationPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFilePerformanceEvaluationPatchOperation(
     string Op,

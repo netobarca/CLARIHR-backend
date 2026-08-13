@@ -299,7 +299,7 @@ internal static class FinalizePersonnelFileValidationResolver
 
         if (personnelFile.LifecycleStatus != PersonnelFileLifecycleStatus.Draft || personnelFile.LinkedUserPublicId.HasValue)
         {
-            issues.Add(CreateIssue(PersonnelFileErrors.StateRuleViolation, "personnel-file", "lifecycleStatus"));
+            issues.Add(CreateIssue(PersonnelFileErrors.AlreadyFinalized, "personnel-file", "lifecycleStatus"));
             return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
         }
 

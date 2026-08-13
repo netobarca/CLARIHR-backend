@@ -177,7 +177,7 @@ public sealed class PersonnelFileAuthorizationSubstitutionController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/authorization-substitutions/{authorizationSubstitutionPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an authorization substitution from a personnel file",
@@ -186,7 +186,7 @@ public sealed class PersonnelFileAuthorizationSubstitutionController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteAuthorizationSubstitution(
+    public async Task<ActionResult> DeleteAuthorizationSubstitution(
         Guid publicId,
         Guid authorizationSubstitutionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -196,6 +196,6 @@ public sealed class PersonnelFileAuthorizationSubstitutionController(
             new DeletePersonnelFileAuthorizationSubstitutionCommand(publicId, authorizationSubstitutionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

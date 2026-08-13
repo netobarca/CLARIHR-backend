@@ -171,7 +171,7 @@ internal sealed class AddDisciplinaryActionDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<DisciplinaryActionDocumentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<DisciplinaryActionDocumentResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var disciplinaryActionInternalId = await transactionRepository.GetDisciplinaryActionInternalIdAsync(personnelFile.PublicId, command.DisciplinaryActionPublicId, cancellationToken);
@@ -261,13 +261,13 @@ internal sealed class DeleteDisciplinaryActionDocumentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeleteDisciplinaryActionDocumentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeleteDisciplinaryActionDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeleteDisciplinaryActionDocumentCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageDisciplinaryActionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageDisciplinaryActionsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -276,25 +276,25 @@ internal sealed class DeleteDisciplinaryActionDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var disciplinaryActionInternalId = await transactionRepository.GetDisciplinaryActionInternalIdAsync(personnelFile.PublicId, command.DisciplinaryActionPublicId, cancellationToken);
         if (disciplinaryActionInternalId is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         var document = await transactionRepository.GetDisciplinaryActionDocumentEntityAsync(
             command.DisciplinaryActionPublicId, command.DocumentPublicId, personnelFile.TenantId, cancellationToken);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.DocumentNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.DocumentNotFound);
         }
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -311,8 +311,8 @@ internal sealed class DeleteDisciplinaryActionDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

@@ -121,6 +121,80 @@ internal sealed class ExportEmployerCostReportQueryHandler(
     }
 }
 
+/// <summary>
+/// H-29 — la matriz de la planilla en JSON, paginada. Gate <c>ViewPayrollRuns</c> (es un reporte de la corrida, no
+/// de cumplimiento). El pivote y la fila de totales se calculan en el servidor: el Excel y el JSON tienen que dar
+/// exactamente el mismo número, y con paginación la página no basta para recomponer los totales.
+/// </summary>
+internal sealed class QueryPayrollRunEmployeeMatrixQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPayrollRunRepository runRepository)
+    : IQueryHandler<QueryPayrollRunEmployeeMatrixQuery, PayrollRunEmployeeMatrixResponse>
+{
+    public async Task<Result<PayrollRunEmployeeMatrixResponse>> Handle(
+        QueryPayrollRunEmployeeMatrixQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanViewPayrollRunsAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PayrollRunEmployeeMatrixResponse>.Failure(authorizationResult.Error);
+        }
+
+        var matrix = await runRepository.GetEmployeeMatrixRowsAsync(query.CompanyId, query.PayrollRunId, cancellationToken);
+        if (matrix is null)
+        {
+            return Result<PayrollRunEmployeeMatrixResponse>.Failure(PayrollRunErrors.PayrollRunNotFound);
+        }
+
+        var (rows, totals) = matrix.Value;
+        var page = rows
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToArray();
+
+        return Result<PayrollRunEmployeeMatrixResponse>.Success(new PayrollRunEmployeeMatrixResponse(
+            query.PayrollRunId,
+            totals.Moneda,
+            page,
+            totals,
+            query.PageNumber,
+            query.PageSize,
+            rows.Count));
+    }
+}
+
+/// <summary>H-29 — la MISMA matriz como archivo, sobre el mismo pivote (una sola definición del número).</summary>
+internal sealed class ExportPayrollRunEmployeeMatrixQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPayrollRunRepository runRepository)
+    : IQueryHandler<ExportPayrollRunEmployeeMatrixQuery, IReadOnlyCollection<PlanillaEmpleadoRow>>
+{
+    public async Task<Result<IReadOnlyCollection<PlanillaEmpleadoRow>>> Handle(
+        ExportPayrollRunEmployeeMatrixQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanViewPayrollRunsAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<PlanillaEmpleadoRow>>.Failure(authorizationResult.Error);
+        }
+
+        var matrix = await runRepository.GetEmployeeMatrixRowsAsync(query.CompanyId, query.PayrollRunId, cancellationToken);
+        if (matrix is null)
+        {
+            return Result<IReadOnlyCollection<PlanillaEmpleadoRow>>.Failure(PayrollRunErrors.PayrollRunNotFound);
+        }
+
+        var (rows, totals) = matrix.Value;
+        // La fila de totales viaja DENTRO del archivo, como en el resto de los exports del módulo: quien lo abre
+        // tiene que poder cuadrar contra la cabecera de la corrida sin sumar 59 filas a mano.
+        var withTotals = rows.Concat([totals]).ToArray();
+        return Result<IReadOnlyCollection<PlanillaEmpleadoRow>>.Success(
+            query.MaxRows is { } cap ? withTotals.Take(cap).ToArray() : withTotals);
+    }
+}
+
 /// <summary>F-14 (REQ-016 RF-001) — gated by ViewComplianceReports (P-10). No run/period to find-or-404: an empty month is a valid, empty report (RF-005).</summary>
 internal sealed class ExportIncomeTaxWithholdingReportQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,

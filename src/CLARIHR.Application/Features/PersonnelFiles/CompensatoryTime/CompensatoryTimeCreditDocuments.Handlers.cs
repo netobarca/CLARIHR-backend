@@ -159,7 +159,7 @@ internal sealed class AddCompensatoryTimeCreditDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<CompensatoryTimeCreditDocumentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<CompensatoryTimeCreditDocumentResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await compensatoryTimeRepository.IsProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -254,13 +254,13 @@ internal sealed class DeleteCompensatoryTimeCreditDocumentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeleteCompensatoryTimeCreditDocumentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeleteCompensatoryTimeCreditDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeleteCompensatoryTimeCreditDocumentCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageCompensatoryTimeAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageCompensatoryTimeAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -269,25 +269,25 @@ internal sealed class DeleteCompensatoryTimeCreditDocumentCommandHandler(
 
         if (await compensatoryTimeRepository.IsProfileRetiredAsync(personnelFile!.Id, cancellationToken))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ProfileRetiredLocked);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ProfileRetiredLocked);
         }
 
         var creditInternalId = await compensatoryTimeRepository.GetCreditInternalIdAsync(personnelFile.PublicId, command.CompensatoryTimeCreditPublicId, cancellationToken);
         if (creditInternalId is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         var document = await compensatoryTimeRepository.GetDocumentEntityAsync(
             command.CompensatoryTimeCreditPublicId, command.DocumentPublicId, personnelFile.TenantId, cancellationToken);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.DocumentNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.DocumentNotFound);
         }
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -304,8 +304,8 @@ internal sealed class DeleteCompensatoryTimeCreditDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

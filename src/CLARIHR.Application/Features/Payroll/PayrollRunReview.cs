@@ -15,6 +15,14 @@ public sealed record PayrollRunLineResponse(
     string ConceptCode,
     string ConceptName,
     string LineClass,
+    // H-29/H-30 — la clase del reporte, congelada al generar. `incomeClass` en ingresos, `deductionClass` en
+    // descuentos, ambas nulas en pagos patronales.
+    string? IncomeClass,
+    string? DeductionClass,
+    // H-31 — el desglose de días por pagador (null cuando la línea no viene de un registro con días).
+    decimal? UnpaidDays,
+    decimal? EmployerPaidDays,
+    decimal? SubsidizedDays,
     decimal? Units,
     decimal? BaseAmount,
     decimal CalculatedAmount,

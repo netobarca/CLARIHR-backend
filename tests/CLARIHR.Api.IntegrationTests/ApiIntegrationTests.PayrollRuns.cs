@@ -41,8 +41,19 @@ public sealed partial class ApiIntegrationTests
         string institutionalEmail,
         decimal monthlySalary = 600m,
         Guid? linkedUserPublicId = null,
-        bool withBankAccount = false)
+        bool withBankAccount = false,
+        // H-33/G5 — el desacople es opt-in: por defecto sigue siendo la misma fecha que antes, así que ningún
+        // test existente cambia. Quien necesite distinguir ingreso de inicio de plaza lo pide.
+        DateTime? hireDate = null,
+        DateOnly? plazaStartDate = null,
+        // La asignación se siembra SIN plaza porque a casi ningún test le importa. Pero registrar horas extras
+        // exige una plaza real: la exención de H-19 vive en `position_slots.generates_overtime`, no en la persona,
+        // y el handler la resuelve desde la asignación. Por eso `horasExtras` no tenía cobertura en la matriz.
+        Guid? positionSlotPublicId = null)
     {
+        var effectiveHire = hireDate ?? PayrollRunHireDate;
+        var effectivePlazaStart = plazaStartDate ?? DateOnly.FromDateTime(effectiveHire);
+
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -97,7 +108,7 @@ public sealed partial class ApiIntegrationTests
             await dbContext.SaveChangesAsync();
         }
 
-        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", PayrollRunHireDate, 365m);
+        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", effectiveHire, 365m);
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);
@@ -107,11 +118,11 @@ public sealed partial class ApiIntegrationTests
             contractTypeCode: null,
             workdayCode: null,
             payrollTypeCode: "QUINCENAL",
-            positionSlotPublicId: null,
+            positionSlotPublicId,
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: costCenter.PublicId,
-            startDate: PayrollRunHireDate,
+            startDate: effectivePlazaStart,
             endDate: null,
             isPrimary: true,
             isActive: true,
@@ -137,7 +148,7 @@ public sealed partial class ApiIntegrationTests
             payPeriodCode: "MENSUAL",
             counterpartyName: null,
             externalReference: null,
-            startDate: PayrollRunHireDate,
+            startDate: effectiveHire,
             endDate: null,
             isActive: true,
             isSystemSuggested: false,

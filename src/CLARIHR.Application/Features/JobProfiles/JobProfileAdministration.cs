@@ -198,8 +198,6 @@ public sealed record JobProfileDependentPositionResponse(
     public Guid DependentJobProfileId => DependentJobProfilePublicId;
 }
 
-public sealed record JobProfileParentConcurrencyResult(Guid ParentConcurrencyToken);
-
 public sealed record JobProfileReferenceResponse(
     Guid Id,
     string Code,
@@ -1049,8 +1047,10 @@ internal sealed class CreateJobProfileCommandHandler(
             command.MarketSalaryReference,
             command.ValuationNotes,
             command.EffectiveFromUtc,
-            command.EffectiveToUtc,
-            bumpVersion: false);
+            // H-09 — `bumpVersion: false` used to be here so creation would not land on version 2. The flag is
+            // gone: `UpdateCore` no longer touches the version at all, and a fresh profile starts at 0 until
+            // it is published.
+            command.EffectiveToUtc);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try

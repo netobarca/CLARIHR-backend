@@ -33,8 +33,15 @@ public sealed partial class ApiIntegrationTests
         string lastName,
         string employeeCode,
         string institutionalEmail,
-        Guid? linkedUserPublicId = null)
+        Guid? linkedUserPublicId = null,
+        // H-33/G5 — el desacople es opt-in: por defecto sigue siendo la misma fecha que antes, así que ningún
+        // test existente cambia. Quien necesite distinguir ingreso de inicio de plaza lo pide.
+        DateTime? hireDate = null,
+        DateOnly? plazaStartDate = null)
     {
+        var effectiveHire = hireDate ?? OneTimeDeductionHireDate;
+        var effectivePlazaStart = plazaStartDate ?? DateOnly.FromDateTime(effectiveHire);
+
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -68,7 +75,7 @@ public sealed partial class ApiIntegrationTests
         dbContext.Set<PersonnelFile>().Add(file);
         await dbContext.SaveChangesAsync();
 
-        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", OneTimeDeductionHireDate);
+        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", effectiveHire);
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);
@@ -83,7 +90,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: null,
-            startDate: OneTimeDeductionHireDate,
+            startDate: effectivePlazaStart,
             endDate: null,
             isPrimary: true,
             isActive: true,
@@ -97,14 +104,22 @@ public sealed partial class ApiIntegrationTests
     }
 
     /// <summary>A fixed-value deduction: a $75 fine for a damaged asset.</summary>
-    private static object FixedOneTimeDeductionBody(Guid requesterFileId, decimal amount = 75m)
+    private static object FixedOneTimeDeductionBody(
+        Guid requesterFileId,
+        decimal amount = 75m,
+        // H-29 — el concepto es opt-in: por defecto sigue siendo el `DANO_EQUIPO` (Interno) de siempre, así que
+        // ningún test existente cambia. Sirve para cubrir la columna de descuentos EXTERNOS del reporte.
+        string conceptTypeCode = "DANO_EQUIPO",
+        // Y la nómina: el pending filtra por `payrollTypeCode`, así que un descuento MENSUAL no entra a una corrida
+        // QUINCENAL. Es lo que hacía que las dos columnas de H-30 salieran en cero sin que nada fallara.
+        string payrollTypeCode = "MENSUAL")
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
         return new
         {
             deductionDate = today,
             reference = "DANO-LAPTOP-001",
-            conceptTypeCode = "DANO_EQUIPO",
+            conceptTypeCode,
             observations = (string?)null,
             isFixedValue = true,
             calculationMethod = (string?)null,
@@ -117,7 +132,7 @@ public sealed partial class ApiIntegrationTests
             currencyCode = "USD",
             assignedPositionPublicId = (Guid?)null,
             requesterFilePublicId = requesterFileId,
-            payrollTypeCode = "MENSUAL",
+            payrollTypeCode,
             payrollPeriodPublicId = (Guid?)null,
             payrollPeriodLabel = "Julio 2026",
             payrollPeriodEndDate = (DateOnly?)null

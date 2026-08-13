@@ -226,6 +226,26 @@ public static class LocationErrors
         "Latitude and longitude are required for the selected work center type.",
         ErrorType.Validation);
 
+    /// <summary>
+    /// H-17 — the exact pair (0,0) is the null island in the Gulf of Guinea. Presence and range were already
+    /// checked, so this coordinate passed every gate while being, for any real employer, a placeholder someone
+    /// left behind. The company's own `SAL-EST` — an airport station whose type DEMANDS geo — was stored there.
+    /// </summary>
+    public static readonly Error WorkCenterCoordinatesPlaceholder = new(
+        "WORK_CENTER_COORDINATES_PLACEHOLDER",
+        "The coordinates (0, 0) are a placeholder, not a location. Provide the real latitude and longitude.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-17 — latitude without longitude, or the reverse. The both-or-nothing rule only ran when the work
+    /// center TYPE demanded geo, so any other type could store half a coordinate. (0,0) is at least a point;
+    /// half a coordinate is not a location at all.
+    /// </summary>
+    public static readonly Error WorkCenterCoordinatesIncomplete = new(
+        "WORK_CENTER_COORDINATES_INCOMPLETE",
+        "Latitude and longitude must be provided together.",
+        ErrorType.UnprocessableEntity);
+
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(LocationPermissionCodes.ResourceKey, action);
 }

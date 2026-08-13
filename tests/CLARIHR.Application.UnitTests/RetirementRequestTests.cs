@@ -368,23 +368,23 @@ public sealed class RetirementRequestTests
     [Fact]
     public void AssignmentReopen_RestoresPreviousEndDateExactly()
     {
-        var previousEnd = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc);
+        var previousEnd = new DateOnly(2026, 12, 31);
         var assignment = PersonnelFileEmploymentAssignment.Create(
             "PLAZA", null, null, null, Guid.NewGuid(), null, null, null,
-            startDate: new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            startDate: new DateOnly(2025, 1, 1),
             endDate: previousEnd,
             isPrimary: true,
             isActive: true,
             notes: null);
 
-        assignment.Close(new DateTime(2026, 7, 3, 0, 0, 0, DateTimeKind.Utc));
+        assignment.Close(new DateOnly(2026, 7, 3));
         Assert.False(assignment.IsActive);
 
         assignment.Reopen(previousEnd);
         Assert.True(assignment.IsActive);
         Assert.Equal(previousEnd, assignment.EndDate);
 
-        assignment.Close(new DateTime(2026, 7, 3, 0, 0, 0, DateTimeKind.Utc));
+        assignment.Close(new DateOnly(2026, 7, 3));
         assignment.Reopen(previousEndDate: null); // the execution set the end date → reversal clears it
         Assert.True(assignment.IsActive);
         Assert.Null(assignment.EndDate);

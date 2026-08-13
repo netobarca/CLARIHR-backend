@@ -19,6 +19,7 @@ public sealed class SettlementDomainTests
             assignedPositionPublicId: Guid.NewGuid(),
             positionNameSnapshot: "Analista de RRHH",
             plazaStartDate: PlazaStart,
+            seniorityStartDate: PlazaStart,
             costCenterPublicId: Guid.NewGuid(),
             costCenterNameSnapshot: "CC-RRHH",
             retirementDate: new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc),
@@ -38,6 +39,7 @@ public sealed class SettlementDomainTests
             assignedPositionPublicId: Guid.NewGuid(),
             positionNameSnapshot: "Analista de RRHH",
             plazaStartDate: PlazaStart,
+            seniorityStartDate: PlazaStart,
             costCenterPublicId: null,
             costCenterNameSnapshot: null,
             estimatedRetirementDate: new DateTime(2026, 12, 15, 0, 0, 0, DateTimeKind.Utc),
@@ -97,7 +99,7 @@ public sealed class SettlementDomainTests
     public void CreateSettlement_RetirementDateBeforePlazaStart_Throws() =>
         Assert.Throws<InvalidOperationException>(() =>
             PersonnelFileSettlement.CreateSettlement(
-                Guid.NewGuid(), Guid.NewGuid(), null, PlazaStart, null, null,
+                Guid.NewGuid(), Guid.NewGuid(), null, PlazaStart, PlazaStart, null, null,
                 retirementDate: PlazaStart.AddDays(-1),
                 "VOLUNTARIA", null, "ESTUDIOS", null,
                 Guid.NewGuid(), "RRHH", AsOf, null, Guid.NewGuid(), "USD"));

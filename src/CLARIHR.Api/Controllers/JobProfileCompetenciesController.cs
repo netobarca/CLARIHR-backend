@@ -175,7 +175,7 @@ public sealed class JobProfileCompetenciesController(
     }
 
     [HttpDelete("{competencyPublicId:guid}")]
-    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a competency from a job profile",
@@ -185,7 +185,7 @@ public sealed class JobProfileCompetenciesController(
             concurrency token so the caller can continue mutating the profile
             without an extra round-trip.
             """)]
-    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
+    public async Task<ActionResult> Remove(
         Guid jobProfilePublicId,
         Guid competencyPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -195,7 +195,7 @@ public sealed class JobProfileCompetenciesController(
             new RemoveJobProfileCompetencyCommand(jobProfilePublicId, competencyPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     public sealed class MutateCompetencyRequest

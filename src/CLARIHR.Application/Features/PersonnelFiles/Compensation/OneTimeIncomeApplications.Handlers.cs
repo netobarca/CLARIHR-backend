@@ -125,7 +125,7 @@ internal sealed class ApplyOneTimeIncomeApplicationCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OneTimeIncomeApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OneTimeIncomeApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsOneTimeIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -250,7 +250,7 @@ internal sealed class AnnulOneTimeIncomeApplicationCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OneTimeIncomeApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OneTimeIncomeApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (string.IsNullOrWhiteSpace(command.Reason))

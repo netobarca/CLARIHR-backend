@@ -81,7 +81,7 @@ public sealed record PatchJobProfileCompensationCommand(
 public sealed record RemoveJobProfileCompensationCommand(
     Guid JobProfileId,
     Guid CompensationId,
-    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetJobProfileCompensationsQueryValidator : AbstractValidator<GetJobProfileCompensationsQuery>
 {
@@ -243,7 +243,7 @@ internal sealed class AddJobProfileCompensationCommandHandler(
         }
 
         // H-01: the aggregate is loaded (not just its internal id) so this write routes through
-        // BumpDescriptorVersion() like the other 8 collections. Resolving only the id let compensation
+        // EnsureDescriptorEditable() like the other 8 collections. Resolving only the id let compensation
         // be created, updated and patched on an ARCHIVED profile, and would have bypassed the
         // published-descriptor freeze too.
         var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
@@ -277,7 +277,7 @@ internal sealed class AddJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
             repository.Add(compensation);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -337,7 +337,7 @@ internal sealed class UpdateJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
         }
 
-        // H-01: load the aggregate so this write routes through BumpDescriptorVersion(). See the note in
+        // H-01: load the aggregate so this write routes through EnsureDescriptorEditable(). See the note in
         // AddJobProfileCompensationCommandHandler.
         var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
@@ -375,7 +375,7 @@ internal sealed class UpdateJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
             compensation.Update(line.Id, command.Notes);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -428,7 +428,7 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
         }
 
-        // H-01: load the aggregate so this write routes through BumpDescriptorVersion(). See the note in
+        // H-01: load the aggregate so this write routes through EnsureDescriptorEditable(). See the note in
         // AddJobProfileCompensationCommandHandler.
         var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
@@ -484,7 +484,7 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
             compensation.Update(line.Id, patchState.Notes);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -522,25 +522,25 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileCompensationCommand, JobProfileParentConcurrencyResult>
+    : ICommandHandler<RemoveJobProfileCompensationCommand, ChildDeletionResult>
 {
-    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileCompensationCommand command, CancellationToken cancellationToken)
+    public async Task<Result<ChildDeletionResult>> Handle(RemoveJobProfileCompensationCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<ChildDeletionResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
+            return Result<ChildDeletionResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -549,12 +549,12 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
         var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
         if (compensation is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.CompensationNotFound);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.CompensationNotFound);
         }
 
         if (compensation.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetResponseAsync(command.JobProfileId, compensation.PublicId, cancellationToken)
@@ -563,7 +563,7 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
             repository.Remove(compensation);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -580,7 +580,7 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
         }
         catch
         {

@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -33,7 +34,7 @@ public sealed record GetPersonnelCatalogItemsQuery(string Category, string? Coun
 
 public sealed record GetPersonnelReferenceCatalogItemsQuery(
     string Category,
-    string CountryCode,
+    string? CountryCode,
     string? ParentCode = null) : IQuery<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>;
 
 internal sealed class GetPersonnelCatalogItemsQueryValidator : AbstractValidator<GetPersonnelCatalogItemsQuery>
@@ -62,13 +63,14 @@ internal sealed class GetPersonnelReferenceCatalogItemsQueryValidator : Abstract
             .Must(PersonnelFileValidationRules.IsValidCode)
             .WithMessage("Category format is invalid.");
 
-        // Reference catalogs are country-scoped, so the country code is required (supplied explicitly now
-        // that the route carries no company).
+        // H-21 — reference catalogs are country-scoped, but the code is no longer required HERE: the handler
+        // falls back to the tenant's country and answers 400 CATALOG_COUNTRY_REQUIRED only when there is no
+        // tenant either. Only the format is constrained, exactly like the general catalogs.
         RuleFor(query => query.CountryCode)
-            .NotEmpty()
             .MaximumLength(3)
             .Matches("^[A-Za-z]{2,3}$")
-            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.");
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.")
+            .When(query => !string.IsNullOrWhiteSpace(query.CountryCode));
         RuleFor(query => query.ParentCode)
             .MaximumLength(120)
             .Must(PersonnelFileValidationRules.IsValidCode)
@@ -603,28 +605,53 @@ internal static class PersonnelReferenceCatalogValidation
 // before a company exists (onboarding) and on every form load. The controller's [Authorize] is the only
 // gate — mirror AccountCompanyCatalogsController — so no per-company authorization service is involved.
 internal sealed class GetPersonnelCatalogItemsQueryHandler(
-    IPersonnelFileRepository repository)
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
     : IQueryHandler<GetPersonnelCatalogItemsQuery, IReadOnlyCollection<PersonnelCatalogItemResponse>>
 {
     public async Task<Result<IReadOnlyCollection<PersonnelCatalogItemResponse>>> Handle(
         GetPersonnelCatalogItemsQuery query,
         CancellationToken cancellationToken)
     {
-        var items = await repository.GetCatalogItemsAsync(query.CountryCode, query.Category, cancellationToken);
+        // H-21 — the system-scoped catalogs are asked FIRST and with no country at all: they are global, and the
+        // company-less onboarding caller has no tenant to fall back on. Resolving before this check would turn
+        // `education-*` and `file-document-types` into a 400 for exactly the flow this surface exists to serve.
+        string? countryCode = null;
+        if (GeneralCatalogScopes.RequiresCountry(query.Category))
+        {
+            var country = await CatalogCountryResolution.ResolveAsync(
+                query.CountryCode, tenantContext, repository, cancellationToken);
+            if (country.IsFailure)
+            {
+                return Result<IReadOnlyCollection<PersonnelCatalogItemResponse>>.Failure(country.Error);
+            }
+
+            countryCode = country.Value;
+        }
+
+        var items = await repository.GetCatalogItemsAsync(countryCode, query.Category, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelCatalogItemResponse>>.Success(items);
     }
 }
 
 internal sealed class GetPersonnelReferenceCatalogItemsQueryHandler(
-    IPersonnelFileRepository repository)
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
     : IQueryHandler<GetPersonnelReferenceCatalogItemsQuery, IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>
 {
     public async Task<Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> Handle(
         GetPersonnelReferenceCatalogItemsQuery query,
         CancellationToken cancellationToken)
     {
+        var country = await CatalogCountryResolution.ResolveAsync(
+            query.CountryCode, tenantContext, repository, cancellationToken);
+        if (country.IsFailure)
+        {
+            return Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Failure(country.Error);
+        }
+
         var items = await repository.GetReferenceCatalogItemsAsync(
-            query.CountryCode,
+            country.Value,
             query.Category,
             query.ParentCode,
             cancellationToken);

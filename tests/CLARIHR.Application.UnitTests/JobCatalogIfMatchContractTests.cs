@@ -61,6 +61,8 @@ public sealed class JobCatalogIfMatchContractTests
             Category: JobCatalogCategory.EducationLevel,
             Code: "EDU-001",
             Name: "Licenciatura",
+            Description: null,
+            SortOrder: 0,
             IsSystem: false,
             IsActive: true,
             ConcurrencyToken: Guid.NewGuid(),

@@ -45,7 +45,7 @@ internal sealed class AddPersonnelFileAdditionalBenefitCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // benefitTypeCode is catalog-backed now (RF-010): must be an active AdditionalBenefitType code.
@@ -121,7 +121,7 @@ internal sealed class UpdatePersonnelFileAdditionalBenefitCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
@@ -210,7 +210,7 @@ internal sealed class PatchPersonnelFileAdditionalBenefitCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
@@ -300,13 +300,13 @@ internal sealed class DeletePersonnelFileAdditionalBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileAdditionalBenefitCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileAdditionalBenefitCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileAdditionalBenefitCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -320,24 +320,24 @@ internal sealed class DeletePersonnelFileAdditionalBenefitCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteAdditionalBenefitAsync(command.AdditionalBenefitPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -356,8 +356,8 @@ internal sealed class DeletePersonnelFileAdditionalBenefitCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

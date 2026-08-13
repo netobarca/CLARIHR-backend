@@ -9,6 +9,14 @@ public static class WorkScheduleAnchors
     public const string Salida = "SALIDA";
 
     public static readonly IReadOnlyCollection<string> All = new[] { Entrada, Salida };
+
+    /// <summary>
+    /// H-18(b) — the membership test lives here, next to the values, so the application validator and
+    /// <see cref="WorkSchedule"/> share one predicate and cannot disagree on what "valid" means. Before this,
+    /// only the aggregate knew, and an invalid value surfaced as "the days are not valid".
+    /// </summary>
+    public static bool IsKnown(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && All.Contains(value.Trim().ToUpperInvariant());
 }
 
 /// <summary>Classification of a work schedule (REQ-012 D-06).</summary>
@@ -18,6 +26,10 @@ public static class WorkScheduleClasses
     public const string Extraordinaria = "EXTRAORDINARIA";
 
     public static readonly IReadOnlyCollection<string> All = new[] { Ordinaria, Extraordinaria };
+
+    /// <inheritdoc cref="WorkScheduleAnchors.IsKnown"/>
+    public static bool IsKnown(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && All.Contains(value.Trim().ToUpperInvariant());
 }
 
 /// <summary>Input row for <see cref="WorkSchedule.ReplaceDays"/> (one weekday of the schedule).</summary>
@@ -272,7 +284,7 @@ public sealed class WorkSchedule : TenantEntity
     private void SetAttendanceDateAnchor(string attendanceDateAnchor)
     {
         var normalized = PayrollNormalization.NormalizeCode(attendanceDateAnchor);
-        if (!WorkScheduleAnchors.All.Contains(normalized))
+        if (!WorkScheduleAnchors.IsKnown(normalized))
         {
             throw new ArgumentException("Attendance date anchor must be ENTRADA or SALIDA.", nameof(attendanceDateAnchor));
         }
@@ -283,7 +295,7 @@ public sealed class WorkSchedule : TenantEntity
     private void SetScheduleClass(string scheduleClass)
     {
         var normalized = PayrollNormalization.NormalizeCode(scheduleClass);
-        if (!WorkScheduleClasses.All.Contains(normalized))
+        if (!WorkScheduleClasses.IsKnown(normalized))
         {
             throw new ArgumentException("Schedule class must be ORDINARIA or EXTRAORDINARIA.", nameof(scheduleClass));
         }

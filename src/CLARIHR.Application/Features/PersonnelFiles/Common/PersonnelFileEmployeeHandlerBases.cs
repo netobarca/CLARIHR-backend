@@ -487,7 +487,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -674,7 +674,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1036,7 +1036,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1267,7 +1267,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1381,7 +1381,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1504,7 +1504,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1565,7 +1565,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1603,7 +1603,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1726,7 +1726,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -1968,7 +1968,7 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2207,7 +2207,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!)), null);
         }
 
         return (null, personnelFile);
@@ -2256,7 +2256,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2297,7 +2297,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2347,7 +2347,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2397,7 +2397,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2447,7 +2447,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2489,7 +2489,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2538,7 +2538,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null);
         }
 
         return (null, personnelFile);
@@ -2591,7 +2591,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null, false);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null, false);
         }
 
         return (null, personnelFile, !canViewByRole);
@@ -2644,7 +2644,7 @@ internal abstract class PersonnelFileEmployeeReadQueryHandlerBase : PersonnelFil
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return (Result<TResponse>.Failure(PersonnelFileErrors.StateRuleViolation), null, false);
+            return (Result<TResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile)), null, false);
         }
 
         return (null, personnelFile, !canViewByRole);

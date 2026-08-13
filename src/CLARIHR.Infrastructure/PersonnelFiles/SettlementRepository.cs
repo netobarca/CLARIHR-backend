@@ -376,7 +376,11 @@ internal sealed class SettlementRepository(
 
         return new SettlementCalculationContext(
             new SettlementPlazaContext(
-                assignment.PublicId, assignment.StartDate, assignment.EndDate, assignment.IsActive,
+                assignment.PublicId,
+                // El motor de finiquitos está certificado sobre instantes: el día entra como su medianoche UTC.
+                assignment.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+                assignment.EndDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+                assignment.IsActive,
                 assignment.IsPrimary, positionTitle, assignment.CostCenterPublicId, costCenterName),
             monthlyBaseSalary,
             profile?.HireDate,

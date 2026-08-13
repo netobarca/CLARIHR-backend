@@ -126,9 +126,20 @@ internal sealed class PayrollRunLineConfiguration : IEntityTypeConfiguration<Pay
     public void Configure(EntityTypeBuilder<PayrollRunLine> builder)
     {
         builder.ToTable("payroll_run_lines", table =>
+        {
             table.HasCheckConstraint(
                 "ck_payroll_run_lines__line_class",
-                "line_class IN ('Ingreso','Descuento','PagoPatronal')"));
+                "line_class IN ('Ingreso','Descuento','PagoPatronal')");
+            // H-29/H-30 — la clase del reporte tiene que corresponder al lado de la línea: un descuento con clase
+            // de ingreso (o al revés) sería un monto en la columna equivocada. El pago patronal no lleva ninguna.
+            table.HasCheckConstraint(
+                "ck_payroll_run_lines__report_class_matches_side",
+                """
+                (line_class = 'Ingreso'      AND deduction_class IS NULL)
+                OR (line_class = 'Descuento' AND income_class    IS NULL)
+                OR (line_class = 'PagoPatronal' AND income_class IS NULL AND deduction_class IS NULL)
+                """);
+        });
 
         builder.HasKey(line => line.Id)
             .HasName("pk_payroll_run_lines");
@@ -165,6 +176,21 @@ internal sealed class PayrollRunLineConfiguration : IEntityTypeConfiguration<Pay
         builder.Property(line => line.LineClass)
             .HasColumnName("line_class")
             .HasMaxLength(20);
+
+        builder.Property(line => line.IncomeClass)
+            .HasColumnName("income_class")
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.Property(line => line.DeductionClass)
+            .HasColumnName("deduction_class")
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        // H-31 — el desglose de días por pagador, para que el reporte se arme SOLO desde la corrida.
+        builder.Property(line => line.UnpaidDays).HasColumnName("unpaid_days").HasColumnType("numeric(10,2)");
+        builder.Property(line => line.EmployerPaidDays).HasColumnName("employer_paid_days").HasColumnType("numeric(10,2)");
+        builder.Property(line => line.SubsidizedDays).HasColumnName("subsidized_days").HasColumnType("numeric(10,2)");
 
         builder.Property(line => line.Units).HasColumnName("units").HasColumnType("numeric(10,2)");
         builder.Property(line => line.BaseAmount).HasColumnName("base_amount").HasColumnType("numeric(14,2)");

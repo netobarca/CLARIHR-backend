@@ -67,6 +67,7 @@ internal static class SettlementCalculationSupport
             settlement.Kind,
             separationType,
             settlement.PlazaStartDate,
+            settlement.SeniorityStartDate,
             settlement.RetirementDate,
             settlement.MonthlyBaseSalary > 0 ? settlement.MonthlyBaseSalary : context.MonthlyBaseSalary ?? 0m,
             BuildParameters(settlement),
@@ -229,7 +230,7 @@ internal sealed class AddSettlementScenarioCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee || !personnelFile.IsActive)
         {
-            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
@@ -295,6 +296,9 @@ internal sealed class AddSettlementScenarioCommandHandler(
             context.Plaza.AssignedPositionPublicId,
             context.Plaza.PositionTitle,
             context.Plaza.StartDate,
+            // H-28 — la antigüedad se ancla en el ingreso a la empresa. El contexto ya traía `HireDate`; el motor
+            // medía desde la plaza. Sin fallback: el perfil es obligatorio para un expediente liquidable.
+            context.HireDate ?? context.Plaza.StartDate,
             context.Plaza.CostCenterPublicId,
             context.Plaza.CostCenterName,
             command.Item.EstimatedRetirementDate,
@@ -836,7 +840,7 @@ internal sealed class AddSettlementCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSettlementResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         _ = Guid.TryParse(currentUserService.UserId, out var currentUserId);
@@ -906,6 +910,9 @@ internal sealed class AddSettlementCommandHandler(
             context.Plaza.AssignedPositionPublicId,
             context.Plaza.PositionTitle,
             context.Plaza.StartDate,
+            // H-28 — la antigüedad se ancla en el ingreso a la empresa. El contexto ya traía `HireDate`; el motor
+            // medía desde la plaza. Sin fallback: el perfil es obligatorio para un expediente liquidable.
+            context.HireDate ?? context.Plaza.StartDate,
             context.Plaza.CostCenterPublicId,
             context.Plaza.CostCenterName,
             retirement.RetirementDate,

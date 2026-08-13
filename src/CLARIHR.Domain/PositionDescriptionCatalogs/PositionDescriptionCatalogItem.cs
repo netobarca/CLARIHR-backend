@@ -57,6 +57,22 @@ public sealed class PositionDescriptionCatalogItem : TenantEntity
         int sortOrder) =>
         new(Guid.NewGuid(), catalogType, code, name, description, sortOrder);
 
+    /// <summary>
+    /// H-11 — bulk reorder: rewrites only the display order, so reordering N items is one transaction instead
+    /// of N patches. Unlike the occupational pyramid this order is not unique, so no intermediate state can
+    /// collide and one pass is enough.
+    /// </summary>
+    public void SetSortOrder(int sortOrder)
+    {
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
+        }
+
+        SortOrder = sortOrder;
+        RefreshConcurrencyToken();
+    }
+
     public void Update(
         string code,
         string name,

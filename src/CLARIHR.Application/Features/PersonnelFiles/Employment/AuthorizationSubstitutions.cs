@@ -60,7 +60,7 @@ public sealed record DeletePersonnelFileAuthorizationSubstitutionCommand(
     Guid PersonnelFileId,
     Guid AuthorizationSubstitutionPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileAuthorizationSubstitutionPatchOperation(
     string Op,

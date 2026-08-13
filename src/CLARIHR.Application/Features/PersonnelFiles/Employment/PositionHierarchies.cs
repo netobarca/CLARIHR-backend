@@ -57,7 +57,7 @@ internal sealed class GetPersonnelFilePositionHierarchyQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePositionHierarchyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePositionHierarchyResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.GetPositionHierarchyAsync(personnelFile!.PublicId, cancellationToken);

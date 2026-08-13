@@ -510,12 +510,28 @@ public sealed class IncapacityDomainTests
         Assert.NotEqual(originalToken, document.ConcurrencyToken);
     }
 
+    /// <summary>
+    /// H-22 — the guard rejects the UNSET default, not a negative id. The platform baseline of document types
+    /// ships via `HasData` with negative ids (repo-wide convention so they never collide with the identity
+    /// sequence), and the old `<= 0` check rejected exactly the rows that ship: an attachment could never point at
+    /// a seeded type.
+    /// </summary>
     [Fact]
-    public void Document_UpdateMetadata_WithNonPositiveType_ShouldThrow()
+    public void Document_UpdateMetadata_WithUnsetType_ShouldThrow()
     {
         var document = CreateDocument();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => document.UpdateMetadata(-1, null));
+        Assert.Throws<ArgumentOutOfRangeException>(() => document.UpdateMetadata(0, null));
+    }
+
+    [Fact]
+    public void Document_UpdateMetadata_WithASeededNegativeType_ShouldSucceed()
+    {
+        var document = CreateDocument();
+
+        document.UpdateMetadata(-9983, "contrato");
+
+        Assert.Equal(-9983, document.DocumentTypeCatalogItemId);
     }
 
     [Fact]

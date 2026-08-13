@@ -124,15 +124,19 @@ public sealed class PositionSlotGraphCapGuardrailsTests
         // ----- rest of the interface — not exercised in these tests -----
 
         public void Add(PositionSlot slot) => throw new NotSupportedException();
+        public void Remove(PositionSlot slot) => throw new NotSupportedException();
+        // H-15 — deliberately loud: this backs the delete guard and the suspend guard. An all-zero
+        // usage would let a future test of either pass while proving nothing.
+        public Task<PositionSlotUsage> GetUsageAsync(Guid slotPublicId, long slotInternalId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<long?> ResolvePositionSlotIdAsync(Guid tenantId, Guid slotId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<PagedResponse<PositionSlotListItemResponse>> SearchAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PagedResponse<PositionSlotListItemResponse>> SearchAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, bool? isActive, Guid? directDependencyPositionSlotId, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PositionSlotResponse?> GetResponseByIdAsync(Guid slotId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, bool? isActive, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

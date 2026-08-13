@@ -57,7 +57,7 @@ public sealed record DeletePersonnelFileHobbyCommand(
     Guid PersonnelFileId,
     Guid HobbyPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileHobbyPatchOperation(
     string Op,

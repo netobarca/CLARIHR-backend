@@ -129,7 +129,7 @@ internal sealed class ApplyOvertimeRecordApplicationCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OvertimeRecordApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OvertimeRecordApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsOvertimeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -258,7 +258,7 @@ internal sealed class AnnulOvertimeRecordApplicationCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OvertimeRecordApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OvertimeRecordApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (string.IsNullOrWhiteSpace(command.Reason))

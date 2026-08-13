@@ -57,7 +57,7 @@ public sealed record DeleteEconomicAidRequestDocumentCommand(
     Guid PersonnelFileId,
     Guid EconomicAidRequestPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetEconomicAidRequestDocumentsQueryValidator : AbstractValidator<GetEconomicAidRequestDocumentsQuery>
 {

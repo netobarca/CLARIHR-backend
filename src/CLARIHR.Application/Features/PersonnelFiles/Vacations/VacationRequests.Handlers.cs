@@ -104,7 +104,7 @@ internal sealed class AddPersonnelFileVacationRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileVacationRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileVacationRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var item = command.Item;

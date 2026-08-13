@@ -911,10 +911,12 @@ internal sealed class SwitchActiveCompanyCommandHandler(
             return Result<SwitchActiveCompanyResponse>.Failure(currentUserResult.Error);
         }
 
-        var companyResult = await AccountCompanyActorResolver.ResolveOwnedCompanyAsync(
+        // H-04: switching is authorized by MEMBERSHIP, not ownership. Resolving the company by ownership
+        // made this endpoint reject the very case it exists for — a user invited to a second company, who
+        // is never its creator. The membership check below used to be unreachable for non-owners.
+        var companyResult = await AccountCompanyActorResolver.ResolveCompanyAsync(
             companyRepository,
             command.CompanyId,
-            currentUserResult.Value.PublicId,
             cancellationToken);
         if (companyResult.IsFailure)
         {
@@ -924,12 +926,15 @@ internal sealed class SwitchActiveCompanyCommandHandler(
         var company = companyResult.Value;
         if (company.Status != CompanyStatus.Active)
         {
+            // A state conflict, not an authorization failure: the company cannot become the active one.
             return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.ActiveCompanySwitchForbidden);
         }
 
+        // The isolation boundary. Relaxing ownership to membership must not become "anyone enters any
+        // company", so this is now the gate that actually decides — and it answers 403, not 409.
         if (!await userCompanyRepository.HasActiveMembershipAsync(currentUserResult.Value.Id, company.PublicId, cancellationToken))
         {
-            return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.ActiveCompanySwitchForbidden);
+            return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.MembershipForbidden);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -1212,15 +1217,34 @@ internal static class AccountCompanyActorResolver
         Guid ownerUserPublicId,
         CancellationToken cancellationToken)
     {
-        var company = await companyRepository.FindByPublicIdAsync(companyId, cancellationToken);
-        if (company is null)
+        var companyResult = await ResolveCompanyAsync(companyRepository, companyId, cancellationToken);
+        if (companyResult.IsFailure)
         {
-            return Result<Company>.Failure(AccountCompanyErrors.CompanyNotFound);
+            return companyResult;
         }
 
-        return company.CreatedByUserPublicId == ownerUserPublicId
-            ? Result<Company>.Success(company)
+        return companyResult.Value.CreatedByUserPublicId == ownerUserPublicId
+            ? companyResult
             : Result<Company>.Failure(AccountCompanyErrors.OwnershipForbidden);
+    }
+
+    /// <summary>
+    /// H-04 — loads the company WITHOUT requiring ownership, for the operations whose authorization is
+    /// MEMBERSHIP rather than ownership. Today that is only <c>switch</c>: a user invited to a company is
+    /// never its creator, and switching in is exactly what the invitation is for. Every other caller in this
+    /// family legitimately manages the company and must keep using
+    /// <see cref="ResolveOwnedCompanyAsync"/>.
+    /// </summary>
+    public static async Task<Result<Company>> ResolveCompanyAsync(
+        ICompanyRepository companyRepository,
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        var company = await companyRepository.FindByPublicIdAsync(companyId, cancellationToken);
+
+        return company is null
+            ? Result<Company>.Failure(AccountCompanyErrors.CompanyNotFound)
+            : Result<Company>.Success(company);
     }
 }
 

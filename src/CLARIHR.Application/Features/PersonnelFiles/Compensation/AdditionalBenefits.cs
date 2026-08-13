@@ -53,7 +53,7 @@ public sealed record DeletePersonnelFileAdditionalBenefitCommand(
     Guid PersonnelFileId,
     Guid AdditionalBenefitPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileAdditionalBenefitPatchOperation(
     string Op,

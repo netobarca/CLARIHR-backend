@@ -1310,31 +1310,30 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
         CancellationToken cancellationToken)
     {
         var normalizedCategory = category.Trim().ToUpperInvariant();
-        if (normalizedCategory == "COUNTRY")
+
+        // H-21 — system-scoped (global) catalogs are the same for every tenant/country and resolve with no country
+        // context; that is what lets the company-less surface serve them during onboarding. The branch is driven by
+        // GeneralCatalogScopes, the SAME set the query handler reads to decide whether it must resolve a country
+        // first: two independent lists would drift, and the drift is invisible — a country-scoped category misfiled
+        // as global reaches the country switch with no country and answers an empty list forever.
+        if (GeneralCatalogScopes.IsSystemScoped(category))
         {
-            return await GetCountryCatalogItemsAsync("Country", cancellationToken);
+            return normalizedCategory switch
+            {
+                "COUNTRY" => await GetCountryCatalogItemsAsync("Country", cancellationToken),
+                "CURRICULUMEDUCATIONSTATUS" => await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken),
+                "CURRICULUMSTUDYTYPE" => await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken),
+                "CURRICULUMEDUCATIONLEVEL" => await GetSystemScopedCatalogItemsAsync<EducationLevelCatalogItem>("CurriculumEducationLevel", cancellationToken),
+                "CURRICULUMSHIFT" => await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken),
+                "CURRICULUMMODALITY" => await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken),
+                "FILEDOCUMENTTYPE" => await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken),
+                _ => throw new InvalidOperationException(
+                    $"Catalog category '{category}' is classified as system-scoped but has no global branch."),
+            };
         }
 
-        // System-scoped (global) catalogs are the same for every tenant/country, so they resolve with
-        // no country context — this is what lets the company-less surface serve them during onboarding.
-        switch (normalizedCategory)
-        {
-            case "CURRICULUMEDUCATIONSTATUS":
-                return await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken);
-            case "CURRICULUMSTUDYTYPE":
-                return await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken);
-            case "CURRICULUMEDUCATIONLEVEL":
-                return await GetSystemScopedCatalogItemsAsync<EducationLevelCatalogItem>("CurriculumEducationLevel", cancellationToken);
-            case "CURRICULUMSHIFT":
-                return await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken);
-            case "CURRICULUMMODALITY":
-                return await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken);
-            case "FILEDOCUMENTTYPE":
-                return await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken);
-        }
-
-        // Country-scoped catalogs require a country, now supplied explicitly via countryCode (the caller
-        // no longer needs a company); an unknown/missing code resolves to no items rather than an error.
+        // Country-scoped catalogs: the country arrives already resolved and validated by the handler (explicit
+        // `countryCode`, else the tenant's country). The null guard is the defensive floor for any other caller.
         var countryCatalogItemId = await ResolveCountryCatalogItemIdAsync(countryCode, cancellationToken);
         if (countryCatalogItemId is null)
         {

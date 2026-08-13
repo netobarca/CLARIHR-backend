@@ -25,33 +25,6 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class PositionSlotAdministrationTests
 {
     [Fact]
-    public void CreateValidator_WhenOccupiedEmployeesExceedsCapacity_ShouldAttachErrorToOccupiedEmployees()
-    {
-        var validator = new CreatePositionSlotCommandValidator();
-        var command = new CreatePositionSlotCommand(
-            CompanyId: Guid.Parse("10101010-1010-1010-1010-101010101010"),
-            Code: "PS-VAL",
-            Title: "Plaza",
-            JobProfileId: Guid.Parse("20202020-2020-2020-2020-202020202020"),
-            RoleId: null,
-            WorkCenterId: null,
-            DirectDependencyPositionSlotId: null,
-            FunctionalDependencyPositionSlotId: null,
-            Status: PositionSlotStatus.Occupied,
-            MaxEmployees: 1,
-            OccupiedEmployees: 20,
-            EffectiveFromUtc: new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc),
-            EffectiveToUtc: null,
-            Notes: null);
-
-        var result = validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor(command => command.OccupiedEmployees)
-            .WithErrorMessage("OccupiedEmployees must be less than or equal to MaxEmployees.");
-        Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
-    }
-
-    [Fact]
     public void CreateValidator_WhenEffectiveToIsBeforeEffectiveFrom_ShouldAttachErrorToEffectiveToUtc()
     {
         var validator = new CreatePositionSlotCommandValidator();
@@ -67,6 +40,7 @@ public sealed class PositionSlotAdministrationTests
             Status: PositionSlotStatus.Vacant,
             MaxEmployees: 1,
             OccupiedEmployees: 0,
+            GeneratesOvertime: true,
             EffectiveFromUtc: new DateTime(2026, 4, 8, 0, 0, 0, DateTimeKind.Utc),
             EffectiveToUtc: new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc),
             Notes: null);
@@ -79,7 +53,7 @@ public sealed class PositionSlotAdministrationTests
     }
 
     // §X-TEST2: validator coverage for the mutation commands beyond Create
-    // (Update / Status / Dependencies / Occupancy) — previously only exercised e2e.
+    // (Update / Status / Dependencies) — previously only exercised e2e. H-23 removed the Occupancy command.
 
     private static UpdatePositionSlotCommand ValidUpdateCommand() => new(
         PositionSlotId: Guid.Parse("50505050-5050-5050-5050-505050505050"),
@@ -212,43 +186,6 @@ public sealed class PositionSlotAdministrationTests
     }
 
     [Fact]
-    public void OccupancyValidator_WhenOccupiedEmployeesNegative_ShouldAttachError()
-    {
-        var command = new UpdatePositionSlotOccupancyCommand(
-            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
-            OccupiedEmployees: -1,
-            ConcurrencyToken: Guid.Parse("90909090-9090-9090-9090-909090909090"));
-
-        var result = new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor(command => command.OccupiedEmployees);
-    }
-
-    [Fact]
-    public void OccupancyValidator_WhenConcurrencyTokenEmpty_ShouldAttachError()
-    {
-        var command = new UpdatePositionSlotOccupancyCommand(
-            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
-            OccupiedEmployees: 1,
-            ConcurrencyToken: Guid.Empty);
-
-        var result = new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor(command => command.ConcurrencyToken);
-    }
-
-    [Fact]
-    public void OccupancyValidator_WithValidCommand_ShouldPass()
-    {
-        var command = new UpdatePositionSlotOccupancyCommand(
-            Guid.Parse("80808080-8080-8080-8080-808080808080"),
-            OccupiedEmployees: 2,
-            Guid.Parse("90909090-9090-9090-9090-909090909090"));
-
-        new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command).ShouldNotHaveAnyValidationErrors();
-    }
-
-    [Fact]
     public async Task Create_WhenJobProfileDoesNotResolveContractType_ShouldCreateIndefiniteSlot()
     {
         var companyId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -266,7 +203,7 @@ public sealed class PositionSlotAdministrationTests
             ContractTypeId: null,
             ContractTypeCode: null,
             ContractTypeName: null,
-            JobProfileStatus: JobProfileStatus.Published));
+            JobProfileStatus: JobProfileStatus.Published, null, null, null));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new CreatePositionSlotCommandHandler(
@@ -290,6 +227,7 @@ public sealed class PositionSlotAdministrationTests
                 Status: PositionSlotStatus.Vacant,
                 MaxEmployees: 10,
                 OccupiedEmployees: 0,
+                GeneratesOvertime: true,
                 EffectiveFromUtc: new DateTime(2026, 4, 8, 0, 0, 0, DateTimeKind.Utc),
                 EffectiveToUtc: null,
                 Notes: null),
@@ -321,8 +259,8 @@ public sealed class PositionSlotAdministrationTests
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
             maxEmployees: 3,
-            occupiedEmployees: 0,
             isFixedTerm: true,
+            generatesOvertime: true,
             effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
             effectiveToUtc: null,
             notes: null);
@@ -340,7 +278,7 @@ public sealed class PositionSlotAdministrationTests
             ContractTypeId: initialContractTypeId,
             ContractTypeCode: "TEMP-01",
             ContractTypeName: "Temporal",
-            JobProfileStatus: JobProfileStatus.Published));
+            JobProfileStatus: JobProfileStatus.Published, null, null, null));
         repository.RegisterLookup(new PositionSlotJobProfileLookup(
             InternalJobProfileId: 30,
             JobProfileId: replacementJobProfileId,
@@ -352,7 +290,7 @@ public sealed class PositionSlotAdministrationTests
             ContractTypeId: null,
             ContractTypeCode: null,
             ContractTypeName: null,
-            JobProfileStatus: JobProfileStatus.Published));
+            JobProfileStatus: JobProfileStatus.Published, null, null, null));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new UpdatePositionSlotCommandHandler(
@@ -404,8 +342,8 @@ public sealed class PositionSlotAdministrationTests
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
             maxEmployees: 1,
-            occupiedEmployees: 0,
             isFixedTerm: false,
+            generatesOvertime: true,
             effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
             effectiveToUtc: null,
             notes: null);
@@ -422,7 +360,7 @@ public sealed class PositionSlotAdministrationTests
             ContractTypeId: null,
             ContractTypeCode: null,
             ContractTypeName: null,
-            JobProfileStatus: JobProfileStatus.Published));
+            JobProfileStatus: JobProfileStatus.Published, null, null, null));
 
         var iamRepository = new TestIamAdministrationRepository();
         var role = IamRole.Create("Supervisor", "Supervisor role", isSystemRole: false);
@@ -477,14 +415,14 @@ public sealed class PositionSlotAdministrationTests
         var target = PositionSlot.Create(
             "PS-DEP-A", "Plaza A", jobProfileId: 60, roleId: null, workCenterId: null,
             directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Vacant, maxEmployees: 1, occupiedEmployees: 0, isFixedTerm: false,
+            status: PositionSlotStatus.Vacant, maxEmployees: 1, isFixedTerm: false, generatesOvertime: true,
             effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), effectiveToUtc: null, notes: null);
         target.SetTenantId(companyId);
 
         var dependency = PositionSlot.Create(
             "PS-DEP-B", "Plaza B", jobProfileId: 60, roleId: null, workCenterId: null,
             directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Vacant, maxEmployees: 1, occupiedEmployees: 0, isFixedTerm: false,
+            status: PositionSlotStatus.Vacant, maxEmployees: 1, isFixedTerm: false, generatesOvertime: true,
             effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), effectiveToUtc: null, notes: null);
         dependency.SetTenantId(companyId);
 
@@ -501,7 +439,7 @@ public sealed class PositionSlotAdministrationTests
             ContractTypeId: null,
             ContractTypeCode: null,
             ContractTypeName: null,
-            JobProfileStatus: JobProfileStatus.Published));
+            JobProfileStatus: JobProfileStatus.Published, null, null, null));
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new UpdatePositionSlotDependenciesCommandHandler(
@@ -594,6 +532,25 @@ public sealed class PositionSlotAdministrationTests
             LastAddedSlot = slot;
         }
 
+        public void Remove(PositionSlot slot)
+        {
+            _slots.Remove(slot.PublicId);
+            LastRemovedSlot = slot;
+        }
+
+        public PositionSlot? LastRemovedSlot { get; private set; }
+
+        /// <summary>
+        /// H-15 — modelled, not stubbed permissive: this backs both the delete guard and the suspend guard.
+        /// Defaults to "nothing references it" so existing tests keep their behaviour, and <see cref="Usage"/>
+        /// lets a test state the opposite explicitly. A silent all-zero with no way to change it would make
+        /// either guard untestable at this level.
+        /// </summary>
+        public PositionSlotUsage Usage { get; set; } = new(0, 0, 0, 0, 0, 0);
+
+        public Task<PositionSlotUsage> GetUsageAsync(Guid slotPublicId, long slotInternalId, CancellationToken cancellationToken) =>
+            Task.FromResult(Usage);
+
         public Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken) =>
             Task.FromResult(_slots.TryGetValue(slotId, out var slot) ? slot : null);
 
@@ -626,6 +583,8 @@ public sealed class PositionSlotAdministrationTests
             Guid? workCenterId,
             Guid? contractTypeId,
             string? search,
+            bool? isActive,
+            Guid? directDependencyPositionSlotId,
             int pageNumber,
             int pageSize,
             CancellationToken cancellationToken) =>
@@ -647,7 +606,8 @@ public sealed class PositionSlotAdministrationTests
                 CompanyId: slot.TenantId,
                 Code: slot.Code,
                 Title: slot.Title,
-                Status: slot.Status,
+                // H-23 — derived, exactly like the repository projection does.
+                Status: slot.IsActive ? PositionSlotStatus.Vacant : PositionSlotStatus.Suspended,
                 JobProfileId: lookup?.JobProfileId ?? Guid.Empty,
                 JobProfileCode: lookup?.JobProfileId.ToString("D") ?? "UNKNOWN",
                 JobProfileTitle: "Perfil",
@@ -674,7 +634,8 @@ public sealed class PositionSlotAdministrationTests
                 ContractTypeCode: lookup?.ContractTypeCode,
                 ContractTypeName: lookup?.ContractTypeName,
                 MaxEmployees: slot.MaxEmployees,
-                OccupiedEmployees: slot.OccupiedEmployees,
+                OccupiedEmployees: 0,
+                GeneratesOvertime: slot.GeneratesOvertime,
                 EffectiveFromUtc: slot.EffectiveFromUtc,
                 EffectiveToUtc: slot.EffectiveToUtc,
                 Notes: slot.Notes,
@@ -720,6 +681,7 @@ public sealed class PositionSlotAdministrationTests
             Guid? workCenterId,
             Guid? contractTypeId,
             string? search,
+            bool? isActive,
             int? maxRows,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();

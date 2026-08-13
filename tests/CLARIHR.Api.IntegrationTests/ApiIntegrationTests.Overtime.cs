@@ -74,6 +74,12 @@ public sealed partial class ApiIntegrationTests
         await dbContext.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// H-20 — the body carries a time RANGE and the server derives the duration from it, so the tests still say
+    /// "a 2:30 record" and the helper turns that into <c>startHour:00 → +2:30</c>. The default start is 20:00 so
+    /// the range stays inside the night band <c>[19:00, 06:00)</c> for durations up to 9 h: a range straddling
+    /// 06:00 or 19:00 is rejected, because one record carries one factor.
+    /// </summary>
     private static object OvertimeBody(
         Guid typeId,
         Guid justificationId,
@@ -83,19 +89,21 @@ public sealed partial class ApiIntegrationTests
         decimal? factorApplied = null,
         string? factorOverrideNote = null,
         int workDateOffsetDays = -1,
-        string payrollPeriodLabel = "Quincena 13/2026")
+        string payrollPeriodLabel = "Quincena 13/2026",
+        int startHour = 20,
+        int startMinute = 0)
     {
         var workDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(workDateOffsetDays).ToString("yyyy-MM-dd");
+        var start = new TimeOnly(startHour % 24, startMinute);
+        var end = start.AddHours(durationHours).AddMinutes(durationMinutes);
         return new
         {
             workDate,
             overtimeTypePublicId = typeId,
             factorApplied,
             factorOverrideNote,
-            durationHours,
-            durationMinutes,
-            startTime = (string?)null,
-            endTime = (string?)null,
+            startTime = start.ToString("HH:mm:ss"),
+            endTime = end.ToString("HH:mm:ss"),
             justificationTypePublicId = justificationId,
             observations = (string?)null,
             assignedPositionPublicId = (Guid?)null,
@@ -197,8 +205,12 @@ public sealed partial class ApiIntegrationTests
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "OVERTIME_FACTOR_NOTE_REQUIRED");
     }
 
+    /// <summary>
+    /// H-20 — the 65-minutes body cannot be expressed any more (the duration is derived), so what replaces it is
+    /// the hole that check used to leave open: a range that spans nothing at all. That used to be a valid record.
+    /// </summary>
     [Fact]
-    public async Task Overtime_CreateWith65Minutes_Returns422()
+    public async Task Overtime_CreateWithEmptyRange_Returns422()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(OvertimeManagerContext(scenario));
@@ -209,8 +221,8 @@ public sealed partial class ApiIntegrationTests
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/personnel-files/{fileId}/overtime-records",
-            OvertimeBody(typeId, justId, requesterId, durationHours: 1, durationMinutes: 65));
-        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "OVERTIME_DURATION_MINUTES_INVALID");
+            OvertimeBody(typeId, justId, requesterId, durationHours: 0, durationMinutes: 0));
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "OVERTIME_RANGE_EMPTY");
     }
 
     [Fact]
@@ -256,13 +268,14 @@ public sealed partial class ApiIntegrationTests
         var fileId = await SeedOneTimeIncomeCandidateAsync(scenario.TenantId, "Capa", "Tope", "EMP-OT-G", "capa.ot.g@empresa.test");
         var requesterId = await SeedOneTimeIncomeCandidateAsync(scenario.TenantId, "Renata", "Solicitante", "EMP-OT-G2", "renata.ot.g@empresa.test");
 
-        // First 2 h (120 min) on the work date → OK.
+        // First 2 h (120 min) on the work date, 20:00-22:00 → OK.
         await CreateOvertimeAsync(client, fileId, OvertimeBody(typeId, justId, requesterId, durationHours: 2, durationMinutes: 0));
 
-        // Second 2 h same day → 120 + 120 = 240 > cap 180 → 422.
+        // Second 2 h the same day, 22:00-00:00 — back to back, so the cap is what bites and not the overlap
+        // guard: 120 + 120 = 240 > cap 180 → 422.
         var response = await client.PostAsJsonAsync(
             $"/api/v1/personnel-files/{fileId}/overtime-records",
-            OvertimeBody(typeId, justId, requesterId, durationHours: 2, durationMinutes: 0));
+            OvertimeBody(typeId, justId, requesterId, durationHours: 2, durationMinutes: 0, startHour: 22));
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "OVERTIME_DAILY_CAP_EXCEEDED");
     }
 

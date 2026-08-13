@@ -59,7 +59,7 @@ public sealed record DeletePersonnelFileSelectionContestCommand(
     Guid PersonnelFileId,
     Guid SelectionContestPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileSelectionContestPatchOperation(
     string Op,

@@ -220,7 +220,7 @@ internal sealed class AddPersonnelFileOneTimeDeductionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OneTimeDeductionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OneTimeDeductionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -389,13 +389,13 @@ internal sealed class DeletePersonnelFileOneTimeDeductionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileOneTimeDeductionCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileOneTimeDeductionCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileOneTimeDeductionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageOneTimeDeductionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageOneTimeDeductionsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -406,17 +406,17 @@ internal sealed class DeletePersonnelFileOneTimeDeductionCommandHandler(
             personnelFile!.PublicId, command.OneTimeDeductionPublicId, personnelFile.TenantId, cancellationToken);
         if (entity is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (entity.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         if (entity.StatusCode != OneTimeDeductionStatuses.EnRevision)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 new Error(OneTimeDeductionRules.StateRuleViolationCode, "Only an EN_REVISION draft can be discarded.", ErrorType.UnprocessableEntity));
         }
 
@@ -437,8 +437,8 @@ internal sealed class DeletePersonnelFileOneTimeDeductionCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

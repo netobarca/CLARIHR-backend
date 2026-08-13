@@ -55,6 +55,16 @@ public static class CompetencyFrameworkErrors
         "Another occupational pyramid level already uses the requested level order.",
         ErrorType.Conflict);
 
+    /// <summary>
+    /// H-11 — the bulk reorder demands the COMPLETE set of levels, exactly once each. A partial or duplicated
+    /// list is rejected rather than guessed at: whatever is omitted keeps its old rank, which can collide with
+    /// the ranks just assigned, and on a strict ranking a half-applied order means nothing.
+    /// </summary>
+    public static readonly Error OccupationalPyramidLevelOrderSetIncomplete = new(
+        "OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE",
+        "The reorder request must list every occupational pyramid level of the company exactly once.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error OccupationalPyramidLevelInUse = new(
         "OCCUPATIONAL_PYRAMID_LEVEL_IN_USE",
         "The occupational pyramid level cannot be inactivated while it has active usage.",
@@ -108,6 +118,23 @@ public static class CompetencyFrameworkErrors
     public static readonly Error JobProfileCompetencyMatrixConflict = new(
         "JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT",
         "The requested competency matrix change is not valid for the current state.",
+        ErrorType.Conflict);
+
+    /// <summary>
+    /// H-06 — the conducts of one matrix item do not agree on their (competency, competency type, behaviour
+    /// level) triple. A matrix item IS one cell of that triple, and the row's own
+    /// <c>competencyCatalogItemId</c> / <c>competencyTypeCatalogItemId</c> / <c>behaviorLevelCatalogItemId</c>
+    /// are derived from the conducts — so conducts that disagree have no single cell to define.
+    /// <para>
+    /// Split out of <see cref="JobProfileCompetencyMatrixConflict"/>, which covered several causes behind one
+    /// message that distinguished none of them: a consumer reading the contract as "a list of conducts" got a
+    /// 409 saying only that the change "is not valid for the current state". Same HTTP status on purpose — the
+    /// delta for the frontend is one extra code, not a new status to handle.
+    /// </para>
+    /// </summary>
+    public static readonly Error JobProfileCompetencyMatrixConductTripleMismatch = new(
+        "JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH",
+        "All conducts of a competency matrix item must share the same competency, competency type and behaviour level. Split the conducts into one item per triple.",
         ErrorType.Conflict);
 
     public static readonly Error JobProfileCompetencyMatrixItemNotFound = new(

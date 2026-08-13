@@ -33,8 +33,8 @@ public interface IPersonnelFileEmployeeRepository
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         string? notes,
         string? paymentMethodCode,
@@ -53,8 +53,8 @@ public interface IPersonnelFileEmployeeRepository
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         string? notes,
         string? paymentMethodCode,
@@ -81,8 +81,8 @@ public interface IPersonnelFileEmployeeRepository
     Task<int> CountOverlappingActiveAssignmentsForSlotAsync(
         Guid tenantId,
         Guid positionSlotPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         Guid? excludeAssignmentPublicId,
         CancellationToken cancellationToken);
 
@@ -1784,6 +1784,34 @@ public interface IPersonnelFileEmployeeRepository
     Task<OvertimeRequesterLookup?> GetOvertimeRequesterLookupAsync(
         Guid requesterFilePublicId,
         Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// H-19/H-20 — everything the overtime module needs to know about the employee's contracted day, which until
+    /// now it did not know at all: the module referenced neither <c>workdayCode</c> nor <c>WorkSchedule</c> in a
+    /// single file, so an overtime record could sit squarely inside the shift and be paid twice.
+    /// <para>
+    /// Resolved from ONE assignment row, which carries both the plaza (whose <c>GeneratesOvertime</c> decides
+    /// exemption) and the <c>workdayCode</c> (which resolves the shift). The holiday flag comes from the company
+    /// calendar and decides the rest-day character of the date.
+    /// </para>
+    /// </summary>
+    Task<OvertimeScheduleContext> GetOvertimeScheduleContextAsync(
+        Guid assignmentPublicId,
+        DateOnly workDate,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// H-20 — the active records of the same file and date with their time ranges, to reject a range that
+    /// overlaps one already captured. Two records of 14:00-18:00 and 16:00-20:00 used to sum 8 h against the
+    /// daily cap while the 2 shared hours were paid twice, invisibly.
+    /// </summary>
+    Task<IReadOnlyList<OvertimeRecordRange>> GetActiveOvertimeRangesForDayAsync(
+        long personnelFileInternalId,
+        DateOnly workDate,
+        Guid tenantId,
+        Guid? excludeRecordPublicId,
         CancellationToken cancellationToken);
 
     /// <summary>The sum of the day's active overtime minutes (EN_REVISION + AUTORIZADA + APLICADA) for the file +

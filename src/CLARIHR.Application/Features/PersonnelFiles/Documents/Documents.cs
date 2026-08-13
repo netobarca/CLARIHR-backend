@@ -91,7 +91,7 @@ public sealed record DeletePersonnelFileDocumentCommand(
     Guid PersonnelFileId,
     Guid DocumentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record AddPersonnelFileDocumentCommand(
     Guid PersonnelFileId,

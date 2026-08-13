@@ -174,7 +174,7 @@ public sealed class JobProfileFunctionsController(
     }
 
     [HttpDelete("{functionPublicId:guid}")]
-    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a function from a job profile",
@@ -184,7 +184,7 @@ public sealed class JobProfileFunctionsController(
             concurrency token so the caller can continue mutating the profile
             without an extra round-trip.
             """)]
-    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
+    public async Task<ActionResult> Remove(
         Guid jobProfilePublicId,
         Guid functionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -194,7 +194,7 @@ public sealed class JobProfileFunctionsController(
             new RemoveJobProfileFunctionCommand(jobProfilePublicId, functionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     public sealed class MutateFunctionRequest

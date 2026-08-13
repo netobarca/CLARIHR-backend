@@ -24,6 +24,18 @@ public static class AccountCompanyErrors
         "You do not have permission to manage this company.",
         ErrorType.Forbidden);
 
+    /// <summary>
+    /// H-04 — the caller has no active membership in the company. Distinct from
+    /// <see cref="OwnershipForbidden"/> (which is about MANAGING a company you do not own) and from
+    /// <see cref="ActiveCompanySwitchForbidden"/> (a 409: the company itself cannot become active). This is
+    /// the isolation boundary of <c>switch</c>: membership is what grants entry, and its absence is an
+    /// authorization failure, so 403.
+    /// </summary>
+    public static readonly Error MembershipForbidden = new(
+        "COMPANY_MEMBERSHIP_FORBIDDEN",
+        "You do not have an active membership in this company.",
+        ErrorType.Forbidden);
+
     public static readonly Error MasterPlanForbidden = new(
         "ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN",
         "The MASTER subscription is reserved for CLARI operators.",

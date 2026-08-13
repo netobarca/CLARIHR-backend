@@ -229,6 +229,14 @@ internal sealed class PersonnelFileIdentificationConfiguration : IEntityTypeConf
             .IsUnique()
             .HasDatabaseName("uq_personnel_file_identifications__tenant_type_number");
 
+        // H-27 — una sola identificación primaria por expediente. Mismo hueco que las cuentas; los duplicados ya
+        // los cerraba el índice de arriba (y por TENANT, no por expediente: el mismo DUI no se registra dos veces
+        // en la empresa).
+        builder.HasIndex(item => item.PersonnelFileId)
+            .IsUnique()
+            .HasFilter("is_primary = true")
+            .HasDatabaseName("uq_personnel_file_identifications__file_primary");
+
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId })
             .HasDatabaseName("ix_personnel_file_identifications__tenant_file");
     }
@@ -453,6 +461,28 @@ internal sealed class PersonnelFileBankAccountConfiguration : IEntityTypeConfigu
 
         builder.HasIndex(item => item.BankCatalogItemId)
             .HasDatabaseName("ix_personnel_file_bank_accounts__bank_catalog_item_id");
+
+        // H-27 — el duplicado exacto no tiene lectura de negocio (es un doble clic o un reintento). La clave es
+        // (banco, número NORMALIZADO, moneda): los separadores no hacen una cuenta distinta, y la misma cuenta en
+        // otra moneda sí es un caso real. El tipo de cuenta no entra: el mismo número no puede ser de dos tipos.
+        // Es el respaldo contra la carrera; la guarda del handler es la que da el mensaje.
+        builder.HasIndex(item => new
+            {
+                item.PersonnelFileId,
+                item.BankCatalogItemId,
+                item.NormalizedAccountNumber,
+                item.CurrencyCode,
+            })
+            .IsUnique()
+            .HasDatabaseName("uq_personnel_file_bank_accounts__file_bank_number_currency");
+
+        // H-27 — una sola cuenta primaria por expediente. Índice único PARCIAL, el patrón de
+        // uq_user_companies__primary_user: la primaria es la que decide dónde se deposita el sueldo cuando la
+        // plaza no designa una cuenta explícita, y con varias la elección quedaba en el orden físico de las filas.
+        builder.HasIndex(item => item.PersonnelFileId)
+            .IsUnique()
+            .HasFilter("is_primary = true")
+            .HasDatabaseName("uq_personnel_file_bank_accounts__file_primary");
 
         builder.HasOne(item => item.BankCatalogItem)
             .WithMany()

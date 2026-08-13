@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -42,14 +43,21 @@ internal sealed class GetSettlementConceptsQueryValidator : AbstractValidator<Ge
     }
 }
 
-internal sealed class GetSettlementConceptsQueryHandler(IPersonnelFileRepository repository)
+internal sealed class GetSettlementConceptsQueryHandler(IPersonnelFileRepository repository, ITenantContext tenantContext)
     : IQueryHandler<GetSettlementConceptsQuery, IReadOnlyCollection<SettlementConceptResponse>>
 {
     public async Task<Result<IReadOnlyCollection<SettlementConceptResponse>>> Handle(
         GetSettlementConceptsQuery query,
         CancellationToken cancellationToken)
     {
-        var items = await repository.GetSettlementConceptsAsync(query.CountryCode, query.ConceptClass, cancellationToken);
+        var country = await CatalogCountryResolution.ResolveAsync(
+            query.CountryCode, tenantContext, repository, cancellationToken);
+        if (country.IsFailure)
+        {
+            return Result<IReadOnlyCollection<SettlementConceptResponse>>.Failure(country.Error);
+        }
+
+        var items = await repository.GetSettlementConceptsAsync(country.Value, query.ConceptClass, cancellationToken);
         return Result<IReadOnlyCollection<SettlementConceptResponse>>.Success(items);
     }
 }

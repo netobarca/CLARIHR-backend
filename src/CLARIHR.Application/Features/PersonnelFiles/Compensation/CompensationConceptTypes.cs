@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -44,14 +45,23 @@ internal sealed class GetCompensationConceptTypesQueryValidator : AbstractValida
     }
 }
 
-internal sealed class GetCompensationConceptTypesQueryHandler(IPersonnelFileRepository repository)
+internal sealed class GetCompensationConceptTypesQueryHandler(
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
     : IQueryHandler<GetCompensationConceptTypesQuery, IReadOnlyCollection<CompensationConceptTypeResponse>>
 {
     public async Task<Result<IReadOnlyCollection<CompensationConceptTypeResponse>>> Handle(
         GetCompensationConceptTypesQuery query,
         CancellationToken cancellationToken)
     {
-        var items = await repository.GetCompensationConceptTypesAsync(query.CountryCode, query.Nature, cancellationToken);
+        var country = await CatalogCountryResolution.ResolveAsync(
+            query.CountryCode, tenantContext, repository, cancellationToken);
+        if (country.IsFailure)
+        {
+            return Result<IReadOnlyCollection<CompensationConceptTypeResponse>>.Failure(country.Error);
+        }
+
+        var items = await repository.GetCompensationConceptTypesAsync(country.Value, query.Nature, cancellationToken);
         return Result<IReadOnlyCollection<CompensationConceptTypeResponse>>.Success(items);
     }
 }

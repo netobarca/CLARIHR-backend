@@ -80,8 +80,8 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.Property(item => item.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(item => item.WorkCenterPublicId).HasColumnName("work_center_public_id");
         builder.Property(item => item.CostCenterPublicId).HasColumnName("cost_center_public_id");
-        builder.Property(item => item.StartDate).HasColumnName("start_date");
-        builder.Property(item => item.EndDate).HasColumnName("end_date");
+        builder.Property(item => item.StartDate).HasColumnName("start_date").HasColumnType("date");
+        builder.Property(item => item.EndDate).HasColumnName("end_date").HasColumnType("date");
         builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
@@ -98,6 +98,12 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.HasIndex(item => item.PublicId).IsUnique().HasDatabaseName("uq_personnel_file_employment_assignments__public_id");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.StartDate }).HasDatabaseName("ix_personnel_file_employment_assignments__tenant_file_start");
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.IsActive, item.IsPrimary }).HasDatabaseName("ix_personnel_file_employment_assignments__tenant_file_active_primary");
+
+        // H-23 — the slot's occupancy and its Vacant/Occupied status are now DERIVED by counting the active
+        // assignments that point at it. That count was already being made without an index by the capacity rule
+        // and by the H-15 suspend guard; now every read of a plaza does it too.
+        builder.HasIndex(item => new { item.TenantId, item.PositionSlotPublicId, item.IsActive })
+            .HasDatabaseName("ix_personnel_file_employment_assignments__tenant_slot_active");
     }
 }
 

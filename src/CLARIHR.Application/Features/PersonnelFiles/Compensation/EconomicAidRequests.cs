@@ -56,7 +56,7 @@ public sealed record DeletePersonnelFileEconomicAidRequestCommand(
     Guid PersonnelFileId,
     Guid EconomicAidRequestPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record GetPersonnelFileEconomicAidRequestsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileEconomicAidRequestResponse>>;

@@ -157,7 +157,7 @@ public sealed class PersonnelFileInterestsController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/hobbies/{hobbyPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a hobby from a personnel file",
@@ -166,7 +166,7 @@ public sealed class PersonnelFileInterestsController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteHobby(
+    public async Task<ActionResult> DeleteHobby(
         Guid publicId,
         Guid hobbyPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -176,7 +176,7 @@ public sealed class PersonnelFileInterestsController(
             new DeletePersonnelFileHobbyCommand(publicId, hobbyPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Associations ─────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ public sealed class PersonnelFileInterestsController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/associations/{associationPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an association from a personnel file",
@@ -329,7 +329,7 @@ public sealed class PersonnelFileInterestsController(
             current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency
             token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteAssociation(
+    public async Task<ActionResult> DeleteAssociation(
         Guid publicId,
         Guid associationPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -339,7 +339,7 @@ public sealed class PersonnelFileInterestsController(
             new DeletePersonnelFileAssociationCommand(publicId, associationPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Employee Relations ───────────────────────────────────────────────────
@@ -471,7 +471,7 @@ public sealed class PersonnelFileInterestsController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/employee-relations/{employeeRelationPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an employee relation from a personnel file",
@@ -480,7 +480,7 @@ public sealed class PersonnelFileInterestsController(
             the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEmployeeRelation(
+    public async Task<ActionResult> DeleteEmployeeRelation(
         Guid publicId,
         Guid employeeRelationPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -490,6 +490,6 @@ public sealed class PersonnelFileInterestsController(
             new DeletePersonnelFileEmployeeRelationCommand(publicId, employeeRelationPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

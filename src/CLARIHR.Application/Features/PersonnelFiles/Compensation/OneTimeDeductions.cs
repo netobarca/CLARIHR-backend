@@ -121,7 +121,7 @@ public sealed record DeletePersonnelFileOneTimeDeductionCommand(
     Guid PersonnelFileId,
     Guid OneTimeDeductionPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 /// <summary>Annul an EN_REVISION deduction (→ ANULADO, HR/Manage); the reason is mandatory.</summary>
 public sealed record AnnulPersonnelFileOneTimeDeductionCommand(

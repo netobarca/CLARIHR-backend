@@ -61,7 +61,7 @@ public sealed record DeletePersonnelFileVacationPeriodCommand(
     Guid PersonnelFileId,
     Guid VacationPeriodPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record GetPersonnelFileVacationPeriodsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileVacationPeriodResponse>>;
@@ -150,7 +150,10 @@ internal static class VacationErrors
 
     public static readonly Error EligibilityNotMet = new(
         "VACATION_ELIGIBILITY_NOT_MET",
-        "The employee has not yet completed one year of service (Art. 177) at the start of the period.", ErrorType.UnprocessableEntity);
+        // H-28 — el mensaje nombra el ANCLA (la fecha de ingreso) y la ventana completa: decía «al inicio del
+        // periodo» y era literal, midiendo contra el inicio y contra el registro de la plaza.
+        "The employee has not yet completed one year of service (Art. 177) counted from the hire date, at any point within the period.",
+        ErrorType.UnprocessableEntity);
 
     // ── Requests (PR-8) ───────────────────────────────────────────────────────────────────────────
 

@@ -61,7 +61,7 @@ public sealed record DeletePersonnelFileCurricularCompetencyCommand(
     Guid PersonnelFileId,
     Guid CurricularCompetencyPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileCurricularCompetencyPatchOperation(
     string Op,

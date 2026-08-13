@@ -19,8 +19,8 @@ public sealed class PositionSlot : TenantEntity
         long? functionalDependencyPositionSlotId,
         PositionSlotStatus status,
         int maxEmployees,
-        int occupiedEmployees,
         bool isFixedTerm,
+        bool generatesOvertime,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes)
@@ -36,7 +36,7 @@ public sealed class PositionSlot : TenantEntity
             EnsurePositiveId(roleId.Value, nameof(roleId));
         }
 
-        ValidateCapacity(maxEmployees, occupiedEmployees);
+        ValidateCapacity(maxEmployees);
         ValidateDateRange(effectiveFromUtc, effectiveToUtc);
 
         PublicId = publicId;
@@ -47,20 +47,18 @@ public sealed class PositionSlot : TenantEntity
         WorkCenterId = workCenterId;
         DirectDependencyPositionSlotId = directDependencyPositionSlotId;
         FunctionalDependencyPositionSlotId = functionalDependencyPositionSlotId;
-        Status = status;
         MaxEmployees = maxEmployees;
-        OccupiedEmployees = occupiedEmployees;
         IsFixedTerm = isFixedTerm;
+        GeneratesOvertime = generatesOvertime;
         EffectiveFromUtc = effectiveFromUtc;
         EffectiveToUtc = effectiveToUtc;
         Notes = PositionSlotNormalization.CleanOptional(notes);
 
-        // §PS6: on create the caller supplies BOTH status and occupancy, so a
-        // contradiction is rejected (not silently coerced) — the persisted value can no
-        // longer diverge from what the client sent.
-        ValidateStatusOccupancyConsistency(Status, OccupiedEmployees);
-
-        IsActive = Status != PositionSlotStatus.Suspended;
+        // H-23 — `Vacant`/`Occupied` are no longer persisted: they are FACTS about the assignments, derived on
+        // read. The only thing a caller decides at create time is whether the slot is already retired, and that
+        // is exactly what `IsActive` records. The old pair (status + occupancy counter) could contradict each
+        // other, and the aggregate had to arbitrate between two numbers nobody maintained.
+        IsActive = status != PositionSlotStatus.Suspended;
         ConcurrencyToken = Guid.NewGuid();
     }
 
@@ -80,13 +78,26 @@ public sealed class PositionSlot : TenantEntity
 
     public long? FunctionalDependencyPositionSlotId { get; private set; }
 
-    public PositionSlotStatus Status { get; private set; }
-
     public int MaxEmployees { get; private set; }
 
-    public int OccupiedEmployees { get; private set; }
-
     public bool IsFixedTerm { get; private set; }
+
+    /// <summary>
+    /// H-19/H-20 — whether work in this plaza can generate overtime. Lives on the POSITION, not on the person:
+    /// a directorship generates no overtime whoever holds it, and the rule has to survive a change of incumbent.
+    /// It also has to be per-plaza rather than per-employee because one employee can hold several plazas at once
+    /// (multi-plaza is in use in the real data), one exempt and one not.
+    /// <para>
+    /// Defaults to <c>true</c> on purpose: most positions do generate overtime, and a new plaza must not become
+    /// exempt by omission. Exemption is the exception and has to be declared.
+    /// </para>
+    /// <para>
+    /// This is also what disambiguates a missing work schedule. Before it, <c>workdayCode = null</c> meant either
+    /// "a director deliberately without a shift" or "somebody forgot to configure it", and the system could not
+    /// tell them apart — so it did the worst thing for both and stayed silent.
+    /// </para>
+    /// </summary>
+    public bool GeneratesOvertime { get; private set; }
 
     public DateTime EffectiveFromUtc { get; private set; }
 
@@ -114,8 +125,8 @@ public sealed class PositionSlot : TenantEntity
         long? functionalDependencyPositionSlotId,
         PositionSlotStatus status,
         int maxEmployees,
-        int occupiedEmployees,
         bool isFixedTerm,
+        bool generatesOvertime,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes) =>
@@ -130,8 +141,8 @@ public sealed class PositionSlot : TenantEntity
             functionalDependencyPositionSlotId,
             status,
             maxEmployees,
-            occupiedEmployees,
             isFixedTerm,
+            generatesOvertime,
             effectiveFromUtc,
             effectiveToUtc,
             notes);
@@ -144,6 +155,7 @@ public sealed class PositionSlot : TenantEntity
         long? workCenterId,
         int maxEmployees,
         bool isFixedTerm,
+        bool generatesOvertime,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes)
@@ -159,7 +171,7 @@ public sealed class PositionSlot : TenantEntity
             EnsurePositiveId(roleId.Value, nameof(roleId));
         }
 
-        ValidateCapacity(maxEmployees, OccupiedEmployees);
+        ValidateCapacity(maxEmployees);
         ValidateDateRange(effectiveFromUtc, effectiveToUtc);
 
         SetCode(code);
@@ -169,6 +181,7 @@ public sealed class PositionSlot : TenantEntity
         WorkCenterId = workCenterId;
         MaxEmployees = maxEmployees;
         IsFixedTerm = isFixedTerm;
+        GeneratesOvertime = generatesOvertime;
         EffectiveFromUtc = effectiveFromUtc;
         EffectiveToUtc = effectiveToUtc;
         Notes = PositionSlotNormalization.CleanOptional(notes);
@@ -210,31 +223,15 @@ public sealed class PositionSlot : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void UpdateOccupancy(int occupiedEmployees)
-    {
-        if (Status == PositionSlotStatus.Suspended)
-        {
-            throw new PositionSlotDomainException(
-                PositionSlotDomainErrorCode.SuspendedOccupancyConflict,
-                "Suspended position slots cannot update occupancy.");
-        }
-
-        ValidateCapacity(MaxEmployees, occupiedEmployees);
-
-        OccupiedEmployees = occupiedEmployees;
-        Status = occupiedEmployees == 0
-            ? PositionSlotStatus.Vacant
-            : PositionSlotStatus.Occupied;
-        IsActive = true;
-        RefreshConcurrencyToken();
-    }
-
+    /// <summary>
+    /// H-23 — the only status decision that is a DECISION: retired or not. `Vacant`/`Occupied` are facts about
+    /// the assignments and are derived on read, so asking for either simply means "this slot is in force".
+    /// The old version coerced an occupancy counter here (Occupied fabricated a `1`, Vacant zeroed whoever was
+    /// inside), which is how the HR dashboard could report occupants that did not exist.
+    /// </summary>
     public void ChangeStatus(PositionSlotStatus status)
     {
-        Status = status;
-        EnsureStatusConsistency();
-        
-        IsActive = Status != PositionSlotStatus.Suspended;
+        IsActive = status != PositionSlotStatus.Suspended;
         RefreshConcurrencyToken();
     }
 
@@ -264,27 +261,18 @@ public sealed class PositionSlot : TenantEntity
         }
     }
 
-    private static void ValidateCapacity(int maxEmployees, int occupiedEmployees)
+    /// <summary>
+    /// H-23 — capacity is now only the ceiling. What fills it is checked where it can be checked truthfully: the
+    /// assignment handler counts the ACTIVE assignments whose validity overlaps the candidate's window
+    /// (`EMPLOYMENT_ASSIGNMENT_CAPACITY_EXCEEDED`), which is finer than any counter on this row.
+    /// </summary>
+    private static void ValidateCapacity(int maxEmployees)
     {
         if (maxEmployees < 1)
         {
             throw new PositionSlotDomainException(
                 PositionSlotDomainErrorCode.MaxEmployeesInvalid,
                 "MaxEmployees must be greater than or equal to one.");
-        }
-
-        if (occupiedEmployees < 0)
-        {
-            throw new PositionSlotDomainException(
-                PositionSlotDomainErrorCode.OccupiedEmployeesNegative,
-                "OccupiedEmployees must be greater than or equal to zero.");
-        }
-
-        if (occupiedEmployees > maxEmployees)
-        {
-            throw new PositionSlotDomainException(
-                PositionSlotDomainErrorCode.OccupiedExceedsCapacity,
-                "OccupiedEmployees cannot be greater than MaxEmployees.");
         }
     }
 
@@ -302,47 +290,6 @@ public sealed class PositionSlot : TenantEntity
             throw new PositionSlotDomainException(
                 PositionSlotDomainErrorCode.EffectiveDateRangeInvalid,
                 "EffectiveToUtc cannot be less than EffectiveFromUtc.");
-        }
-    }
-
-    // §PS6: validation counterpart used on CREATE, where the caller supplies both the
-    // status and the occupancy. A contradictory pair is rejected so the persisted value
-    // cannot silently differ from the request.
-    private static void ValidateStatusOccupancyConsistency(PositionSlotStatus status, int occupiedEmployees)
-    {
-        if (status == PositionSlotStatus.Vacant && occupiedEmployees != 0)
-        {
-            throw new PositionSlotDomainException(
-                PositionSlotDomainErrorCode.StatusOccupancyMismatch,
-                "A vacant position slot must have zero occupied employees.");
-        }
-
-        if (status == PositionSlotStatus.Occupied && occupiedEmployees == 0)
-        {
-            throw new PositionSlotDomainException(
-                PositionSlotDomainErrorCode.StatusOccupancyMismatch,
-                "An occupied position slot must have at least one occupied employee.");
-        }
-    }
-
-    /// <summary>
-    /// §PS6: INTENTIONAL coercion for the status-only <see cref="ChangeStatus"/>
-    /// transition. The caller changes only the status (the <c>/status</c> endpoint
-    /// carries no occupancy), so there is no caller-supplied occupancy value to
-    /// contradict — the occupancy is reconciled to match the new status:
-    /// <c>Vacant</c> ⇒ 0 occupants, <c>Occupied</c> ⇒ at least 1, <c>Suspended</c>
-    /// leaves occupancy untouched. Create instead uses
-    /// <see cref="ValidateStatusOccupancyConsistency"/> and rejects contradictions.
-    /// </summary>
-    private void EnsureStatusConsistency()
-    {
-        if (Status == PositionSlotStatus.Vacant && OccupiedEmployees != 0)
-        {
-            OccupiedEmployees = 0;
-        }
-        else if (Status == PositionSlotStatus.Occupied && OccupiedEmployees == 0)
-        {
-            OccupiedEmployees = 1;
         }
     }
 

@@ -115,6 +115,8 @@ internal sealed record SettlementCalculationInput(
     SettlementKind Kind,
     RetirementSeparationType SeparationType,
     DateTime PlazaStartDate,
+    // H-28 — el ancla de la antigüedad: la fecha de ingreso a la EMPRESA, no el registro de la plaza.
+    DateTime SeniorityStartDate,
     DateTime RetirementDate,
     decimal MonthlyBaseSalary,
     SettlementParametersInput Parameters,
@@ -207,8 +209,12 @@ internal static class SettlementCalculationRules
         ArgumentNullException.ThrowIfNull(input);
         var parameters = input.Parameters;
 
-        // [1] Per-plaza seniority (P-01 ratified: from the assignment StartDate to the retirement date).
-        var totalDays = Math.Max(0, (input.RetirementDate.Date - input.PlazaStartDate.Date).Days);
+        // [1] Antigüedad de la RELACIÓN LABORAL (H-28: desde la fecha de ingreso a la fecha de retiro).
+        // Antes se medía desde el `PlazaStartDate` (P-01, «desde el StartDate»), lo que para una empresa que
+        // arrancaba con empleados de años liquidaba a alguien de 2.5 años por los días que llevaba registrada su
+        // plaza: indemnización ≈ 0 y aguinaldo en el tramo mínimo. Sigue siendo POR PLAZA —cada plaza aporta su
+        // propio salario—, así que dos plazas con la misma antigüedad reparten el monto en vez de duplicarlo.
+        var totalDays = Math.Max(0, (input.RetirementDate.Date - input.SeniorityStartDate.Date).Days);
         var years = totalDays / parameters.YearDivisorDays;
         var remainderDays = totalDays - (years * parameters.YearDivisorDays);
         var fractionalYears = parameters.YearDivisorDays == 0 ? 0m : (decimal)totalDays / parameters.YearDivisorDays;
@@ -443,7 +449,7 @@ internal static class SettlementCalculationRules
                     break;
 
                 case SettlementConceptCodes.VacacionProporcional:
-                    units = spec.UnitsOrDays ?? DaysSinceAnniversary(input.PlazaStartDate, input.RetirementDate);
+                    units = spec.UnitsOrDays ?? DaysSinceAnniversary(input.SeniorityStartDate, input.RetirementDate);
                     calculationBase = derived.DailySalary;
                     calculated = Round2(derived.DailySalary * parameters.VacationDays * (1 + (parameters.VacationPremiumPercent / 100m)) * units.Value / parameters.YearDivisorDays);
                     detail = $"{derived.DailySalary:0.00} × {parameters.VacationDays:0.##} × {(1 + (parameters.VacationPremiumPercent / 100m)):0.00} × {units:0.##}/{parameters.YearDivisorDays}";
@@ -685,10 +691,15 @@ internal static class SettlementCalculationRules
 
     // ── Date helpers ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Days since the last plaza anniversary (vacation proportionality default — G-04, editable).</summary>
-    public static int DaysSinceAnniversary(DateTime plazaStartDate, DateTime retirementDate)
+    /// <summary>
+    /// Days since the last HIRE anniversary (vacation proportionality default — G-04, editable).
+    /// H-28 — se mide sobre el aniversario de ingreso, el mismo que ahora usa la ventana del fondo de vacaciones;
+    /// antes era el de la plaza y las dos superficies podían discrepar. Solo se usa cuando NO hay fondo: con fondo
+    /// manda `PendingVacationDays`.
+    /// </summary>
+    public static int DaysSinceAnniversary(DateTime hireDate, DateTime retirementDate)
     {
-        var start = plazaStartDate.Date;
+        var start = hireDate.Date;
         var end = retirementDate.Date;
         if (end <= start)
         {

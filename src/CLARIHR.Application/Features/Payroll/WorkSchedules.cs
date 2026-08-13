@@ -160,6 +160,24 @@ internal sealed class WorkScheduleDayInputModelValidator : AbstractValidator<Wor
     }
 }
 
+/// <summary>
+/// H-18(b) — the allowed values of the two enum-like string fields, checked in the validator so an invalid one
+/// answers `400` NAMING THE FIELD, like the module's other invalid-value cases (`dayOfWeek`,
+/// `totalWeeklyHours`, `days`). Before this they fell into the handler's broad
+/// `catch (ArgumentException or ArgumentOutOfRangeException)` around <c>WorkSchedule.Create</c> and came back
+/// as `422 WORK_SCHEDULE_DAY_INVALID` — *"the days are not valid"* — sending the reader to audit shifts that
+/// were fine. That catch stays for what only the aggregate can judge: duplicated weekday, meal break on a
+/// night shift, zero-length shift.
+/// </summary>
+internal static class WorkScheduleFieldRules
+{
+    // Delegates to the domain's own predicate so the validator and the aggregate can never disagree on what
+    // "valid" means — including case handling.
+    public static bool IsKnownAnchor(string? value) => WorkScheduleAnchors.IsKnown(value);
+
+    public static bool IsKnownClass(string? value) => WorkScheduleClasses.IsKnown(value);
+}
+
 internal sealed class CreateWorkScheduleCommandValidator : AbstractValidator<CreateWorkScheduleCommand>
 {
     public CreateWorkScheduleCommandValidator()
@@ -168,8 +186,14 @@ internal sealed class CreateWorkScheduleCommandValidator : AbstractValidator<Cre
         RuleFor(command => command.Code).NotEmpty().MaximumLength(WorkSchedule.MaxCodeLength);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(WorkSchedule.MaxNameLength);
         RuleFor(command => command.ScheduleLabel).MaximumLength(WorkSchedule.MaxScheduleLabelLength);
-        RuleFor(command => command.AttendanceDateAnchor).NotEmpty();
-        RuleFor(command => command.ScheduleClass).NotEmpty();
+        RuleFor(command => command.AttendanceDateAnchor)
+            .NotEmpty()
+            .Must(WorkScheduleFieldRules.IsKnownAnchor)
+            .WithMessage("Attendance date anchor must be ENTRADA or SALIDA.");
+        RuleFor(command => command.ScheduleClass)
+            .NotEmpty()
+            .Must(WorkScheduleFieldRules.IsKnownClass)
+            .WithMessage("Schedule class must be ORDINARIA or EXTRAORDINARIA.");
         RuleFor(command => command.TotalWeeklyHours)
             .GreaterThan(0m)
             .LessThanOrEqualTo(WorkSchedule.MaxWeeklyHours)
@@ -188,8 +212,14 @@ internal sealed class UpdateWorkScheduleCommandValidator : AbstractValidator<Upd
         RuleFor(command => command.Code).NotEmpty().MaximumLength(WorkSchedule.MaxCodeLength);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(WorkSchedule.MaxNameLength);
         RuleFor(command => command.ScheduleLabel).MaximumLength(WorkSchedule.MaxScheduleLabelLength);
-        RuleFor(command => command.AttendanceDateAnchor).NotEmpty();
-        RuleFor(command => command.ScheduleClass).NotEmpty();
+        RuleFor(command => command.AttendanceDateAnchor)
+            .NotEmpty()
+            .Must(WorkScheduleFieldRules.IsKnownAnchor)
+            .WithMessage("Attendance date anchor must be ENTRADA or SALIDA.");
+        RuleFor(command => command.ScheduleClass)
+            .NotEmpty()
+            .Must(WorkScheduleFieldRules.IsKnownClass)
+            .WithMessage("Schedule class must be ORDINARIA or EXTRAORDINARIA.");
         RuleFor(command => command.TotalWeeklyHours)
             .GreaterThan(0m)
             .LessThanOrEqualTo(WorkSchedule.MaxWeeklyHours)

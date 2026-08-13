@@ -16,12 +16,18 @@ public sealed class JobProfileDomainTests
         Assert.Equal("ANALISTA DE NOMINA", profile.NormalizedTitle);
     }
 
+    /// <summary>
+    /// H-09 — was <c>ShouldKeepVersionWhenBumpDisabled</c>, asserting that the (now removed)
+    /// <c>bumpVersion: false</c> flag left version AND token untouched. The flag existed only so creation
+    /// would not land on version 2. Now the creation path leaves the profile at version <b>0</b> — no
+    /// approved revision yet — while the token rotates like on any other write.
+    /// </summary>
     [Fact]
-    public void JobProfile_UpdateCore_WithInitialSetup_ShouldKeepVersionWhenBumpDisabled()
+    public void JobProfile_UpdateCore_OnFreshProfile_ShouldStayAtVersionZero()
     {
         var profile = JobProfile.Create("JP-001", "Analista");
 
-        var initialVersion = profile.Version;
+        Assert.Equal(0, profile.Version);
         var initialToken = profile.ConcurrencyToken;
 
         profile.UpdateCore(
@@ -40,11 +46,10 @@ public sealed class JobProfileDomainTests
             marketSalaryReference: null,
             valuationNotes: null,
             effectiveFromUtc: null,
-            effectiveToUtc: null,
-            bumpVersion: false);
+            effectiveToUtc: null);
 
-        Assert.Equal(initialVersion, profile.Version);
-        Assert.Equal(initialToken, profile.ConcurrencyToken);
+        Assert.Equal(0, profile.Version);
+        Assert.NotEqual(initialToken, profile.ConcurrencyToken);
     }
 
     [Fact]
@@ -95,7 +100,11 @@ public sealed class JobProfileDomainTests
             effectiveFromUtc: null,
             effectiveToUtc: null);
 
-        Assert.Equal(2, profile.Version);
+        // H-09 — asserted `Version == 2` before. Editing the descriptor is not a revision of it, so the
+        // number must not move; the token rotation is the half that must survive, because both used to live
+        // inside the same `if (bumpVersion)` block and dropping them together would have killed optimistic
+        // concurrency on the profile core without a single test noticing.
+        Assert.Equal(0, profile.Version);
         Assert.NotEqual(beforeToken, profile.ConcurrencyToken);
     }
 
@@ -128,8 +137,7 @@ public sealed class JobProfileDomainTests
             marketSalaryReference: null,
             valuationNotes: null,
             effectiveFromUtc: null,
-            effectiveToUtc: null,
-            bumpVersion: false);
+            effectiveToUtc: null);
 
         profile.ReplaceRequirements([
             JobProfileRequirement.Create(

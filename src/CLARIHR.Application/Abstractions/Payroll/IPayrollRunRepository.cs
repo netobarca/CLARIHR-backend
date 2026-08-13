@@ -104,6 +104,17 @@ public interface IPayrollRunRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// H-29 — la matriz de la planilla: una fila por empleado con las columnas del reporte, pivoteada desde las
+    /// líneas INCLUIDAS de la corrida. Devuelve las filas ordenadas por empleado y la fila de totales, o null
+    /// cuando la corrida no existe en el tenant.
+    /// </summary>
+    Task<(IReadOnlyList<Features.Payroll.PlanillaEmpleadoRow> Rows, Features.Payroll.PlanillaEmpleadoRow Totals)?>
+        GetEmployeeMatrixRowsAsync(
+            Guid tenantId,
+            Guid payrollRunPublicId,
+            CancellationToken cancellationToken);
+
+    /// <summary>
     /// Planilla Patronal (REQ-016 RF-003): one row per employee with salario base + cargas patronales
     /// (PagoPatronal-class lines). Null when the run does not exist in the tenant.
     /// </summary>

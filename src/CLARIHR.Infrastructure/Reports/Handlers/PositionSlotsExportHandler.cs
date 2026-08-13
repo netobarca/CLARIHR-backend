@@ -26,6 +26,9 @@ internal sealed class PositionSlotsExportHandler(
             ReportExportParameters.ReadGuid(parameters, "workCenterPublicId"),
             ReportExportParameters.ReadGuid(parameters, "contractTypePublicId"),
             ReportExportParameters.ReadString(parameters, "search", "q"),
+            // H-15 — the export mirrors the listing's filters; leaving `isActive` out would have made the two
+            // diverge the moment someone filtered the screen and then exported it.
+            ReportExportParameters.ReadBool(parameters, "isActive"),
             rowWriter.MaxRowsToRead,
             cancellationToken);
 

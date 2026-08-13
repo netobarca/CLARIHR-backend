@@ -173,7 +173,7 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/evaluations/{evaluationPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a performance evaluation from a personnel file",
@@ -182,7 +182,7 @@ public sealed class PersonnelFileTalentController(
             with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEvaluation(
+    public async Task<ActionResult> DeleteEvaluation(
         Guid publicId,
         Guid evaluationPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -192,7 +192,7 @@ public sealed class PersonnelFileTalentController(
             new DeletePersonnelFilePerformanceEvaluationCommand(publicId, evaluationPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Selection Contests ───────────────────────────────────────────────────
@@ -340,7 +340,7 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/selection-contests/{selectionContestPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a selection contest from a personnel file",
@@ -349,7 +349,7 @@ public sealed class PersonnelFileTalentController(
             the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteSelectionContest(
+    public async Task<ActionResult> DeleteSelectionContest(
         Guid publicId,
         Guid selectionContestPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -359,7 +359,7 @@ public sealed class PersonnelFileTalentController(
             new DeletePersonnelFileSelectionContestCommand(publicId, selectionContestPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Curricular Competencies ──────────────────────────────────────────────
@@ -509,7 +509,7 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/curricular-competencies/{curricularCompetencyPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a curricular competency from a personnel file",
@@ -518,7 +518,7 @@ public sealed class PersonnelFileTalentController(
             with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteCurricularCompetency(
+    public async Task<ActionResult> DeleteCurricularCompetency(
         Guid publicId,
         Guid curricularCompetencyPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -528,6 +528,6 @@ public sealed class PersonnelFileTalentController(
             new DeletePersonnelFileCurricularCompetencyCommand(publicId, curricularCompetencyPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

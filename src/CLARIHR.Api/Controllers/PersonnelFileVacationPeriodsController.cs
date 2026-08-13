@@ -69,10 +69,14 @@ public sealed class PersonnelFileVacationPeriodsController(
         Summary = "Create a vacation fund period",
         Description = """
             Creates a manual vacation fund period for the employee and year. The bounds are derived from the
-            anniversary flag (defaulting to the company preference) and the employee's primary-plaza anniversary
-            or the calendar year; the grants default to the company preference. Rejected when an active period
-            already exists for the year (`VACATION_PERIOD_DUPLICATE`) or the employee has not completed one year
-            of service at the start of the period (`VACATION_ELIGIBILITY_NOT_MET`). Manager-only.
+            anniversary flag (defaulting to the company preference) and the employee's **hire** anniversary or the
+            calendar year; the grants default to the company preference. Rejected when an active period already
+            exists for the year (`VACATION_PERIOD_DUPLICATE`) or the employee does not complete one year of service
+            (Art. 177, counted from the hire date) at any point within the period
+            (`VACATION_ELIGIBILITY_NOT_MET`). Manager-only.
+
+            Seniority is the seniority of the employment relationship, so it is anchored on `hireDate` — not on
+            when the plaza was registered. A rehire resets `hireDate`, and therefore the anchor.
             """)]
     public async Task<ActionResult<PersonnelFileVacationPeriodResponse>> AddVacationPeriod(
         Guid publicId,
@@ -128,7 +132,7 @@ public sealed class PersonnelFileVacationPeriodsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/vacation-periods/{vacationPeriodPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a vacation fund period",
@@ -137,7 +141,7 @@ public sealed class PersonnelFileVacationPeriodsController(
             `concurrencyToken`. Rejected when the period already has enjoyed days
             (`VACATION_PERIOD_HAS_CONSUMPTION`). Manager-only.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteVacationPeriod(
+    public async Task<ActionResult> DeleteVacationPeriod(
         Guid publicId,
         Guid vacationPeriodPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -147,7 +151,7 @@ public sealed class PersonnelFileVacationPeriodsController(
             new DeletePersonnelFileVacationPeriodCommand(publicId, vacationPeriodPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/vacation-fund")]

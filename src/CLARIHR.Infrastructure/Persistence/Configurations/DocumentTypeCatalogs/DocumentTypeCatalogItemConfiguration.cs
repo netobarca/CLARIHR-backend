@@ -36,5 +36,9 @@ internal sealed class DocumentTypeCatalogItemConfiguration
 
         builder.HasIndex(item => new { item.IsActive, item.SortOrder })
             .HasDatabaseName("ix_document_type_catalog_items__active_sort");
+
+        // H-22 — the baseline the platform ships. Same mechanism the education catalogs use; the platform
+        // operator curates on top of it from the Backoffice API.
+        builder.HasData(GlobalCatalogSeedData.GetDocumentTypeCatalogItems());
     }
 }

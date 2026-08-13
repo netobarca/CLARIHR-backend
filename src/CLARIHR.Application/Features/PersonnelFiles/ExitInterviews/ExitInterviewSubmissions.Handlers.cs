@@ -101,7 +101,7 @@ internal sealed class SaveExitInterviewSubmissionCommandHandler(
 
         if (!personnelFile.IsCompletedEmployee)
         {
-            return Result<ExitInterviewSubmissionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ExitInterviewSubmissionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile));
         }
 
         var snapshot = await repository.GetSubmissionSnapshotAsync(tenantId, personnelFile.Id, cancellationToken);

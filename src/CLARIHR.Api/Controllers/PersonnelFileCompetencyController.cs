@@ -196,7 +196,7 @@ public sealed class PersonnelFileCompetencyController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/position-competency-results/{positionCompetencyResultPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a position competency result from a personnel file",
@@ -205,7 +205,7 @@ public sealed class PersonnelFileCompetencyController(
             with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeletePositionCompetencyResult(
+    public async Task<ActionResult> DeletePositionCompetencyResult(
         Guid publicId,
         Guid positionCompetencyResultPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -215,6 +215,6 @@ public sealed class PersonnelFileCompetencyController(
             new DeletePersonnelFilePositionCompetencyResultCommand(publicId, positionCompetencyResultPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

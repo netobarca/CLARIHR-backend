@@ -35,8 +35,6 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 /// personnel file's refreshed concurrency token without an extra round-trip,
 /// mirroring the JobProfile sub-resource canonical pattern.
 /// </summary>
-public sealed record PersonnelFileParentConcurrencyResult(Guid ParentConcurrencyToken);
-
 public sealed record PersonnelFileSectionResult<TData>(
     TData Data,
     Guid PersonnelFileConcurrencyToken,

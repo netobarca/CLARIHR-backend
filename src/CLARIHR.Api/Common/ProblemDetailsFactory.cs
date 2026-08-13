@@ -27,12 +27,20 @@ internal static class ProblemDetailsFactory
                 .GetService<ILoggerFactory>()
                 ?.CreateLogger("CLARIHR.Api.Common.ProblemDetailsFactory");
             logger?.LogWarning(
-                "Unexpected failure mapped to 500 for {Method} {Path}: error code '{ErrorCode}' (type {ErrorType}), traceId {TraceId}.",
+                "Unexpected failure mapped to 500 for {Method} {Path}: error code '{ErrorCode}' (type {ErrorType}), "
+                    + "traceId {TraceId}. Message: {Message}",
                 httpContext.Request.Method,
                 httpContext.Request.Path.Value,
                 error.Code,
                 error.Type,
-                httpContext.TraceIdentifier);
+                httpContext.TraceIdentifier,
+                error.Message);
+
+            // H-26 — the client used to receive the storage engine's own words: "Cannot write DateTime with
+            // Kind=Unspecified to PostgreSQL type 'timestamp with time zone'… (Parameter 'value')". A 500 says
+            // that something broke on our side and nothing else; the detail now lives only in the log above,
+            // findable by the traceId that travels in the response.
+            error = error with { Message = "An unexpected error occurred." };
         }
 
         var localizer = requestServices is null

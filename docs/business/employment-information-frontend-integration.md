@@ -228,7 +228,9 @@ El endpoint `POST /api/v1/personnel-files/{id}/rehire` y su body **no cambiaron*
 | HTTP | Code | Cuándo |
 |---|---|---|
 | `422` | `EMPLOYMENT_STATUS_CODE_INVALID` | `employmentStatusCode` no existe / no está activo en el catálogo del país. |
-| `422` | `PERSONNEL_FILE_STATE_RULE_VIOLATION` | Intentar `PUT` sobre un expediente que no es **empleado completado**. (sin cambios) |
+| `422` | `PERSONNEL_FILE_NOT_FINALIZED` | El expediente es de empleado pero sigue en `Draft`. **El cuerpo trae el remedio**: `lifecycleStatus`, `requiredTransition` (`PATCH /personnel-files/{id}/finalize`) y `readiness` (`GET /personnel-files/{id}/finalize/preview`, que lista lo que falta). Antes era `PERSONNEL_FILE_STATE_RULE_VIOLATION` (H-25). |
+| `422` | `PERSONNEL_FILE_NOT_EMPLOYEE` | El expediente no es de tipo empleado (p. ej. un candidato). Antes compartía el código anterior. |
+| `400` | validación de `If-Match` | El header es **obligatorio incluso en el primer `PUT`**, cuando la sección todavía no existe (su valor no se compara). La documentación anterior decía que el primer create no lo necesitaba. |
 | `422` | `PERSONNEL_FILE_CONCURRENCY_CONFLICT` | `If-Match` desactualizado en el `PUT`. (sin cambios) |
 
 ---

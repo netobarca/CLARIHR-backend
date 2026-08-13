@@ -79,7 +79,13 @@ public sealed class OvertimeRecordsController(
             enabled (origin `PORTAL`, the requester is the subject employee; preference off → 403
             `OVERTIME_SELF_SERVICE_DISABLED`). The overtime type + justification type are resolved against the
             company masters (active; inactive → 422) and snapshotted; the applied factor defaults to the type's
-            reference factor (an override needs a note, P-06); the h:m duration yields the decimal hours; a work
+            reference factor (an override needs a note, P-06); the mandatory `startTime`/`endTime` range is the single
+            source of truth and the h:m duration is DERIVED from it (H-20) — a zero-length range → 422
+            `OVERTIME_RANGE_EMPTY`, a range inside the employee's contracted shift → 422
+            `OVERTIME_WITHIN_SCHEDULED_SHIFT`, a range overlapping another record of the day → 422
+            `OVERTIME_RECORDS_OVERLAP`, a range straddling the legal 06:00/19:00 cut → 422
+            `OVERTIME_CROSSES_LEGAL_BOUNDARY`, and a plaza with `generatesOvertime = false` → 422
+            `OVERTIME_POSITION_EXEMPT` (an employee with no schedule at all only warns, in `warnings[]`); a work
             date more than 366 days ahead → 422; the daily cap (P-05) blocks with 422 when the day's minutes exceed
             it; the plaza is optional (principal when omitted); the payroll type is validated against the catalog.
             The `ETag` header carries the initial `concurrencyToken`.
@@ -111,7 +117,8 @@ public sealed class OvertimeRecordsController(
             Replaces the business fields (shift + motive + plaza + requester + destination) of an `EN_REVISION`
             overtime record (RN-02; an authorized record is no longer editable). The caller has
             `ManageOvertimeRecords` (any record) OR is the employee editing their OWN `EN_REVISION` record
-            registered through the portal (origin `PORTAL`). Requires the `If-Match` header with the current
+            registered through the portal (origin `PORTAL`). The same range guards as the create apply (H-20), with
+            the edited record excluded from the same-day overlap check. Requires the `If-Match` header with the current
             `concurrencyToken`; the new token is returned in the `ETag` header.
             """)]
     public async Task<ActionResult<OvertimeRecordResponse>> UpdateOvertimeRecord(
@@ -129,7 +136,7 @@ public sealed class OvertimeRecordsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/overtime-records/{overtimeRecordPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Discard (soft-delete) an EN_REVISION overtime record draft",
@@ -139,7 +146,7 @@ public sealed class OvertimeRecordsController(
             the employee discarding their OWN portal `EN_REVISION` draft. Requires the `If-Match` header with the
             current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteOvertimeRecord(
+    public async Task<ActionResult> DeleteOvertimeRecord(
         Guid publicId,
         Guid overtimeRecordPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -149,7 +156,7 @@ public sealed class OvertimeRecordsController(
             new DeletePersonnelFileOvertimeRecordCommand(publicId, overtimeRecordPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpPatch("api/v1/personnel-files/{publicId:guid}/overtime-records/{overtimeRecordPublicId:guid}/annulment")]
@@ -302,8 +309,6 @@ public sealed class OvertimeRecordsController(
             request.OvertimeTypePublicId,
             request.FactorApplied,
             request.FactorOverrideNote,
-            request.DurationHours,
-            request.DurationMinutes,
             request.StartTime,
             request.EndTime,
             request.JustificationTypePublicId,
@@ -321,8 +326,6 @@ public sealed class OvertimeRecordsController(
             request.OvertimeTypePublicId,
             request.FactorApplied,
             request.FactorOverrideNote,
-            request.DurationHours,
-            request.DurationMinutes,
             request.StartTime,
             request.EndTime,
             request.JustificationTypePublicId,

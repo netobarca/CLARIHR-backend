@@ -62,7 +62,7 @@ public sealed record DeletePersonnelFileOffPayrollTransactionCommand(
     Guid PersonnelFileId,
     Guid OffPayrollTransactionPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileOffPayrollTransactionPatchOperation(
     string Op,

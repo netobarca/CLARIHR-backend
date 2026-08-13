@@ -25,9 +25,11 @@ public sealed class ContractTypesController(IQueryDispatcher queryDispatcher) : 
         Description = """
             Returns the country-scoped catalog of employment contract types with their enriched
             attributes: the optional short `abbreviation` and the `isTemporary` flag that marks
-            fixed-term/temporary modalities (plazo fijo, obra, eventual…). The `countryCode` query
-            parameter (a 2–3 letter ISO-style code) selects the country and returns no items when
-            missing or unknown. Items are ordered by `sortOrder`.
+            fixed-term/temporary modalities (plazo fijo, obra, eventual…). The `countryCode` query parameter (a 2–3
+            letter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a
+            code that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list
+            now means only that this country's catalog has no rows (H-21). A caller with no tenant (the
+            company-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Items are ordered by `sortOrder`.
             """)]
     public async Task<ActionResult<IReadOnlyCollection<ContractTypeResponse>>> GetContractTypes(
         [FromQuery] string? countryCode,

@@ -145,8 +145,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         bool isActive,
         string? notes,
@@ -164,8 +164,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         OrgUnitPublicId = orgUnitPublicId;
         WorkCenterPublicId = workCenterPublicId;
         CostCenterPublicId = costCenterPublicId;
-        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
-        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        StartDate = startDate;
+        EndDate = endDate;
         IsPrimary = isPrimary;
         IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
@@ -206,9 +206,14 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     public Guid? CostCenterPublicId { get; private set; }
 
-    public DateTime StartDate { get; private set; }
+    // H-26/H-28 — `DateOnly`, no `DateTime`: el negocio dice «el DÍA en que entró a la plaza», no un
+    // instante. La columna es `date`. Guardarlo como `timestamptz` obligaba a todos los consumidores a
+    // recordar la convención «UTC a medianoche» y era la mentira que produjo el 500 de H-26 (un valor sin
+    // zona comparado contra una columna con zona). Igual que `PersonnelFileNotWorkedTime.StartDate`,
+    // `PersonnelFileCompensatoryTime.StartDate` y `PayrollRun.PeriodStartDate`.
+    public DateOnly StartDate { get; private set; }
 
-    public DateTime? EndDate { get; private set; }
+    public DateOnly? EndDate { get; private set; }
 
     public bool IsPrimary { get; private set; }
 
@@ -229,8 +234,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         bool isActive,
         string? notes,
@@ -264,8 +269,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         string? notes,
         string? paymentMethodCode = null,
@@ -281,8 +286,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         OrgUnitPublicId = orgUnitPublicId;
         WorkCenterPublicId = workCenterPublicId;
         CostCenterPublicId = costCenterPublicId;
-        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
-        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        StartDate = startDate;
+        EndDate = endDate;
         IsPrimary = isPrimary;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
         PaymentMethodCode = PersonnelFileNormalization.CleanOptional(paymentMethodCode);
@@ -303,9 +308,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     }
 
     /// <summary>Closes an active assignment of a prior employment period: ends it and deactivates it (RF-004).</summary>
-    public void Close(DateTime endDate)
+    public void Close(DateOnly endDate)
     {
-        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        EndDate = endDate;
         IsActive = false;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -315,9 +320,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
     /// EXACT pre-execution state — the end date the row had BEFORE the baja (null when the execution set it)
     /// — and reactivates the row. Never invents an end date.
     /// </summary>
-    public void Reopen(DateTime? previousEndDate)
+    public void Reopen(DateOnly? previousEndDate)
     {
-        EndDate = PersonnelFileNormalization.NormalizeDate(previousEndDate);
+        EndDate = previousEndDate;
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -1363,9 +1368,12 @@ public sealed class MedicalClaimDocument : TenantEntity
         int sizeBytes,
         string? observations)
     {
-        if (documentTypeCatalogItemId <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         if (filePublicId == Guid.Empty)
@@ -1440,9 +1448,12 @@ public sealed class MedicalClaimDocument : TenantEntity
         long documentTypeCatalogItemId,
         string? observations)
     {
-        if (documentTypeCatalogItemId <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         DocumentTypeCatalogItemId = documentTypeCatalogItemId;

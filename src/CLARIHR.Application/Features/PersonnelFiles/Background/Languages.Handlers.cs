@@ -149,9 +149,13 @@ internal sealed class AddPersonnelFileLanguageCommandHandler(
                 command.Language.Writes,
                 command.Language.Reads);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException exception)
         {
-            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            // H-25 — this used to answer `PERSONNEL_FILE_STATE_RULE_VIOLATION`, i.e. "the file's state does not
+            // allow this", which was false for both things the aggregate can throw here: a child that does not
+            // exist (a 404) and a domain invariant about the payload (a validation naming the field).
+            return Result<PersonnelFileLanguageResponse>.Failure(
+                PersonnelFileErrors.FromLanguageDomainException(exception));
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -327,13 +331,13 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileLanguageCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileLanguageCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, file) = await LoadForSectionManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Languages,
             tenantContext,
@@ -350,12 +354,12 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
         var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
         if (language is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (language.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetLanguagesAsync(personnelFile.PublicId, cancellationToken);
@@ -393,12 +397,12 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -542,10 +546,12 @@ internal sealed class PatchPersonnelFileLanguageCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<PersonnelFileLanguageResponse>.Success(response);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException exception)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            // H-25 — see above: not a lifecycle problem. A missing child is a 404 and an invariant is a validation.
+            return Result<PersonnelFileLanguageResponse>.Failure(
+                PersonnelFileErrors.FromLanguageDomainException(exception));
         }
         catch
         {

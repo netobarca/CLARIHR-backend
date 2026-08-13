@@ -60,7 +60,7 @@ internal sealed class GenerateVacationPeriodsCommandHandler(
             }
 
             var bounds = VacationRules.PeriodBounds(item.Year, useAnniversary, candidate.AnchorDate);
-            if (!VacationRules.IsEligible(candidate.AnchorDate, bounds.Start))
+            if (!VacationRules.IsEligibleForPeriod(candidate.AnchorDate, bounds))
             {
                 errors.Add(new VacationPeriodGenerationError(
                     candidate.PublicId,

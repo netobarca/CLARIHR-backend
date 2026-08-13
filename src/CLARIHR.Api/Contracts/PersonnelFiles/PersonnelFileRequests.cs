@@ -122,7 +122,8 @@ public sealed record RehireEmployeeRequest(
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,
     string EmploymentStatusCode,
-    DateTime HireDate,
+    // H-26 (parte B) — un día, no un instante.
+    DateOnly HireDate,
     // The institutional email is the employee's login. Supply it to change it (record + linked account);
     // omit/leave null to keep the current one — it cannot be cleared while a login account is linked.
     string? InstitutionalEmail = null,
@@ -144,8 +145,11 @@ public sealed record AddEmploymentAssignmentRequest(
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
     Guid? CostCenterPublicId,
-    DateTime StartDate,
-    DateTime? EndDate,
+    // H-26 (parte B) — un día, no un instante: `DateOnly` en el contrato. Antes era `DateTime`, y `"2026-08-01"`
+    // llegaba con Kind=Unspecified hasta la comparación SQL del chequeo de cupo, donde reventaba con 500. Los
+    // converters aceptan igual la forma de instante que los clientes ya mandaban.
+    DateOnly StartDate,
+    DateOnly? EndDate,
     bool IsPrimary,
     bool IsActive,
     string? Notes,
@@ -165,8 +169,11 @@ public sealed record UpdateEmploymentAssignmentRequest(
     Guid? OrgUnitPublicId,
     Guid? WorkCenterPublicId,
     Guid? CostCenterPublicId,
-    DateTime StartDate,
-    DateTime? EndDate,
+    // H-26 (parte B) — un día, no un instante: `DateOnly` en el contrato. Antes era `DateTime`, y `"2026-08-01"`
+    // llegaba con Kind=Unspecified hasta la comparación SQL del chequeo de cupo, donde reventaba con 500. Los
+    // converters aceptan igual la forma de instante que los clientes ya mandaban.
+    DateOnly StartDate,
+    DateOnly? EndDate,
     bool IsPrimary,
     string? Notes,
     string? PaymentMethodCode = null,

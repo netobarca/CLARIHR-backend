@@ -21,3 +21,21 @@ public enum DeductionClass
     Interno = 2,
     Externo = 3,
 }
+
+/// <summary>
+/// H-29 — clasificación del INGRESO, simétrica a <see cref="DeductionClass"/>. Sus valores son las columnas del
+/// reporte de planilla por empleado, no los conceptos: el objetivo es que un concepto nuevo que cree la empresa
+/// (p. ej. <c>BONO_PRODUCTIVIDAD</c>) caiga en la columna correcta en vez de irse en silencio a «otros».
+/// <c>NoDeducible</c> son los reintegros que están fuera del salario (viáticos, reembolsos), que además no deben
+/// afectar las bases de ISSS/AFP/Renta.
+/// </summary>
+public enum IncomeClass
+{
+    Salario = 1,
+    Bono = 2,
+    Comision = 3,
+    HorasExtra = 4,
+    NoDeducible = 5,
+    Aguinaldo = 6,
+    Otro = 7,
+}

@@ -11,8 +11,8 @@ namespace CLARIHR.Application.UnitTests;
 public sealed class EmploymentAssignmentRulesTests
 {
     private static readonly DateTime SlotFrom = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-    private static readonly DateTime Start = new(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
-    private static readonly DateTime End = new(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateOnly Start = new(2026, 2, 1);
+    private static readonly DateOnly End = new(2026, 6, 30);
     private static readonly Guid SlotA = Guid.NewGuid();
     private static readonly Guid SlotB = Guid.NewGuid();
 
@@ -21,8 +21,8 @@ public sealed class EmploymentAssignmentRulesTests
         bool isPrimary = true,
         bool isActive = true,
         Guid? publicId = null,
-        DateTime? start = null,
-        DateTime? end = null) =>
+        DateOnly? start = null,
+        DateOnly? end = null) =>
         new(publicId, slot, start ?? Start, end, isPrimary, isActive);
 
     private static EmploymentAssignmentRules.ExistingAssignment Existing(
@@ -30,18 +30,19 @@ public sealed class EmploymentAssignmentRulesTests
         bool isPrimary = false,
         bool isActive = true,
         Guid? publicId = null,
-        DateTime? start = null,
-        DateTime? end = null) =>
+        DateOnly? start = null,
+        DateOnly? end = null) =>
         new(publicId ?? Guid.NewGuid(), slot, start ?? Start, end, isPrimary, isActive);
 
     private static EmploymentAssignmentRules.PositionSlotFacts Slot(
         bool exists = true,
-        PositionSlotStatus status = PositionSlotStatus.Vacant,
+        // H-23 — the slot no longer persists Vacant/Occupied: what the rule needs is whether it is in force.
+        bool isActive = true,
         int max = 2,
         int overlapping = 0,
         DateTime? from = null,
         DateTime? to = null) =>
-        new(exists, status, from ?? SlotFrom, to, max, overlapping);
+        new(exists, isActive, from ?? SlotFrom, to, max, overlapping);
 
     [Fact]
     public void Evaluate_NewActivePrimary_NoOthers_SucceedsWithoutDemotion()
@@ -126,7 +127,7 @@ public sealed class EmploymentAssignmentRulesTests
     [Fact]
     public void Evaluate_SuspendedSlot_NotAssignable()
     {
-        var result = EmploymentAssignmentRules.Evaluate(Candidate(SlotA), [], Slot(status: PositionSlotStatus.Suspended));
+        var result = EmploymentAssignmentRules.Evaluate(Candidate(SlotA), [], Slot(isActive: false));
 
         Assert.True(result.IsFailure);
         Assert.Equal("EMPLOYMENT_ASSIGNMENT_POSITION_SLOT_NOT_ASSIGNABLE", result.Error.Code);
@@ -135,7 +136,7 @@ public sealed class EmploymentAssignmentRulesTests
     [Fact]
     public void Evaluate_CandidateBeforeSlotEffectiveFrom_NotAssignable()
     {
-        var candidate = Candidate(SlotA, start: new DateTime(2025, 12, 1, 0, 0, 0, DateTimeKind.Utc));
+        var candidate = Candidate(SlotA, start: new DateOnly(2025, 12, 1));
 
         var result = EmploymentAssignmentRules.Evaluate(candidate, [], Slot());
 
@@ -146,7 +147,7 @@ public sealed class EmploymentAssignmentRulesTests
     [Fact]
     public void Evaluate_CandidateAfterSlotEffectiveTo_NotAssignable()
     {
-        var candidate = Candidate(SlotA, start: new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc));
+        var candidate = Candidate(SlotA, start: new DateOnly(2026, 9, 1));
         var slot = Slot(to: new DateTime(2026, 8, 31, 0, 0, 0, DateTimeKind.Utc));
 
         var result = EmploymentAssignmentRules.Evaluate(candidate, [], slot);
@@ -162,8 +163,8 @@ public sealed class EmploymentAssignmentRulesTests
         var others = new[]
         {
             Existing(SlotA, isActive: true,
-                start: new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
-                end: new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc)),
+                start: new DateOnly(2025, 6, 1),
+                end: new DateOnly(2025, 12, 31)),
         };
 
         var result = EmploymentAssignmentRules.Evaluate(Candidate(SlotA), others, Slot());
@@ -177,7 +178,7 @@ public sealed class EmploymentAssignmentRulesTests
     {
         var others = new[] { Existing(SlotA, isActive: true, start: Start, end: End) };
 
-        var result = EmploymentAssignmentRules.Evaluate(Candidate(SlotA, start: new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc)), others, Slot());
+        var result = EmploymentAssignmentRules.Evaluate(Candidate(SlotA, start: new DateOnly(2026, 3, 1)), others, Slot());
 
         Assert.True(result.IsFailure);
         Assert.Equal("EMPLOYMENT_ASSIGNMENT_OVERLAPPING_DATES", result.Error.Code);

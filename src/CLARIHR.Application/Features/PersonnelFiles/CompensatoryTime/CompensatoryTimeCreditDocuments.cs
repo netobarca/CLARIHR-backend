@@ -63,7 +63,7 @@ public sealed record DeleteCompensatoryTimeCreditDocumentCommand(
     Guid PersonnelFileId,
     Guid CompensatoryTimeCreditPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetCompensatoryTimeCreditDocumentsQueryValidator : AbstractValidator<GetCompensatoryTimeCreditDocumentsQuery>
 {

@@ -52,6 +52,27 @@ public static class JobProfileErrors
         "The job catalog item could not be found.",
         ErrorType.NotFound);
 
+    /// <summary>
+    /// H-07 — the requirement's catalog item belongs to a different category than its `requirementType`
+    /// demands. Resolving the item by publicId alone let an `EducationLevel` hang off a `Knowledge`
+    /// requirement and returned `201`, leaving the descriptor internally incoherent with nothing objecting.
+    /// </summary>
+    public static readonly Error RequirementCatalogCategoryMismatch = new(
+        "JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH",
+        "The catalog item does not belong to the category this requirement type expects: 'Education' expects 'EducationLevel' and 'Knowledge' expects 'KnowledgeArea'.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-07 — a catalog item was supplied for a requirement type that has no corresponding
+    /// <c>JobCatalogCategory</c>. Only <c>Education</c> and <c>Knowledge</c> map to one;
+    /// <c>Certification</c>, <c>Experience</c> and <c>Other</c> carry their content in
+    /// <c>description</c>, which auto-resolves against the internal catalogs.
+    /// </summary>
+    public static readonly Error RequirementCatalogItemNotApplicable = new(
+        "JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE",
+        "This requirement type does not accept a catalog item. Only 'Education' and 'Knowledge' reference the job catalogs; the rest describe themselves through 'description'.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error RequirementNotFound = new(
         "JOB_PROFILE_REQUIREMENT_NOT_FOUND",
         "The job profile requirement could not be found.",
@@ -161,6 +182,12 @@ public static class JobProfileErrors
         "JOB_PROFILE_CODE_CONFLICT",
         "Another job profile already uses the requested code.",
         ErrorType.Conflict);
+
+    /// <summary>H-11 — see the note on the occupational pyramid's equivalent: the reorder is all-or-nothing.</summary>
+    public static readonly Error CatalogOrderSetIncomplete = new(
+        "JOB_CATALOG_ORDER_SET_INCOMPLETE",
+        "The reorder request must list every job catalog item of this category exactly once.",
+        ErrorType.UnprocessableEntity);
 
     public static readonly Error CatalogCodeConflict = new(
         "JOB_CATALOG_ITEM_CODE_CONFLICT",

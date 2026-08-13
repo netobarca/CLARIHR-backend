@@ -62,7 +62,7 @@ internal sealed class AddPersonnelFileRecognitionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileRecognitionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileRecognitionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var tenantId = personnelFile.TenantId;

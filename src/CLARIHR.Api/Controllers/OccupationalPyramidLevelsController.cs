@@ -132,6 +132,40 @@ public sealed class OccupationalPyramidLevelsController(
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
+    [HttpPatch("companies/{companyId:guid}/occupational-pyramid-levels/order")]
+    [ProducesResponseType<ReorderOccupationalPyramidLevelsResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Reorder the occupational pyramid",
+        Description = """
+            Rewrites the whole pyramid's ranking in one transaction. Send `orderedPublicIds` with **every**
+            level of the company exactly once, in the desired order; the server assigns the ranks (`10`, `20`,
+            `30`, …). No rank travels in the request.
+
+            This exists because `levelOrder` is **unique per company**, which is deliberate — a pyramid is a
+            strict ranking — but made a plain swap impossible to express one call at a time: setting the first
+            level to the other's rank collides, so a client had to invent a temporary value across three calls.
+
+            A partial or duplicated list is rejected with
+            `422 OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE`: whatever is omitted keeps its old rank, which
+            can collide with the ranks just assigned, and a half-applied ranking means nothing.
+
+            **No `If-Match`**, deliberately: there is no single aggregate to hold a token for, and the request
+            carries the full desired order, so the semantics are last-writer-wins — the honest reading of a
+            drag-and-drop save. Inactive levels are included: the rank is unique across all of them.
+            """)]
+    public async Task<ActionResult<ReorderOccupationalPyramidLevelsResponse>> ReorderOccupationalPyramidLevels(
+        Guid companyId,
+        [FromBody] ReorderCatalogRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ReorderOccupationalPyramidLevelsCommand(companyId, request.OrderedPublicIds),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpPatch("occupational-pyramid-levels/{id:guid}/activate")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]

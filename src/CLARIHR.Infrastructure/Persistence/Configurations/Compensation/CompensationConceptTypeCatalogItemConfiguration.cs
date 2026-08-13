@@ -24,6 +24,11 @@ internal sealed class CompensationConceptTypeCatalogItemConfiguration : IEntityT
         builder.Property(item => item.Nature).HasColumnName("nature").HasConversion<string>().HasMaxLength(20);
         builder.Property(item => item.IsStatutory).HasColumnName("is_statutory");
         builder.Property(item => item.DefaultDeductionClass).HasColumnName("default_deduction_class").HasConversion<string>().HasMaxLength(20);
+        // H-29 — el eje del lado de ingreso y la matriz de afectación, espejo del catálogo de finiquitos.
+        builder.Property(item => item.DefaultIncomeClass).HasColumnName("default_income_class").HasConversion<string>().HasMaxLength(20);
+        builder.Property(item => item.AffectsIsss).HasColumnName("affects_isss");
+        builder.Property(item => item.AffectsAfp).HasColumnName("affects_afp");
+        builder.Property(item => item.AffectsRenta).HasColumnName("affects_renta");
         builder.Property(item => item.DefaultCalculationType).HasColumnName("default_calculation_type").HasConversion<string>().HasMaxLength(20);
         builder.Property(item => item.DefaultCalculationBaseCode).HasColumnName("default_calculation_base_code").HasMaxLength(40);
         builder.Property(item => item.DefaultEmployeeRate).HasColumnName("default_employee_rate").HasColumnType("numeric(11,8)");

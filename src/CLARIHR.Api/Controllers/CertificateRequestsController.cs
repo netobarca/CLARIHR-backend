@@ -122,12 +122,12 @@ public sealed class CertificateRequestsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/certificate-requests/{certificateRequestPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Deactivate (soft-delete) a certificate request",
         Description = "Soft-deletes the request (sets it inactive; no physical removal — RN-08). HR-only. Requires the `If-Match` header with the current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.")]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteCertificateRequest(
+    public async Task<ActionResult> DeleteCertificateRequest(
         Guid publicId,
         Guid certificateRequestPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -137,7 +137,7 @@ public sealed class CertificateRequestsController(
             new DeletePersonnelFileCertificateRequestCommand(publicId, certificateRequestPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── HR lifecycle actions (D-04, linear) ──────────────
@@ -339,12 +339,12 @@ public sealed class CertificateRequestsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/certificate-requests/{certificateRequestPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a document from a certificate request",
         Description = "Soft-deletes the document and marks its backing blob for cleanup. HR-only. Requires the `If-Match` header with the document's current `concurrencyToken`.")]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteCertificateRequestDocument(
+    public async Task<ActionResult> DeleteCertificateRequestDocument(
         Guid publicId,
         Guid certificateRequestPublicId,
         Guid documentPublicId,
@@ -355,7 +355,7 @@ public sealed class CertificateRequestsController(
             new DeleteCertificateRequestDocumentCommand(publicId, certificateRequestPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     private static CertificateRequestInput ToInput(AddCertificateRequestRequest request) =>

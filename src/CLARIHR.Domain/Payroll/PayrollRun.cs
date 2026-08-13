@@ -355,6 +355,11 @@ public sealed class PayrollRunLine : TenantEntity
         string conceptCode,
         string conceptName,
         string lineClass,
+        IncomeClass? incomeClass,
+        DeductionClass? deductionClass,
+        decimal? unpaidDays,
+        decimal? employerPaidDays,
+        decimal? subsidizedDays,
         decimal? units,
         decimal? baseAmount,
         decimal calculatedAmount,
@@ -380,6 +385,23 @@ public sealed class PayrollRunLine : TenantEntity
         ConceptCode = conceptCode;
         ConceptName = conceptName;
         LineClass = lineClass;
+        // H-29/H-30 — la clase del reporte, snapshot del catálogo al generar. El guard impide la combinación
+        // incoherente (un descuento con clase de ingreso), que sería un monto en la columna equivocada.
+        if (lineClass == PayrollLineClasses.Ingreso && deductionClass is not null)
+        {
+            throw new ArgumentException("An income line cannot carry a deduction class.", nameof(deductionClass));
+        }
+
+        if (lineClass == PayrollLineClasses.Descuento && incomeClass is not null)
+        {
+            throw new ArgumentException("A deduction line cannot carry an income class.", nameof(incomeClass));
+        }
+
+        IncomeClass = lineClass == PayrollLineClasses.Ingreso ? incomeClass : null;
+        DeductionClass = lineClass == PayrollLineClasses.Descuento ? deductionClass : null;
+        UnpaidDays = unpaidDays;
+        EmployerPaidDays = employerPaidDays;
+        SubsidizedDays = subsidizedDays;
         Units = units;
         BaseAmount = baseAmount;
         CalculatedAmount = calculatedAmount;
@@ -411,6 +433,36 @@ public sealed class PayrollRunLine : TenantEntity
 
     /// <summary>Ingreso | Descuento | PagoPatronal — explicit, CHECKed, no default (§0.12).</summary>
     public string LineClass { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// H-29 — en qué columna del reporte por empleado cae este ingreso (Salario, Bono, Comisión, Horas extra,
+    /// No deducible, Aguinaldo, Otro). Null en descuentos y pagos patronales.
+    /// </summary>
+    public IncomeClass? IncomeClass { get; private set; }
+
+    /// <summary>
+    /// H-30 — la clase del descuento (Ley / Interno / Externo), <b>congelada al generar</b>. Antes había que
+    /// resolverla con un join al catálogo en tiempo de lectura, así que reclasificar un concepto movía los reportes
+    /// de periodos ya pagados y declarados. Null en ingresos y pagos patronales.
+    /// </summary>
+    public DeductionClass? DeductionClass { get; private set; }
+
+    /// <summary>
+    /// H-31 — días que NO se pagan: el tiempo no trabajado descontado (ya en días equivalentes: una llegada tarde
+    /// vale un cuarto de día) y los días de incapacidad SIN_PAGO. Null en las líneas que no vienen de un registro.
+    /// <para>
+    /// Antes el contrato de la corrida solo llevaba dinero, así que «días pagados» había que recomponerlo
+    /// consultando los módulos origen — y para una corrida CERRADA eso significa que editar el registro después
+    /// cambiaba el reporte de un periodo ya pagado y declarado.
+    /// </para>
+    /// </summary>
+    public decimal? UnpaidDays { get; private set; }
+
+    /// <summary>H-31 — días de incapacidad a cargo de la EMPRESA (pagados al % del tramo).</summary>
+    public decimal? EmployerPaidDays { get; private set; }
+
+    /// <summary>H-31 — días de incapacidad subsidiados por el ISSS.</summary>
+    public decimal? SubsidizedDays { get; private set; }
 
     public decimal? Units { get; private set; }
 
@@ -451,6 +503,11 @@ public sealed class PayrollRunLine : TenantEntity
         string conceptCode,
         string conceptName,
         string lineClass,
+        IncomeClass? incomeClass,
+        DeductionClass? deductionClass,
+        decimal? unpaidDays,
+        decimal? employerPaidDays,
+        decimal? subsidizedDays,
         decimal? units,
         decimal? baseAmount,
         decimal calculatedAmount,
@@ -471,6 +528,11 @@ public sealed class PayrollRunLine : TenantEntity
             conceptCode,
             conceptName,
             lineClass,
+            incomeClass,
+            deductionClass,
+            unpaidDays,
+            employerPaidDays,
+            subsidizedDays,
             units,
             baseAmount,
             calculatedAmount,

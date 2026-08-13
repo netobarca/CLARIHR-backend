@@ -62,7 +62,7 @@ public sealed record DeleteIncapacityDocumentCommand(
     Guid PersonnelFileId,
     Guid IncapacityPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetIncapacityDocumentsQueryValidator : AbstractValidator<GetIncapacityDocumentsQuery>
 {

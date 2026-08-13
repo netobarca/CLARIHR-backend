@@ -160,7 +160,7 @@ internal sealed class AddMedicalClaimDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<MedicalClaimDocumentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<MedicalClaimDocumentResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var claimInternalId = await employeeRepository.GetMedicalClaimInternalIdAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
@@ -245,14 +245,14 @@ internal sealed class DeleteMedicalClaimDocumentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeleteMedicalClaimDocumentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeleteMedicalClaimDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeleteMedicalClaimDocumentCommand command,
         CancellationToken cancellationToken)
     {
         // Deletes are manager-only (D-09).
-        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -261,25 +261,25 @@ internal sealed class DeleteMedicalClaimDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var claimInternalId = await employeeRepository.GetMedicalClaimInternalIdAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
         if (claimInternalId is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         var document = await employeeRepository.GetMedicalClaimDocumentEntityAsync(
             command.MedicalClaimPublicId, command.DocumentPublicId, personnelFile.TenantId, cancellationToken);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.DocumentNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.DocumentNotFound);
         }
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -298,8 +298,8 @@ internal sealed class DeleteMedicalClaimDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

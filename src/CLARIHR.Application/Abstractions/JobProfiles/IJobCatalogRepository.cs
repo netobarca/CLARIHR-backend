@@ -12,6 +12,12 @@ public interface IJobCatalogRepository
 
     Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken);
 
+    /// <summary>H-11 — every item of one category, TRACKED, for the bulk reorder.</summary>
+    Task<IReadOnlyList<JobCatalogItem>> GetAllByCategoryAsync(
+        Guid tenantId,
+        JobCatalogCategory category,
+        CancellationToken cancellationToken);
+
     Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(

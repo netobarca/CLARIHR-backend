@@ -31,12 +31,22 @@ internal static class IntegrationTestSeeder
             .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode);
 
         var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV", countryCatalogItemId);
-        var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV", countryCatalogItemId);
-        dbContext.Companies.AddRange(companyA, companyB);
+        // H-33 (instancia 3) — la SEGUNDA empresa tiene OTRO dueño a propósito. Cuando las dos eran del actor,
+        // cualquier test que dijera probar «basta con ser miembro» pasaba por el camino de la PROPIEDAD y el de
+        // no-propietario nunca corría: la condición bajo prueba era constante. Con un dueño distinto, «miembro pero
+        // no dueño» es la forma por defecto y no algo que cada test tenga que montar a mano.
+        var otherOwnerUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var companyB = Company.Create("Acme Two", "acme-two", otherOwnerUserId, "SV", countryCatalogItemId);
+        // Y una TERCERA que el actor SÍ posee, para los tests que mutan una empresa propia distinta de la primaria
+        // (renombrar, archivar, reactivar). Antes usaban `acme-two` y pasaban porque el actor la poseía; al quitarle
+        // esa propiedad quedaron en `403`, que es justo la cobertura que el hallazgo dice que faltaba.
+        var companyC = Company.Create("Acme Three", "acme-three", actorUserId, "SV", countryCatalogItemId);
+        dbContext.Companies.AddRange(companyA, companyB, companyC);
         await dbContext.SaveChangesAsync();
 
         var tenantA = companyA.PublicId;
         var tenantB = companyB.PublicId;
+        var tenantC = companyC.PublicId;
 
         var companyPreferenceA = CompanyPreference.Create("USD", "UTC");
         companyPreferenceA.SetTenantId(tenantA);
@@ -59,7 +69,8 @@ internal static class IntegrationTestSeeder
 
         dbContext.CompanySubscriptions.AddRange(
             CompanySubscription.Activate(companyA.Id, freePlan, DateTime.UtcNow.Date),
-            CompanySubscription.Activate(companyB.Id, freePlan, DateTime.UtcNow.Date));
+            CompanySubscription.Activate(companyB.Id, freePlan, DateTime.UtcNow.Date),
+            CompanySubscription.Activate(companyC.Id, freePlan, DateTime.UtcNow.Date));
         await dbContext.SaveChangesAsync();
 
         SeedDefaultLocations(dbContext, tenantA);
@@ -251,6 +262,7 @@ internal static class IntegrationTestSeeder
         return new IntegrationTestScenario(
             tenantA,
             tenantB,
+            tenantC,
             actorUserId,
             securityAdminUserId,
             actorRole.PublicId,
@@ -687,6 +699,11 @@ internal static class IntegrationTestSeeder
 internal sealed record IntegrationTestScenario(
     Guid TenantId,
     Guid OtherTenantId,
+    /// <summary>
+    /// H-33 — una segunda empresa que el actor **sí posee**. `OtherTenantId` es de otro dueño a propósito, así que
+    /// quien necesite mutar una empresa propia no primaria usa esta.
+    /// </summary>
+    Guid OwnedSecondTenantId,
     Guid ActorUserId,
     Guid SecurityAdminUserId,
     Guid ActorRoleId,

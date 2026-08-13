@@ -2934,6 +2934,18 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("AffectsAfp")
+                        .HasColumnType("boolean")
+                        .HasColumnName("affects_afp");
+
+                    b.Property<bool>("AffectsIsss")
+                        .HasColumnType("boolean")
+                        .HasColumnName("affects_isss");
+
+                    b.Property<bool>("AffectsRenta")
+                        .HasColumnType("boolean")
+                        .HasColumnName("affects_renta");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -2986,6 +2998,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("DefaultEmployerRate")
                         .HasColumnType("numeric(11,8)")
                         .HasColumnName("default_employer_rate");
+
+                    b.Property<string>("DefaultIncomeClass")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("default_income_class");
 
                     b.Property<decimal?>("DefaultPensionedEmployerRate")
                         .HasColumnType("numeric(11,8)")
@@ -3066,12 +3083,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9720L,
+                            AffectsAfp = true,
+                            AffectsIsss = true,
+                            AffectsRenta = true,
                             Code = "SALARIO_BASE",
                             ConcurrencyToken = new Guid("1517262a-a255-e960-6292-c9a56f5250a9"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "Salario",
                             IsActive = true,
                             IsBaseSalary = true,
                             IsStatutory = false,
@@ -3086,12 +3107,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9721L,
+                            AffectsAfp = true,
+                            AffectsIsss = true,
+                            AffectsRenta = true,
                             Code = "HORAS_EXTRA",
                             ConcurrencyToken = new Guid("a38fd1ab-009d-1447-8fc6-7a4848af0c3a"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "HorasExtra",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3106,6 +3131,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9722L,
+                            AffectsAfp = true,
+                            AffectsIsss = true,
+                            AffectsRenta = true,
                             Code = "COMISION",
                             ConcurrencyToken = new Guid("9bfee7da-dd61-7e86-d49b-3e7890373e3f"),
                             CountryCatalogItemId = -7068L,
@@ -3113,6 +3141,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationBaseCode = "SALARIO_BASE",
                             DefaultCalculationType = "Percentage",
+                            DefaultIncomeClass = "Comision",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3127,12 +3156,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9723L,
+                            AffectsAfp = true,
+                            AffectsIsss = true,
+                            AffectsRenta = true,
                             Code = "BONO",
                             ConcurrencyToken = new Guid("8aaa651b-9b6e-d038-f364-5a8173367765"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "Bono",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3147,12 +3180,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9724L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "VIATICOS",
                             ConcurrencyToken = new Guid("f1ae99ef-b9d9-a269-022d-960031e8873b"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "NoDeducible",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3167,12 +3204,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9725L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = true,
                             Code = "AGUINALDO",
                             ConcurrencyToken = new Guid("c3706115-bc78-ea7a-90b3-8d064dc0df11"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "Aguinaldo",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3187,12 +3228,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9726L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "OTRO_INGRESO",
                             ConcurrencyToken = new Guid("b191dcab-142e-9fa9-3430-17969f10a6cd"),
                             CountryCatalogItemId = -7068L,
                             CountryCode = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DefaultCalculationType = "Fixed",
+                            DefaultIncomeClass = "NoDeducible",
                             IsActive = true,
                             IsBaseSalary = false,
                             IsStatutory = false,
@@ -3207,6 +3252,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9727L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "ISSS",
                             ConcurrencyToken = new Guid("91766b06-6129-51a2-ae85-76387cd8b424"),
                             ContributionCap = 1000.00m,
@@ -3233,6 +3281,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9728L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "AFP",
                             ConcurrencyToken = new Guid("cebacf52-a154-3da6-08b4-498787259ed4"),
                             ContributionCap = 7045.06m,
@@ -3260,6 +3311,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9729L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "RENTA",
                             ConcurrencyToken = new Guid("c1c8d16c-d679-9c22-7095-f739794ee899"),
                             CountryCatalogItemId = -7068L,
@@ -3282,6 +3336,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9730L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "DANO_EQUIPO",
                             ConcurrencyToken = new Guid("7c6aa173-4806-25d4-d2e6-58f6b3e12d0f"),
                             CountryCatalogItemId = -7068L,
@@ -3303,6 +3360,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9731L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "ANTICIPO",
                             ConcurrencyToken = new Guid("eee06601-4c45-b5ee-8ac6-c8507f4acca6"),
                             CountryCatalogItemId = -7068L,
@@ -3324,6 +3384,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9732L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "PRESTAMO_INTERNO",
                             ConcurrencyToken = new Guid("9a393021-744c-f6e0-095c-3be6530425d8"),
                             CountryCatalogItemId = -7068L,
@@ -3345,6 +3408,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9733L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "PRESTAMO_BANCARIO",
                             ConcurrencyToken = new Guid("935d8fc4-8358-2584-d25a-204be69226a2"),
                             CountryCatalogItemId = -7068L,
@@ -3366,6 +3432,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9734L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "EMBARGO",
                             ConcurrencyToken = new Guid("dc604c82-e5b3-d686-0715-9597e5628460"),
                             CountryCatalogItemId = -7068L,
@@ -3387,6 +3456,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9735L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "CUOTA_ALIMENTICIA",
                             ConcurrencyToken = new Guid("d4e99e06-c964-a401-6e04-c36eb5050515"),
                             CountryCatalogItemId = -7068L,
@@ -3408,6 +3480,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9736L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "OTRO_EXTERNO",
                             ConcurrencyToken = new Guid("285703c8-4044-3d38-70e2-42df925aa0a3"),
                             CountryCatalogItemId = -7068L,
@@ -3429,6 +3504,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9737L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "COOPERATIVA",
                             ConcurrencyToken = new Guid("ac1fda70-62e9-2c80-32c5-c580dd147a00"),
                             CountryCatalogItemId = -7068L,
@@ -3450,6 +3528,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9738L,
+                            AffectsAfp = false,
+                            AffectsIsss = false,
+                            AffectsRenta = false,
                             Code = "PROCURADURIA",
                             ConcurrencyToken = new Guid("caafcbc1-06c2-2767-a045-ff6c8e575bd4"),
                             CountryCatalogItemId = -7068L,
@@ -3817,8 +3898,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedCode")
@@ -3829,8 +3910,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("normalized_name");
 
                     b.Property<Guid>("PublicId")
@@ -3891,8 +3972,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Label")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("label");
 
                     b.Property<DateTime?>("ModifiedUtc")
@@ -4135,8 +4216,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedCode")
@@ -4147,8 +4228,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("normalized_name");
 
                     b.Property<Guid>("PublicId")
@@ -4520,6 +4601,176 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_document_type_catalog_items__active_sort");
 
                     b.ToTable("document_type_catalog_items", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -9978L,
+                            Code = "CONSTANCIA_MEDICA",
+                            ConcurrencyToken = new Guid("2b49d8b6-7796-c15e-c015-75296eef3bae"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Constancia médica",
+                            NormalizedCode = "CONSTANCIA_MEDICA",
+                            NormalizedName = "CONSTANCIA MÉDICA",
+                            PublicId = new Guid("04bb4db5-37b5-d501-4e15-4319d0a6df43"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9979L,
+                            Code = "INCAPACIDAD",
+                            ConcurrencyToken = new Guid("6829046d-f1f7-38df-d9f2-1eef29dc38fc"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Incapacidad ISSS",
+                            NormalizedCode = "INCAPACIDAD",
+                            NormalizedName = "INCAPACIDAD ISSS",
+                            PublicId = new Guid("b6fc2b45-601c-473b-16cb-411200b4951d"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9980L,
+                            Code = "RECETA",
+                            ConcurrencyToken = new Guid("5a57686a-b4bc-1b42-7037-b6b19825d6ba"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Receta o indicación médica",
+                            NormalizedCode = "RECETA",
+                            NormalizedName = "RECETA O INDICACIÓN MÉDICA",
+                            PublicId = new Guid("44f11e25-887a-a349-bd32-971dba61b637"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9981L,
+                            Code = "FACTURA",
+                            ConcurrencyToken = new Guid("9a8a28b9-2bb2-fdfb-897d-debea2cf4290"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Factura",
+                            NormalizedCode = "FACTURA",
+                            NormalizedName = "FACTURA",
+                            PublicId = new Guid("9a932f58-f05a-b9a1-8040-16abb58611d5"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9982L,
+                            Code = "RECIBO",
+                            ConcurrencyToken = new Guid("0d268701-b2bd-07a0-56fe-4dd366594394"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Recibo",
+                            NormalizedCode = "RECIBO",
+                            NormalizedName = "RECIBO",
+                            PublicId = new Guid("f700a1c4-70d7-96ac-e753-f88f60711bf8"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9983L,
+                            Code = "CONTRATO",
+                            ConcurrencyToken = new Guid("34a4ccce-a10b-4bf3-d5f7-f3044f45aa54"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Contrato",
+                            NormalizedCode = "CONTRATO",
+                            NormalizedName = "CONTRATO",
+                            PublicId = new Guid("9ebb23e9-8189-43e9-2f1b-626dad2b8638"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9984L,
+                            Code = "CARTA",
+                            ConcurrencyToken = new Guid("f6f1c64d-212e-4ebe-1ba6-c5fbe886a437"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Carta o nota",
+                            NormalizedCode = "CARTA",
+                            NormalizedName = "CARTA O NOTA",
+                            PublicId = new Guid("e2edfc08-a09a-e1bb-d2ab-9c44bae2fb48"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9985L,
+                            Code = "TITULO",
+                            ConcurrencyToken = new Guid("3772f170-95f1-98c7-3e1a-42ef56f1249e"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Título o diploma",
+                            NormalizedCode = "TITULO",
+                            NormalizedName = "TÍTULO O DIPLOMA",
+                            PublicId = new Guid("e789df3a-4e67-60a7-561a-48ab9f9fd259"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9986L,
+                            Code = "CURRICULUM",
+                            ConcurrencyToken = new Guid("3a814008-c1fc-7e95-9a6e-911ae37a2551"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Currículum",
+                            NormalizedCode = "CURRICULUM",
+                            NormalizedName = "CURRÍCULUM",
+                            PublicId = new Guid("51377591-fd3d-62a1-2e48-727ab919c715"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9987L,
+                            Code = "IDENTIFICACION",
+                            ConcurrencyToken = new Guid("bc32c1e7-fdbc-f198-1892-9499e2d1e7da"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Copia de documento de identidad",
+                            NormalizedCode = "IDENTIFICACION",
+                            NormalizedName = "COPIA DE DOCUMENTO DE IDENTIDAD",
+                            PublicId = new Guid("249350fa-24db-9545-4ab3-c98e279b8d3c"),
+                            SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9988L,
+                            Code = "RESPALDO",
+                            ConcurrencyToken = new Guid("0390f696-f45d-55f6-e65f-2dbd3bd01e63"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Respaldo",
+                            NormalizedCode = "RESPALDO",
+                            NormalizedName = "RESPALDO",
+                            PublicId = new Guid("ad1359db-9dfd-1b99-475c-5c923860fa90"),
+                            SortOrder = 110
+                        },
+                        new
+                        {
+                            Id = -9989L,
+                            Code = "OTRO",
+                            ConcurrencyToken = new Guid("57545f1c-5056-f299-78c0-587bd8c306aa"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Otro",
+                            NormalizedCode = "OTRO",
+                            NormalizedName = "OTRO",
+                            PublicId = new Guid("1ea14b4c-24cd-533c-629d-e61fa748666f"),
+                            SortOrder = 120
+                        });
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem", b =>
@@ -16072,6 +16323,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -16086,8 +16342,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedCode")
@@ -16098,13 +16354,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("normalized_name");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -23242,6 +23502,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency_code");
 
+                    b.Property<string>("DeductionClass")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("deduction_class");
+
                     b.Property<string>("EmployeeCode")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
@@ -23256,6 +23521,15 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("EmployeePublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("employee_public_id");
+
+                    b.Property<decimal?>("EmployerPaidDays")
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("employer_paid_days");
+
+                    b.Property<string>("IncomeClass")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("income_class");
 
                     b.Property<bool>("IsIncluded")
                         .ValueGeneratedOnAdd()
@@ -23307,6 +23581,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("source_reference_public_id");
 
+                    b.Property<decimal?>("SubsidizedDays")
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("subsidized_days");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -23314,6 +23592,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("Units")
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("units");
+
+                    b.Property<decimal?>("UnpaidDays")
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("unpaid_days");
 
                     b.Property<string>("WarningCodesJson")
                         .HasColumnType("jsonb")
@@ -23343,6 +23625,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("payroll_run_lines", null, t =>
                         {
                             t.HasCheckConstraint("ck_payroll_run_lines__line_class", "line_class IN ('Ingreso','Descuento','PagoPatronal')");
+
+                            t.HasCheckConstraint("ck_payroll_run_lines__report_class_matches_side", "(line_class = 'Ingreso'      AND deduction_class IS NULL)\nOR (line_class = 'Descuento' AND income_class    IS NULL)\nOR (line_class = 'PagoPatronal' AND income_class IS NULL AND deduction_class IS NULL)");
                         });
                 });
 
@@ -26562,7 +26846,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("BankCatalogItemId")
                         .HasDatabaseName("ix_personnel_file_bank_accounts__bank_catalog_item_id");
 
-                    b.HasIndex("PersonnelFileId");
+                    b.HasIndex("PersonnelFileId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personnel_file_bank_accounts__file_primary")
+                        .HasFilter("is_primary = true");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
@@ -26570,6 +26857,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "PersonnelFileId")
                         .HasDatabaseName("ix_personnel_file_bank_accounts__tenant_file");
+
+                    b.HasIndex("PersonnelFileId", "BankCatalogItemId", "NormalizedAccountNumber", "CurrencyCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personnel_file_bank_accounts__file_bank_number_currency");
 
                     b.ToTable("personnel_file_bank_accounts", (string)null);
                 });
@@ -28319,8 +28610,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
                         .HasColumnName("end_date");
 
                     b.Property<bool>("IsActive")
@@ -28374,8 +28665,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("rest_day_of_week");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
                         .HasColumnName("start_date");
 
                     b.Property<Guid>("TenantId")
@@ -28402,6 +28693,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "PersonnelFileId", "StartDate")
                         .HasDatabaseName("ix_personnel_file_employment_assignments__tenant_file_start");
+
+                    b.HasIndex("TenantId", "PositionSlotPublicId", "IsActive")
+                        .HasDatabaseName("ix_personnel_file_employment_assignments__tenant_slot_active");
 
                     b.HasIndex("TenantId", "PersonnelFileId", "IsActive", "IsPrimary")
                         .HasDatabaseName("ix_personnel_file_employment_assignments__tenant_file_active_primary");
@@ -28710,7 +29004,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_personnel_file_identifications");
 
-                    b.HasIndex("PersonnelFileId");
+                    b.HasIndex("PersonnelFileId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_personnel_file_identifications__file_primary")
+                        .HasFilter("is_primary = true");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
@@ -33144,6 +33441,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("seniority_days");
 
+                    b.Property<DateTime>("SeniorityStartDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("seniority_start_date");
+
                     b.Property<int>("SeniorityYears")
                         .HasColumnType("integer")
                         .HasColumnName("seniority_years");
@@ -35801,6 +36102,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("functional_dependency_position_slot_id");
 
+                    b.Property<bool>("GeneratesOvertime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("generates_overtime");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -35832,10 +36139,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("notes");
 
-                    b.Property<int>("OccupiedEmployees")
-                        .HasColumnType("integer")
-                        .HasColumnName("occupied_employees");
-
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -35843,12 +36146,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<long?>("RoleId")
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -35895,9 +36192,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "RoleId")
                         .HasDatabaseName("ix_position_slots__tenant_role");
-
-                    b.HasIndex("TenantId", "Status")
-                        .HasDatabaseName("ix_position_slots__tenant_status");
 
                     b.HasIndex("TenantId", "WorkCenterId")
                         .HasDatabaseName("ix_position_slots__tenant_work_center");

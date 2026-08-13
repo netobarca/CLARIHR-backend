@@ -1342,10 +1342,24 @@ internal static class WorkCenterRules
             return Result.Failure(LocationErrors.WorkCenterGeoRequired);
         }
 
+        // H-17 — both or neither, regardless of what the type demands. The rule above only fires when the type
+        // requires geo, so every other type could store a latitude with no longitude: not a point, not a place.
+        if (geoLat.HasValue != geoLong.HasValue)
+        {
+            return Result.Failure(LocationErrors.WorkCenterCoordinatesIncomplete);
+        }
+
         if ((geoLat.HasValue && (geoLat.Value < -90m || geoLat.Value > 90m)) ||
             (geoLong.HasValue && (geoLong.Value < -180m || geoLong.Value > 180m)))
         {
             return Result.Failure(LocationErrors.InvalidCoordinates);
+        }
+
+        // H-17 — checked AFTER the range test so an out-of-range pair still reports the range error: (0,0) is
+        // in range, it is simply never where an employer's work center is.
+        if (geoLat is 0m && geoLong is 0m)
+        {
+            return Result.Failure(LocationErrors.WorkCenterCoordinatesPlaceholder);
         }
 
         return Result.Success();

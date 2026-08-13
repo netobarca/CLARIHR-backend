@@ -40,10 +40,15 @@ public sealed class VacationPeriodsAdministrationController(
         Description = """
             Creates one active vacation fund period per active employee for the year (idempotent by
             employee-year: a re-run creates nothing for employees that already have an active period).
-            Art. 177-ineligible employees (less than one year of service at the start of the period) are
-            reported per row (`errors`). The grants and anniversary flag default to the company preference; an
-            optional `employeeIds` filter restricts the run. Returns a `{created, skipped, errors[]}` summary.
-            Manager-only (`ManageVacations`).
+            Art. 177-ineligible employees (those who do not complete one year of service, counted from their
+            **hire date**, at any point within the period) are reported per row (`errors`). The grants and
+            anniversary flag default to the company preference; an optional `employeeIds` filter restricts the run.
+            Returns a `{created, skipped, errors[]}` summary. Manager-only (`ManageVacations`).
+
+            Any year in `[2000, 2100]` is accepted, including past ones — that is how a company loads the fund it
+            already owed when it started using the system. A generated period always grants the full default days,
+            so for a past year whose vacation was partly or fully taken, adjust the granted days afterwards with
+            `PUT /api/v1/personnel-files/{publicId}/vacation-periods/{vacationPeriodPublicId}`.
             """)]
     public async Task<ActionResult<VacationPeriodGenerationSummary>> Generate(
         Guid companyId,

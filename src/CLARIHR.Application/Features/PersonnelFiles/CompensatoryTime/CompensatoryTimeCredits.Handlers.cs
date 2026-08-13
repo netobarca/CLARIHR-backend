@@ -185,7 +185,7 @@ internal sealed class AddCompensatoryTimeCreditCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCompensatoryTimeCreditResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCompensatoryTimeCreditResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var tenantId = personnelFile.TenantId;

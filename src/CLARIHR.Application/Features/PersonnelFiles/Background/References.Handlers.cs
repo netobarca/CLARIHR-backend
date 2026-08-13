@@ -138,9 +138,13 @@ internal sealed class AddPersonnelFileReferenceCommandHandler(
                 command.Reference.WorkPhone,
                 command.Reference.KnownTimeYears);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException exception)
         {
-            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            // H-25 — this used to answer `PERSONNEL_FILE_STATE_RULE_VIOLATION`, i.e. "the file's state does not
+            // allow this", which was false for both things the aggregate can throw here: a child that does not
+            // exist (a 404) and a domain invariant about the payload (a validation naming the field).
+            return Result<PersonnelFileReferenceResponse>.Failure(
+                PersonnelFileErrors.FromReferenceDomainException(exception));
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -252,10 +256,14 @@ internal sealed class UpdatePersonnelFileReferenceCommandHandler(
                     command.Reference.WorkPhone,
                     command.Reference.KnownTimeYears);
             }
-            catch (InvalidOperationException)
-            {
-                return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
-            }
+            catch (InvalidOperationException exception)
+        {
+            // H-25 — this used to answer `PERSONNEL_FILE_STATE_RULE_VIOLATION`, i.e. "the file's state does not
+            // allow this", which was false for both things the aggregate can throw here: a child that does not
+            // exist (a 404) and a domain invariant about the payload (a validation naming the field).
+            return Result<PersonnelFileReferenceResponse>.Failure(
+                PersonnelFileErrors.FromReferenceDomainException(exception));
+        }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -304,13 +312,13 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileReferenceCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileReferenceCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileReferenceCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, file) = await LoadForSectionManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.References,
             tenantContext,
@@ -327,12 +335,12 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
         var reference = personnelFile.References.FirstOrDefault(item => item.PublicId == command.ReferencePublicId);
         if (reference is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (reference.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
@@ -371,12 +379,12 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -508,10 +516,12 @@ internal sealed class PatchPersonnelFileReferenceCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<PersonnelFileReferenceResponse>.Success(response);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException exception)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            // H-25 — see above: not a lifecycle problem. A missing child is a 404 and an invariant is a validation.
+            return Result<PersonnelFileReferenceResponse>.Failure(
+                PersonnelFileErrors.FromReferenceDomainException(exception));
         }
         catch
         {

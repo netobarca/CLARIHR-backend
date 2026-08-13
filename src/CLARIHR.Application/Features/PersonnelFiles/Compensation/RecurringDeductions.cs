@@ -163,7 +163,7 @@ public sealed record DeletePersonnelFileRecurringDeductionCommand(
     Guid PersonnelFileId,
     Guid RecurringDeductionPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 /// <summary>Suspend a VIGENTE credit (<c>Suspend</c> = true, note optional) or resume a SUSPENDIDO one (false).</summary>
 public sealed record SetPersonnelFileRecurringDeductionSuspensionCommand(

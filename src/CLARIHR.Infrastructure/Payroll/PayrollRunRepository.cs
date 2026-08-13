@@ -368,6 +368,180 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
         return rows;
     }
 
+    public async Task<(IReadOnlyList<PlanillaEmpleadoRow> Rows, PlanillaEmpleadoRow Totals)?>
+        GetEmployeeMatrixRowsAsync(
+            Guid tenantId,
+            Guid payrollRunPublicId,
+            CancellationToken cancellationToken)
+    {
+        var run = await dbContext.Set<PayrollRun>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == payrollRunPublicId)
+            .Select(item => new { item.Id, item.CurrencyCode })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (run is null)
+        {
+            return null;
+        }
+
+        // Solo las líneas INCLUIDAS: la que se excluyó en revisión no se paga y no debe sumar. El importe final es
+        // el override auditado cuando existe, igual que en el resto del módulo.
+        var lines = await dbContext.Set<PayrollRunLine>()
+            .AsNoTracking()
+            .Where(line => line.PayrollRunId == run.Id && line.IsIncluded)
+            .Select(line => new
+            {
+                line.EmployeePublicId,
+                line.EmployeeName,
+                line.EmployeeCode,
+                line.ConceptCode,
+                line.LineClass,
+                line.IncomeClass,
+                line.DeductionClass,
+                line.Units,
+                line.BaseAmount,
+                line.UnpaidDays,
+                line.EmployerPaidDays,
+                line.SubsidizedDays,
+                Final = line.OverrideAmount ?? line.CalculatedAmount,
+            })
+            .ToListAsync(cancellationToken);
+
+        var rows = lines
+            // Se agrupa por el EMPLEADO, no por nombre + centro de costo: multi-plaza consolida en una fila y dos
+            // homónimos no se mezclan.
+            .GroupBy(line => line.EmployeePublicId)
+            .Select(group =>
+            {
+                decimal Income(Domain.Common.IncomeClass income) =>
+                    group.Where(line => line.LineClass == PayrollLineClasses.Ingreso && line.IncomeClass == income)
+                        .Sum(line => line.Final);
+
+                var incomeTotal = group.Where(line => line.LineClass == PayrollLineClasses.Ingreso).Sum(line => line.Final);
+                var salary = Income(Domain.Common.IncomeClass.Salario);
+                var bonus = Income(Domain.Common.IncomeClass.Bono);
+                var commission = Income(Domain.Common.IncomeClass.Comision);
+                var overtime = Income(Domain.Common.IncomeClass.HorasExtra);
+                var nonDeductible = Income(Domain.Common.IncomeClass.NoDeducible);
+                var christmas = Income(Domain.Common.IncomeClass.Aguinaldo);
+                // Todo ingreso sin clasificar (incluido `Otro`) cae acá, para que el cuadre nunca se rompa.
+                var otherIncome = incomeTotal - salary - bonus - commission - overtime - nonDeductible - christmas;
+
+                decimal Deduction(string conceptCode) =>
+                    group.Where(line => line.LineClass == PayrollLineClasses.Descuento && line.ConceptCode == conceptCode)
+                        .Sum(line => line.Final);
+                decimal DeductionOfClass(Domain.Common.DeductionClass deduction) =>
+                    group.Where(line => line.LineClass == PayrollLineClasses.Descuento && line.DeductionClass == deduction)
+                        .Sum(line => line.Final);
+
+                var deductionTotal = group.Where(line => line.LineClass == PayrollLineClasses.Descuento).Sum(line => line.Final);
+                var isss = Deduction(PayrollEngineConceptCodes.Isss);
+                var afp = Deduction(PayrollEngineConceptCodes.Afp);
+                var renta = Deduction(PayrollEngineConceptCodes.Renta);
+                var external = DeductionOfClass(Domain.Common.DeductionClass.Externo);
+                var internalDeductions = DeductionOfClass(Domain.Common.DeductionClass.Interno);
+                var otherDeductions = deductionTotal - isss - afp - renta - external - internalDeductions;
+
+                // Los días del periodo se toman UNA vez: en multi-plaza cada plaza aporta su propia línea de
+                // salario con los mismos 15 días, y sumarlos daría 30.
+                var periodDays = group
+                    .Where(line => line.LineClass == PayrollLineClasses.Ingreso
+                                   && line.IncomeClass == Domain.Common.IncomeClass.Salario)
+                    .Max(line => line.Units) ?? 0m;
+                var unpaidDays = group.Sum(line => line.UnpaidDays ?? 0m);
+                var employerDays = group.Sum(line => line.EmployerPaidDays ?? 0m);
+                var subsidizedDays = group.Sum(line => line.SubsidizedDays ?? 0m);
+                // La incapacidad reparte sus días en dos líneas: el descuento del empleado (Descuento) y el aporte
+                // patronal (PagoPatronal). `unpaidDays` de la incapacidad son los SIN_PAGO.
+                var incapacityUnpaid = group
+                    .Where(line => line.ConceptCode == IncapacityConceptCode || line.ConceptCode == IncapacityEmployerConceptCode)
+                    .Sum(line => line.UnpaidDays ?? 0m);
+                var leaveUnpaid = unpaidDays - incapacityUnpaid;
+
+                // El equivalente pagado por la empresa sobre los días de incapacidad se deriva del MONTO que el
+                // motor pagó, no de un porcentaje: los tramos por riesgo pueden diferir dentro de la misma
+                // incapacidad. `baseAmount` de la línea de salario es el mensual, así que la diaria es /30.
+                var monthlyBase = group
+                    .Where(line => line.IncomeClass == Domain.Common.IncomeClass.Salario)
+                    .Sum(line => line.BaseAmount ?? 0m);
+                var employerIncapacityAmount = group
+                    .Where(line => line.LineClass == PayrollLineClasses.PagoPatronal
+                                   && line.ConceptCode == IncapacityEmployerConceptCode)
+                    .Sum(line => line.Final);
+                var dailyRate = monthlyBase / 30m;
+                var employerPaidEquivalent = dailyRate > 0m ? employerIncapacityAmount / dailyRate : 0m;
+
+                var paidEquivalent = periodDays - leaveUnpaid - subsidizedDays - incapacityUnpaid
+                                     - employerDays + employerPaidEquivalent;
+
+                var first = group.First();
+                return new PlanillaEmpleadoRow(
+                    first.EmployeeCode,
+                    first.EmployeeName,
+                    periodDays,
+                    Round2(leaveUnpaid),
+                    employerDays,
+                    subsidizedDays,
+                    incapacityUnpaid,
+                    Round2(paidEquivalent),
+                    monthlyBase,
+                    salary,
+                    bonus,
+                    commission,
+                    overtime,
+                    nonDeductible,
+                    christmas,
+                    otherIncome,
+                    incomeTotal,
+                    isss,
+                    afp,
+                    renta,
+                    external,
+                    internalDeductions,
+                    otherDeductions,
+                    deductionTotal,
+                    incomeTotal - deductionTotal,
+                    run.CurrencyCode);
+            })
+            .OrderBy(row => row.Empleado, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totals = new PlanillaEmpleadoRow(
+            null,
+            "TOTAL",
+            rows.Sum(row => row.DiasPeriodo),
+            rows.Sum(row => row.DiasSinGoce),
+            rows.Sum(row => row.DiasIncapacidadEmpresa),
+            rows.Sum(row => row.DiasIncapacidadIsss),
+            rows.Sum(row => row.DiasIncapacidadSinPago),
+            rows.Sum(row => row.DiasPagadosEquivalentes),
+            rows.Sum(row => row.SalarioBase),
+            rows.Sum(row => row.SalarioDelPeriodo),
+            rows.Sum(row => row.Bonos),
+            rows.Sum(row => row.Comisiones),
+            rows.Sum(row => row.HorasExtras),
+            rows.Sum(row => row.IngresosAdicionales),
+            rows.Sum(row => row.Aguinaldo),
+            rows.Sum(row => row.OtrosIngresos),
+            rows.Sum(row => row.IngresoTotal),
+            rows.Sum(row => row.Isss),
+            rows.Sum(row => row.Afp),
+            rows.Sum(row => row.Renta),
+            rows.Sum(row => row.DescuentosExternos),
+            rows.Sum(row => row.DescuentosInternos),
+            rows.Sum(row => row.OtrosDescuentos),
+            rows.Sum(row => row.TotalDescuentos),
+            rows.Sum(row => row.LiquidoAPagar),
+            run.CurrencyCode);
+
+        return (rows, totals);
+    }
+
+    private const string IncapacityConceptCode = "INCAPACIDAD";
+    private const string IncapacityEmployerConceptCode = "INCAPACIDAD_PATRONAL";
+
+    private static decimal Round2(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
     public async Task<IReadOnlyCollection<PlanillaPatronalExportRow>?> GetEmployerCostReportRowsAsync(
         Guid tenantId,
         Guid payrollRunPublicId,
@@ -647,7 +821,14 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
                 account.AccountTypeCode,
                 account.AccountNumber,
                 account.IsPrimary,
+                account.Id,
             })
+            // H-27 — orden explícito: la elección de la cuenta era `FirstOrDefault(item => item.IsPrimary)` sobre
+            // una consulta SIN ordenar, o sea el orden FÍSICO de las filas, que cambia con los updates y el vacuum.
+            // Con el índice único parcial ya no puede haber dos primarias, pero el orden explícito hace la elección
+            // estable también sobre datos escritos antes del arreglo — y deja de depender de un detalle del motor.
+            .OrderByDescending(account => account.IsPrimary)
+            .ThenBy(account => account.Id)
             .ToListAsync(cancellationToken);
 
         var assignmentsByFile = assignments.ToLookup(assignment => assignment.PersonnelFileId);

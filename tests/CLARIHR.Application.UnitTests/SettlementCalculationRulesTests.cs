@@ -55,6 +55,9 @@ public sealed class SettlementCalculationRulesTests
         decimal monthlySalary = 600m,
         RetirementSeparationType separation = RetirementSeparationType.Voluntaria,
         DateTime? plazaStart = null,
+        // H-28 — por defecto la antigüedad coincide con el inicio de plaza: así los golden del contador siguen
+        // midiendo lo mismo. Separarlas es opt-in, para el test que fija que el motor usa el INGRESO.
+        DateTime? seniorityStart = null,
         DateTime? retirement = null,
         decimal minimumWage = 365m,
         IReadOnlyList<SuggestedPlazaItem>? plazaItems = null,
@@ -66,6 +69,7 @@ public sealed class SettlementCalculationRulesTests
             SettlementKind.Liquidacion,
             separation,
             plazaStart ?? PlazaStart,
+            seniorityStart ?? plazaStart ?? PlazaStart,
             retirement ?? Retirement,
             monthlySalary,
             SettlementParametersInput.SvDefaults(minimumWage),
@@ -81,16 +85,47 @@ public sealed class SettlementCalculationRulesTests
     private static SettlementLineResult Line(SettlementCalculationResult result, string code) =>
         Assert.Single(result.Lines, line => line.ConceptCode == code);
 
-    // ── [1] Seniority per plaza (P-01) ───────────────────────────────────────────
+    // ── [1] Seniority: de la relación laboral, desde el ingreso (H-28) ───────────
 
     [Fact]
-    public void Seniority_IsAnchoredOnPlazaStartDate()
+    public void Seniority_IsAnchoredOnTheHireDate()
     {
         var result = SettlementCalculationRules.Calculate(Input());
 
         // 2022-03-01 → 2026-06-15 = 1567 days = 4 years + 107 days (÷365).
         Assert.Equal(4, result.Derived.SeniorityYears);
         Assert.Equal(107, result.Derived.SeniorityDays);
+    }
+
+    /// <summary>
+    /// H-28 — el caso del arranque, que es el que estaba mal: el empleado lleva 4 años en la empresa y su plaza se
+    /// registró en el sistema hace un mes. La antigüedad que vale es la de la relación laboral, así que la
+    /// indemnización se paga sobre 4 años, no sobre 14 días, y el aguinaldo cae en el tramo de 19 días (≥ 3 años) en
+    /// vez del mínimo de 15.
+    /// </summary>
+    [Fact]
+    public void Seniority_WhenThePlazaWasRegisteredRecently_StillCountsTheWholeRelationship()
+    {
+        var plazaRegisteredLastMonth = Retirement.AddDays(-14);
+        var result = SettlementCalculationRules.Calculate(
+            Input(plazaStart: plazaRegisteredLastMonth, seniorityStart: PlazaStart));
+
+        Assert.Equal(4, result.Derived.SeniorityYears);
+        Assert.Equal(107, result.Derived.SeniorityDays);
+        Assert.Equal(19m, result.Derived.AguinaldoDays);
+    }
+
+    /// <summary>Y el espejo: anclado en la plaza recién registrada la antigüedad sería de 14 días.</summary>
+    [Fact]
+    public void Seniority_AnchoredOnTheRecentPlaza_WouldHaveBeenFourteenDays()
+    {
+        var plazaRegisteredLastMonth = Retirement.AddDays(-14);
+        var result = SettlementCalculationRules.Calculate(
+            Input(plazaStart: plazaRegisteredLastMonth, seniorityStart: plazaRegisteredLastMonth));
+
+        Assert.Equal(0, result.Derived.SeniorityYears);
+        Assert.Equal(14, result.Derived.SeniorityDays);
+        Assert.Equal(15m, result.Derived.AguinaldoDays);
     }
 
     // ── [2] Legal caps (D-09: "salario máximo" = min(salario, N × mínimo)) ─────────

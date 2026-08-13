@@ -45,7 +45,7 @@ internal sealed class AddPersonnelFileSelectionContestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var entity = PersonnelFileSelectionContest.Create(
@@ -111,7 +111,7 @@ internal sealed class UpdatePersonnelFileSelectionContestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetSelectionContestAsync(personnelFile.PublicId, command.SelectionContestPublicId, cancellationToken);
@@ -190,7 +190,7 @@ internal sealed class PatchPersonnelFileSelectionContestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetSelectionContestAsync(personnelFile.PublicId, command.SelectionContestPublicId, cancellationToken);
@@ -268,13 +268,13 @@ internal sealed class DeletePersonnelFileSelectionContestCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileSelectionContestCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileSelectionContestCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileSelectionContestCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -288,24 +288,24 @@ internal sealed class DeletePersonnelFileSelectionContestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetSelectionContestAsync(personnelFile.PublicId, command.SelectionContestPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteSelectionContestAsync(command.SelectionContestPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -324,8 +324,8 @@ internal sealed class DeletePersonnelFileSelectionContestCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 
@@ -354,7 +354,7 @@ internal sealed class GetPersonnelFileSelectionContestsQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.GetSelectionContestsAsync(personnelFile!.PublicId, cancellationToken);
@@ -387,7 +387,7 @@ internal sealed class GetPersonnelFileSelectionContestByIdQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSelectionContestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.GetSelectionContestAsync(personnelFile!.PublicId, query.SelectionContestPublicId, cancellationToken);

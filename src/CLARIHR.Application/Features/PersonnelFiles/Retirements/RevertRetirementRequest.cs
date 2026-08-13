@@ -180,7 +180,10 @@ internal sealed class RevertRetirementRequestCommandHandler(
             var assignments = await employeeRepository.GetEmploymentAssignmentsByPublicIdsAsync(tenantId, assignmentIds.Keys.ToArray(), cancellationToken);
             foreach (var assignment in assignments)
             {
-                assignment.Reopen(assignmentIds[assignment.PublicId]);
+                // El snapshot guarda instantes; la asignación razona en días (H-26/H-28).
+                assignment.Reopen(assignmentIds[assignment.PublicId] is { } previo
+                    ? DateOnly.FromDateTime(previo)
+                    : null);
             }
 
             var contracts = await employeeRepository.GetContractHistoriesByPublicIdsAsync(tenantId, contractIds.Keys.ToArray(), cancellationToken);

@@ -73,7 +73,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: costCenterPublicId,
-            startDate: effectiveHireDate,
+            startDate: DateOnly.FromDateTime(effectiveHireDate),
             endDate: null,
             isPrimary: true,
             isActive: true,
@@ -538,11 +538,11 @@ public sealed partial class ApiIntegrationTests
         var plazaStart = retirementDate.AddYears(-1);
         var settlement = scenario
             ? PersonnelFileSettlement.CreateScenario(
-                Guid.NewGuid(), "Plaza", plazaStart, null, null, retirementDate,
+                Guid.NewGuid(), "Plaza", plazaStart, plazaStart, null, null, retirementDate,
                 "VOLUNTARIA", "Renuncia voluntaria", "MEJOR_OFERTA_SALARIAL", "Mejor oferta salarial",
                 filePublicId, "Solicitante", retirementDate, null, actorUserId, "USD")
             : PersonnelFileSettlement.CreateSettlement(
-                Guid.NewGuid(), Guid.NewGuid(), "Plaza", plazaStart, null, null, retirementDate,
+                Guid.NewGuid(), Guid.NewGuid(), "Plaza", plazaStart, plazaStart, null, null, retirementDate,
                 "VOLUNTARIA", "Renuncia voluntaria", "MEJOR_OFERTA_SALARIAL", "Mejor oferta salarial",
                 filePublicId, "Solicitante", retirementDate, null, actorUserId, "USD");
 

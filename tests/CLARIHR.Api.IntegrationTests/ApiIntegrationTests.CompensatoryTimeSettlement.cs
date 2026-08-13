@@ -48,7 +48,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: null,
-            startDate: new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            startDate: new DateOnly(2023, 1, 1),
             endDate: null,
             isPrimary: false,
             isActive: true,

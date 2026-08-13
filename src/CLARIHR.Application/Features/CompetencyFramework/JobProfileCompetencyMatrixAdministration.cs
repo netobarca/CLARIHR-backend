@@ -130,7 +130,7 @@ public sealed record RemoveJobProfileCompetencyMatrixItemCommand(
     Guid JobProfileId,
     Guid ItemId,
     Guid ConcurrencyToken)
-    : ICommand<JobProfileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 internal sealed class GetJobProfileCompetencyMatrixQueryValidator : AbstractValidator<GetJobProfileCompetencyMatrixQuery>
 {
@@ -405,7 +405,7 @@ internal sealed class AddJobProfileCompetencyMatrixItemCommandHandler(
         try
         {
             repository.AddExpectations([expectation]);
-            profile.BumpVersion();
+            profile.EnsureMatrixWritable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -515,7 +515,7 @@ internal sealed class UpdateJobProfileCompetencyMatrixItemCommandHandler(
                 command.ExpectedEvidence,
                 command.ExpectedValue,
                 command.SortOrder);
-            profile.BumpVersion();
+            profile.EnsureMatrixWritable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -645,7 +645,7 @@ internal sealed class PatchJobProfileCompetencyMatrixItemCommandHandler(
                 patchState.ExpectedEvidence,
                 patchState.ExpectedValue,
                 patchState.SortOrder);
-            profile.BumpVersion();
+            profile.EnsureMatrixWritable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -687,9 +687,9 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileCompetencyMatrixItemCommand, JobProfileParentConcurrencyResult>
+    : ICommandHandler<RemoveJobProfileCompetencyMatrixItemCommand, ChildDeletionResult>
 {
-    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         RemoveJobProfileCompetencyMatrixItemCommand command,
         CancellationToken cancellationToken)
     {
@@ -701,7 +701,7 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
             cancellationToken);
         if (context.IsFailure)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(context.Error);
+            return Result<ChildDeletionResult>.Failure(context.Error);
         }
 
         var profile = context.Value;
@@ -709,12 +709,12 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
         var expectation = await repository.GetExpectationAggregateAsync(profile.Id, command.ItemId, cancellationToken);
         if (expectation is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixItemNotFound);
+            return Result<ChildDeletionResult>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixItemNotFound);
         }
 
         if (expectation.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(CompetencyFrameworkErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(CompetencyFrameworkErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetJobProfileCompetencyMatrixItemResponseAsync(profile.PublicId, expectation.PublicId, cancellationToken);
@@ -723,7 +723,7 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
         try
         {
             repository.RemoveExpectations([expectation]);
-            profile.BumpVersion();
+            profile.EnsureMatrixWritable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -740,12 +740,12 @@ internal sealed class RemoveJobProfileCompetencyMatrixItemCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FromDomainException(ex));
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -879,7 +879,10 @@ internal static class JobProfileCompetencyMatrixItemSupport
                 conduct.CompetencyTypeCatalogItemId != competencyTypeCatalogItemId ||
                 conduct.BehaviorLevelCatalogItemId != behaviorLevelCatalogItemId)
             {
-                return Result<DerivedMatrixConducts>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+                // H-06: código propio. El genérico no decía qué corregir, y esta es la regla que un consumidor
+                // rompe naturalmente si lee el contrato como "una lista de conductas".
+                return Result<DerivedMatrixConducts>.Failure(
+                    CompetencyFrameworkErrors.JobProfileCompetencyMatrixConductTripleMismatch);
             }
 
             var link = JobProfileCompetencyExpectationConduct.Create(conduct.Id, sortOrder++);

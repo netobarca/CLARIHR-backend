@@ -34,6 +34,11 @@ public class JobProfileCatalogBindingMapGuardrailsTests
             (CatalogFamilies.PositionDescription, "WorkConditionType", "work-condition-types"),
             (CatalogFamilies.PositionDescription, "WorkCondition", "work-conditions"),
             (CatalogFamilies.PositionDescription, "CompetencyDomain", "competency-domains"),
+            // H-10 — the position structure resources. Their slug is the route segment, not a catalog type.
+            (CatalogFamilies.PositionStructure, "PositionCategoryClassification", "position-category-classifications"),
+            (CatalogFamilies.PositionStructure, "PositionCategory", "position-categories"),
+            // H-10 — the classification's third axis; the only one of the three that was not already canonical.
+            (CatalogFamilies.OrgStructure, "OrgUnitType", "unit-types"),
             (CatalogFamilies.JobCatalog, "EducationLevel", "EducationLevel"),
             (CatalogFamilies.JobCatalog, "KnowledgeArea", "KnowledgeArea"),
             (CatalogFamilies.JobCatalog, "Competency", "Competency"),

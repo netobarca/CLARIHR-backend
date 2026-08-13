@@ -64,7 +64,7 @@ public sealed record DeletePersonnelFileLanguageCommand(
     Guid PersonnelFileId,
     Guid LanguagePublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileLanguagePatchOperation(
     string Op,

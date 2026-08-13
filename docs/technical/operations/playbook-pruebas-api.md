@@ -1898,6 +1898,8 @@ total = len(items)
 cupos = sum((s.get('maxEmployees') or 0) for s in items)
 print(f'plazas: {total}  → esperado 33  {"OK" if total==33 else "REVISAR"}')
 print(f'posiciones ocupables: {cupos}  → esperado 60  {"OK" if cupos==60 else "REVISAR"}')
+# H-16: este conteo daba un falso negativo (`33 → REVISAR`) porque el listado no exponía el campo,
+# así que `.get()` devolvía None para todas. Desde que el listado publica la dependencia, funciona.
 raices = [s for s in items if not s.get('directDependencyPositionSlotPublicId')]
 print(f'plazas raíz: {len(raices)}  → esperado 1  {"OK" if len(raices)==1 else "REVISAR"}')
 PY
@@ -2042,8 +2044,16 @@ GET /api/v1/settlement-concepts
 
 **Controladores:** `compensation-concept-types` → `CompensationConceptTypesController.cs` · `settlement-concepts` → `SettlementConceptsController.cs`
 
-Solo lectura — son catálogos de sistema. Comprobar que respondan con listas no vacías: si están vacíos, el
-motor de planilla y el de finiquitos no tienen con qué calcular.
+Solo lectura — son catálogos **por país**. Comprobar que respondan con listas no vacías (**19** y **22**
+respectivamente para `SV`): si están vacíos, el motor de planilla y el de finiquitos no tienen con qué calcular.
+
+> **Sin `countryCode` funcionan igual (H-21).** El país sale del tenant del token. El parámetro sigue existiendo
+> para leer otro país o para el llamante sin empresa (onboarding), y ahora un código que no corresponde a ningún
+> país activo responde **`400 CATALOG_COUNTRY_UNKNOWN`** en vez de una lista vacía.
+>
+> Antes **no** era así: sin el parámetro devolvían `200 []`, indistinguible de "el catálogo no se sembró", que es
+> justo la conclusión equivocada que este paso quiere evitar. Vale para toda la familia de catálogos por país
+> (`general-catalogs`, `reference-catalogs`, `contract-types`, `afps`).
 
 ---
 
@@ -2242,12 +2252,16 @@ solo el **camino crítico**: lo mínimo para que un empleado quede asignado y pa
 5. PATCH /api/v1/personnel-files/{id}/finalize                  PersonnelFileEmploymentController  ← saca de Draft
 6. PUT   /api/v1/personnel-files/{id}/employment-information    PersonnelFileEmploymentController
 7. POST  /api/v1/personnel-files/{id}/compensation-concepts     PersonnelFileCompensationConceptsController
-8. PATCH /api/v1/position-slots/{id}/occupancy                  PositionSlotsController
+8. (la ocupación ya no se fija a mano: se deriva de las asignaciones — H-23)
 ```
 
-> **El paso 5 es obligatorio y no es evidente.** El expediente nace en `LifecycleStatus = Draft`, y en
-> `Draft` los pasos 6 y 7 responden `422 PERSONNEL_FILE_STATE_RULE_VIOLATION` — un mensaje que **no
-> menciona** `Draft`, ni `Completed`, ni `finalize`. La condición es
+> **El paso 5 es obligatorio, y desde H-25 el error lo dice.** El expediente nace en
+> `LifecycleStatus = Draft`, y en `Draft` los pasos 6 y 7 responden **`422 PERSONNEL_FILE_NOT_FINALIZED`**,
+> cuyo cuerpo trae el `lifecycleStatus` actual, la llamada que desbloquea
+> (`PATCH /personnel-files/{id}/finalize`) y el endpoint que lista lo que falta
+> (`GET /personnel-files/{id}/finalize/preview`). Antes era `PERSONNEL_FILE_STATE_RULE_VIOLATION`, un mensaje que
+> **no mencionaba** `Draft`, ni `Completed`, ni `finalize` — y que además se usaba para otras tres cosas
+> distintas. La condición es
 > `IsCompletedEmployee = RecordType == Employee && LifecycleStatus == Completed`
 > (`PersonnelFile.cs:146`), y el único camino a `Completed` es `PATCH /finalize` con `If-Match`.
 >
@@ -2269,9 +2283,17 @@ solo el **camino crítico**: lo mínimo para que un empleado quede asignado y pa
    **ISSS 3.00 % / 7.50 % patronal** y **AFP 7.25 % / 8.75 %**, en `MENSUAL` y `USD`— con alcance a la
    plaza nueva. Es idempotente: no duplica si ya existe uno activo. **No hay que crearlos a mano**, y si
    alguien los crea, aparecen duplicados con el sugerido.
-2. **La ocupación de la plaza no se actualiza sola.** Verificado en el handler: la asignación no toca
-   `occupiedEmployees`. Hay que llamar el paso 7 aparte, o los reportes de dotación muestran 0 ocupados
-   con la plaza llena.
+2. **La ocupación de la plaza se deriva sola (H-23).** `occupiedEmployees` y el estado `Vacant`/`Occupied`
+   se calculan de las asignaciones activas en cada lectura: al asignar a alguien la plaza pasa a `Occupied`
+   con el conteo real. Ya **no** hay paso manual (el `PATCH /occupancy` fue eliminado).
+
+3. **Asignar la plaza mueve el token del expediente.** Crear la asignación *toca* el expediente padre, así que
+   el `concurrencyToken` que traías del paso 1 queda viejo: hay que **releer el expediente** antes del
+   `finalize`, o responde `409`.
+
+4. **El `If-Match` del paso 6 es obligatorio incluso la primera vez.** La sección de información de empleo no
+   existe hasta el primer `PUT`, pero el header se exige igual (su valor no se compara contra nada). El swagger
+   decía lo contrario; quedó corregido en H-25.
 
 ### 7.1 · Cascarón del expediente
 
@@ -2416,8 +2438,8 @@ POST /api/v1/personnel-files/{id}/compensation-concepts
 Enums: `nature` = `Ingreso` | `Egreso` · `calculationType` = `Fixed` | `Percentage` ·
 `deductionClass` = `Ley` | `Interno` | `Externo`.
 
-`conceptTypeCode` sale de los **19 tipos** de `compensation-concept-types` (§5.6 — recordar que ese
-endpoint necesita `?countryCode=SV`). El que marca el sueldo es el que tiene `isBaseSalary`.
+`conceptTypeCode` sale de los **19 tipos** de `compensation-concept-types` (§5.6 — desde H-21 el
+`?countryCode=SV` es opcional: si se omite, se usa el país del tenant). El que marca el sueldo es el que tiene `isBaseSalary`.
 
 > **Mismo perfil, distinto salario.** El sueldo es por plaza y por persona: dos empleados en la misma
 > plaza `PL-TCP-001` (banda 800–1,400) pueden ganar 900 y 1,250. Y un empleado multi-plaza gana lo de
@@ -2437,18 +2459,29 @@ Ambos catálogos vienen sembrados: **8 bancos** (`BANCO_AGRICOLA`, `CUSCATLAN`, 
 Solo hace falta si el `paymentMethodCode` de la asignación es `TRANSFERENCIA`. Después conviene volver
 a la asignación con un `PUT` para llenar `paymentBankAccountPublicId`.
 
-### 7.7 · Ocupación de la plaza
+### 7.7 · Ocupación de la plaza — **ya no hay paso manual (H-23)**
 
-```
-PATCH /api/v1/position-slots/{id}/occupancy      { "occupiedEmployees": 9 }
-```
+`PATCH /position-slots/{id}/occupancy` **fue eliminado**. `occupiedEmployees` y el estado `Vacant`/`Occupied` se
+**derivan** de las asignaciones activas en cada lectura, así que no hay nada que sincronizar: al asignar a alguien
+la plaza pasa sola a `Occupied` con el conteo real, y al quitarlo vuelve a `Vacant`.
 
-Paso manual, porque la asignación no lo hace. Al terminar, `occupiedEmployees` de cada plaza debe
-igualar la cantidad de asignaciones activas que la referencian.
+`Suspended` sigue siendo el único estado que se fija a mano, por `PATCH /position-slots/{id}/status`, porque es el
+único que es una decisión y no un hecho.
+
+> Antes este paso existía «porque la asignación no lo hace», y el número alimentaba el indicador
+> `positionOccupancy` del tablero de RRHH: bastaban dos llamadas (`/status` → `Occupied` sobre una plaza vacía)
+> para que el tablero reportara un ocupante inexistente.
 
 ### 7.9 · Tres trampas de formato y de datos, verificadas en vivo
 
-**Las fechas deben ir en UTC explícito.** Una fecha sin zona produce un `500`, no un `400`:
+**Las fechas se aceptan con o sin zona (H-26).** `"2026-08-01"`, `"2026-08-01T00:00:00Z"` y
+`"2026-08-01T00:00:00-06:00"` funcionan las tres: la frontera de la API las normaliza a UTC —y un offset explícito
+se **convierte**, no se reetiqueta—. Los campos que son un día (`startDate`, `endDate`, `hireDate`) viajan además
+como `DateOnly` en el contrato.
+
+> Antes, una fecha sin zona producía un **`500`** cuyo texto hablaba de PostgreSQL, y no en todos los endpoints:
+> dependía de si el valor terminaba en una comparación SQL. En la corrida original, los 60 intentos de asignación
+> fallaron hasta cambiar el formato.
 
 | `startDate` enviado a `assigned-positions` | Respuesta |
 |---|---|
@@ -2598,11 +2631,31 @@ POST /personnel-files/{id}/compensatory-time-absences        PersonnelFileCompen
 > generar nada. Los dos creados en la corrida (`solicitante.tabulador@` y `aprobador.tabulador@`)
 > sirven para esto.
 
-⚠️ **Los adjuntos están bloqueados.** `document_type_catalog_items` está vacío y **no existe endpoint
-que lo llene** (ver el registro de hallazgos, H-22), y el campo `documentTypeCatalogItemPublicId` es
-obligatorio en los `POST .../documents`. Eso impide probar completos los flujos que exigen respaldo:
-incapacidades con `incapacityRequiresDocument: true`, créditos de tiempo compensatorio, amonestaciones,
-reclamos médicos y ayuda económica. **Anotarlo y seguir**: el resto del canal sí se puede probar.
+**Los adjuntos ya funcionan (H-22).** `document_type_catalog_items` llega sembrado con **12 tipos** de
+plataforma —`CONSTANCIA_MEDICA`, `INCAPACIDAD`, `RECETA`, `FACTURA`, `RECIBO`, `CONTRATO`, `CARTA`, `TITULO`,
+`CURRICULUM`, `IDENTIFICACION`, `RESPALDO`, `OTRO`— que se leen en el Core con
+`GET /api/v1/general-catalogs/file-document-types` (catálogo **de sistema**: no lleva `countryCode`).
+
+> **Corrección de lo que decía antes este párrafo.** (1) El endpoint de administración **sí existía**: vive en la
+> **Backoffice API** (`api/platform/document-type-catalogs`, política `PlatformOperator`), no en el Core — por eso
+> no aparecía al buscar entre las rutas del Core. (2) El tipo es obligatorio **solo** en documentos del expediente
+> y adjuntos de reclamo médico; en incapacidades, tiempo compensatorio, amonestaciones, reconocimientos, ayuda
+> económica y transacciones fuera de nómina el campo es opcional y esos adjuntos **siempre** se pudieron crear.
+
+**Para agregar tipos propios** hace falta un operador de plataforma. El camino, verificado de punta a punta:
+
+```
+cp src/CLARIHR.Backoffice.Api/appsettings.Development.json{.example,}
+dotnet run --project src/CLARIHR.Backoffice.Api -- bootstrap-platform-operator <correo> Admin   # usuario local ACTIVO ya existente
+dotnet run --project src/CLARIHR.Backoffice.Api                                                  # :5100
+POST   /api/platform/auth/login                     { email, password }
+GET    /api/platform/document-type-catalogs
+POST   /api/platform/document-type-catalogs         { code, name, sortOrder }
+PATCH  /api/platform/document-type-catalogs/{id}/inactivate   (If-Match con el concurrencyToken)
+```
+
+⚠️ El catálogo es **global de la plataforma**: los tipos que se agreguen los ven **todas** las empresas. Hoy no
+hay tipos por empresa.
 
 ### 8.2 · Generar la corrida
 

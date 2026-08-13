@@ -155,7 +155,7 @@ internal sealed class AddOffPayrollTransactionDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OffPayrollTransactionDocumentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OffPayrollTransactionDocumentResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var transactionInternalId = await employeeRepository.GetOffPayrollTransactionInternalIdAsync(personnelFile.PublicId, command.OffPayrollTransactionPublicId, cancellationToken);
@@ -246,13 +246,13 @@ internal sealed class DeleteOffPayrollTransactionDocumentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeleteOffPayrollTransactionDocumentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeleteOffPayrollTransactionDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeleteOffPayrollTransactionDocumentCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageOffPayrollTransactionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageOffPayrollTransactionsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -261,25 +261,25 @@ internal sealed class DeleteOffPayrollTransactionDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var transactionInternalId = await employeeRepository.GetOffPayrollTransactionInternalIdAsync(personnelFile.PublicId, command.OffPayrollTransactionPublicId, cancellationToken);
         if (transactionInternalId is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         var document = await employeeRepository.GetOffPayrollTransactionDocumentEntityAsync(
             command.OffPayrollTransactionPublicId, command.DocumentPublicId, personnelFile.TenantId, cancellationToken);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.DocumentNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.DocumentNotFound);
         }
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -298,8 +298,8 @@ internal sealed class DeleteOffPayrollTransactionDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

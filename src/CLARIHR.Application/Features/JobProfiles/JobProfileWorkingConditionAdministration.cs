@@ -64,7 +64,7 @@ public sealed record PatchJobProfileWorkingConditionCommand(
 public sealed record RemoveJobProfileWorkingConditionCommand(
     Guid JobProfileId,
     Guid WorkingConditionId,
-    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetJobProfileWorkingConditionsQueryValidator : AbstractValidator<GetJobProfileWorkingConditionsQuery>
 {
@@ -401,7 +401,7 @@ internal sealed class UpdateJobProfileWorkingConditionCommandHandler(
                 command.Notes,
                 command.SortOrder);
 
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -535,7 +535,7 @@ internal sealed class PatchJobProfileWorkingConditionCommandHandler(
                 patchState.Notes,
                 patchState.SortOrder);
 
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -577,25 +577,25 @@ internal sealed class RemoveJobProfileWorkingConditionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileWorkingConditionCommand, JobProfileParentConcurrencyResult>
+    : ICommandHandler<RemoveJobProfileWorkingConditionCommand, ChildDeletionResult>
 {
-    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileWorkingConditionCommand command, CancellationToken cancellationToken)
+    public async Task<Result<ChildDeletionResult>> Handle(RemoveJobProfileWorkingConditionCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<ChildDeletionResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
+            return Result<ChildDeletionResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithWorkingConditionsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -604,12 +604,12 @@ internal sealed class RemoveJobProfileWorkingConditionCommandHandler(
         var workingCondition = profile.WorkingConditions.FirstOrDefault(item => item.PublicId == command.WorkingConditionId);
         if (workingCondition is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.WorkingConditionNotFound);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.WorkingConditionNotFound);
         }
 
         if (workingCondition.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetWorkingConditionResponseAsync(profile.PublicId, workingCondition.PublicId, cancellationToken)
@@ -635,12 +635,12 @@ internal sealed class RemoveJobProfileWorkingConditionCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FromDomainException(ex));
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {

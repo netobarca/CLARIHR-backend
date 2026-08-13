@@ -161,6 +161,50 @@ Como mínimo cubrir:
 - errores esperados,
 - reglas críticas del caso de uso.
 
+#### Regla: el test nuevo se corre en rojo antes de arreglar
+
+**Antes de aplicar el fix, correr el test nuevo contra el código sin arreglar y confirmar que falla, y que
+falla por la razón esperada.** Dejar constancia de qué falló, en una línea, en el commit del test o en el PR.
+
+No es ceremonia. Es la única práctica que habría cazado las cuatro instancias de
+[H-33](docs/technical/operations/hallazgos-corrida-secciones-3-4.md#h-33), donde tres hallazgos 🔴/🟠
+—incluido un `500` permanente— convivieron con una suite verde. Cada vez que se aplicó encontró algo real:
+un guardrail que señalaba 1 de 91 call sites, y otro propio que reportaba **88 falsos positivos** y se habría
+desactivado el primer día.
+
+Vale igual para los guardarraíles: **uno que nace verde no prueba nada.** Si el guardrail pasa antes del
+fix, romper a propósito lo que debería detectar y confirmar que se pone rojo.
+
+#### Cinco preguntas para tests de reglas de autorización o de estado
+
+Las que ningún análisis estático puede responder por completo. Se contestan al escribir el test:
+
+1. **¿El actor del fixture falla la condición fuerte?** Si el test prueba "basta con ser miembro", el actor
+   no puede ser además el dueño. **Corregido en el seeder** (H-33 instancia 3): `acme-two` ahora tiene un dueño
+   distinto del actor, así que "miembro pero no dueño" es la forma por defecto. Antes las dos empresas eran del
+   actor y cualquier test de esa familia pasaba por el camino de la propiedad sin ejercitar el otro.
+2. **¿El assert es sobre el comportamiento correcto, o sobre el actual?** Un test que fija el defecto como
+   esperado no es un hueco: es un candado que hay que romper para arreglar el bug.
+3. **¿Hay una capa antes de la que quiero probar?** El rate limiter corre antes del authorization; el
+   `[Authorize]` corre antes del handler. Llegar a la capa N no prueba nada de la capa N−1.
+4. **Si el código estuviera roto de la forma obvia, ¿este test se pondría rojo?**
+5. **¿El fixture hace que los dos campos que la regla distingue tengan el mismo valor?** Es la pregunta que
+   faltaba, y la que dejó vivir a
+   [H-28](docs/technical/operations/hallazgos-corrida-secciones-3-4.md#h-28): el helper de siembra alimentaba la
+   fecha de INGRESO, la del CONTRATO, el inicio de la PLAZA y la vigencia del SALARIO **con la misma constante**.
+   El defecto era exactamente cuál de esas fechas manda para la antigüedad, así que ningún test podía verlo —
+   los dos anclajes daban el mismo número. Diez helpers compartidos tenían esa forma, con más de cien tests
+   colgando de los más usados.
+   > El desacople es **opt-in**: se agrega un parámetro opcional cuyo default es el valor acoplado, así que
+   > ningún test existente cambia de comportamiento y quien necesite separarlos lo pide. Ver
+   > `SeedSettlementCandidateAsync`.
+
+Los guardarraíles automatizables de esta familia viven en
+`tests/CLARIHR.Application.UnitTests/IntegrationTestQualityGovernanceTests.cs`. **G5** cubre la pregunta 5 para
+la familia de fechas y **G6** cubre la pregunta 3 (un endpoint no puede tener como única cobertura aserciones de
+error). La pregunta 2 —¿el assert es sobre el comportamiento correcto o el actual?— **no es automatizable**: exige
+saber cuál es el correcto. Esa sigue siendo práctica, y es la única.
+
 ### Paso 6. Documentar
 Actualizar documentación viva impactada y registrar el cambio de la HU.
 

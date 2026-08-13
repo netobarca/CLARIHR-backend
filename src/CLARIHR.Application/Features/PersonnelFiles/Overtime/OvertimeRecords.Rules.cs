@@ -102,6 +102,49 @@ internal static class OvertimeRecordErrors
         "OVERTIME_ASSIGNED_POSITION_INVALID",
         "The assigned position is not a valid plaza of this employee.", ErrorType.UnprocessableEntity);
 
+    // ── H-19/H-20: the shift the employee is contracted for, which this module did not know existed ──────
+
+    /// <summary>
+    /// H-19 — the plaza is overtime-exempt. Checked at REGISTRATION, not at authorization, so the error appears
+    /// where the mistake is made. Before this, a director without a shift could have overtime registered,
+    /// authorized and paid, and nothing objected.
+    /// </summary>
+    public static readonly Error PositionExempt = new(
+        "OVERTIME_POSITION_EXEMPT",
+        "The position does not generate overtime. Work in an exempt plaza is covered by its salary.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-20 — the range falls inside the shift the employee is already paid for. THE double-payment path: those
+    /// hours were being paid once as ordinary salary and again at the overtime factor.
+    /// </summary>
+    public static readonly Error WithinScheduledShift = new(
+        "OVERTIME_WITHIN_SCHEDULED_SHIFT",
+        "The time range falls inside the employee's contracted shift for that day, which is already paid as ordinary salary.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>H-20 — the range overlaps another active record of the same employee and date.</summary>
+    public static readonly Error RecordsOverlap = new(
+        "OVERTIME_RECORDS_OVERLAP",
+        "The time range overlaps another overtime record of the same employee on that date.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-20 — the range straddles the legal day/night boundary (Labour Code art. 161: daytime is [06:00, 19:00)),
+    /// so it belongs to two bands with different factors and one record carries one type. 18:00-21:00 is 1 h at
+    /// ×2.00 plus 2 h at ×2.50; neither single type prices it correctly, so it is split by the caller.
+    /// </summary>
+    public static readonly Error CrossesLegalBoundary = new(
+        "OVERTIME_CROSSES_LEGAL_BOUNDARY",
+        "The time range crosses the legal day/night boundary (06:00 / 19:00). Split it into one record per band.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>H-20 — the range is empty (equal start and end).</summary>
+    public static readonly Error RangeEmpty = new(
+        OvertimeScheduleRules.RangeEmptyCode,
+        "The time range must span at least one minute.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error RequesterInvalid = new(
         "OVERTIME_REQUESTER_INVALID",
         "The requester is not a valid personnel file of the company.", ErrorType.UnprocessableEntity);

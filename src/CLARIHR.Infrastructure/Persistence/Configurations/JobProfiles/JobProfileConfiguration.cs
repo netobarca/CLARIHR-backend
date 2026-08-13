@@ -259,11 +259,20 @@ internal sealed class JobCatalogItemConfiguration : IEntityTypeConfiguration<Job
 
         builder.Property(item => item.Name)
             .HasColumnName("name")
-            .HasMaxLength(120);
+            .HasMaxLength(JobCatalogItem.MaxNameLength);
 
         builder.Property(item => item.NormalizedName)
             .HasColumnName("normalized_name")
-            .HasMaxLength(120);
+            .HasMaxLength(JobCatalogItem.MaxNameLength);
+
+        // H-11 — the two columns this catalog was missing: without them its pickers could only be alphabetical
+        // and there was nowhere to define what an item means.
+        builder.Property(item => item.Description)
+            .HasColumnName("description")
+            .HasMaxLength(JobCatalogItem.MaxDescriptionLength);
+
+        builder.Property(item => item.SortOrder)
+            .HasColumnName("sort_order");
 
         builder.Property(item => item.IsSystem)
             .HasColumnName("is_system");

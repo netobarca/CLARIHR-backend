@@ -8,6 +8,25 @@ public interface IPositionSlotRepository
 {
     void Add(PositionSlot slot);
 
+    /// <summary>
+    /// H-15 — removes the slot. Only ever called after <see cref="GetUsageAsync"/> clears it: nothing has a
+    /// foreign key to <c>position_slots</c> except its own self-references, so the database would NOT stop a
+    /// delete that orphans employment history.
+    /// </summary>
+    void Remove(PositionSlot slot);
+
+    /// <summary>
+    /// H-15 — everything that would be broken by deleting this slot, in one round trip. Deliberately NO default
+    /// implementation (unlike <see cref="GetSalaryRangeAsync"/> above): a default would make the guard fail
+    /// OPEN in any repository that forgets it, and this one stands between a `DELETE` and silently orphaned
+    /// employment history.
+    /// </summary>
+    /// <remarks>
+    /// Takes both ids because the two dependency columns are shadow FKs holding the INTERNAL id (there are
+    /// no navigation properties), while the four unprotected references hold the PUBLIC id.
+    /// </remarks>
+    Task<PositionSlotUsage> GetUsageAsync(Guid slotPublicId, long slotInternalId, CancellationToken cancellationToken);
+
     Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -40,6 +59,8 @@ public interface IPositionSlotRepository
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        bool? isActive,
+        Guid? directDependencyPositionSlotId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);
@@ -68,6 +89,7 @@ public interface IPositionSlotRepository
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        bool? isActive,
         int? maxRows,
         CancellationToken cancellationToken);
 
@@ -75,4 +97,35 @@ public interface IPositionSlotRepository
         Guid tenantId,
         Guid jobProfileId,
         CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// H-15 — the four tables that reference a slot by <c>public_id</c> WITHOUT a foreign key, plus the slots that
+/// depend on it (those two are real FKs, and they are <c>RESTRICT</c>, so an unguarded delete surfaced as a raw
+/// Postgres 500).
+/// <para>
+/// <see cref="ActiveAssignments"/> is separate from <see cref="Assignments"/> on purpose: deleting is blocked by
+/// ANY assignment — a historical row orphans just as badly — while suspending is only blocked by the ones still
+/// in force.
+/// </para>
+/// <para>
+/// None of these counts read <c>PositionSlot.OccupiedEmployees</c>. That counter is only written by the slot's
+/// own <c>/occupancy</c> endpoint — creating an assignment does not touch it — so a guard trusting it would miss
+/// exactly the case it exists for.
+/// </para>
+/// </summary>
+public sealed record PositionSlotUsage(
+    int Assignments,
+    int ActiveAssignments,
+    int ContractHistories,
+    int AuthorizationSubstitutions,
+    int ExitInterviewSubmissions,
+    int DependentSlots)
+{
+    public bool BlocksDeletion =>
+        Assignments > 0 ||
+        ContractHistories > 0 ||
+        AuthorizationSubstitutions > 0 ||
+        ExitInterviewSubmissions > 0 ||
+        DependentSlots > 0;
 }

@@ -110,7 +110,7 @@ internal sealed class IssueCertificateRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var before = await employeeRepository.GetCertificateRequestAsync(personnelFile.PublicId, command.CertificateRequestPublicId, cancellationToken);

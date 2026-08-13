@@ -111,7 +111,7 @@ public sealed class PersonnelFileIncapacityDocumentsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/incapacities/{incapacityPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a supporting document from an incapacity",
@@ -119,7 +119,7 @@ public sealed class PersonnelFileIncapacityDocumentsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header
             with the document's current `concurrencyToken`. Manager-only.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteIncapacityDocument(
+    public async Task<ActionResult> DeleteIncapacityDocument(
         Guid publicId,
         Guid incapacityPublicId,
         Guid documentPublicId,
@@ -130,6 +130,6 @@ public sealed class PersonnelFileIncapacityDocumentsController(
             new DeleteIncapacityDocumentCommand(publicId, incapacityPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

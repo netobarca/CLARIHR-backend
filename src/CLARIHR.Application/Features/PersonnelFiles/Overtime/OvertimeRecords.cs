@@ -14,6 +14,23 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 /// AUTORIZADA → APLICADA lifecycle with its rejection / annulment branches. User ids are nullable (a non-Guid
 /// principal maps to null — lesson REQ-003). Applications history + projection are PR-4/PR-5.
 /// </summary>
+/// <summary>
+/// H-19 — a non-blocking notice attached to the create/update response. Same shape and same intent as the
+/// vacation-plan warnings: the record is saved, and the message tells whoever is looking that something about the
+/// configuration made the validation weaker than usual.
+/// </summary>
+public sealed record OvertimeRecordWarning(string Code, string Message);
+
+/// <summary>H-19 — the warning catalog of the module (codes live in <c>BackendMessages[.es].resx</c>).</summary>
+public static class OvertimeRecordWarnings
+{
+    public const string MissingWorkScheduleCode = "OVERTIME_WARNING_MISSING_WORK_SCHEDULE";
+
+    public const string MissingWorkScheduleDefaultMessage =
+        "The employee has no work schedule assigned, so the record could not be checked against a contracted shift "
+        + "(indicative — not blocking).";
+}
+
 public sealed record OvertimeRecordResponse(
     Guid OvertimeRecordPublicId,
     DateOnly WorkDate,
@@ -52,7 +69,9 @@ public sealed record OvertimeRecordResponse(
     Guid? AppliedBySettlementPublicId,
     Guid? CompensatedByCreditPublicId,
     bool IsActive,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    // H-19 — populated on the POST/PUT responses; plain reads carry an empty list, as the vacation plan does.
+    IReadOnlyList<OvertimeRecordWarning> Warnings)
 {
     [JsonIgnore]
     public Guid Id => OvertimeRecordPublicId;
@@ -73,10 +92,11 @@ public sealed record OvertimeRecordInput(
     Guid OvertimeTypePublicId,
     decimal? FactorApplied,
     string? FactorOverrideNote,
-    int DurationHours,
-    int DurationMinutes,
-    TimeOnly? StartTime,
-    TimeOnly? EndTime,
+    // H-20 — the range is now MANDATORY and is the single source of truth: the duration is derived from it.
+    // Before, the two were independent and only the duration was paid, so a record could declare 8 h against a
+    // 10:00-11:00 range and be paid for eight while the authorizer approved one.
+    TimeOnly StartTime,
+    TimeOnly EndTime,
     Guid JustificationTypePublicId,
     string? Observations,
     Guid? AssignedPositionPublicId,
@@ -144,7 +164,7 @@ public sealed record DeletePersonnelFileOvertimeRecordCommand(
     Guid PersonnelFileId,
     Guid OvertimeRecordPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 /// <summary>Annul (retiro) an EN_REVISION overtime record (→ ANULADA); the reason is mandatory. Dual channel.</summary>
 public sealed record AnnulPersonnelFileOvertimeRecordCommand(
@@ -203,7 +223,6 @@ internal sealed class OvertimeRecordInputValidator : AbstractValidator<OvertimeR
         // supplied factor is validated (400). The duration is NOT bounds-checked here so an invalid minute value
         // (e.g. 65) surfaces as a 422 duration code rather than a 400.
         RuleFor(input => input.FactorApplied).GreaterThan(0m).When(input => input.FactorApplied.HasValue);
-        RuleFor(input => input.DurationHours).GreaterThanOrEqualTo(0);
         RuleFor(input => input.FactorOverrideNote).MaximumLength(PersonnelFileOvertimeRecord.MaxFactorOverrideNoteLength);
         RuleFor(input => input.Observations).MaximumLength(PersonnelFileOvertimeRecord.MaxObservationsLength);
 

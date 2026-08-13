@@ -198,7 +198,7 @@ internal sealed class AddPersonnelFilePayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var entity = PersonnelFilePayrollTransaction.Create(
@@ -283,7 +283,7 @@ internal sealed class PatchPersonnelFilePayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetPayrollTransactionAsync(personnelFile.PublicId, command.PayrollTransactionPublicId, cancellationToken);
@@ -451,7 +451,7 @@ internal sealed class SearchPersonnelFilePayrollTransactionsQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PagedResponse<PersonnelFilePayrollTransactionResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PagedResponse<PersonnelFilePayrollTransactionResponse>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.SearchPayrollTransactionsAsync(
@@ -495,7 +495,7 @@ internal sealed class ExportPersonnelFilePayrollTransactionsQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<IReadOnlyCollection<PersonnelFilePayrollTransactionExportRow>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<IReadOnlyCollection<PersonnelFilePayrollTransactionExportRow>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.ExportPayrollTransactionsAsync(

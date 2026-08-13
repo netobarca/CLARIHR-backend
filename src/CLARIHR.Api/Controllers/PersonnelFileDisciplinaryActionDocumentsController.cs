@@ -113,7 +113,7 @@ public sealed class PersonnelFileDisciplinaryActionDocumentsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/disciplinary-actions/{disciplinaryActionPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a supporting document from a disciplinary action",
@@ -121,7 +121,7 @@ public sealed class PersonnelFileDisciplinaryActionDocumentsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header
             with the document's current `concurrencyToken`. Manager-only (D-05).
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteDisciplinaryActionDocument(
+    public async Task<ActionResult> DeleteDisciplinaryActionDocument(
         Guid publicId,
         Guid disciplinaryActionPublicId,
         Guid documentPublicId,
@@ -132,6 +132,6 @@ public sealed class PersonnelFileDisciplinaryActionDocumentsController(
             new DeleteDisciplinaryActionDocumentCommand(publicId, disciplinaryActionPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

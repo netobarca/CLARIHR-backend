@@ -26,6 +26,15 @@ internal sealed class PositionDescriptionCatalogRepository(
     public Task<PositionDescriptionCatalogItem?> GetCatalogItemByIdAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.PositionDescriptionCatalogItems.SingleOrDefaultAsync(item => item.PublicId == itemId, cancellationToken);
 
+    public async Task<IReadOnlyList<PositionDescriptionCatalogItem>> GetAllCatalogItemsAsync(
+        Guid tenantId,
+        PositionDescriptionCatalogType catalogType,
+        CancellationToken cancellationToken) =>
+        await dbContext.PositionDescriptionCatalogItems
+            .Where(item => item.TenantId == tenantId && item.CatalogType == catalogType)
+            .OrderBy(item => item.SortOrder)
+            .ToListAsync(cancellationToken);
+
     public Task<PositionCategoryClassification?> GetClassificationByIdAsync(Guid classificationId, CancellationToken cancellationToken) =>
         dbContext.PositionCategoryClassifications.SingleOrDefaultAsync(item => item.PublicId == classificationId, cancellationToken);
 
@@ -468,6 +477,18 @@ internal sealed class PositionDescriptionCatalogRepository(
             item.StrategicObjectiveCatalogItemId == catalogItemId ||
             item.AssignedWorkEquipmentCatalogItemId == catalogItemId ||
             item.ResponsibilityCatalogItemId == catalogItemId,
+            cancellationToken);
+
+    public Task<bool> HasSalaryTabulatorLinesUsingSalaryClassCodeAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        bool activeLinesOnly,
+        CancellationToken cancellationToken) =>
+        dbContext.SalaryTabulatorLines.AnyAsync(
+            line =>
+                line.TenantId == tenantId &&
+                line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                (!activeLinesOnly || line.IsActive),
             cancellationToken);
 
     public Task<bool> HasClassificationsUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken) =>

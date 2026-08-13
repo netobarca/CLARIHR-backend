@@ -333,7 +333,7 @@ internal sealed class ApplyRecurringDeductionInstallmentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // Pre-check existence + If-Match (AsNoTracking) so we never take the lock for a bad request.
@@ -492,7 +492,7 @@ internal sealed class ApplyRecurringDeductionExtraordinaryCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var snapshot = await employeeRepository.GetRecurringDeductionAsync(
@@ -621,7 +621,7 @@ internal sealed class AnnulRecurringDeductionInstallmentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringDeductionInstallmentApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (string.IsNullOrWhiteSpace(command.Reason))

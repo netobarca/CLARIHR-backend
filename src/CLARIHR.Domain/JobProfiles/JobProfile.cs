@@ -24,7 +24,7 @@ public sealed class JobProfile : TenantEntity
         SetTitle(title);
         Status = JobProfileStatus.Draft;
         IsActive = true;
-        Version = 1;
+        Version = 0;
         ConcurrencyToken = Guid.NewGuid();
     }
 
@@ -106,8 +106,7 @@ public sealed class JobProfile : TenantEntity
         string? marketSalaryReference,
         string? valuationNotes,
         DateTime? effectiveFromUtc,
-        DateTime? effectiveToUtc,
-        bool bumpVersion = true)
+        DateTime? effectiveToUtc)
     {
         EnsureEditable();
         EnsurePositiveId(orgUnitId, nameof(orgUnitId));
@@ -139,11 +138,10 @@ public sealed class JobProfile : TenantEntity
         EffectiveFromUtc = normalizedEffectiveFromUtc;
         EffectiveToUtc = normalizedEffectiveToUtc;
 
-        if (bumpVersion)
-        {
-            Version++;
-            RefreshConcurrencyToken();
-        }
+        // H-09 — editing the descriptor does NOT produce a revision; only approving it does (see Publish).
+        // The token rotation stays: it used to share the `if (bumpVersion)` block with the version bump, and
+        // dropping both together would have silently disabled optimistic concurrency on the profile core.
+        RefreshConcurrencyToken();
     }
 
     public void ReplaceRequirements(IEnumerable<JobProfileRequirement> items)
@@ -202,171 +200,160 @@ public sealed class JobProfile : TenantEntity
         _dependentPositions.AddRange(items);
     }
 
-    public void AddRequirement(JobProfileRequirement item, bool bumpVersion = true)
+    public void AddRequirement(JobProfileRequirement item)
     {
         EnsureEditable();
         _requirements.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileRequirement GetRequirement(Guid publicId) =>
         _requirements.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Requirement with PublicId {publicId} was not found.");
 
-    public void RemoveRequirement(JobProfileRequirement item, bool bumpVersion = true)
+    public void RemoveRequirement(JobProfileRequirement item)
     {
         EnsureEditable();
         _requirements.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddFunction(JobProfileFunction item, bool bumpVersion = true)
+    public void AddFunction(JobProfileFunction item)
     {
         EnsureEditable();
         _functions.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileFunction GetFunction(Guid publicId) =>
         _functions.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Function with PublicId {publicId} was not found.");
 
-    public void RemoveFunction(JobProfileFunction item, bool bumpVersion = true)
+    public void RemoveFunction(JobProfileFunction item)
     {
         EnsureEditable();
         _functions.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddRelation(JobProfileRelation item, bool bumpVersion = true)
+    public void AddRelation(JobProfileRelation item)
     {
         EnsureEditable();
         _relations.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileRelation GetRelation(Guid publicId) =>
         _relations.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Relation with PublicId {publicId} was not found.");
 
-    public void RemoveRelation(JobProfileRelation item, bool bumpVersion = true)
+    public void RemoveRelation(JobProfileRelation item)
     {
         EnsureEditable();
         _relations.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddCompetency(JobProfileCompetency item, bool bumpVersion = true)
+    public void AddCompetency(JobProfileCompetency item)
     {
         EnsureEditable();
         _competencies.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileCompetency GetCompetency(Guid publicId) =>
         _competencies.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Competency with PublicId {publicId} was not found.");
 
-    public void RemoveCompetency(JobProfileCompetency item, bool bumpVersion = true)
+    public void RemoveCompetency(JobProfileCompetency item)
     {
         EnsureEditable();
         _competencies.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddTraining(JobProfileTraining item, bool bumpVersion = true)
+    public void AddTraining(JobProfileTraining item)
     {
         EnsureEditable();
         _trainings.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileTraining GetTraining(Guid publicId) =>
         _trainings.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Training with PublicId {publicId} was not found.");
 
-    public void RemoveTraining(JobProfileTraining item, bool bumpVersion = true)
+    public void RemoveTraining(JobProfileTraining item)
     {
         EnsureEditable();
         _trainings.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddBenefit(JobProfileBenefit item, bool bumpVersion = true)
+    public void AddBenefit(JobProfileBenefit item)
     {
         EnsureEditable();
         _benefits.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileBenefit GetBenefit(Guid publicId) =>
         _benefits.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Benefit with PublicId {publicId} was not found.");
 
-    public void RemoveBenefit(JobProfileBenefit item, bool bumpVersion = true)
+    public void RemoveBenefit(JobProfileBenefit item)
     {
         EnsureEditable();
         _benefits.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddWorkingCondition(JobProfileWorkingCondition item, bool bumpVersion = true)
+    public void AddWorkingCondition(JobProfileWorkingCondition item)
     {
         EnsureEditable();
         _workingConditions.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileWorkingCondition GetWorkingCondition(Guid publicId) =>
         _workingConditions.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Working condition with PublicId {publicId} was not found.");
 
-    public void RemoveWorkingCondition(JobProfileWorkingCondition item, bool bumpVersion = true)
+    public void RemoveWorkingCondition(JobProfileWorkingCondition item)
     {
         EnsureEditable();
         _workingConditions.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
-    public void AddDependentPosition(JobProfileDependentPosition item, bool bumpVersion = true)
+    public void AddDependentPosition(JobProfileDependentPosition item)
     {
         EnsureEditable();
         _dependentPositions.Add(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     public JobProfileDependentPosition GetDependentPosition(Guid publicId) =>
         _dependentPositions.FirstOrDefault(x => x.PublicId == publicId)
         ?? throw new InvalidOperationException($"Dependent position with PublicId {publicId} was not found.");
 
-    public void RemoveDependentPosition(JobProfileDependentPosition item, bool bumpVersion = true)
+    public void RemoveDependentPosition(JobProfileDependentPosition item)
     {
         EnsureEditable();
         _dependentPositions.Remove(item);
-        if (bumpVersion) BumpDescriptorVersion();
     }
 
     /// <summary>
-    /// Version bump that is allowed on a PUBLISHED profile. Only the competency matrix uses it: the
-    /// matrix is an operational overlay on an approved descriptor, not part of the descriptor, so it
-    /// keeps working after publication (H-01 scope decision). Descriptor writes must use
-    /// <see cref="BumpDescriptorVersion"/> instead.
+    /// The write gate for the competency matrix, and the ONLY entry point guarded by the weaker
+    /// (not-archived) invariant. The matrix is an operational overlay on an approved descriptor, not part of
+    /// the descriptor, so it keeps working after publication — that is the H-01 scope decision, and this
+    /// method is what implements it. Descriptor writes must never route through here.
+    /// <para>
+    /// H-09 — it used to be <c>BumpVersion()</c> and incremented <see cref="Version"/>. It no longer does:
+    /// filling in a matrix is not a revision of the descriptor. What remains is the guard, which was always
+    /// the load-bearing half.
+    /// </para>
     /// </summary>
-    public void BumpVersion()
-    {
-        EnsureNotArchived();
-        Version++;
-    }
+    public void EnsureMatrixWritable() => EnsureNotArchived();
 
     /// <summary>
-    /// H-01 — version bump for writes to the DESCRIPTOR (the profile core and its 9 collections).
-    /// Refuses on a published profile: the approved descriptor is frozen until <see cref="Reopen"/>.
+    /// H-01 — the strict gate for writes to the DESCRIPTOR that do NOT go through this aggregate's
+    /// <c>Add*</c>/<c>Remove*</c> methods: the in-place <c>PUT</c>/<c>PATCH</c>/<c>DELETE</c> of a child row,
+    /// where the application layer mutates the child entity directly. Those paths have no other state check,
+    /// so this is what makes editing a requirement of a PUBLISHED profile fail with `422`.
+    /// <para>
+    /// H-09 — it used to be <c>BumpDescriptorVersion()</c> and incremented <see cref="Version"/>; editing the
+    /// descriptor is not a revision, so only the guard is left. Inside the aggregate it really was redundant
+    /// (all 16 collection mutators open with <see cref="EnsureEditable"/>) — but not here, which is why the
+    /// method survives instead of disappearing.
+    /// </para>
     /// </summary>
-    public void BumpDescriptorVersion()
-    {
-        EnsureEditable();
-        Version++;
-    }
+    public void EnsureDescriptorEditable() => EnsureEditable();
 
     public void Publish()
     {
@@ -400,6 +387,8 @@ public sealed class JobProfile : TenantEntity
 
         Status = JobProfileStatus.Published;
         IsActive = true;
+        // H-09 — the ONE place that moves it. `Version` is the descriptor's revision number: how many times
+        // this document has been approved. A draft that was never published reports 0.
         Version++;
         RefreshConcurrencyToken();
     }
@@ -417,7 +406,8 @@ public sealed class JobProfile : TenantEntity
         }
 
         Status = JobProfileStatus.Draft;
-        Version++;
+        // H-09 — reopening does NOT advance the revision: it starts the work *towards* the next one. The
+        // revision in force is still the one that was approved, until Publish() approves the next.
         RefreshConcurrencyToken();
     }
 
@@ -430,7 +420,7 @@ public sealed class JobProfile : TenantEntity
 
         Status = JobProfileStatus.Archived;
         IsActive = false;
-        Version++;
+        // H-09 — archiving changes no content, so it is not a new revision either.
         RefreshConcurrencyToken();
     }
 
@@ -440,8 +430,8 @@ public sealed class JobProfile : TenantEntity
     /// immutable until explicitly reopened, and an archived one is frozen for good.
     /// <para>
     /// Deliberately NOT the same check as <see cref="EnsureNotArchived"/>. The weaker one exists because
-    /// <see cref="BumpVersion"/> routes through it, and the competency matrix — an operational overlay
-    /// that stays writable on a published profile — is its only caller.
+    /// <see cref="EnsureMatrixWritable"/> routes through it, and the competency matrix — an operational
+    /// overlay that stays writable on a published profile — is its only caller.
     /// </para>
     /// </summary>
     private void EnsureEditable()
@@ -457,7 +447,7 @@ public sealed class JobProfile : TenantEntity
 
     /// <summary>
     /// The weaker invariant: only an ARCHIVED profile is frozen. Reached exclusively through
-    /// <see cref="BumpVersion"/> — see the note there before adding callers.
+    /// <see cref="EnsureMatrixWritable"/> — see the note there before adding callers.
     /// </summary>
     private void EnsureNotArchived()
     {

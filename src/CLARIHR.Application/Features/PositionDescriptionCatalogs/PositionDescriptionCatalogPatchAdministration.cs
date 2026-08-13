@@ -170,6 +170,16 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandHandler(
             return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.CatalogCodeConflict);
         }
 
+        // H-08 — gated on the code actually MOVING, not on `HasScalarMutation`. `entity.Update` below is called
+        // with the whole scalar set on any scalar mutation, and the patch state is seeded from the current
+        // values, so a name-only patch rewrites the same code; keying off HasScalarMutation would forbid
+        // editing the label of any class that has tabulator lines, which is a legitimate and harmless edit.
+        if (!string.Equals(normalizedCode, entity.NormalizedCode, StringComparison.Ordinal) &&
+            await IsCatalogItemCodeInUseAsync(entity, repository, cancellationToken))
+        {
+            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.CatalogCodeInUse);
+        }
+
         if (entity.IsActive && patchState.IsActiveTouched && !patchState.IsActive &&
             await IsCatalogItemInUseAsync(entity, repository, cancellationToken))
         {
@@ -237,11 +247,34 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandHandler(
             PositionDescriptionCatalogType.RequirementType => repository.HasRequirementsUsingRequirementTypeAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.WorkConditionType => repository.HasWorkConditionsUsingWorkConditionTypeAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.WorkCondition => repository.HasWorkConditionsUsingWorkConditionAsync(entity.Id, cancellationToken),
+            // H-08 — salary classes used to fall through to the default branch, which probes JobProfile FKs that
+            // are never the salary class, so this guard always answered `false` for them: it existed and asked
+            // the wrong question. Only lines still IN FORCE may block, so a class whose lines are all closed
+            // stays retirable.
+            PositionDescriptionCatalogType.SalaryClass => repository.HasSalaryTabulatorLinesUsingSalaryClassCodeAsync(
+                entity.TenantId, entity.NormalizedCode, activeLinesOnly: true, cancellationToken),
             // Competency domains are referenced by personnel-file curricular competencies *by code* (no inverse
             // FK from PositionDescriptionCatalogs → PersonnelFiles), so usage cannot be probed here; prefer
             // inactivation over deletion (historical rows keep their code). See plan §R-T3.
             PositionDescriptionCatalogType.CompetencyDomain => Task.FromResult(false),
             _ => repository.HasJobProfilesUsingCatalogItemAsync(entity.Id, cancellationToken)
+        };
+
+    /// <summary>
+    /// H-08 — which catalog types are referenced by CODE rather than by id, and therefore break when the code
+    /// moves. Only the salary class is known to be, and there **any** line blocks (not just the active ones):
+    /// a closed line still has to keep saying which class it belonged to. Everything else is referenced by id,
+    /// where a rename is harmless.
+    /// </summary>
+    private static Task<bool> IsCatalogItemCodeInUseAsync(
+        PositionDescriptionCatalogItem entity,
+        IPositionDescriptionCatalogRepository repository,
+        CancellationToken cancellationToken) =>
+        entity.CatalogType switch
+        {
+            PositionDescriptionCatalogType.SalaryClass => repository.HasSalaryTabulatorLinesUsingSalaryClassCodeAsync(
+                entity.TenantId, entity.NormalizedCode, activeLinesOnly: false, cancellationToken),
+            _ => Task.FromResult(false)
         };
 
     private static string ResolveCatalogItemAuditEvent(

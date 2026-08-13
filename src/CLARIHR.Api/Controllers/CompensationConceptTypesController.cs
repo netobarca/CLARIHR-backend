@@ -26,8 +26,11 @@ public sealed class CompensationConceptTypesController(IQueryDispatcher queryDis
             Returns the country-scoped catalog of compensation concept types with their default
             attributes (nature `Ingreso`/`Egreso`, statutory flag, default deduction class, default
             calculation type/base, and the statutory employee/employer rates and contribution cap).
-            The `countryCode` query parameter (a 2–3 letter ISO-style code) selects the country and
-            returns no items when missing or unknown. Optionally filter by `nature`
+            The `countryCode` query parameter (a 2–3
+            letter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a
+            code that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list
+            now means only that this country's catalog has no rows (H-21). A caller with no tenant (the
+            company-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Optionally filter by `nature`
             (`Ingreso` or `Egreso`). Items are ordered by `sortOrder`.
             """)]
     public async Task<ActionResult<IReadOnlyCollection<CompensationConceptTypeResponse>>> GetCompensationConceptTypes(

@@ -129,6 +129,95 @@ public sealed record ExportPayrollRunBankReconciliationQuery(
     int? MaxRows) : IQuery<IReadOnlyCollection<ConciliacionBancariaExportRow>>;
 
 /// <summary>
+/// H-29 — la MATRIZ de la planilla: <b>una fila por empleado</b> con las 17 columnas que se pidieron, más el
+/// desglose de días que las hace auditables. Es el reporte que faltaba: los cinco exports que ya existían tenían
+/// otro grano (una fila por línea, o solo el neto, o solo carga patronal, o mensual en vez de por corrida).
+/// <para>
+/// El pivote vive en el servidor y no en el cliente porque es un reporte fiscal: el Excel y el JSON tienen que dar
+/// exactamente el mismo número. Se arma SOLO desde las líneas persistidas de la corrida, así que una corrida
+/// CERRADA no cambia aunque después se edite un catálogo o un registro origen.
+/// </para>
+/// <para>
+/// <b>Multi-plaza consolida en una fila</b> (así calcula el motor y así manda la ley: los descuentos de ley viven
+/// a nivel de empleado y no se pueden repartir entre plazas). Los días del periodo se toman UNA vez, no se suman:
+/// medido en el ambiente, sumarlos daba 900 días para 59 empleados porque un empleado con dos plazas aporta dos
+/// líneas de 15 días.
+/// </para>
+/// <para>
+/// Los buckets <c>OtrosIngresos</c> / <c>OtrosDescuentos</c> existen para que
+/// <c>IngresoTotal − TotalDescuentos = LiquidoAPagar</c> cuadre <b>siempre</b>, incluso si entra un concepto que
+/// el catálogo no clasificó.
+/// </para>
+/// </summary>
+public sealed record PlanillaEmpleadoRow(
+    string? CodigoEmpleado,
+    string Empleado,
+    // ── Días ────────────────────────────────────────────────────────────────────────────────────
+    /// <summary>Días comerciales del periodo (15 en quincenal): incondicional, es lo que el motor liquida.</summary>
+    decimal DiasPeriodo,
+    /// <summary>Días descontados sin goce (el TNT ya los trae en días equivalentes: una llegada tarde = ¼ día).</summary>
+    decimal DiasSinGoce,
+    decimal DiasIncapacidadEmpresa,
+    decimal DiasIncapacidadIsss,
+    decimal DiasIncapacidadSinPago,
+    /// <summary>
+    /// Días efectivamente pagados por la empresa, en equivalente. 15 días con 1 sin goce y 2 de incapacidad al 75 %
+    /// dan <c>13.5</c>. El aporte de los días de incapacidad NO se recompone con un porcentaje único —los tramos
+    /// por riesgo pueden tener porcentajes distintos dentro de la misma incapacidad—: se deriva del monto que el
+    /// motor realmente pagó sobre la diaria del empleado.
+    /// </summary>
+    decimal DiasPagadosEquivalentes,
+    // ── Ingresos ────────────────────────────────────────────────────────────────────────────────
+    /// <summary>Salario base MENSUAL contratado (la suma de las plazas en multi-plaza).</summary>
+    decimal SalarioBase,
+    /// <summary>Lo que el periodo paga de salario (la quincena).</summary>
+    decimal SalarioDelPeriodo,
+    decimal Bonos,
+    decimal Comisiones,
+    decimal HorasExtras,
+    /// <summary>Ingresos no deducibles que se reintegran y están fuera del salario: viáticos, reembolsos.</summary>
+    decimal IngresosAdicionales,
+    /// <summary>Columna propia: fiscalmente el aguinaldo se trata distinto, no es un «ingreso adicional».</summary>
+    decimal Aguinaldo,
+    decimal OtrosIngresos,
+    decimal IngresoTotal,
+    // ── Descuentos ──────────────────────────────────────────────────────────────────────────────
+    decimal Isss,
+    decimal Afp,
+    decimal Renta,
+    decimal DescuentosExternos,
+    decimal DescuentosInternos,
+    decimal OtrosDescuentos,
+    decimal TotalDescuentos,
+    // ── Resultado ───────────────────────────────────────────────────────────────────────────────
+    decimal LiquidoAPagar,
+    string Moneda);
+
+/// <summary>
+/// H-29 — la matriz paginada. <c>Totales</c> viaja calculado en el servidor y NO se recompone desde
+/// <c>Items</c>: con paginación la página no tiene todo, y es un reporte fiscal.
+/// </summary>
+public sealed record PayrollRunEmployeeMatrixResponse(
+    Guid PayrollRunPublicId,
+    string Moneda,
+    IReadOnlyCollection<PlanillaEmpleadoRow> Items,
+    PlanillaEmpleadoRow Totales,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+public sealed record QueryPayrollRunEmployeeMatrixQuery(
+    Guid CompanyId,
+    Guid PayrollRunId,
+    int PageNumber,
+    int PageSize) : IQuery<PayrollRunEmployeeMatrixResponse>;
+
+public sealed record ExportPayrollRunEmployeeMatrixQuery(
+    Guid CompanyId,
+    Guid PayrollRunId,
+    int? MaxRows) : IQuery<IReadOnlyCollection<PlanillaEmpleadoRow>>;
+
+/// <summary>
 /// Planilla Patronal (REQ-016 RF-003): one row per employee of the run with the employer cost — salario
 /// base + cargas patronales (ISSS/AFP patronal + otras, p. ej. INCAF). Control interno (P-05) para validar
 /// lo que se paga al gobierno — el total del reporte cuadra contra <c>PayrollRun.TotalEmployerCost</c>.
@@ -286,6 +375,28 @@ internal sealed class ExportPayrollRunsQueryValidator : AbstractValidator<Export
 internal sealed class ExportPayrollRunLinesQueryValidator : AbstractValidator<ExportPayrollRunLinesQuery>
 {
     public ExportPayrollRunLinesQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.PayrollRunId).NotEmpty();
+    }
+}
+
+internal sealed class QueryPayrollRunEmployeeMatrixQueryValidator
+    : AbstractValidator<QueryPayrollRunEmployeeMatrixQuery>
+{
+    public QueryPayrollRunEmployeeMatrixQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.PayrollRunId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, 200);
+    }
+}
+
+internal sealed class ExportPayrollRunEmployeeMatrixQueryValidator
+    : AbstractValidator<ExportPayrollRunEmployeeMatrixQuery>
+{
+    public ExportPayrollRunEmployeeMatrixQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.PayrollRunId).NotEmpty();

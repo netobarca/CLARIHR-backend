@@ -54,8 +54,16 @@ public sealed partial class ApiIntegrationTests
         string employeeCode,
         string institutionalEmail,
         bool isEmploymentActive = false,
-        bool isRehireBlocked = false)
+        bool isRehireBlocked = false,
+        // H-33/G5 — el desacople es opt-in: por defecto sigue siendo la misma fecha que antes, así que ningún
+        // test existente cambia. Quien necesite distinguir ingreso de inicio de plaza lo pide.
+        DateTime? hireDate = null,
+        DateOnly? plazaStartDate = null)
     {
+        var effectiveHire = hireDate ?? PriorHireDate;
+        var effectivePlazaStart = plazaStartDate ?? DateOnly.FromDateTime(effectiveHire);
+
+
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -89,7 +97,7 @@ public sealed partial class ApiIntegrationTests
         var profile = PersonnelFileEmployeeProfile.Create(
             employeeCode,
             "ACTIVO",
-            PriorHireDate);
+            effectiveHire);
         if (!isEmploymentActive)
         {
             // Retirement metadata is module-written only (D-01): seed the baja through the same domain
@@ -103,7 +111,7 @@ public sealed partial class ApiIntegrationTests
 
         var contract = PersonnelFileContractHistory.Create(
             "INDEFINIDO",
-            PriorHireDate,
+            effectiveHire,
             contractEndDate: null,
             positionSlotPublicId: null,
             isActive: true,

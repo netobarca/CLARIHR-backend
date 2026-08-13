@@ -105,7 +105,7 @@ public sealed record DeletePersonnelFileRecurringIncomeCommand(
     Guid PersonnelFileId,
     Guid RecurringIncomePublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 /// <summary>Suspend a VIGENTE income (<c>Suspend</c> = true, note optional) or resume a SUSPENDIDO one (false).</summary>
 public sealed record SetPersonnelFileRecurringIncomeSuspensionCommand(

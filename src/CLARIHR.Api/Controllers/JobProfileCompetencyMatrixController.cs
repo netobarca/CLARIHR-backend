@@ -66,7 +66,25 @@ public sealed class JobProfileCompetencyMatrixController(
     [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound | StandardErrorSet.Conflict)]
     [SwaggerOperation(
         Summary = "Add a competency matrix item",
-        Description = "Creates a single competency matrix item under the job profile. The item references its competency conducts (`conductPublicIds`, at least one required); the item's competency, competency type and behavior level are derived from those conducts and must not be supplied. Returns `201`; the `Location` header points to the created item and its `concurrencyToken` is returned in the body and the `ETag` header. A duplicate item tuple, conducts of differing competency/type/behavior-level, an `Archived` job profile, or exceeding the per-profile item cap return `409`.")]
+        Description = """
+            Creates a single competency matrix item under the job profile.
+
+            **An item IS one cell of a (competency, competency type, behaviour level) triple**, and that triple
+            is DERIVED from `conductPublicIds` — `competencyCatalogItemId`, `competencyTypeCatalogItemId` and
+            `behaviorLevelCatalogItemId` are response fields and must not be supplied. Consequence, and the
+            rule most easily broken by reading `conductPublicIds` as a plain list: **every conduct in one item
+            must share the same triple.** Conducts that disagree have no single cell to define and are refused
+            with `409 JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH` — split them into one item per
+            triple.
+
+            `conductPublicIds` is **required and non-empty** (an empty list returns `400`).
+
+            Caps: **50 conducts per item**, **200 items per job profile**.
+
+            Returns `201`; the `Location` header points to the created item and its `concurrencyToken` comes
+            back in the body and the `ETag` header. Other `409`s: a duplicate item tuple, an `Archived` job
+            profile, or exceeding the per-profile item cap.
+            """)]
     public async Task<ActionResult<JobProfileCompetencyMatrixItemResponse>> AddJobProfileCompetencyMatrixItem(
         Guid jobProfilePublicId,
         [FromBody] MutateJobProfileCompetencyMatrixItemRequest request,
@@ -76,7 +94,7 @@ public sealed class JobProfileCompetencyMatrixController(
             new AddJobProfileCompetencyMatrixItemCommand(
                 jobProfilePublicId,
                 request.OccupationalPyramidLevelPublicId,
-                request.ConductPublicIds ?? [],
+                request.ConductPublicIds,
                 request.ExpectedEvidence,
                 request.ExpectedValue,
                 request.SortOrder),
@@ -94,7 +112,21 @@ public sealed class JobProfileCompetencyMatrixController(
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Replace a competency matrix item",
-        Description = "Replaces all fields of an existing competency matrix item. The item references its competency conducts (`conductPublicIds`, at least one required); the competency / type / behavior level are derived from those conducts and must not be supplied. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors (including no conducts) return `400`; matrix-constraint violations (duplicate item tuple, conducts of differing competency/type/behavior-level, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.")]
+        Description = """
+            Replaces all fields of an existing competency matrix item.
+
+            Same derivation rule as the `POST`: the item's (competency, competency type, behaviour level) triple
+            is DERIVED from `conductPublicIds` and must not be supplied, so **every conduct in one item must
+            share the same triple** — otherwise `409 JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH`.
+
+            `conductPublicIds` is **required and non-empty**. Caps: **50 conducts per item**, **200 items per
+            job profile**.
+
+            Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+            `409`). Structural/field validation errors return `400`; other matrix-constraint violations
+            (duplicate item tuple, an `Archived` job profile) return `409`. The refreshed token is returned in
+            the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<JobProfileCompetencyMatrixItemResponse>> UpdateJobProfileCompetencyMatrixItem(
         Guid jobProfilePublicId,
         Guid itemPublicId,
@@ -107,7 +139,7 @@ public sealed class JobProfileCompetencyMatrixController(
                 jobProfilePublicId,
                 itemPublicId,
                 request.OccupationalPyramidLevelPublicId,
-                request.ConductPublicIds ?? [],
+                request.ConductPublicIds,
                 request.ExpectedEvidence,
                 request.ExpectedValue,
                 request.SortOrder,
@@ -146,12 +178,12 @@ public sealed class JobProfileCompetencyMatrixController(
     }
 
     [HttpDelete("job-profiles/{jobProfilePublicId:guid}/competency-matrix/items/{itemPublicId:guid}")]
-    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a competency matrix item",
         Description = "Deletes the specified competency matrix item. Requires the item's current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Returns the parent job profile's updated concurrency token so the caller can continue mutating the profile without an extra round-trip.")]
-    public async Task<ActionResult<JobProfileParentConcurrencyResult>> RemoveJobProfileCompetencyMatrixItem(
+    public async Task<ActionResult> RemoveJobProfileCompetencyMatrixItem(
         Guid jobProfilePublicId,
         Guid itemPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -161,7 +193,7 @@ public sealed class JobProfileCompetencyMatrixController(
             new RemoveJobProfileCompetencyMatrixItemCommand(jobProfilePublicId, itemPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpGet("job-profiles/{jobProfilePublicId:guid}/competency-matrix/export")]
@@ -201,7 +233,11 @@ public sealed class JobProfileCompetencyMatrixController(
 
     public sealed record MutateJobProfileCompetencyMatrixItemRequest(
         Guid OccupationalPyramidLevelPublicId,
-        IReadOnlyCollection<Guid>? ConductPublicIds,
+        // H-06 — obligatorio de verdad. Se declaraba nullable y el validador lo exigía, así que el OpenAPI
+        // prometía un campo opcional que en runtime siempre se rechazaba vacío. El comportamiento no cambia;
+        // lo que cambia es que el contrato ahora dice la verdad. La terna (competencia, tipo, nivel) del ítem
+        // se DERIVA de estas conductas, y por eso no puede venir vacía.
+        IReadOnlyCollection<Guid> ConductPublicIds,
         string? ExpectedEvidence,
         decimal? ExpectedValue,
         int SortOrder);

@@ -42,8 +42,17 @@ public sealed class PositionSlotsController(
         Summary = "List position slots for a company",
         Description = """
             Returns a paginated list of position slots for the company, filterable by
-            `status`, `jobProfileId`, `orgUnitId`, `workCenterId`, `contractTypeId` and
-            free-text `q` (minimum 2 characters). The owning company is validated against
+            `status`, `jobProfileId`, `orgUnitId`, `workCenterId`, `contractTypeId`,
+            `isActive` and free-text `q` (minimum 2 characters).
+
+            `isActive` (H-15) separates the slots in force from the retired ones: a `Suspended` slot is
+            `isActive=false`. Omitting it returns **both**, which is the historical behaviour and the default.
+
+            Each item carries its hierarchy (H-16): `directDependencyPositionSlotPublicId` /
+            `...Code` and the functional pair, `null` on a root. `directDependencyPositionSlotPublicId`
+            also works as a filter — "the children of this slot" — so a tree does not need one call per node.
+
+            The owning company is validated against
             the authenticated tenant. Set `includeAllowedActions=true` to receive per-item
             read/manage flags. Rate-limited per user+tenant.
             """)]
@@ -55,6 +64,8 @@ public sealed class PositionSlotsController(
         [FromQuery] Guid? workCenterId,
         [FromQuery] Guid? contractTypeId,
         [FromQuery(Name = "q")] string? search,
+        [FromQuery] bool? isActive,
+        [FromQuery] Guid? directDependencyPositionSlotPublicId,
         [FromQuery] int page = 1,
         [FromQuery, Range(1, PositionSlotValidationRules.MaxPageSize)] int pageSize = PositionSlotValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
@@ -69,6 +80,8 @@ public sealed class PositionSlotsController(
                 workCenterId,
                 contractTypeId,
                 search,
+                isActive,
+                directDependencyPositionSlotPublicId,
                 page,
                 pageSize,
                 includeAllowedActions),
@@ -211,8 +224,8 @@ public sealed class PositionSlotsController(
             Exports the filtered position slots as a downloadable report in the requested
             `format` (e.g. `xlsx`, `csv`; an unknown format yields `400`). The same filters
             as the list endpoint apply (`status`, `jobProfileId`, `orgUnitId`,
-            `workCenterId`, `contractTypeId`, free-text `q`). The export is bounded by the
-            synchronous read limit, audited, and rate-limited per user+tenant.
+            `workCenterId`, `contractTypeId`, `isActive`, free-text `q`). The export is bounded
+            by the synchronous read limit, audited, and rate-limited per user+tenant.
             """)]
     public async Task<IActionResult> Export(
         Guid companyId,
@@ -223,6 +236,7 @@ public sealed class PositionSlotsController(
         [FromQuery] Guid? workCenterId = null,
         [FromQuery] Guid? contractTypeId = null,
         [FromQuery(Name = "q")] string? search = null,
+        [FromQuery] bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -234,6 +248,7 @@ public sealed class PositionSlotsController(
                 workCenterId,
                 contractTypeId,
                 search,
+                isActive,
                 reportExportDeliveryService.SynchronousReadLimit),
             cancellationToken);
 
@@ -304,7 +319,8 @@ public sealed class PositionSlotsController(
                 request.EffectiveToUtc,
                 request.Notes,
                 request.ConfiguredBaseSalary,
-                request.ConfiguredBaseSalaryCurrencyCode),
+                request.ConfiguredBaseSalaryCurrencyCode,
+                request.GeneratesOvertime),
             cancellationToken);
 
         // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
@@ -348,10 +364,42 @@ public sealed class PositionSlotsController(
                 request.Notes,
                 concurrencyToken,
                 request.ConfiguredBaseSalary,
-                request.ConfiguredBaseSalaryCurrencyCode),
+                request.ConfiguredBaseSalaryCurrencyCode,
+                request.GeneratesOvertime),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("position-slots/{id:guid}")]
+    [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Delete a position slot",
+        Description = """
+            Deletes a slot that nothing references, and returns its final snapshot. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`).
+
+            For a slot that DOES carry history the answer is `409 POSITION_SLOT_IN_USE`: it is blocked by any
+            employment assignment (active or historical), contract history, authorization substitution or
+            exit-interview submission pointing at it, and by any other slot that depends on it. Those four
+            references live in other tables **without a foreign key**, so the database would not stop the
+            delete — it would silently orphan employment history.
+
+            This verb is for a slot that should never have existed. To retire a position that DID exist, use
+            `PATCH /position-slots/{id}/status` with `Suspended`, which keeps the history, blocks new
+            assignments and takes the slot out of `isActive=true` listings.
+            """)]
+    public async Task<ActionResult<PositionSlotResponse>> Delete(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePositionSlotCommand(id, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("position-slots/{id:guid}/status")]
@@ -407,29 +455,9 @@ public sealed class PositionSlotsController(
         return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("position-slots/{id:guid}/occupancy")]
-    [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Command)]
-    [SwaggerOperation(
-        Summary = "Update a position slot's occupancy",
-        Description = """
-            Sets the number of occupied employees for the slot. A value exceeding the
-            slot's capacity yields `422`. Requires the current `concurrencyToken` in the
-            `If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). The
-            refreshed token is returned in the body and the `ETag` header.
-            """)]
-    public async Task<ActionResult<PositionSlotResponse>> UpdateOccupancy(
-        Guid id,
-        [FromIfMatch] Guid concurrencyToken,
-        [FromBody] UpdatePositionSlotOccupancyRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new UpdatePositionSlotOccupancyCommand(id, request.OccupiedEmployees, concurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResultWithETag(result, static value => value.ConcurrencyToken);
-    }
+    // H-23 — `PATCH /position-slots/{id}/occupancy` is gone. The occupied count is DERIVED from the active
+    // assignments on every read, so there is nothing left to set by hand: the endpoint existed only to keep a
+    // denormalised counter in step, which nobody did (the playbook even documented it as a manual step).
 
     public sealed record CreatePositionSlotRequest(
         string Code,
@@ -446,7 +474,10 @@ public sealed class PositionSlotsController(
         DateTime? EffectiveToUtc,
         string? Notes,
         decimal? ConfiguredBaseSalary,
-        string? ConfiguredBaseSalaryCurrencyCode);
+        string? ConfiguredBaseSalaryCurrencyCode,
+        // H-19/H-20 — whether work in this plaza generates overtime. Omitted means `true`: exemption is the
+        // exception and has to be declared, so a plaza never becomes overtime-exempt by omission.
+        bool GeneratesOvertime = true);
 
     // PS-A: the concurrency token now travels in the `If-Match` header (not the body), so these
     // request DTOs no longer carry it.
@@ -461,7 +492,10 @@ public sealed class PositionSlotsController(
         DateTime? EffectiveToUtc,
         string? Notes,
         decimal? ConfiguredBaseSalary,
-        string? ConfiguredBaseSalaryCurrencyCode);
+        string? ConfiguredBaseSalaryCurrencyCode,
+        // H-19/H-20 — whether work in this plaza generates overtime. Omitted means `true`: exemption is the
+        // exception and has to be declared, so a plaza never becomes overtime-exempt by omission.
+        bool GeneratesOvertime = true);
 
     public sealed record UpdatePositionSlotStatusRequest(PositionSlotStatus Status);
 
@@ -469,5 +503,4 @@ public sealed class PositionSlotsController(
         Guid? DirectDependencyPositionSlotPublicId,
         Guid? FunctionalDependencyPositionSlotPublicId);
 
-    public sealed record UpdatePositionSlotOccupancyRequest(int OccupiedEmployees);
 }

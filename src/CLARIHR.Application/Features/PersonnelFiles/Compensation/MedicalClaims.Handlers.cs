@@ -125,7 +125,7 @@ internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var resolveResult = await MedicalClaimWriteSupport.ResolveAndValidateAsync(
@@ -212,7 +212,7 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
@@ -298,7 +298,7 @@ internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
@@ -382,13 +382,13 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileMedicalClaimCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileMedicalClaimCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageMedicalClaimsAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -402,24 +402,24 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteMedicalClaimAsync(command.MedicalClaimPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -438,8 +438,8 @@ internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

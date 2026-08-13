@@ -26,6 +26,14 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
         dbContext.Set<OccupationalPyramidLevel>()
             .SingleOrDefaultAsync(level => level.PublicId == levelId, cancellationToken);
 
+    public async Task<IReadOnlyList<OccupationalPyramidLevel>> GetAllOccupationalPyramidLevelsAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<OccupationalPyramidLevel>()
+            .Where(level => level.TenantId == tenantId)
+            .OrderBy(level => level.LevelOrder)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> OccupationalPyramidLevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken) =>
         dbContext.Set<OccupationalPyramidLevel>()
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.

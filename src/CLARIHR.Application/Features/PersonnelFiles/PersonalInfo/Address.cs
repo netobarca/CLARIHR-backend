@@ -66,7 +66,7 @@ public sealed record DeletePersonnelFileAddressCommand(
     Guid PersonnelFileId,
     Guid AddressPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileAddressPatchOperation(
     string Op,

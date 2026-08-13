@@ -10,7 +10,8 @@ namespace CLARIHR.Domain.CompetencyFramework;
 public sealed class CompetencyRatingScaleLevel : TenantEntity
 {
     public const int MaxCodeLength = 20;
-    public const int MaxLabelLength = 120;
+    // H-11 — harmonised to 150 with the rest of the section's catalogs.
+    public const int MaxLabelLength = 150;
 
     private CompetencyRatingScaleLevel()
     {

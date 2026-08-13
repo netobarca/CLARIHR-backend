@@ -125,7 +125,7 @@ public sealed class OneTimeDeductionsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/one-time-deductions/{oneTimeDeductionPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Discard (soft-delete) an EN_REVISION one-time-deduction draft",
@@ -133,7 +133,7 @@ public sealed class OneTimeDeductionsController(
             Soft-deletes an `EN_REVISION` draft. Only a draft can be discarded — an authorized deduction is
             revoked, never deleted. HR-only. Requires the `If-Match` header.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteOneTimeDeduction(
+    public async Task<ActionResult> DeleteOneTimeDeduction(
         Guid publicId,
         Guid oneTimeDeductionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -143,7 +143,7 @@ public sealed class OneTimeDeductionsController(
             new DeletePersonnelFileOneTimeDeductionCommand(publicId, oneTimeDeductionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToNoContentResult(result);
     }
 
     [HttpPatch("api/v1/personnel-files/{publicId:guid}/one-time-deductions/{oneTimeDeductionPublicId:guid}/annulment")]

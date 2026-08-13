@@ -18,10 +18,7 @@ public sealed class PositionSlotDomainErrorMappingGuardrailsTests
         { PositionSlotDomainErrorCode.EffectiveFromRequired, PositionSlotErrors.EffectiveDatesInvalid.Code },
         { PositionSlotDomainErrorCode.EffectiveDateRangeInvalid, PositionSlotErrors.EffectiveDatesInvalid.Code },
         { PositionSlotDomainErrorCode.MaxEmployeesInvalid, PositionSlotErrors.CapacityRuleViolation.Code },
-        { PositionSlotDomainErrorCode.OccupiedEmployeesNegative, PositionSlotErrors.CapacityRuleViolation.Code },
-        { PositionSlotDomainErrorCode.OccupiedExceedsCapacity, PositionSlotErrors.CapacityRuleViolation.Code },
-        { PositionSlotDomainErrorCode.SuspendedOccupancyConflict, PositionSlotErrors.SuspendedOccupancyConflict.Code },
-        { PositionSlotDomainErrorCode.StatusOccupancyMismatch, PositionSlotErrors.StatusOccupancyMismatch.Code },
+        // H-23 — the four occupancy codes are gone with the counter: nothing left to contradict.
         { PositionSlotDomainErrorCode.DirectDependencySelfReference, PositionSlotErrors.DependencySelfReference.Code },
         { PositionSlotDomainErrorCode.FunctionalDependencySelfReference, PositionSlotErrors.DependencySelfReference.Code },
     };

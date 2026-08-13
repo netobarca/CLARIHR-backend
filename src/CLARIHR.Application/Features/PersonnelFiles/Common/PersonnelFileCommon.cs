@@ -526,10 +526,118 @@ public static class PersonnelFileErrors
         "The resource was modified by another request. Refresh and try again.",
         ErrorType.Conflict);
 
-    public static readonly Error StateRuleViolation = new(
-        "PERSONNEL_FILE_STATE_RULE_VIOLATION",
-        "The requested operation is not allowed for the current personnel file state.",
+    /// <summary>
+    /// H-25 — the file is an employee record that has not been finalized yet, so the sections that only make sense
+    /// on a real employee (employment information, compensation) are closed. This used to be
+    /// <c>PERSONNEL_FILE_STATE_RULE_VIOLATION</c> — one code used 154 times for FOUR different situations, whose
+    /// message ("the requested operation is not allowed for the current personnel file state") named neither the
+    /// state it was in, nor the one it needed, nor the transition that gets there. The remedy now travels in the
+    /// payload: the current lifecycle status, the transition to call, and the readiness endpoint that lists what is
+    /// still missing.
+    /// </summary>
+    public static Error NotFinalized(PersonnelFileLifecycleStatus lifecycleStatus) => new(
+        "PERSONNEL_FILE_NOT_FINALIZED",
+        "The personnel file has not been finalized. Call PATCH /api/v1/personnel-files/{id}/finalize before writing "
+            + "employment information or compensation; GET /api/v1/personnel-files/{id}/finalize/preview lists what "
+            + "is still missing.",
+        ErrorType.UnprocessableEntity,
+        Extensions: new Dictionary<string, object?>
+        {
+            ["lifecycleStatus"] = lifecycleStatus.ToString(),
+            ["requiredTransition"] = "PATCH /api/v1/personnel-files/{id}/finalize",
+            ["readiness"] = "GET /api/v1/personnel-files/{id}/finalize/preview"
+        });
+
+    /// <summary>
+    /// H-25 — translates what the aggregate throws for a curricular child into the error it really is. The
+    /// handlers used to `catch (InvalidOperationException)` and answer the generic state code for both cases: a
+    /// child that does not exist (which is a <b>404</b>) and a domain invariant about the payload (which is a
+    /// <b>validation</b> naming the field). Neither has anything to do with the file's lifecycle.
+    /// <para>
+    /// The message is the only thing the aggregate gives us to tell them apart, so the discrimination is on
+    /// "not found" — deliberately narrow: anything else stays a validation, which is the safer default.
+    /// </para>
+    /// </summary>
+    public static Error FromLanguageDomainException(InvalidOperationException exception) =>
+        FromCurricularDomainException(exception, "language", "languagePublicId", "speaks/writes/reads");
+
+    /// <inheritdoc cref="FromLanguageDomainException"/>
+    public static Error FromReferenceDomainException(InvalidOperationException exception) =>
+        FromCurricularDomainException(exception, "reference", "referencePublicId", "reference");
+
+    private static Error FromCurricularDomainException(
+        InvalidOperationException exception,
+        string childName,
+        string idField,
+        string payloadField)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return exception.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+            ? new Error(
+                "PERSONNEL_FILE_CHILD_NOT_FOUND",
+                $"The requested {childName} does not belong to this personnel file.",
+                ErrorType.NotFound,
+                Extensions: new Dictionary<string, object?> { ["field"] = idField })
+            : ErrorCatalog.Validation(new Dictionary<string, string[]>
+            {
+                [payloadField] = [exception.Message]
+            });
+    }
+
+    /// <summary>
+    /// H-25 — the file was already finalized (or already has a linked login), so it cannot be finalized again.
+    /// It used to share the generic state code with "you have not finalized yet", which is its exact opposite.
+    /// </summary>
+    public static readonly Error AlreadyFinalized = new(
+        "PERSONNEL_FILE_ALREADY_FINALIZED",
+        "The personnel file has already been finalized.",
         ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-25 — a vacation period cannot be opened because the file has no anchor date to count seniority from
+    /// (it comes from the position assignment's start date, falling back to the hire date). It used to answer the
+    /// generic state code, which pointed at the lifecycle instead of at the missing prerequisite.
+    /// </summary>
+    public static readonly Error VacationAnchorMissing = new(
+        "PERSONNEL_FILE_VACATION_ANCHOR_MISSING",
+        "The employee has no seniority anchor date, so a vacation period cannot be opened. Assign a position with "
+            + "its start date (or set the hire date) first.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-27 — the same bank account (same bank, same normalized number, same currency) is already registered on the
+    /// file. There is no business reading for an exact duplicate: it is a double click or a retry, and in a payroll
+    /// module a spare row in the employee's accounts is exactly the data that gets audited later. The currency IS
+    /// part of the key — the same account in dollars and in colones is a real case.
+    /// </summary>
+    public static readonly Error BankAccountDuplicate = new(
+        "PERSONNEL_FILE_BANK_ACCOUNT_DUPLICATE",
+        "The personnel file already has a bank account with the same bank, account number and currency.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-25 — the file is not an employee record at all (a candidate, for instance), which is a different truth
+    /// from "not finalized yet" and used to answer with the same generic state code.
+    /// </summary>
+    public static readonly Error NotEmployee = new(
+        "PERSONNEL_FILE_NOT_EMPLOYEE",
+        "The personnel file is not an employee record, so employment data cannot be written on it.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-25 — the precise error for the <c>!IsCompletedEmployee</c> gate, which is true for TWO different reasons:
+    /// the record is not an employee, or it is one but still a draft. Every gate site calls this so the answer
+    /// matches the actual reason instead of collapsing both into one code.
+    /// </summary>
+    public static Error NotCompletedEmployee(PersonnelFile personnelFile)
+    {
+        ArgumentNullException.ThrowIfNull(personnelFile);
+
+        return personnelFile.RecordType != PersonnelFileRecordType.Employee
+            ? NotEmployee
+            : NotFinalized(personnelFile.LifecycleStatus);
+    }
 
     /// <summary>
     /// A retired employee's profile is frozen: modules whose records feed the settlement snapshot (e.g. the

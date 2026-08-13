@@ -85,6 +85,24 @@ public static class PositionDescriptionCatalogErrors
         "The catalog item cannot be inactivated while it is in use.",
         ErrorType.Conflict);
 
+    /// <summary>
+    /// H-08 — the code of a salary class cannot move while salary tabulator lines point at it. Those lines
+    /// reference the class by **code** (their unique index is
+    /// <c>(TenantId, NormalizedSalaryClassCode, NormalizedSalaryScaleCode, EffectiveFromUtc)</c>), so a rename
+    /// silently disconnected every one of them: the lines kept the old code and the class answered to the new
+    /// one. Own code rather than <see cref="CatalogInUse"/>, whose message talks about inactivation.
+    /// </summary>
+    public static readonly Error CatalogCodeInUse = new(
+        "POSITION_DESCRIPTION_CATALOG_CODE_IN_USE",
+        "The code cannot be changed while other records reference it. Create a new catalog item instead of renaming this one; its name and description can still be edited.",
+        ErrorType.Conflict);
+
+    /// <summary>H-11 — see the note on the occupational pyramid's equivalent: the reorder is all-or-nothing.</summary>
+    public static readonly Error CatalogOrderSetIncomplete = new(
+        "POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE",
+        "The reorder request must list every catalog item of this catalog type exactly once.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error ClassificationInUse = new(
         "POSITION_CATEGORY_CLASSIFICATION_IN_USE",
         "The classification cannot be inactivated while it is in use.",

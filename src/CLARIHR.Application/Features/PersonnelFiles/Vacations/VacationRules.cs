@@ -137,18 +137,24 @@ public static class VacationRules
     /// <summary>
     /// Derives the [start, end] bounds of a vacation period for one year. When
     /// <paramref name="useAnniversary"/> is false the period is the calendar year (Jan 1 → Dec 31). When true
-    /// it runs from the plaza-start anniversary that falls in <paramref name="year"/> to the day before the next
-    /// year's anniversary. A Feb-29 anniversary lands on Feb 28 in a non-leap year.
+    /// it runs from the HIRE anniversary that falls in <paramref name="year"/> to the day before the next year's
+    /// anniversary. A Feb-29 anniversary lands on Feb 28 in a non-leap year.
+    /// <para>
+    /// H-28 — el aniversario es el del <b>ingreso a la empresa</b>, no el del registro de la plaza. Antes este
+    /// parámetro se llamaba <c>primaryPlazaStartDate</c> y era literal: la ventana corría sobre la fecha en que la
+    /// plaza se dio de alta en el sistema, así que una empresa que arrancaba hoy le ponía a todos su aniversario
+    /// hoy.
+    /// </para>
     /// </summary>
-    public static (DateOnly Start, DateOnly End) PeriodBounds(int year, bool useAnniversary, DateOnly primaryPlazaStartDate)
+    public static (DateOnly Start, DateOnly End) PeriodBounds(int year, bool useAnniversary, DateOnly hireDate)
     {
         if (!useAnniversary)
         {
             return (new DateOnly(year, 1, 1), new DateOnly(year, 12, 31));
         }
 
-        var start = AnniversaryInYear(primaryPlazaStartDate, year);
-        var end = AnniversaryInYear(primaryPlazaStartDate, year + 1).AddDays(-1);
+        var start = AnniversaryInYear(hireDate, year);
+        var end = AnniversaryInYear(hireDate, year + 1).AddDays(-1);
         return (start, end);
     }
 
@@ -166,11 +172,31 @@ public static class VacationRules
 
     /// <summary>
     /// Art. 177 eligibility: the employee must have completed at least one year of service by
-    /// <paramref name="asOf"/> (i.e. <paramref name="asOf"/> is on or after the first anniversary of the hire /
-    /// primary-plaza start). Feb-29 hire dates fold to Feb 28 via <see cref="DateOnly.AddYears"/>.
+    /// <paramref name="asOf"/> (i.e. <paramref name="asOf"/> is on or after the first anniversary of the hire
+    /// date). Feb-29 hire dates fold to Feb 28 via <see cref="DateOnly.AddYears"/>.
+    /// <para>
+    /// H-28 — la antigüedad es la de la <b>relación laboral</b>, que es lo que mide <c>hireDate</c>; el parámetro
+    /// se llamaba <c>hireOrPlazaStart</c> («el ingreso <i>o</i> el inicio de plaza») y ese «o» era el defecto: el
+    /// resolvedor del ancla siempre prefería la plaza.
+    /// </para>
     /// </summary>
-    public static bool IsEligible(DateOnly hireOrPlazaStart, DateOnly asOf) =>
-        asOf >= hireOrPlazaStart.AddYears(1);
+    public static bool IsEligible(DateOnly hireDate, DateOnly asOf) =>
+        asOf >= hireDate.AddYears(1);
+
+    /// <summary>
+    /// Art. 177 eligibility for a whole period: the first anniversary must fall on or before the period's END, not
+    /// its start. Único punto de decisión de la elegibilidad — los dos caminos (alta individual y generación
+    /// masiva) llaman acá.
+    /// <para>
+    /// H-28 — en modo <b>aniversario</b> (el default) da la misma respuesta que medir contra el inicio, porque la
+    /// ventana arranca justo en el aniversario. La diferencia aparece en modo <b>año calendario</b>: quien ingresó
+    /// el 2026-01-16 cumple su año el 2027-01-16, o sea dentro del periodo calendario 2027, y tiene derecho a ese
+    /// fondo. Midiendo contra el inicio (<c>2027-01-01</c>) se le negaba y su primer fondo salía en 2028 — un año
+    /// tarde, sin que nada lo dijera.
+    /// </para>
+    /// </summary>
+    public static bool IsEligibleForPeriod(DateOnly hireDate, (DateOnly Start, DateOnly End) bounds) =>
+        IsEligible(hireDate, bounds.End);
 
     private static DateOnly AnniversaryInYear(DateOnly start, int year)
     {

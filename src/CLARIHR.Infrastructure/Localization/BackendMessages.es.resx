@@ -130,8 +130,11 @@
   <data name="COMPANY_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar company solicitado.</value>
   </data>
+  <data name="COMPANY_MEMBERSHIP_FORBIDDEN" xml:space="preserve">
+    <value>No tienes una membresia activa en esta empresa.</value>
+  </data>
   <data name="COMPANY_OWNERSHIP_FORBIDDEN" xml:space="preserve">
-    <value>No tienes permiso para administrar this company.</value>
+    <value>No tienes permiso para administrar esta empresa.</value>
   </data>
   <data name="COMPANY_PREFERENCES_FORBIDDEN" xml:space="preserve">
     <value>No tienes permiso para acceder a company preferences.</value>
@@ -254,13 +257,22 @@
     <value>selected catalog item esta inactivo.</value>
   </data>
   <data name="JOB_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
-    <value>No se pudo encontrar job catalog item.</value>
+    <value>No se pudo encontrar el item del catalogo de puestos.</value>
+  </data>
+  <data name="JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH" xml:space="preserve">
+    <value>El item de catalogo no pertenece a la categoria que exige este tipo de requisito: 'Education' espera 'EducationLevel' y 'Knowledge' espera 'KnowledgeArea'.</value>
+  </data>
+  <data name="JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE" xml:space="preserve">
+    <value>Este tipo de requisito no acepta item de catalogo. Solo 'Education' y 'Knowledge' referencian los catalogos de puestos; los demas se describen mediante 'description'.</value>
   </data>
   <data name="JOB_PROFILES_FORBIDDEN" xml:space="preserve">
     <value>No tienes permiso para acceder a job profile administration.</value>
   </data>
   <data name="JOB_PROFILE_CODE_CONFLICT" xml:space="preserve">
     <value>Otro job profile ya usa code solicitado.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH" xml:space="preserve">
+    <value>Todas las conductas de un item de la matriz deben compartir la misma competencia, tipo de competencia y nivel de conducta. Separe las conductas en un item por terna.</value>
   </data>
   <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT" xml:space="preserve">
     <value>El cambio solicitado de matriz de competencias no es valido para el estado actual.</value>
@@ -529,9 +541,6 @@
   <data name="PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED" xml:space="preserve">
     <value>Las transiciones del tipo de registro del expediente de personal no estan permitidas en este modulo.</value>
   </data>
-  <data name="PERSONNEL_FILE_STATE_RULE_VIOLATION" xml:space="preserve">
-    <value>La operacion solicitada no esta permitida para el personnel file state.</value>
-  </data>
   <data name="PLATFORM_ACCESS_FORBIDDEN" xml:space="preserve">
     <value>No tienes permiso para acceder a platform backoffice administration.</value>
   </data>
@@ -706,8 +715,11 @@
   <data name="POSITION_DESCRIPTION_CATALOG_INVALID_TYPE" xml:space="preserve">
     <value>Tipo de catalogo no soportado para la operacion solicitada.</value>
   </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_CODE_IN_USE" xml:space="preserve">
+    <value>El codigo no se puede cambiar mientras otros registros lo referencien. Cree un item de catalogo nuevo en lugar de renombrar este; su nombre y descripcion si se pueden editar.</value>
+  </data>
   <data name="POSITION_DESCRIPTION_CATALOG_IN_USE" xml:space="preserve">
-    <value>catalog item no puede ser inactivado mientras it is in use.</value>
+    <value>El item de catalogo no se puede inactivar mientras este en uso.</value>
   </data>
   <data name="POSITION_DESCRIPTION_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar position description catalog item solicitado.</value>
@@ -726,6 +738,15 @@
   </data>
   <data name="POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED" xml:space="preserve">
     <value>El perfil de puesto seleccionado no resuelve a un tipo de contrato activo.</value>
+  </data>
+  <data name="POSITION_SLOT_CONFIGURED_SALARY_CURRENCY_MISMATCH" xml:space="preserve">
+    <value>La moneda del salario base configurado no coincide con la moneda de la banda salarial del perfil de puesto.</value>
+  </data>
+  <data name="POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND" xml:space="preserve">
+    <value>El salario base configurado esta fuera de la banda salarial del perfil de puesto de la plaza.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_HAS_NO_SALARY_BAND" xml:space="preserve">
+    <value>El perfil de puesto de la plaza no tiene banda salarial activa, por lo que no se puede configurar un salario base. Configure primero la compensacion del perfil.</value>
   </data>
   <data name="POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED" xml:space="preserve">
     <value>El perfil de puesto seleccionado no esta publicado. Publique el perfil antes de crear o actualizar plazas.</value>
@@ -2204,7 +2225,7 @@
     <value>El periodo de vacaciones no puede editarse ni eliminarse porque ya tiene días gozados.</value>
   </data>
   <data name="VACATION_ELIGIBILITY_NOT_MET" xml:space="preserve">
-    <value>El empleado aún no ha cumplido un año de servicio (Art. 177) al inicio del periodo.</value>
+    <value>El empleado aún no cumple un año de servicio (Art. 177) contado desde su fecha de ingreso, en ningún momento dentro del periodo.</value>
   </data>
   <data name="VACATION_FUND_INSUFFICIENT" xml:space="preserve">
     <value>Los días de vacaciones solicitados superan los días disponibles en el fondo del empleado.</value>
@@ -3075,5 +3096,74 @@
   </data>
   <data name="validation.message.an_override_requires_a_note" xml:space="preserve">
     <value>Un valor manual requiere una nota.</value>
+  </data>
+  <data name="JOB_CATALOG_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>La solicitud de reordenamiento debe listar cada item del catalogo de esta categoria exactamente una vez.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>La solicitud de reordenamiento debe listar cada nivel de la piramide ocupacional de la empresa exactamente una vez.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>La solicitud de reordenamiento debe listar cada item de este tipo de catalogo exactamente una vez.</value>
+  </data>
+  <data name="POSITION_SLOT_IN_USE" xml:space="preserve">
+    <value>La plaza no se puede eliminar porque todavia la referencian registros laborales u otras plazas. Si el puesto ya no existe, suspendala en lugar de eliminarla.</value>
+  </data>
+  <data name="POSITION_SLOT_SUSPEND_WITH_OCCUPANTS" xml:space="preserve">
+    <value>La plaza no se puede suspender mientras tenga asignaciones activas. Libere primero a sus ocupantes.</value>
+  </data>
+  <data name="WORK_CENTER_COORDINATES_PLACEHOLDER" xml:space="preserve">
+    <value>Las coordenadas (0, 0) son un valor de relleno, no una ubicacion. Indique la latitud y longitud reales.</value>
+  </data>
+  <data name="WORK_CENTER_COORDINATES_INCOMPLETE" xml:space="preserve">
+    <value>La latitud y la longitud deben indicarse juntas.</value>
+  </data>
+  <data name="validation.message.attendance_date_anchor_must_be_entrada_or_salida" xml:space="preserve">
+    <value>El ancla de fecha de asistencia debe ser ENTRADA o SALIDA.</value>
+  </data>
+  <data name="validation.message.schedule_class_must_be_ordinaria_or_extraordinaria" xml:space="preserve">
+    <value>La clase de jornada debe ser ORDINARIA o EXTRAORDINARIA.</value>
+  </data>
+  <data name="OVERTIME_POSITION_EXEMPT" xml:space="preserve">
+    <value>La plaza no genera horas extra. El trabajo en una plaza exenta esta cubierto por su salario.</value>
+  </data>
+  <data name="OVERTIME_WITHIN_SCHEDULED_SHIFT" xml:space="preserve">
+    <value>El tramo cae dentro de la jornada contratada del empleado para ese dia, que ya se paga como salario ordinario.</value>
+  </data>
+  <data name="OVERTIME_RECORDS_OVERLAP" xml:space="preserve">
+    <value>El tramo se solapa con otro registro de horas extra del mismo empleado en esa fecha.</value>
+  </data>
+  <data name="OVERTIME_CROSSES_LEGAL_BOUNDARY" xml:space="preserve">
+    <value>El tramo cruza el limite legal entre jornada diurna y nocturna (06:00 / 19:00). Divida el registro en uno por banda.</value>
+  </data>
+  <data name="OVERTIME_RANGE_EMPTY" xml:space="preserve">
+    <value>El tramo debe abarcar al menos un minuto.</value>
+  </data>
+  <data name="OVERTIME_WARNING_MISSING_WORK_SCHEDULE" xml:space="preserve">
+    <value>El empleado no tiene jornada asignada, por lo que el registro no se pudo verificar contra un turno contratado (indicativo — no bloquea).</value>
+  </data>
+  <data name="CATALOG_COUNTRY_REQUIRED" xml:space="preserve">
+    <value>No se pudo resolver el pais desde la empresa activa, por lo que 'countryCode' es obligatorio.</value>
+  </data>
+  <data name="CATALOG_COUNTRY_UNKNOWN" xml:space="preserve">
+    <value>El codigo de pais no corresponde a ningun pais activo.</value>
+  </data>
+  <data name="PERSONNEL_FILE_NOT_FINALIZED" xml:space="preserve">
+    <value>El expediente no esta finalizado. Llame a PATCH /api/v1/personnel-files/{id}/finalize antes de escribir informacion de empleo o compensacion; GET /api/v1/personnel-files/{id}/finalize/preview indica que falta.</value>
+  </data>
+  <data name="PERSONNEL_FILE_BANK_ACCOUNT_DUPLICATE" xml:space="preserve">
+    <value>El expediente ya tiene una cuenta bancaria con el mismo banco, número de cuenta y moneda.</value>
+  </data>
+  <data name="PERSONNEL_FILE_NOT_EMPLOYEE" xml:space="preserve">
+    <value>El expediente no es de tipo empleado, por lo que no se pueden escribir datos laborales en el.</value>
+  </data>
+  <data name="PERSONNEL_FILE_ALREADY_FINALIZED" xml:space="preserve">
+    <value>El expediente ya fue finalizado.</value>
+  </data>
+  <data name="PERSONNEL_FILE_VACATION_ANCHOR_MISSING" xml:space="preserve">
+    <value>El empleado no tiene fecha de anclaje de antiguedad, por lo que no se puede abrir un periodo de vacaciones. Asigne una plaza con su fecha de inicio (o registre la fecha de ingreso) primero.</value>
+  </data>
+  <data name="PERSONNEL_FILE_CHILD_NOT_FOUND" xml:space="preserve">
+    <value>El elemento solicitado no pertenece a este expediente.</value>
   </data>
 </root>

@@ -130,6 +130,9 @@
   <data name="COMPANY_NOT_FOUND" xml:space="preserve">
     <value>The requested company could not be found.</value>
   </data>
+  <data name="COMPANY_MEMBERSHIP_FORBIDDEN" xml:space="preserve">
+    <value>You do not have an active membership in this company.</value>
+  </data>
   <data name="COMPANY_OWNERSHIP_FORBIDDEN" xml:space="preserve">
     <value>You do not have permission to manage this company.</value>
   </data>
@@ -256,11 +259,20 @@
   <data name="JOB_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
     <value>The job catalog item could not be found.</value>
   </data>
+  <data name="JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH" xml:space="preserve">
+    <value>The catalog item does not belong to the category this requirement type expects: 'Education' expects 'EducationLevel' and 'Knowledge' expects 'KnowledgeArea'.</value>
+  </data>
+  <data name="JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE" xml:space="preserve">
+    <value>This requirement type does not accept a catalog item. Only 'Education' and 'Knowledge' reference the job catalogs; the rest describe themselves through 'description'.</value>
+  </data>
   <data name="JOB_PROFILES_FORBIDDEN" xml:space="preserve">
     <value>You do not have permission to access job profile administration.</value>
   </data>
   <data name="JOB_PROFILE_CODE_CONFLICT" xml:space="preserve">
     <value>Another job profile already uses the requested code.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH" xml:space="preserve">
+    <value>All conducts of a competency matrix item must share the same competency, competency type and behaviour level. Split the conducts into one item per triple.</value>
   </data>
   <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT" xml:space="preserve">
     <value>The requested competency matrix change is not valid for the current state.</value>
@@ -529,9 +541,6 @@
   <data name="PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED" xml:space="preserve">
     <value>Personnel file record type transitions are not allowed in this module.</value>
   </data>
-  <data name="PERSONNEL_FILE_STATE_RULE_VIOLATION" xml:space="preserve">
-    <value>The requested operation is not allowed for the current personnel file state.</value>
-  </data>
   <data name="PLATFORM_ACCESS_FORBIDDEN" xml:space="preserve">
     <value>You do not have permission to access platform backoffice administration.</value>
   </data>
@@ -706,6 +715,9 @@
   <data name="POSITION_DESCRIPTION_CATALOG_INVALID_TYPE" xml:space="preserve">
     <value>Unsupported catalog type for the requested operation.</value>
   </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_CODE_IN_USE" xml:space="preserve">
+    <value>The code cannot be changed while other records reference it. Create a new catalog item instead of renaming this one; its name and description can still be edited.</value>
+  </data>
   <data name="POSITION_DESCRIPTION_CATALOG_IN_USE" xml:space="preserve">
     <value>The catalog item cannot be inactivated while it is in use.</value>
   </data>
@@ -726,6 +738,15 @@
   </data>
   <data name="POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED" xml:space="preserve">
     <value>The selected job profile does not resolve to an active contract type.</value>
+  </data>
+  <data name="POSITION_SLOT_CONFIGURED_SALARY_CURRENCY_MISMATCH" xml:space="preserve">
+    <value>The configured base salary currency does not match the currency of the job profile's salary band.</value>
+  </data>
+  <data name="POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND" xml:space="preserve">
+    <value>The configured base salary falls outside the salary band of the position's job profile.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_HAS_NO_SALARY_BAND" xml:space="preserve">
+    <value>The position's job profile has no active salary band, so a base salary cannot be configured. Configure the job profile's compensation first.</value>
   </data>
   <data name="POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED" xml:space="preserve">
     <value>The selected job profile is not published. Publish the job profile before creating or updating position slots.</value>
@@ -2204,7 +2225,7 @@
     <value>The vacation period cannot be edited or removed because it already has enjoyed days.</value>
   </data>
   <data name="VACATION_ELIGIBILITY_NOT_MET" xml:space="preserve">
-    <value>The employee has not yet completed one year of service (Art. 177) at the start of the period.</value>
+    <value>The employee has not yet completed one year of service (Art. 177) counted from the hire date, at any point within the period.</value>
   </data>
   <data name="VACATION_FUND_INSUFFICIENT" xml:space="preserve">
     <value>The requested vacation days exceed the days available in the employee's fund.</value>
@@ -3075,5 +3096,74 @@
   </data>
   <data name="validation.message.an_override_requires_a_note" xml:space="preserve">
     <value>An override requires a note.</value>
+  </data>
+  <data name="JOB_CATALOG_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>The reorder request must list every job catalog item of this category exactly once.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>The reorder request must list every occupational pyramid level of the company exactly once.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE" xml:space="preserve">
+    <value>The reorder request must list every catalog item of this catalog type exactly once.</value>
+  </data>
+  <data name="POSITION_SLOT_IN_USE" xml:space="preserve">
+    <value>The position slot cannot be deleted because it is still referenced by employment records or by other position slots. Suspend it instead if the position no longer exists.</value>
+  </data>
+  <data name="POSITION_SLOT_SUSPEND_WITH_OCCUPANTS" xml:space="preserve">
+    <value>The position slot cannot be suspended while it still has active assignments. Release its occupants first.</value>
+  </data>
+  <data name="WORK_CENTER_COORDINATES_PLACEHOLDER" xml:space="preserve">
+    <value>The coordinates (0, 0) are a placeholder, not a location. Provide the real latitude and longitude.</value>
+  </data>
+  <data name="WORK_CENTER_COORDINATES_INCOMPLETE" xml:space="preserve">
+    <value>Latitude and longitude must be provided together.</value>
+  </data>
+  <data name="validation.message.attendance_date_anchor_must_be_entrada_or_salida" xml:space="preserve">
+    <value>Attendance date anchor must be ENTRADA or SALIDA.</value>
+  </data>
+  <data name="validation.message.schedule_class_must_be_ordinaria_or_extraordinaria" xml:space="preserve">
+    <value>Schedule class must be ORDINARIA or EXTRAORDINARIA.</value>
+  </data>
+  <data name="OVERTIME_POSITION_EXEMPT" xml:space="preserve">
+    <value>The position does not generate overtime. Work in an exempt plaza is covered by its salary.</value>
+  </data>
+  <data name="OVERTIME_WITHIN_SCHEDULED_SHIFT" xml:space="preserve">
+    <value>The time range falls inside the employee's contracted shift for that day, which is already paid as ordinary salary.</value>
+  </data>
+  <data name="OVERTIME_RECORDS_OVERLAP" xml:space="preserve">
+    <value>The time range overlaps another overtime record of the same employee on that date.</value>
+  </data>
+  <data name="OVERTIME_CROSSES_LEGAL_BOUNDARY" xml:space="preserve">
+    <value>The time range crosses the legal day/night boundary (06:00 / 19:00). Split it into one record per band.</value>
+  </data>
+  <data name="OVERTIME_RANGE_EMPTY" xml:space="preserve">
+    <value>The time range must span at least one minute.</value>
+  </data>
+  <data name="OVERTIME_WARNING_MISSING_WORK_SCHEDULE" xml:space="preserve">
+    <value>The employee has no work schedule assigned, so the record could not be checked against a contracted shift (indicative — not blocking).</value>
+  </data>
+  <data name="CATALOG_COUNTRY_REQUIRED" xml:space="preserve">
+    <value>The country could not be resolved from the current tenant, so 'countryCode' is required.</value>
+  </data>
+  <data name="CATALOG_COUNTRY_UNKNOWN" xml:space="preserve">
+    <value>The country code does not match any active country.</value>
+  </data>
+  <data name="PERSONNEL_FILE_NOT_FINALIZED" xml:space="preserve">
+    <value>The personnel file has not been finalized. Call PATCH /api/v1/personnel-files/{id}/finalize before writing employment information or compensation; GET /api/v1/personnel-files/{id}/finalize/preview lists what is still missing.</value>
+  </data>
+  <data name="PERSONNEL_FILE_BANK_ACCOUNT_DUPLICATE" xml:space="preserve">
+    <value>The personnel file already has a bank account with the same bank, account number and currency.</value>
+  </data>
+  <data name="PERSONNEL_FILE_NOT_EMPLOYEE" xml:space="preserve">
+    <value>The personnel file is not an employee record, so employment data cannot be written on it.</value>
+  </data>
+  <data name="PERSONNEL_FILE_ALREADY_FINALIZED" xml:space="preserve">
+    <value>The personnel file has already been finalized.</value>
+  </data>
+  <data name="PERSONNEL_FILE_VACATION_ANCHOR_MISSING" xml:space="preserve">
+    <value>The employee has no seniority anchor date, so a vacation period cannot be opened. Assign a position with its start date (or set the hire date) first.</value>
+  </data>
+  <data name="PERSONNEL_FILE_CHILD_NOT_FOUND" xml:space="preserve">
+    <value>The requested item does not belong to this personnel file.</value>
   </data>
 </root>

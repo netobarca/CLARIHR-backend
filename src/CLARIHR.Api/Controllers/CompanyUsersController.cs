@@ -65,7 +65,7 @@ public sealed class CompanyUsersController(
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
-    [HttpGet("{userId:guid}")]
+    [HttpGet("{publicId:guid}")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
     [SwaggerOperation(
@@ -77,10 +77,10 @@ public sealed class CompanyUsersController(
             against lost updates.
             """)]
     public async Task<ActionResult<CompanyUserResponse>> Get(
-        Guid userId,
+        Guid publicId,
         CancellationToken cancellationToken)
     {
-        var result = await queryDispatcher.SendAsync(new GetCompanyUserQuery(userId), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetCompanyUserQuery(publicId), cancellationToken);
         return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
@@ -113,12 +113,12 @@ public sealed class CompanyUsersController(
         return this.ToCreatedAtActionResultWithWeakETag(
             result,
             nameof(Get),
-            value => new { userPublicId = value.User.Id },
+            value => new { publicId = value.User.Id },
             value => value.User.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
-    [HttpPut("{userId:guid}")]
+    [HttpPut("{publicId:guid}")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
@@ -131,7 +131,7 @@ public sealed class CompanyUsersController(
             evaluated only for the fields that actually change.
             """)]
     public async Task<ActionResult<CompanyUserResponse>> Update(
-        Guid userId,
+        Guid publicId,
         [FromBody] UpdateCompanyUserRequest request,
         CancellationToken cancellationToken)
     {
@@ -142,7 +142,7 @@ public sealed class CompanyUsersController(
 
         var result = await commandDispatcher.SendAsync(
             new UpdateCompanyUserCommand(
-                userId,
+                publicId,
                 request.FirstName,
                 request.LastName,
                 request.RolePublicIds,
@@ -155,7 +155,7 @@ public sealed class CompanyUsersController(
     // Resolves the partial change onto the current projection and reuses the PUT mutation path
     // (PatchCompanyUserCommand → UpdateCompanyUserCommand) so PUT and PATCH cannot drift.
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
-    [HttpPatch("{userId:guid}")]
+    [HttpPatch("{publicId:guid}")]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
@@ -172,7 +172,7 @@ public sealed class CompanyUsersController(
             `409`); the rotated token is returned in the `ETag` header.
             """)]
     public async Task<ActionResult<CompanyUserResponse>> Patch(
-        Guid userId,
+        Guid publicId,
         [FromBody] JsonPatchDocument<PatchCompanyUserRequest> patchDoc,
         CancellationToken cancellationToken)
     {
@@ -182,7 +182,7 @@ public sealed class CompanyUsersController(
         }
 
         var command = new PatchCompanyUserCommand(
-            userId,
+            publicId,
             JsonPatchOperationMapper.Map(
                 patchDoc,
                 static (op, path, from, value) => new CompanyUserPatchOperation(op, path, from, value)),
@@ -193,7 +193,7 @@ public sealed class CompanyUsersController(
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
-    [HttpPatch("{userId:guid}/deactivate")]
+    [HttpPatch("{publicId:guid}/deactivate")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
@@ -205,19 +205,19 @@ public sealed class CompanyUsersController(
             token in the `If-Match` header (missing → `400`, stale → `409`); the
             rotated token is returned in the `ETag` header.
             """)]
-    public async Task<ActionResult<CompanyUserResponse>> Deactivate(Guid userId, CancellationToken cancellationToken)
+    public async Task<ActionResult<CompanyUserResponse>> Deactivate(Guid publicId, CancellationToken cancellationToken)
     {
         if (!TryGetWeakIfMatch(out var expectedETag))
         {
             return ValidationProblem(ModelState);
         }
 
-        var result = await commandDispatcher.SendAsync(new DeactivateCompanyUserCommand(userId, expectedETag), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new DeactivateCompanyUserCommand(publicId, expectedETag), cancellationToken);
         return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
-    [HttpPatch("{userId:guid}/reactivate")]
+    [HttpPatch("{publicId:guid}/reactivate")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
@@ -228,19 +228,19 @@ public sealed class CompanyUsersController(
             the current weak token in the `If-Match` header (missing → `400`, stale
             → `409`); the rotated token is returned in the `ETag` header.
             """)]
-    public async Task<ActionResult<CompanyUserResponse>> Reactivate(Guid userId, CancellationToken cancellationToken)
+    public async Task<ActionResult<CompanyUserResponse>> Reactivate(Guid publicId, CancellationToken cancellationToken)
     {
         if (!TryGetWeakIfMatch(out var expectedETag))
         {
             return ValidationProblem(ModelState);
         }
 
-        var result = await commandDispatcher.SendAsync(new ReactivateCompanyUserCommand(userId, expectedETag), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new ReactivateCompanyUserCommand(publicId, expectedETag), cancellationToken);
         return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
-    [HttpPost("{userId:guid}/reset-invitation")]
+    [HttpPost("{publicId:guid}/reset-invitation")]
     [EnableRateLimiting(CompanyUserRateLimitPolicies.Invite)]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
@@ -253,10 +253,10 @@ public sealed class CompanyUsersController(
             require `If-Match` (it does not mutate the projected user fields).
             """)]
     public async Task<ActionResult<CompanyUserInvitationResponse>> ResetInvitation(
-        Guid userId,
+        Guid publicId,
         CancellationToken cancellationToken)
     {
-        var result = await commandDispatcher.SendAsync(new ResetInvitationCommand(userId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new ResetInvitationCommand(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 

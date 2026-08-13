@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -36,14 +37,21 @@ internal sealed class GetAfpsQueryValidator : AbstractValidator<GetAfpsQuery>
     }
 }
 
-internal sealed class GetAfpsQueryHandler(IPersonnelFileRepository repository)
+internal sealed class GetAfpsQueryHandler(IPersonnelFileRepository repository, ITenantContext tenantContext)
     : IQueryHandler<GetAfpsQuery, IReadOnlyCollection<AfpResponse>>
 {
     public async Task<Result<IReadOnlyCollection<AfpResponse>>> Handle(
         GetAfpsQuery query,
         CancellationToken cancellationToken)
     {
-        var items = await repository.GetAfpsAsync(query.CountryCode, cancellationToken);
+        var country = await CatalogCountryResolution.ResolveAsync(
+            query.CountryCode, tenantContext, repository, cancellationToken);
+        if (country.IsFailure)
+        {
+            return Result<IReadOnlyCollection<AfpResponse>>.Failure(country.Error);
+        }
+
+        var items = await repository.GetAfpsAsync(country.Value, cancellationToken);
         return Result<IReadOnlyCollection<AfpResponse>>.Success(items);
     }
 }

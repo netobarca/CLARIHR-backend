@@ -44,7 +44,7 @@ internal sealed class AddPersonnelFileVacationPeriodCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileVacationPeriodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileVacationPeriodResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var item = command.Item;
@@ -59,11 +59,11 @@ internal sealed class AddPersonnelFileVacationPeriodCommandHandler(
         var anchor = await vacationRepository.GetAnchorDateAsync(personnelFile.Id, cancellationToken);
         if (anchor is null)
         {
-            return Result<PersonnelFileVacationPeriodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileVacationPeriodResponse>.Failure(PersonnelFileErrors.VacationAnchorMissing);
         }
 
         var bounds = VacationRules.PeriodBounds(item.PeriodYear, useAnniversary, anchor.Value);
-        if (!VacationRules.IsEligible(anchor.Value, bounds.Start))
+        if (!VacationRules.IsEligibleForPeriod(anchor.Value, bounds))
         {
             return Result<PersonnelFileVacationPeriodResponse>.Failure(VacationErrors.EligibilityNotMet);
         }
@@ -180,13 +180,13 @@ internal sealed class DeletePersonnelFileVacationPeriodCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileVacationPeriodCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileVacationPeriodCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileVacationPeriodCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageVacationsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageVacationsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -196,17 +196,17 @@ internal sealed class DeletePersonnelFileVacationPeriodCommandHandler(
         var entity = await vacationRepository.GetPeriodEntityAsync(personnelFile!.PublicId, command.VacationPeriodPublicId, cancellationToken);
         if (entity is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (entity.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         if (await vacationRepository.HasConsumptionAsync(entity.Id, cancellationToken))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(VacationErrors.PeriodHasConsumption);
+            return Result<ChildDeletionResult>.Failure(VacationErrors.PeriodHasConsumption);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -221,8 +221,8 @@ internal sealed class DeletePersonnelFileVacationPeriodCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

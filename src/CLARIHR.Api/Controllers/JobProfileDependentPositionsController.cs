@@ -171,7 +171,7 @@ public sealed class JobProfileDependentPositionsController(
     }
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
-    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a dependent position from a job profile",
@@ -181,7 +181,7 @@ public sealed class JobProfileDependentPositionsController(
             concurrency token so the caller can continue mutating the profile
             without an extra round-trip.
             """)]
-    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
+    public async Task<ActionResult> Remove(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -191,7 +191,7 @@ public sealed class JobProfileDependentPositionsController(
             new RemoveJobProfileDependentPositionCommand(jobProfilePublicId, dependentPositionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     public sealed class MutateDependentPositionRequest

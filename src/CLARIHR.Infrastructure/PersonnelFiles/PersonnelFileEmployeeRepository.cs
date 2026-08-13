@@ -10,6 +10,8 @@ using CLARIHR.Domain.Compensation;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.Leave;
+using CLARIHR.Domain.Payroll;
 using CLARIHR.Domain.Overtime;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.PositionSlots;
@@ -182,8 +184,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         string? notes,
         string? paymentMethodCode,
@@ -209,8 +211,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         Guid? orgUnitPublicId,
         Guid? workCenterPublicId,
         Guid? costCenterPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isPrimary,
         string? notes,
         string? paymentMethodCode,
@@ -271,8 +273,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     public async Task<int> CountOverlappingActiveAssignmentsForSlotAsync(
         Guid tenantId,
         Guid positionSlotPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         Guid? excludeAssignmentPublicId,
         CancellationToken cancellationToken) =>
         await dbContext.Set<PersonnelFileEmploymentAssignment>()
@@ -319,7 +321,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             // Preserve an already-set end date; only stamp the rehire boundary on still-open rows.
             if (item.EndDate is null)
             {
-                item.Close(endDateUtc);
+                item.Close(DateOnly.FromDateTime(endDateUtc));
             }
             else
             {
@@ -2887,7 +2889,7 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         var assignmentStarts = await dbContext.Set<PersonnelFileEmploymentAssignment>()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId && item.IsActive)
-            .Select(item => item.StartDate)
+            .Select(item => item.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc))
             .ToArrayAsync(cancellationToken);
 
         var contractStarts = await dbContext.Set<PersonnelFileContractHistory>()
@@ -2913,10 +2915,12 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         foreach (var assignment in assignments)
         {
             // Capture the pre-execution end date BEFORE mutating (null ⇒ the execution set it — D-11).
-            captures.Add(new RetirementClosedRowCapture(assignment.PublicId, assignment.EndDate));
+            captures.Add(new RetirementClosedRowCapture(
+                assignment.PublicId,
+                assignment.EndDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)));
             if (assignment.EndDate is null)
             {
-                assignment.Close(endDateUtc);
+                assignment.Close(DateOnly.FromDateTime(endDateUtc));
             }
             else
             {
@@ -5506,6 +5510,112 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
                 $"{requester.FirstName} {requester.LastName}".Trim(),
                 requester.IsActive,
                 requester.LinkedUserPublicId);
+    }
+
+    /// <inheritdoc />
+    public async Task<OvertimeScheduleContext> GetOvertimeScheduleContextAsync(
+        Guid assignmentPublicId,
+        DateOnly workDate,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        // One assignment row carries both halves: the plaza (whose exemption flag decides whether overtime is
+        // possible at all) and the workdayCode (which resolves the contracted shift).
+        var assignment = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PublicId == assignmentPublicId)
+            .Select(item => new { item.PositionSlotPublicId, item.WorkdayCode })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (assignment is null)
+        {
+            return OvertimeScheduleContext.NotFound;
+        }
+
+        // Default true when the assignment points at no plaza: absence of a plaza is not a declaration of
+        // exemption, and failing open here would let the *warning* path handle it instead of silently exempting.
+        var generatesOvertime = true;
+        if (assignment.PositionSlotPublicId is { } slotPublicId)
+        {
+            generatesOvertime = await dbContext.Set<PositionSlot>()
+                .AsNoTracking()
+                .Where(slot => slot.TenantId == tenantId && slot.PublicId == slotPublicId)
+                .Select(slot => (bool?)slot.GeneratesOvertime)
+                .SingleOrDefaultAsync(cancellationToken) ?? true;
+        }
+
+        var isHoliday = await dbContext.Set<CompanyHoliday>()
+            .AsNoTracking()
+            .AnyAsync(
+                holiday => holiday.TenantId == tenantId && holiday.IsActive && holiday.Date == workDate,
+                cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(assignment.WorkdayCode))
+        {
+            return new OvertimeScheduleContext(
+                AssignmentFound: true, generatesOvertime, WorkdayCode: null,
+                ScheduleFound: false, ShiftStart: null, ShiftEnd: null, isHoliday);
+        }
+
+        // The link is by CODE (no FK, no snapshot), compared normalized exactly as the master resolver does.
+        var normalizedCode = assignment.WorkdayCode.Trim().ToUpperInvariant();
+        var schedule = await dbContext.Set<WorkSchedule>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.NormalizedCode == normalizedCode && item.IsActive)
+            .Select(item => new { item.Id })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (schedule is null)
+        {
+            return new OvertimeScheduleContext(
+                AssignmentFound: true, generatesOvertime, assignment.WorkdayCode,
+                ScheduleFound: false, ShiftStart: null, ShiftEnd: null, isHoliday);
+        }
+
+        // A weekday with no row is a FREE day, not missing data: that is what makes a custom schedule work
+        // (06:00-18:00 Mon-Thu simply has no Friday row) and every hour worked on it is overtime.
+        var dayOfWeek = (int)workDate.DayOfWeek;
+        var day = await dbContext.Set<WorkScheduleDay>()
+            .AsNoTracking()
+            .Where(item => item.WorkScheduleId == schedule.Id && item.DayOfWeek == dayOfWeek)
+            .Select(item => new { item.StartTime, item.EndTime })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return new OvertimeScheduleContext(
+            AssignmentFound: true,
+            generatesOvertime,
+            assignment.WorkdayCode,
+            ScheduleFound: true,
+            day?.StartTime,
+            day?.EndTime,
+            isHoliday);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OvertimeRecordRange>> GetActiveOvertimeRangesForDayAsync(
+        long personnelFileInternalId,
+        DateOnly workDate,
+        Guid tenantId,
+        Guid? excludeRecordPublicId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<PersonnelFileOvertimeRecord>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
+                && item.PersonnelFileId == personnelFileInternalId
+                && item.WorkDate == workDate
+                && (item.StatusCode == OvertimeRecordStatuses.EnRevision
+                    || item.StatusCode == OvertimeRecordStatuses.Autorizada
+                    || item.StatusCode == OvertimeRecordStatuses.Aplicada));
+
+        if (excludeRecordPublicId is { } excluded)
+        {
+            query = query.Where(item => item.PublicId != excluded);
+        }
+
+        return await query
+            .Select(item => new OvertimeRecordRange(item.PublicId, item.StartTime, item.EndTime))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<int> GetActiveOvertimeMinutesForDayAsync(

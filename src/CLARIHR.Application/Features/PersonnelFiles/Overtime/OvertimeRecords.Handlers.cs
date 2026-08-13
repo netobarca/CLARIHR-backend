@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Leave;
+using CLARIHR.Application.Abstractions.Localization;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -17,7 +18,18 @@ namespace CLARIHR.Application.Features.PersonnelFiles;
 /// <summary>Maps an overtime-record aggregate to its API response (user ids null-safe — a non-Guid principal → null).</summary>
 public static class OvertimeRecordMapping
 {
+    private static readonly IReadOnlyList<OvertimeRecordWarning> NoWarnings = [];
+
     public static OvertimeRecordResponse ToResponse(PersonnelFileOvertimeRecord entity) =>
+        ToResponse(entity, NoWarnings);
+
+    /// <summary>
+    /// H-19 — the overload the create/update handlers use. Kept as an overload and not an optional parameter so
+    /// the `.Select(ToResponse)` method groups in the repository keep resolving.
+    /// </summary>
+    public static OvertimeRecordResponse ToResponse(
+        PersonnelFileOvertimeRecord entity,
+        IReadOnlyList<OvertimeRecordWarning> warnings) =>
         new(
             entity.PublicId,
             entity.WorkDate,
@@ -56,7 +68,24 @@ public static class OvertimeRecordMapping
             entity.AppliedBySettlementPublicId,
             entity.CompensatedByCreditPublicId,
             entity.IsActive,
-            entity.ConcurrencyToken);
+            entity.ConcurrencyToken,
+            warnings);
+
+    /// <summary>
+    /// H-19 — the employee has no work schedule at all, so nothing could be compared against a contracted shift.
+    /// It warns instead of blocking: that is a configuration gap, not an attempt to be paid twice, and the plaza's
+    /// <c>generatesOvertime = false</c> is how a position that earns no overtime says so on purpose.
+    /// </summary>
+    public static IReadOnlyList<OvertimeRecordWarning> ScheduleWarnings(
+        IBackendMessageLocalizer localizer,
+        bool missingWorkSchedule) =>
+        missingWorkSchedule
+            ? [new OvertimeRecordWarning(
+                OvertimeRecordWarnings.MissingWorkScheduleCode,
+                localizer.Localize(
+                    OvertimeRecordWarnings.MissingWorkScheduleCode,
+                    OvertimeRecordWarnings.MissingWorkScheduleDefaultMessage))]
+            : NoWarnings;
 
     private static Guid? NullIfEmpty(Guid value) => value == Guid.Empty ? null : value;
 }
@@ -81,7 +110,13 @@ internal sealed record OvertimeRecordResolved(
     Guid AssignedPositionPublicId,
     Guid RequesterFilePublicId,
     string RequesterName,
-    string OriginChannel);
+    string OriginChannel,
+    // H-20 — derived from the time range, never taken from the caller. Carried here so both construction sites
+    // use the same value and cannot drift from the range the authorizer sees.
+    int DurationHours,
+    int DurationMinutes,
+    // H-19 — set when the employee has no work schedule at all: a configuration gap, reported and not blocked.
+    bool MissingWorkSchedule);
 
 internal static class OvertimeRecordWriteSupport
 {
@@ -98,7 +133,10 @@ internal static class OvertimeRecordWriteSupport
         IPersonnelFileRepository personnelFileRepository,
         IPersonnelFileEmployeeRepository employeeRepository,
         DateOnly today,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        // H-20 — the edit path must exclude the record being edited from the same-day overlap check, or every
+        // edit would collide with itself.
+        Guid? excludeRecordPublicId = null)
     {
         // 1) Overtime type master — active type of the company; snapshot its code/name + reference factor (RN-19).
         var type = await employeeRepository.GetOvertimeTypeLookupAsync(input.OvertimeTypePublicId, personnelFile.TenantId, cancellationToken);
@@ -115,11 +153,26 @@ internal static class OvertimeRecordWriteSupport
             return Result<OvertimeRecordResolved>.Failure(Rule(factorRule.ErrorCode!));
         }
 
-        // 3) Duration (h:m → decimal, minutes 0–59, positive total).
-        var duration = OvertimeRecordRules.DeriveDecimalHours(input.DurationHours, input.DurationMinutes);
+        // 3) H-20 — the duration comes FROM THE RANGE, which is the single source of truth now. The engine pays
+        //    Σ(DurationDecimalHours × Factor), so while the two were independent a record could declare 8 h with a
+        //    one-hour range and be paid for eight; the authorizer's only visual check was a field nobody used.
+        var range = OvertimeScheduleRules.DeriveDurationFromRange(input.StartTime, input.EndTime);
+        if (!range.IsValid)
+        {
+            return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.RangeEmpty);
+        }
+
+        var duration = OvertimeRecordRules.DeriveDecimalHours(range.Hours, range.Minutes);
         if (!duration.IsValid)
         {
             return Result<OvertimeRecordResolved>.Failure(Rule(duration.ErrorCode!));
+        }
+
+        // 3b) H-20 — a range straddling the legal day/night boundary (art. 161) belongs to two bands with
+        //     different factors, and one record carries one type. Rejected so the caller splits it.
+        if (!OvertimeScheduleRules.ClassifyLegalBand(input.StartTime, input.EndTime).IsWithinOneBand)
+        {
+            return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.CrossesLegalBoundary);
         }
 
         // 4) Work-date sanity cap (№13): past OR future permitted, but not more than SanityCapDays ahead.
@@ -150,6 +203,39 @@ internal static class OvertimeRecordWriteSupport
         if (!plaza.Found)
         {
             return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.AssignedPositionInvalid);
+        }
+
+        // 7b) H-19/H-20 — THE piece this module never had: the employee's contracted day. Without it an overtime
+        //     record could sit squarely inside the shift and be paid a second time, and a director deliberately
+        //     without a shift could accrue overtime with nothing objecting.
+        var scheduleContext = await employeeRepository.GetOvertimeScheduleContextAsync(
+            plaza.AssignedPositionPublicId, input.WorkDate, personnelFile.TenantId, cancellationToken);
+
+        // The plaza decides eligibility, not the person: a directorship generates no overtime whoever holds it.
+        if (!scheduleContext.GeneratesOvertime)
+        {
+            return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.PositionExempt);
+        }
+
+        // A weekday absent from the schedule is a FREE day, not missing data — every hour on it is overtime. That
+        // is what makes a custom schedule work: 06:00-18:00 Mon-Thu simply has no Friday row.
+        if (scheduleContext.ShiftStart is { } shiftStart && scheduleContext.ShiftEnd is { } shiftEnd
+            && OvertimeScheduleRules.OverlapsShift(input.StartTime, input.EndTime, shiftStart, shiftEnd))
+        {
+            return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.WithinScheduledShift);
+        }
+
+        // 7c) H-20 — and it must not overlap a record already captured for the same day: two ranges of
+        //     14:00-18:00 and 16:00-20:00 used to sum 8 h against the daily cap with 2 h paid twice, invisibly.
+        var sameDayRanges = await employeeRepository.GetActiveOvertimeRangesForDayAsync(
+            personnelFile.Id, input.WorkDate, personnelFile.TenantId, excludeRecordPublicId, cancellationToken);
+        foreach (var existing in sameDayRanges)
+        {
+            if (existing.StartTime is { } otherStart && existing.EndTime is { } otherEnd
+                && OvertimeScheduleRules.OverlapsRange(input.StartTime, input.EndTime, otherStart, otherEnd))
+            {
+                return Result<OvertimeRecordResolved>.Failure(OvertimeRecordErrors.RecordsOverlap);
+            }
         }
 
         // 8) Requester trío (№6/№10) + origin channel (P-01): on the PORTAL self-service channel the requester is
@@ -194,7 +280,10 @@ internal static class OvertimeRecordWriteSupport
             plaza.AssignedPositionPublicId,
             requesterFilePublicId,
             requesterName,
-            originChannel));
+            originChannel,
+            range.Hours,
+            range.Minutes,
+            scheduleContext.HasNoSchedule));
     }
 
     /// <summary>
@@ -213,7 +302,9 @@ internal static class OvertimeRecordWriteSupport
         var preferences = await personnelFileRepository.GetOvertimePreferencesAsync(personnelFile.TenantId, cancellationToken);
         var existingMinutes = await employeeRepository.GetActiveOvertimeMinutesForDayAsync(
             personnelFile.Id, input.WorkDate, personnelFile.TenantId, excludeRecordPublicId, cancellationToken);
-        var newMinutes = (input.DurationHours * 60) + input.DurationMinutes;
+        // H-20 — from the range, like everything else that measures this record now.
+        var rangeDuration = OvertimeScheduleRules.DeriveDurationFromRange(input.StartTime, input.EndTime);
+        var newMinutes = (rangeDuration.Hours * 60) + rangeDuration.Minutes;
         var cap = OvertimeRecordRules.ValidateDailyCap(existingMinutes, newMinutes, preferences.MaxDailyMinutes);
         return cap.IsExceeded
             ? new Error(OvertimeRecordRules.DailyCapExceededCode, "The overtime record exceeds the company's daily cap.", ErrorType.UnprocessableEntity)
@@ -277,7 +368,8 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
     ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IBackendMessageLocalizer localizer)
     : PersonnelFileEmployeeCommandHandlerBase,
       ICommandHandler<AddPersonnelFileOvertimeRecordCommand, OvertimeRecordResponse>
 {
@@ -294,7 +386,7 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OvertimeRecordResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OvertimeRecordResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsOvertimeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -335,8 +427,8 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
             resolved.TypeFactor,
             resolved.FactorApplied,
             resolved.FactorOverrideNote,
-            command.Item.DurationHours,
-            command.Item.DurationMinutes,
+            resolved.DurationHours,
+            resolved.DurationMinutes,
             command.Item.StartTime,
             command.Item.EndTime,
             resolved.JustificationTypePublicId,
@@ -359,6 +451,7 @@ internal sealed class AddPersonnelFileOvertimeRecordCommandHandler(
         var all = await employeeRepository.AddOvertimeRecordAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
         var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
             ?? throw new InvalidOperationException("Overtime-record response could not be resolved after creation.");
+        response = response with { Warnings = OvertimeRecordMapping.ScheduleWarnings(localizer, resolved.MissingWorkSchedule) };
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -388,7 +481,8 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
     ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IBackendMessageLocalizer localizer)
     : PersonnelFileEmployeeCommandHandlerBase,
       ICommandHandler<UpdatePersonnelFileOvertimeRecordCommand, OvertimeRecordResponse>
 {
@@ -405,7 +499,7 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<OvertimeRecordResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<OvertimeRecordResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsOvertimeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -439,7 +533,7 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
 
         var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
         var resolution = await OvertimeRecordWriteSupport.ResolveAndValidateAsync(
-            command.Item, personnelFile, isManager, personnelFileRepository, employeeRepository, today, cancellationToken);
+            command.Item, personnelFile, isManager, personnelFileRepository, employeeRepository, today, cancellationToken, entity.PublicId);
         if (resolution.IsFailure)
         {
             return Result<OvertimeRecordResponse>.Failure(resolution.Error);
@@ -467,8 +561,8 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
             resolved.TypeFactor,
             resolved.FactorApplied,
             resolved.FactorOverrideNote,
-            command.Item.DurationHours,
-            command.Item.DurationMinutes,
+            resolved.DurationHours,
+            resolved.DurationMinutes,
             command.Item.StartTime,
             command.Item.EndTime,
             resolved.JustificationTypePublicId,
@@ -484,7 +578,8 @@ internal sealed class UpdatePersonnelFileOvertimeRecordCommandHandler(
             command.Item.PayrollPeriodLabel,
             command.Item.PayrollPeriodEndDate);
 
-        var response = OvertimeRecordMapping.ToResponse(entity);
+        var response = OvertimeRecordMapping.ToResponse(
+            entity, OvertimeRecordMapping.ScheduleWarnings(localizer, resolved.MissingWorkSchedule));
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -514,13 +609,13 @@ internal sealed class DeletePersonnelFileOvertimeRecordCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileOvertimeRecordCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileOvertimeRecordCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileOvertimeRecordCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile, isManager) = await LoadForManageOrOwnOvertimeAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile, isManager) = await LoadForManageOrOwnOvertimeAsync<ChildDeletionResult>(
             command.PersonnelFileId, tenantContext, authorizationService, currentUserService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -529,30 +624,30 @@ internal sealed class DeletePersonnelFileOvertimeRecordCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var entity = await employeeRepository.GetOvertimeRecordEntityAsync(
             personnelFile.PublicId, command.OvertimeRecordPublicId, personnelFile.TenantId, cancellationToken);
         if (entity is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (entity.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         if (!isManager && entity.OriginChannel != OvertimeRecordChannels.Portal)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.Forbidden);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.Forbidden);
         }
 
         // Only an EN_REVISION draft can be discarded (soft delete); an authorized record is revoked/annulled.
         if (entity.StatusCode != OvertimeRecordStatuses.EnRevision)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(OvertimeRecordErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(OvertimeRecordErrors.StateRuleViolation);
         }
 
         entity.Deactivate();
@@ -572,7 +667,7 @@ internal sealed class DeletePersonnelFileOvertimeRecordCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
     }
 }
 

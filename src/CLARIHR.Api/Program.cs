@@ -76,9 +76,24 @@ builder.Services
         options.Filters.AddService<ConditionalRequestResultFilter>();
         options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
     })
+    .AddMvcOptions(options =>
+    {
+        // H-26 — query/route/form dates are bound by MVC, not by the JSON serializer, so they need their own
+        // normalization or `?fromUtc=2026-08-01` keeps answering 500. Inserted first so it wins over the
+        // built-in simple-type binder it wraps.
+        options.ModelBinderProviders.Insert(0, new UtcDateTimeModelBinderProvider());
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // H-26 — a date without a zone (`"2026-08-01"`) used to reach Npgsql as Kind=Unspecified and blow up in
+        // the first SQL comparison that touched it. Normalized here, once, for every endpoint.
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new UtcNullableDateTimeJsonConverter());
+        // H-26 (parte B) — los campos que son un DÍA viajan como `DateOnly`; estos converters aceptan además la
+        // forma de instante que los clientes ya mandaban, para que el cambio de tipo no rompa a nadie.
+        options.JsonSerializerOptions.Converters.Add(new LenientDateOnlyJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new LenientNullableDateOnlyJsonConverter());
         options.JsonSerializerOptions.TypeInfoResolver = JsonTypeInfoResolver.Combine(
             new PublicContractJsonTypeInfoResolver(),
             options.JsonSerializerOptions.TypeInfoResolver);

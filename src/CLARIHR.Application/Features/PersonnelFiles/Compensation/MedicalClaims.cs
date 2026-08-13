@@ -80,7 +80,7 @@ public sealed record DeletePersonnelFileMedicalClaimCommand(
     Guid PersonnelFileId,
     Guid MedicalClaimPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileMedicalClaimPatchOperation(
     string Op,

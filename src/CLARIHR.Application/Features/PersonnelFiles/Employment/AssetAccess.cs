@@ -61,7 +61,7 @@ public sealed record DeletePersonnelFileAssetAccessCommand(
     Guid PersonnelFileId,
     Guid AssetAccessPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileAssetAccessPatchOperation(
     string Op,

@@ -991,10 +991,10 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
             return [];
         }
 
-        // The assignment end_date is a timestamptz normalized to UTC midnight, so compare against the window
-        // bounds as UTC midnights (inclusive on both ends → EndDate ∈ [Start, End]).
-        var startUtc = DateTime.SpecifyKind(window.Start.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
-        var endUtc = DateTime.SpecifyKind(window.End.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        // H-26/H-28 — end_date es una columna `date` y la ventana ya viene en días: la comparación es directa
+        // (inclusiva en ambos extremos → EndDate ∈ [Start, End]). Antes había que inventar medianoches UTC.
+        var startUtc = window.Start;
+        var endUtc = window.End;
 
         var query =
             from assignment in dbContext.PersonnelFileEmploymentAssignments.AsNoTracking()
@@ -1037,7 +1037,7 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
         return rows
             .Select(row =>
             {
-                var endDate = DateOnly.FromDateTime(row.EndDate);
+                var endDate = row.EndDate;
                 return new TimeAvailabilityRowResponse(
                     row.PersonnelFilePublicId,
                     row.EmployeeName,
@@ -1092,7 +1092,7 @@ internal sealed class PersonnelTransactionRepository(ApplicationDbContext dbCont
 
         public string? PositionName { get; init; }
 
-        public DateTime EndDate { get; init; }
+        public DateOnly EndDate { get; init; }
 
         public Guid ReferencePublicId { get; init; }
     }

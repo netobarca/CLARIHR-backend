@@ -64,7 +64,7 @@ public sealed record DeletePersonnelFileEmergencyContactCommand(
     Guid PersonnelFileId,
     Guid EmergencyContactPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileEmergencyContactPatchOperation(
     string Op,

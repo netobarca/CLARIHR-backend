@@ -63,7 +63,7 @@ public sealed record DeletePersonnelFilePositionCompetencyResultCommand(
     Guid PersonnelFileId,
     Guid PositionCompetencyResultPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFilePositionCompetencyResultPatchOperation(
     string Op,

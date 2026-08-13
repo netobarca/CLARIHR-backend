@@ -134,7 +134,7 @@ internal sealed class AddCompensatoryTimeAbsenceCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCompensatoryTimeAbsenceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCompensatoryTimeAbsenceResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var tenantId = personnelFile.TenantId;

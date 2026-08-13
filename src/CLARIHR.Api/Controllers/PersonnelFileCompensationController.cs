@@ -84,6 +84,13 @@ public sealed class PersonnelFileCompensationController(
             Creates a new bank account under the specified personnel file and returns it with a
             `201 Created` response. The `Location` header points to the created resource and the
             `ETag` header carries its initial `concurrencyToken`.
+
+            Two rules the file itself enforces (H-27): an exact duplicate is rejected with
+            `PERSONNEL_FILE_BANK_ACCOUNT_DUPLICATE` — the key is bank + **normalized** account number + currency, so
+            separators do not make a different account, while the same account in another currency is allowed — and
+            there is at most ONE primary account: marking a new one demotes the previous in the same commit, and the
+            FIRST account is primary even when the body says otherwise. The primary is what decides where the salary
+            is deposited when the plaza designates no account.
             """)]
     public async Task<ActionResult<PersonnelFileBankAccountResponse>> AddBankAccount(
         Guid publicId,
@@ -175,7 +182,7 @@ public sealed class PersonnelFileCompensationController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/bank-accounts/{bankAccountPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a bank account from a personnel file",
@@ -184,7 +191,7 @@ public sealed class PersonnelFileCompensationController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteBankAccount(
+    public async Task<ActionResult> DeleteBankAccount(
         Guid publicId,
         Guid bankAccountPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -194,7 +201,7 @@ public sealed class PersonnelFileCompensationController(
             new DeletePersonnelFileBankAccountCommand(publicId, bankAccountPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Additional Benefits ──────────────────────────────────────────────────
@@ -343,7 +350,7 @@ public sealed class PersonnelFileCompensationController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/additional-benefits/{additionalBenefitPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an additional benefit from a personnel file",
@@ -352,7 +359,7 @@ public sealed class PersonnelFileCompensationController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteAdditionalBenefit(
+    public async Task<ActionResult> DeleteAdditionalBenefit(
         Guid publicId,
         Guid additionalBenefitPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -362,7 +369,7 @@ public sealed class PersonnelFileCompensationController(
             new DeletePersonnelFileAdditionalBenefitCommand(publicId, additionalBenefitPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Payroll Transactions ─────────────────────────────────────────────────
@@ -723,7 +730,7 @@ public sealed class PersonnelFileCompensationController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an insurance from a personnel file",
@@ -732,7 +739,7 @@ public sealed class PersonnelFileCompensationController(
             with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteInsurance(
+    public async Task<ActionResult> DeleteInsurance(
         Guid publicId,
         Guid insurancePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -742,7 +749,7 @@ public sealed class PersonnelFileCompensationController(
             new DeletePersonnelFileInsuranceCommand(publicId, insurancePublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Insurance Beneficiaries ──────────────────────────────────────────────
@@ -905,7 +912,7 @@ public sealed class PersonnelFileCompensationController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries/{beneficiaryPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a beneficiary from an insurance",
@@ -914,7 +921,7 @@ public sealed class PersonnelFileCompensationController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteInsuranceBeneficiary(
+    public async Task<ActionResult> DeleteInsuranceBeneficiary(
         Guid publicId,
         Guid insurancePublicId,
         Guid beneficiaryPublicId,
@@ -925,7 +932,7 @@ public sealed class PersonnelFileCompensationController(
             new DeletePersonnelFileInsuranceBeneficiaryCommand(publicId, insurancePublicId, beneficiaryPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
 }

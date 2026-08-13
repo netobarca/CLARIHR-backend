@@ -89,6 +89,15 @@ public sealed class JobProfileRequirementsController(
             with a `201 Created` response. The `Location` header points to the
             created resource and the `ETag` header carries its initial
             `concurrencyToken`.
+
+            `catalogItemPublicId` is optional, and when supplied it must match the
+            category that `requirementType` expects: `Education` accepts only an
+            `EducationLevel` item and `Knowledge` only a `KnowledgeArea` item
+            (otherwise `422 JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH`).
+            `Certification`, `Experience` and `Other` accept no catalog item at all
+            (`422 JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE`) — they carry
+            their content in `description`, which auto-resolves against the internal
+            `job-profile.requirements.*` catalogs.
             """)]
     public async Task<ActionResult<JobProfileRequirementResponse>> Add(
         Guid jobProfilePublicId,
@@ -123,6 +132,11 @@ public sealed class JobProfileRequirementsController(
             Replaces all fields of an existing requirement. Requires the `If-Match`
             header with the current `concurrencyToken` to prevent lost updates.
             The new token is returned in the `ETag` header.
+
+            The same `catalogItemPublicId` / `requirementType` category rule as the
+            `POST` applies, and it is checked against the **incoming** type: swapping
+            the type and the catalog item in one call is validated against the type
+            the requirement ends up with.
             """)]
     public async Task<ActionResult<JobProfileRequirementResponse>> Update(
         Guid jobProfilePublicId,
@@ -160,6 +174,11 @@ public sealed class JobProfileRequirementsController(
             `application/json-patch+json`) to an existing requirement. Requires the
             `If-Match` header with the current `concurrencyToken`. The new token
             is returned in the `ETag` header.
+
+            The same `catalogItemPublicId` / `requirementType` category rule as the
+            `POST` applies, evaluated on the **patched** state: a document that
+            changes `/requirementType` and `/catalogItemPublicId` together is
+            validated against the resulting type, not the stored one.
             """)]
     public async Task<ActionResult<JobProfileRequirementResponse>> Patch(
         Guid jobProfilePublicId,
@@ -180,7 +199,7 @@ public sealed class JobProfileRequirementsController(
     }
 
     [HttpDelete("{requirementPublicId:guid}")]
-    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a requirement from a job profile",
@@ -190,7 +209,7 @@ public sealed class JobProfileRequirementsController(
             concurrency token so the caller can continue mutating the profile
             without an extra round-trip.
             """)]
-    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
+    public async Task<ActionResult> Remove(
         Guid jobProfilePublicId,
         Guid requirementPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -200,7 +219,7 @@ public sealed class JobProfileRequirementsController(
             new RemoveJobProfileRequirementCommand(jobProfilePublicId, requirementPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     public sealed class MutateRequirementRequest

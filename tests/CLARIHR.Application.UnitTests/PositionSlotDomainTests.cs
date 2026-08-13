@@ -18,147 +18,43 @@ public sealed class PositionSlotDomainTests
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
             maxEmployees: 2,
-            occupiedEmployees: 0,
             isFixedTerm: false,
+            generatesOvertime: true,
             effectiveFromUtc: DateTime.UtcNow.Date,
             effectiveToUtc: null,
             notes: "  note  ");
 
         Assert.Equal("PS-001", slot.Code);
         Assert.Equal("PS-001", slot.NormalizedCode);
-        Assert.Equal(PositionSlotStatus.Vacant, slot.Status);
+        // H-23 — a non-suspended status only means the slot is in force; Vacant/Occupied are derived on read.
         Assert.True(slot.IsActive);
     }
 
+    /// <summary>
+    /// H-23 — the four tests that used to live here pinned the occupancy counter and its coercions:
+    /// `UpdateOccupancy` recalculating the status, its refusal while suspended, the create-time
+    /// status/occupancy contradiction, and `ChangeStatus` AUTO-CORRECTING the counter (Occupied fabricated a `1`).
+    /// All four described a number no writer maintained and that the HR dashboard was adding up. The occupant
+    /// count and Vacant/Occupied are now derived from the active assignments, so there is nothing left to
+    /// coerce — the behaviour is covered end to end in ApiIntegrationTests.PositionSlotOccupancy.cs.
+    /// </summary>
     [Fact]
-    public void PositionSlot_UpdateOccupancy_ShouldRecalculateStatus()
+    public void PositionSlot_ChangeStatus_ShouldOnlyDecideWhetherTheSlotIsInForce()
     {
         var slot = PositionSlot.Create(
-            code: "PS-001",
-            title: "Plaza",
-            jobProfileId: 1,
-            roleId: null,
-            workCenterId: null,
-            directDependencyPositionSlotId: null,
-            functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Vacant,
-            maxEmployees: 2,
-            occupiedEmployees: 0,
-            isFixedTerm: false,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
-            notes: null);
+            "PS-STATUS", "Plaza", jobProfileId: 10, roleId: null, workCenterId: null,
+            directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Vacant, maxEmployees: 2, isFixedTerm: false, generatesOvertime: true,
+            effectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), effectiveToUtc: null, notes: null);
 
-        var beforeToken = slot.ConcurrencyToken;
-
-        slot.UpdateOccupancy(1);
-
-        Assert.Equal(PositionSlotStatus.Occupied, slot.Status);
-        Assert.Equal(1, slot.OccupiedEmployees);
-        Assert.NotEqual(beforeToken, slot.ConcurrencyToken);
-    }
-
-    [Fact]
-    public void PositionSlot_UpdateOccupancy_WhenSuspended_ShouldThrow()
-    {
-        var slot = PositionSlot.Create(
-            code: "PS-001",
-            title: "Plaza",
-            jobProfileId: 1,
-            roleId: null,
-            workCenterId: null,
-            directDependencyPositionSlotId: null,
-            functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Vacant,
-            maxEmployees: 2,
-            occupiedEmployees: 0,
-            isFixedTerm: false,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
-            notes: null);
+        Assert.True(slot.IsActive);
 
         slot.ChangeStatus(PositionSlotStatus.Suspended);
+        Assert.False(slot.IsActive);
 
-        var exception = Assert.Throws<PositionSlotDomainException>(() => slot.UpdateOccupancy(1));
-        Assert.Equal(PositionSlotDomainErrorCode.SuspendedOccupancyConflict, exception.Code);
-    }
-
-    [Fact]
-    public void PositionSlot_Create_WhenVacantWithOccupants_ShouldThrowStatusOccupancyMismatch()
-    {
-        var exception = Assert.Throws<PositionSlotDomainException>(() => PositionSlot.Create(
-            code: "PS-001",
-            title: "Plaza",
-            jobProfileId: 1,
-            roleId: null,
-            workCenterId: null,
-            directDependencyPositionSlotId: null,
-            functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Vacant,
-            maxEmployees: 5,
-            occupiedEmployees: 3,
-            isFixedTerm: false,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
-            notes: null));
-
-        // §PS6: create no longer silently coerces occupancy to 0 — it rejects the contradiction.
-        Assert.Equal(PositionSlotDomainErrorCode.StatusOccupancyMismatch, exception.Code);
-    }
-
-    [Fact]
-    public void PositionSlot_Create_WhenOccupiedWithZeroOccupants_ShouldThrowStatusOccupancyMismatch()
-    {
-        var exception = Assert.Throws<PositionSlotDomainException>(() => PositionSlot.Create(
-            code: "PS-001",
-            title: "Plaza",
-            jobProfileId: 1,
-            roleId: null,
-            workCenterId: null,
-            directDependencyPositionSlotId: null,
-            functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Occupied,
-            maxEmployees: 5,
-            occupiedEmployees: 0,
-            isFixedTerm: false,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
-            notes: null));
-
-        // §PS6: create no longer silently coerces occupancy to 1 — it rejects the contradiction.
-        Assert.Equal(PositionSlotDomainErrorCode.StatusOccupancyMismatch, exception.Code);
-    }
-
-    // §PS6: ChangeStatus is a status-only transition (no caller-supplied occupancy to
-    // contradict), so it KEEPS the intentional auto-correction — distinct from Create.
-    [Fact]
-    public void PositionSlot_ChangeStatus_ShouldAutoCorrectOccupancy()
-    {
-        var slot = PositionSlot.Create(
-            code: "PS-001",
-            title: "Plaza",
-            jobProfileId: 1,
-            roleId: null,
-            workCenterId: null,
-            directDependencyPositionSlotId: null,
-            functionalDependencyPositionSlotId: null,
-            status: PositionSlotStatus.Occupied,
-            maxEmployees: 2,
-            occupiedEmployees: 1,
-            isFixedTerm: false,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
-            notes: null);
-
-        slot.ChangeStatus(PositionSlotStatus.Vacant);
-
-        Assert.Equal(PositionSlotStatus.Vacant, slot.Status);
-        Assert.Equal(0, slot.OccupiedEmployees);
-
+        // Asking for Occupied cannot invent an occupant any more: it just puts the slot back in force.
         slot.ChangeStatus(PositionSlotStatus.Occupied);
-
-        Assert.Equal(PositionSlotStatus.Occupied, slot.Status);
-        Assert.Equal(1, slot.OccupiedEmployees);
+        Assert.True(slot.IsActive);
     }
 
     [Fact]

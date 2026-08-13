@@ -355,13 +355,13 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileEducationCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileEducationCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileEducationCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, file) = await LoadForSectionManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Educations,
             tenantContext,
@@ -378,12 +378,12 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
         var education = personnelFile.Educations.FirstOrDefault(item => item.PublicId == command.EducationPublicId);
         if (education is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (education.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
@@ -422,12 +422,12 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {

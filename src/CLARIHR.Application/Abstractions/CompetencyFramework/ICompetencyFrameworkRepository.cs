@@ -17,6 +17,15 @@ public interface ICompetencyFrameworkRepository
 
     Task<OccupationalPyramidLevel?> GetOccupationalPyramidLevelByIdAsync(Guid levelId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// H-11 — every level of the tenant, TRACKED, for the bulk reorder. It must include inactive levels: the
+    /// rank is unique across the whole table, so an omitted level's old rank can collide with a newly assigned
+    /// one.
+    /// </summary>
+    Task<IReadOnlyList<OccupationalPyramidLevel>> GetAllOccupationalPyramidLevelsAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<bool> OccupationalPyramidLevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken);
 
     Task<bool> OccupationalPyramidLevelCodeExistsAsync(

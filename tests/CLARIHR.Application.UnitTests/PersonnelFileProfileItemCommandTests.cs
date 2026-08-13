@@ -53,7 +53,8 @@ public sealed class PersonnelFileProfileItemCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.EmergencyContacts);
         Assert.Equal(2, repository.GetEmergencyContactsCalls);
     }
@@ -96,7 +97,8 @@ public sealed class PersonnelFileProfileItemCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.BankAccounts);
         Assert.Equal(2, repository.GetBankAccountsCalls);
     }
@@ -224,7 +226,8 @@ public sealed class PersonnelFileProfileItemCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.Associations);
         Assert.Equal(2, repository.GetAssociationsCalls);
     }
@@ -266,7 +269,8 @@ public sealed class PersonnelFileProfileItemCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.Languages);
         Assert.Equal(2, repository.GetLanguagesCalls);
     }
@@ -367,7 +371,8 @@ public sealed class PersonnelFileProfileItemCommandTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
         Assert.Empty(personnelFile.References);
         Assert.Equal(2, repository.GetReferencesCalls);
     }

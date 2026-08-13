@@ -57,7 +57,7 @@ public sealed record DeleteOffPayrollTransactionDocumentCommand(
     Guid PersonnelFileId,
     Guid OffPayrollTransactionPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetOffPayrollTransactionDocumentsQueryValidator : AbstractValidator<GetOffPayrollTransactionDocumentsQuery>
 {

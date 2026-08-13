@@ -143,7 +143,7 @@ public sealed record DeletePersonnelFileOneTimeIncomeCommand(
     Guid PersonnelFileId,
     Guid OneTimeIncomePublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 /// <summary>Annul (retiro) an EN_REVISION income (→ ANULADO, HR/Manage); the reason is mandatory.</summary>
 public sealed record AnnulPersonnelFileOneTimeIncomeCommand(

@@ -71,7 +71,7 @@ public sealed record DeletePersonnelFilePreviousEmploymentCommand(
     Guid PersonnelFileId,
     Guid PreviousEmploymentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFilePreviousEmploymentPatchOperation(
     string Op,

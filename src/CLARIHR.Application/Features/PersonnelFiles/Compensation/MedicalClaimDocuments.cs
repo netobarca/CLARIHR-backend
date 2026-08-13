@@ -57,7 +57,7 @@ public sealed record DeleteMedicalClaimDocumentCommand(
     Guid PersonnelFileId,
     Guid MedicalClaimPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetMedicalClaimDocumentsQueryValidator : AbstractValidator<GetMedicalClaimDocumentsQuery>
 {

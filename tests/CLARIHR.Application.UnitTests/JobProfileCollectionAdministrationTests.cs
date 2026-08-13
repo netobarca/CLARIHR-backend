@@ -177,7 +177,8 @@ public sealed class JobProfileCollectionAdministrationTests
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Requirements);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
     }
 
     [Fact]
@@ -412,7 +413,8 @@ public sealed class JobProfileCollectionAdministrationTests
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Functions);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
     }
 
     [Fact]
@@ -582,7 +584,8 @@ public sealed class JobProfileCollectionAdministrationTests
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Relations);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
     }
 
     [Fact]
@@ -806,7 +809,8 @@ public sealed class JobProfileCollectionAdministrationTests
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Competencies);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        // H-34 — the DELETE no longer reports the parent's token: it answered 200 with a value that only
+        // changed in about half of these endpoints. The child is gone and the endpoint answers 204.
     }
 
     [Fact]

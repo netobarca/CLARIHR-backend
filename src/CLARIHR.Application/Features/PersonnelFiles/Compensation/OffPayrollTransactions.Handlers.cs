@@ -128,7 +128,7 @@ internal sealed class AddPersonnelFileOffPayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var resolveResult = await OffPayrollTransactionWriteSupport.ResolveAndValidateAsync(
@@ -201,7 +201,7 @@ internal sealed class UpdatePersonnelFileOffPayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetOffPayrollTransactionAsync(personnelFile.PublicId, command.OffPayrollTransactionPublicId, cancellationToken);
@@ -282,7 +282,7 @@ internal sealed class PatchPersonnelFileOffPayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileOffPayrollTransactionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetOffPayrollTransactionAsync(personnelFile.PublicId, command.OffPayrollTransactionPublicId, cancellationToken);
@@ -366,13 +366,13 @@ internal sealed class DeletePersonnelFileOffPayrollTransactionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileOffPayrollTransactionCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileOffPayrollTransactionCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileOffPayrollTransactionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageOffPayrollTransactionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageOffPayrollTransactionsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -381,25 +381,25 @@ internal sealed class DeletePersonnelFileOffPayrollTransactionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetOffPayrollTransactionAsync(personnelFile.PublicId, command.OffPayrollTransactionPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // Soft delete (RN-10): no physical removal — deactivate the record so it is preserved for audit/history.
         var removed = await employeeRepository.SoftDeleteOffPayrollTransactionAsync(command.OffPayrollTransactionPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -418,8 +418,8 @@ internal sealed class DeletePersonnelFileOffPayrollTransactionCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

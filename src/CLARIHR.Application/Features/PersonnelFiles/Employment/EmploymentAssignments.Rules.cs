@@ -77,8 +77,8 @@ internal static class EmploymentAssignmentRules
     internal sealed record ExistingAssignment(
         Guid PublicId,
         Guid? PositionSlotPublicId,
-        DateTime StartDate,
-        DateTime? EndDate,
+        DateOnly StartDate,
+        DateOnly? EndDate,
         bool IsPrimary,
         bool IsActive);
 
@@ -86,8 +86,8 @@ internal static class EmploymentAssignmentRules
     internal sealed record Candidate(
         Guid? PublicId,
         Guid? PositionSlotPublicId,
-        DateTime StartDate,
-        DateTime? EndDate,
+        DateOnly StartDate,
+        DateOnly? EndDate,
         bool IsPrimary,
         bool IsActive);
 
@@ -98,7 +98,9 @@ internal static class EmploymentAssignmentRules
     /// </param>
     internal sealed record PositionSlotFacts(
         bool Exists,
-        PositionSlotStatus Status,
+        // H-23 — the slot no longer persists a Vacant/Occupied status: what matters here is whether it is in
+        // force, and that is `IsActive` (false ⇔ suspended/retired).
+        bool IsActive,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
         int MaxEmployees,
@@ -108,13 +110,26 @@ internal static class EmploymentAssignmentRules
     internal sealed record Evaluation(IReadOnlyCollection<Guid> PrimariesToDemote);
 
     /// <summary>Inclusive date-range overlap; a null end date is treated as open-ended (<see cref="DateTime.MaxValue"/>).</summary>
+    /// <summary>
+    /// H-26/H-28 — sobrecarga para las vigencias que son DÍAS (las asignaciones). La de instantes se queda porque
+    /// la comparten las sustituciones de autorización, cuyas ventanas sí son momentos.
+    /// </summary>
+    internal static bool RangesOverlap(DateOnly startA, DateOnly? endA, DateOnly startB, DateOnly? endB) =>
+        RangesOverlap(
+            startA.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            endA?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            startB.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            endB?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+
     internal static bool RangesOverlap(DateTime startA, DateTime? endA, DateTime startB, DateTime? endB) =>
         startA <= (endB ?? DateTime.MaxValue) && startB <= (endA ?? DateTime.MaxValue);
 
     /// <summary>True when the candidate's start date falls within the slot's effective window.</summary>
     internal static bool SlotIsEffectiveFor(PositionSlotFacts slot, Candidate candidate) =>
-        candidate.StartDate >= slot.EffectiveFromUtc
-        && (slot.EffectiveToUtc is null || candidate.StartDate <= slot.EffectiveToUtc);
+        // H-26/H-28 — la fecha de la asignación es un DÍA y la vigencia de la plaza es un INSTANTE (`*Utc`), así
+        // que la comparación se hace por día: el instante se baja a su fecha en UTC.
+        candidate.StartDate >= DateOnly.FromDateTime(slot.EffectiveFromUtc)
+        && (slot.EffectiveToUtc is null || candidate.StartDate <= DateOnly.FromDateTime(slot.EffectiveToUtc.Value));
 
     public static Result<Evaluation> Evaluate(
         Candidate candidate,
@@ -131,7 +146,7 @@ internal static class EmploymentAssignmentRules
                 return Result<Evaluation>.Failure(EmploymentAssignmentErrors.PositionSlotNotFound);
             }
 
-            if (slot.Status == PositionSlotStatus.Suspended || !SlotIsEffectiveFor(slot, candidate))
+            if (!slot.IsActive || !SlotIsEffectiveFor(slot, candidate))
             {
                 return Result<Evaluation>.Failure(EmploymentAssignmentErrors.PositionSlotNotAssignable);
             }

@@ -125,7 +125,7 @@ internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (command.Item.SubstitutePersonnelFileId == command.PersonnelFileId)
@@ -215,7 +215,7 @@ internal sealed class UpdatePersonnelFileAuthorizationSubstitutionCommandHandler
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (command.Item.SubstitutePersonnelFileId == command.PersonnelFileId)
@@ -319,7 +319,7 @@ internal sealed class PatchPersonnelFileAuthorizationSubstitutionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAuthorizationSubstitutionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetAuthorizationSubstitutionAsync(personnelFile.PublicId, command.AuthorizationSubstitutionPublicId, cancellationToken);
@@ -421,13 +421,13 @@ internal sealed class DeletePersonnelFileAuthorizationSubstitutionCommandHandler
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileAuthorizationSubstitutionCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileAuthorizationSubstitutionCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileAuthorizationSubstitutionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageSubstitutionsAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -441,24 +441,24 @@ internal sealed class DeletePersonnelFileAuthorizationSubstitutionCommandHandler
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetAuthorizationSubstitutionAsync(personnelFile.PublicId, command.AuthorizationSubstitutionPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteAuthorizationSubstitutionAsync(command.AuthorizationSubstitutionPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -477,8 +477,8 @@ internal sealed class DeletePersonnelFileAuthorizationSubstitutionCommandHandler
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

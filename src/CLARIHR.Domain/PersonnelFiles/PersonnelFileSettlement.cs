@@ -50,6 +50,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         Guid assignedPositionPublicId,
         string? positionNameSnapshot,
         DateTime plazaStartDate,
+        DateTime seniorityStartDate,
         Guid? costCenterPublicId,
         string? costCenterNameSnapshot,
         DateTime retirementDate,
@@ -71,7 +72,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         RetirementRequestPublicId = retirementRequestPublicId;
         RequestedByUserId = requestedByUserId;
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode)).ToUpperInvariant();
-        ApplyPosition(assignedPositionPublicId, positionNameSnapshot, plazaStartDate, costCenterPublicId, costCenterNameSnapshot);
+        ApplyPosition(assignedPositionPublicId, positionNameSnapshot, plazaStartDate, seniorityStartDate, costCenterPublicId, costCenterNameSnapshot);
         ApplyRetirementReason(retirementDate, retirementCategoryCode, retirementCategoryNameSnapshot, retirementReasonCode, retirementReasonNameSnapshot);
         ApplyHeader(requesterFilePublicId, requesterNameSnapshot, requestDate, notes);
     }
@@ -94,6 +95,15 @@ public sealed class PersonnelFileSettlement : TenantEntity
     public string? PositionNameSnapshot { get; private set; }
 
     public DateTime PlazaStartDate { get; private set; }
+
+    // H-28 (decisión del usuario) — la antigüedad que valoriza el finiquito es la de la RELACIÓN LABORAL, no la del
+    // registro de la plaza. Antes el motor medía `RetirementDate − PlazaStartDate` (P-01, «desde el StartDate»), y
+    // para una empresa que arrancaba con empleados de años eso liquidaba a alguien de 2.5 años por 11 días:
+    // indemnización ≈ 0 y aguinaldo en el tramo mínimo de 15 días. Se guarda como SNAPSHOT, igual que
+    // `PlazaStartDate`: editar después la fecha de ingreso no debe reescribir un finiquito ya valorado.
+    // Sigue siendo por plaza: cada plaza aporta su propio salario, así que dos plazas × misma antigüedad reparten
+    // el monto en vez de duplicarlo.
+    public DateTime SeniorityStartDate { get; private set; }
 
     // Cost center of the plaza — destination of the reserve/provision (D-13); null = no cost center (warning).
     public Guid? CostCenterPublicId { get; private set; }
@@ -211,6 +221,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         Guid assignedPositionPublicId,
         string? positionNameSnapshot,
         DateTime plazaStartDate,
+        DateTime seniorityStartDate,
         Guid? costCenterPublicId,
         string? costCenterNameSnapshot,
         DateTime retirementDate,
@@ -236,6 +247,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
             assignedPositionPublicId,
             positionNameSnapshot,
             plazaStartDate,
+            seniorityStartDate,
             costCenterPublicId,
             costCenterNameSnapshot,
             retirementDate,
@@ -256,6 +268,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         Guid assignedPositionPublicId,
         string? positionNameSnapshot,
         DateTime plazaStartDate,
+        DateTime seniorityStartDate,
         Guid? costCenterPublicId,
         string? costCenterNameSnapshot,
         DateTime estimatedRetirementDate,
@@ -275,6 +288,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
             assignedPositionPublicId,
             positionNameSnapshot,
             plazaStartDate,
+            seniorityStartDate,
             costCenterPublicId,
             costCenterNameSnapshot,
             estimatedRetirementDate,
@@ -515,6 +529,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         Guid assignedPositionPublicId,
         string? positionNameSnapshot,
         DateTime plazaStartDate,
+        DateTime seniorityStartDate,
         Guid? costCenterPublicId,
         string? costCenterNameSnapshot)
     {
@@ -526,6 +541,7 @@ public sealed class PersonnelFileSettlement : TenantEntity
         AssignedPositionPublicId = assignedPositionPublicId;
         PositionNameSnapshot = PersonnelFileNormalization.CleanOptional(positionNameSnapshot);
         PlazaStartDate = PersonnelFileNormalization.NormalizeDate(plazaStartDate);
+        SeniorityStartDate = PersonnelFileNormalization.NormalizeDate(seniorityStartDate);
         CostCenterPublicId = costCenterPublicId;
         CostCenterNameSnapshot = PersonnelFileNormalization.CleanOptional(costCenterNameSnapshot);
     }

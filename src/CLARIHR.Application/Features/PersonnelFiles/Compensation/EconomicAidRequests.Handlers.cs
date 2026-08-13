@@ -79,7 +79,7 @@ internal sealed class AddPersonnelFileEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // Eligibility (D-08): minimum seniority configured at company level (null/0 ⇒ no restriction).
@@ -163,7 +163,7 @@ internal sealed class UpdatePersonnelFileEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetEconomicAidRequestAsync(personnelFile.PublicId, command.EconomicAidRequestPublicId, cancellationToken);
@@ -220,13 +220,13 @@ internal sealed class DeletePersonnelFileEconomicAidRequestCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileEconomicAidRequestCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileEconomicAidRequestCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileEconomicAidRequestCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageEconomicAidRequestsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageEconomicAidRequestsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -235,25 +235,25 @@ internal sealed class DeletePersonnelFileEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetEconomicAidRequestAsync(personnelFile.PublicId, command.EconomicAidRequestPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // Soft delete (RN-10): deactivate, preserving the record for audit/history.
         var removed = await employeeRepository.SoftDeleteEconomicAidRequestAsync(command.EconomicAidRequestPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -272,7 +272,7 @@ internal sealed class DeletePersonnelFileEconomicAidRequestCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
     }
 }
 
@@ -354,7 +354,7 @@ internal sealed class ResolveEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var before = await employeeRepository.GetEconomicAidRequestAsync(personnelFile.PublicId, command.EconomicAidRequestPublicId, cancellationToken);
@@ -445,7 +445,7 @@ internal sealed class DisburseEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var before = await employeeRepository.GetEconomicAidRequestAsync(personnelFile.PublicId, command.EconomicAidRequestPublicId, cancellationToken);
@@ -531,7 +531,7 @@ internal sealed class CancelEconomicAidRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEconomicAidRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var before = await employeeRepository.GetEconomicAidRequestAsync(personnelFile.PublicId, command.EconomicAidRequestPublicId, cancellationToken);

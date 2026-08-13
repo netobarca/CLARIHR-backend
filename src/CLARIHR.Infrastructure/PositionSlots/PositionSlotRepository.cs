@@ -17,6 +17,51 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
 {
     public void Add(PositionSlot slot) => dbContext.Add(slot);
 
+    public void Remove(PositionSlot slot) => dbContext.Remove(slot);
+
+    /// <inheritdoc />
+    public async Task<PositionSlotUsage> GetUsageAsync(
+        Guid slotPublicId,
+        long slotInternalId,
+        CancellationToken cancellationToken)
+    {
+        // The four by-publicId references have no FK, so they are counted explicitly; the two dependency
+        // columns are real FKs but `RESTRICT`, which without this would surface as a raw 500 instead of a 409.
+        var assignments = await dbContext.PersonnelFileEmploymentAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.PositionSlotPublicId == slotPublicId)
+            .Select(assignment => assignment.IsActive)
+            .ToListAsync(cancellationToken);
+
+        var contractHistories = await dbContext.PersonnelFileContractHistories
+            .AsNoTracking()
+            .CountAsync(history => history.PositionSlotPublicId == slotPublicId, cancellationToken);
+
+        var substitutions = await dbContext.PersonnelFileAuthorizationSubstitutions
+            .AsNoTracking()
+            .CountAsync(substitution => substitution.SubstitutePositionSlotPublicId == slotPublicId, cancellationToken);
+
+        var exitInterviews = await dbContext.ExitInterviewSubmissions
+            .AsNoTracking()
+            .CountAsync(submission => submission.PositionSlotPublicId == slotPublicId, cancellationToken);
+
+        var dependents = await dbContext.Set<PositionSlot>()
+            .AsNoTracking()
+            .CountAsync(
+                candidate =>
+                    candidate.DirectDependencyPositionSlotId == slotInternalId ||
+                    candidate.FunctionalDependencyPositionSlotId == slotInternalId,
+                cancellationToken);
+
+        return new PositionSlotUsage(
+            assignments.Count,
+            assignments.Count(isActive => isActive),
+            contractHistories,
+            substitutions,
+            exitInterviews,
+            dependents);
+    }
+
     public Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken) =>
         dbContext.Set<PositionSlot>().SingleOrDefaultAsync(slot => slot.PublicId == slotId, cancellationToken);
 
@@ -76,12 +121,16 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        bool? isActive,
+        Guid? directDependencyPositionSlotId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
     {
         var query = BuildJoinedQuery().Where(row => row.Slot.TenantId == tenantId);
-        query = ApplyListFilters(query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId);
+        query = ApplyListFilters(
+            query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId, isActive,
+            directDependencyPositionSlotId);
         query = ApplySearchFilter(query, search);
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -94,7 +143,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.PublicId,
                 row.Slot.Code,
                 row.Slot.Title,
-                row.Slot.Status,
+                DeriveStatus(row.Slot.IsActive, row.ActiveAssignments),
                 row.JobProfile.PublicId,
                 row.JobProfile.Code,
                 row.JobProfile.Title,
@@ -106,6 +155,12 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.WorkCenter != null ? row.WorkCenter.PublicId : null,
                 row.WorkCenter != null ? row.WorkCenter.Code : null,
                 row.WorkCenter != null ? row.WorkCenter.Name : null,
+                // H-16 — the joins were already here and the export already consumed them; only the projection
+                // left them out.
+                row.DirectDependency != null ? row.DirectDependency.PublicId : null,
+                row.DirectDependency != null ? row.DirectDependency.Code : null,
+                row.FunctionalDependency != null ? row.FunctionalDependency.PublicId : null,
+                row.FunctionalDependency != null ? row.FunctionalDependency.Code : null,
                 row.PositionCategory != null ? row.PositionCategory.Code : null,
                 row.PositionCategory != null ? row.PositionCategory.Name : null,
                 row.Classification != null ? row.Classification.Code : null,
@@ -114,7 +169,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.ContractType != null ? row.ContractType.Code : null,
                 row.ContractType != null ? row.ContractType.Name : null,
                 row.Slot.MaxEmployees,
-                row.Slot.OccupiedEmployees,
+                row.ActiveAssignments,
+                row.Slot.GeneratesOvertime,
                 row.Slot.EffectiveFromUtc,
                 row.Slot.EffectiveToUtc,
                 row.Slot.IsActive,
@@ -134,7 +190,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.TenantId,
                 row.Slot.Code,
                 row.Slot.Title,
-                row.Slot.Status,
+                DeriveStatus(row.Slot.IsActive, row.ActiveAssignments),
                 row.JobProfile.PublicId,
                 row.JobProfile.Code,
                 row.JobProfile.Title,
@@ -161,7 +217,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.ContractType != null ? row.ContractType.Code : null,
                 row.ContractType != null ? row.ContractType.Name : null,
                 row.Slot.MaxEmployees,
-                row.Slot.OccupiedEmployees,
+                row.ActiveAssignments,
+                row.Slot.GeneratesOvertime,
                 row.Slot.EffectiveFromUtc,
                 row.Slot.EffectiveToUtc,
                 row.Slot.Notes,
@@ -213,7 +270,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.PublicId,
                 row.Slot.Code,
                 row.Slot.Title ?? row.JobProfile.Title,
-                row.Slot.Status,
+                DeriveStatus(row.Slot.IsActive, row.ActiveAssignments),
                 row.JobProfile.PublicId,
                 row.OrgUnit.PublicId,
                 row.WorkCenter != null ? row.WorkCenter.PublicId : null,
@@ -249,11 +306,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        bool? isActive,
         int? maxRows,
         CancellationToken cancellationToken)
     {
+        // The export already carries the dependency CODES in its own row shape, so it needs no id filter here.
         var query = BuildJoinedQuery().Where(row => row.Slot.TenantId == tenantId);
-        query = ApplyListFilters(query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId);
+        query = ApplyListFilters(
+            query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId, isActive,
+            directDependencyPositionSlotId: null);
         query = ApplySearchFilter(query, search);
 
         var ordered = query
@@ -271,7 +332,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.PublicId,
                 row.Slot.Code,
                 row.Slot.Title,
-                row.Slot.Status,
+                DeriveStatus(row.Slot.IsActive, row.ActiveAssignments),
                 row.JobProfile.Code,
                 row.JobProfile.Title,
                 row.Role != null ? row.Role.PublicId : null,
@@ -291,7 +352,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.ContractType != null ? row.ContractType.Code : null,
                 row.ContractType != null ? row.ContractType.Name : null,
                 row.Slot.MaxEmployees,
-                row.Slot.OccupiedEmployees,
+                row.ActiveAssignments,
+                row.Slot.GeneratesOvertime,
                 row.Slot.EffectiveFromUtc,
                 row.Slot.EffectiveToUtc,
                 row.Slot.IsActive,
@@ -317,6 +379,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
          join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
              on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
          from contractType in contractTypeGroup.DefaultIfEmpty()
+         // H-14: the profile's salary band, same chain GetSalaryRangeAsync walks — but keyed on the PROFILE,
+         // because at create time the slot does not exist yet. LEFT JOIN so a profile without compensation
+         // still resolves, with null bounds meaning "no band".
+         join compensation in dbContext.JobProfileCompensations.AsNoTracking()
+             on profile.Id equals compensation.JobProfileId into compensationGroup
+         from compensation in compensationGroup.DefaultIfEmpty()
+         join bandLine in dbContext.SalaryTabulatorLines.AsNoTracking().Where(line => line.IsActive)
+             on compensation.SalaryTabulatorLineId equals bandLine.Id into bandLineGroup
+         from bandLine in bandLineGroup.DefaultIfEmpty()
          // H-01: the predicate stays existence+tenant on purpose. The Published gate lives in
          // ResolveJobProfileLookupAsync so a draft profile yields 422 NOT_PUBLISHED ("publish it
          // first") instead of collapsing into the 404 NOT_FOUND branch for a profile the caller
@@ -333,7 +404,10 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              contractType != null ? contractType.PublicId : null,
              contractType != null ? contractType.Code : null,
              contractType != null ? contractType.Name : null,
-             profile.Status))
+             profile.Status,
+             bandLine != null ? bandLine.MinAmount : null,
+             bandLine != null ? bandLine.MaxAmount : null,
+             bandLine != null ? bandLine.CurrencyCode : null))
         .SingleOrDefaultAsync(cancellationToken);
 
     // §PS3: single source of truth for the wide slot join. The 4 read endpoints
@@ -341,6 +415,18 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
     // shape with subtle drift risk (e.g., a future tenant-filter change had to be
     // mirrored in 4 places). Dependencies are LEFT JOIN-ed so EF prunes them out
     // of projections that don't reference them.
+    /// <summary>
+    /// H-23 — the slot's status as a FACT: retired is the only decision (persisted as <c>IsActive = false</c>);
+    /// Vacant/Occupied follow the active assignments. It used to be a persisted column kept in step by hand, and
+    /// `PATCH /status` coerced an occupancy counter alongside it (Occupied fabricated a `1`).
+    /// </summary>
+    private static PositionSlotStatus DeriveStatus(bool isActive, int activeAssignments) =>
+        !isActive
+            ? PositionSlotStatus.Suspended
+            : activeAssignments > 0
+                ? PositionSlotStatus.Occupied
+                : PositionSlotStatus.Vacant;
+
     private IQueryable<SlotJoinedRow> BuildJoinedQuery() =>
         from slot in dbContext.Set<PositionSlot>().AsNoTracking()
         join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
@@ -373,7 +459,9 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             FunctionalDependency = functionalDependency,
             PositionCategory = positionCategory,
             Classification = classification,
-            ContractType = contractType
+            ContractType = contractType,
+            ActiveAssignments = dbContext.PersonnelFileEmploymentAssignments
+                .Count(assignment => assignment.PositionSlotPublicId == slot.PublicId && assignment.IsActive)
         };
 
     private static IQueryable<SlotJoinedRow> ApplyListFilters(
@@ -382,11 +470,34 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? jobProfileId,
         Guid? contractTypeId,
         Guid? orgUnitId,
-        Guid? workCenterId)
+        Guid? workCenterId,
+        bool? isActive,
+        Guid? directDependencyPositionSlotId)
     {
+        if (directDependencyPositionSlotId.HasValue)
+        {
+            query = query.Where(row =>
+                row.DirectDependency != null &&
+                row.DirectDependency.PublicId == directDependencyPositionSlotId.Value);
+        }
+
+        // H-15 — additive and off by default: a retired (Suspended) slot used to be impossible to exclude from
+        // the listing, but changing the default would have moved the frontend contract.
+        if (isActive.HasValue)
+        {
+            query = query.Where(row => row.Slot.IsActive == isActive.Value);
+        }
+
+        // H-23 — the filter follows the derived status, so `?status=Occupied` means "has people in it" instead of
+        // "somebody typed Occupied here". Translates to EXISTS over the assignments (indexed).
         if (status.HasValue)
         {
-            query = query.Where(row => row.Slot.Status == status.Value);
+            query = status.Value switch
+            {
+                PositionSlotStatus.Suspended => query.Where(row => !row.Slot.IsActive),
+                PositionSlotStatus.Occupied => query.Where(row => row.Slot.IsActive && row.ActiveAssignments > 0),
+                _ => query.Where(row => row.Slot.IsActive && row.ActiveAssignments == 0),
+            };
         }
 
         if (jobProfileId.HasValue)
@@ -454,5 +565,14 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         public required PositionCategory? PositionCategory { get; init; }
         public required PositionCategoryClassification? Classification { get; init; }
         public required PositionDescriptionCatalogItem? ContractType { get; init; }
+
+        /// <summary>
+        /// H-23 — how many people are actually assigned to the slot right now. Replaces the persisted
+        /// `OccupiedEmployees` counter, which no writer maintained (an assignment never touched it) and which the
+        /// status change used to fabricate. Both the count and the Vacant/Occupied status are derived from it, so
+        /// they cannot disagree with the assignments they describe. Backed by
+        /// `ix_personnel_file_employment_assignments__tenant_slot_active`.
+        /// </summary>
+        public required int ActiveAssignments { get; init; }
     }
 }

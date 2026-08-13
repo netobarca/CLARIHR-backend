@@ -124,7 +124,7 @@ public sealed class EconomicAidRequestsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/economic-aid-requests/{economicAidRequestPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Deactivate (soft-delete) an economic-aid request",
@@ -133,7 +133,7 @@ public sealed class EconomicAidRequestsController(
             `If-Match` header with the current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEconomicAidRequest(
+    public async Task<ActionResult> DeleteEconomicAidRequest(
         Guid publicId,
         Guid economicAidRequestPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -143,7 +143,7 @@ public sealed class EconomicAidRequestsController(
             new DeletePersonnelFileEconomicAidRequestCommand(publicId, economicAidRequestPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Validation actions (HR), forward-compatible with a future approval flow (RF-011) ──────────────
@@ -332,7 +332,7 @@ public sealed class EconomicAidRequestsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/economic-aid-requests/{economicAidRequestPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a supporting document from an economic-aid request",
@@ -340,7 +340,7 @@ public sealed class EconomicAidRequestsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. HR-only. Requires the `If-Match`
             header with the document's current `concurrencyToken`.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEconomicAidRequestDocument(
+    public async Task<ActionResult> DeleteEconomicAidRequestDocument(
         Guid publicId,
         Guid economicAidRequestPublicId,
         Guid documentPublicId,
@@ -351,7 +351,7 @@ public sealed class EconomicAidRequestsController(
             new DeleteEconomicAidRequestDocumentCommand(publicId, economicAidRequestPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     private static EconomicAidRequestInput ToInput(AddEconomicAidRequestRequest request) =>

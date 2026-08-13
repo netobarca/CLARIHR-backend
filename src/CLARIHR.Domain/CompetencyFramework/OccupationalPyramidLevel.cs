@@ -9,7 +9,9 @@ public sealed class OccupationalPyramidLevel : TenantEntity
     // a defensive backstop — the application layer rejects out-of-range input first (400), so they only
     // fire on a layering bug, turning a DB length violation (500) into a clear domain ArgumentException.
     public const int MaxCodeLength = 50;
-    public const int MaxNameLength = 120;
+    // H-11 — harmonised to 150, the value the position-description family already used. Raising a ceiling
+    // can never reject a name that fit before.
+    public const int MaxNameLength = 150;
     public const int MaxDescriptionLength = 500;
 
     private OccupationalPyramidLevel()
@@ -50,6 +52,23 @@ public sealed class OccupationalPyramidLevel : TenantEntity
 
     public static OccupationalPyramidLevel Create(string code, string name, int levelOrder, string? description) =>
         new(Guid.NewGuid(), code, name, levelOrder, description);
+
+    /// <summary>
+    /// H-11 — bulk reorder. Rewrites only the rank, so a drag-and-drop save is one transaction instead of N
+    /// patches — and on this entity N patches could not express a swap at all, because the rank is UNIQUE per
+    /// tenant and the intermediate state collides. The two-phase write that makes that safe lives in the
+    /// handler; the aggregate only enforces that a rank is still positive.
+    /// </summary>
+    public void SetLevelOrder(int levelOrder)
+    {
+        if (levelOrder <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(levelOrder), "Level order must be greater than zero.");
+        }
+
+        LevelOrder = levelOrder;
+        RefreshConcurrencyToken();
+    }
 
     public void Update(string code, string name, int levelOrder, string? description)
     {

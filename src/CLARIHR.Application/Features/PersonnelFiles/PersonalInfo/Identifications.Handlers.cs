@@ -162,6 +162,14 @@ internal sealed class AddPersonnelFileIdentificationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (command.Identification.IsPrimary)
+            {
+                // H-27 — degradar y DESCARGAR antes del insert: el índice único parcial se evalúa por sentencia y
+                // no es diferible. Misma trampa documentada en LegalRepresentativeAdministration.
+                personnelFile.ClearPrimaryIdentifications();
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.AddIdentification(identification);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -283,6 +291,13 @@ internal sealed class UpdatePersonnelFileIdentificationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (command.Identification.IsPrimary)
+            {
+                // H-27 — degradar y DESCARGAR antes de promover; ver el comentario del alta.
+                personnelFile.ClearPrimaryIdentifications(command.IdentificationPublicId);
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.UpdateIdentification(
                 command.IdentificationPublicId,
                 normalizedIdentificationTypeCode,
@@ -345,13 +360,13 @@ internal sealed class DeletePersonnelFileIdentificationCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileIdentificationCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileIdentificationCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileIdentificationCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, file) = await LoadForSectionManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Identifications,
             tenantContext,
@@ -368,12 +383,12 @@ internal sealed class DeletePersonnelFileIdentificationCommandHandler(
         var identification = personnelFile.Identifications.FirstOrDefault(item => item.PublicId == command.IdentificationPublicId);
         if (identification is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (identification.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetIdentificationsAsync(personnelFile.PublicId, cancellationToken);
@@ -411,12 +426,12 @@ internal sealed class DeletePersonnelFileIdentificationCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -530,6 +545,13 @@ internal sealed class PatchPersonnelFileIdentificationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (input.IsPrimary)
+            {
+                // H-27 — degradar y DESCARGAR antes de promover; ver el comentario del alta.
+                personnelFile.ClearPrimaryIdentifications(command.IdentificationPublicId);
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.UpdateIdentification(
                 command.IdentificationPublicId,
                 normalizedIdentificationTypeCode,

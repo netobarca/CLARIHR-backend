@@ -36,6 +36,13 @@ public sealed record PositionSlotListItemResponse(
     Guid? WorkCenterId,
     string? WorkCenterCode,
     string? WorkCenterName,
+    // H-16 — the hierarchy travels in the LISTING too. It was the only surface that omitted these four while
+    // /graph and the detail already carried them, so a client could not tell "has no parent" from "the listing
+    // does not say". Null when the slot is a root.
+    Guid? DirectDependencyPositionSlotId,
+    string? DirectDependencyPositionSlotCode,
+    Guid? FunctionalDependencyPositionSlotId,
+    string? FunctionalDependencyPositionSlotCode,
     string? PositionCategoryCode,
     string? PositionCategoryName,
     string? PositionCategoryClassificationCode,
@@ -45,6 +52,9 @@ public sealed record PositionSlotListItemResponse(
     string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
+    // H-19/H-20 — whether work in this plaza can generate overtime. False makes the plaza overtime-exempt,
+    // which is what distinguishes "a director deliberately without a shift" from "nobody configured one".
+    bool GeneratesOvertime,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool IsActive,
@@ -86,6 +96,9 @@ public sealed record PositionSlotResponse(
     string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
+    // H-19/H-20 — whether work in this plaza can generate overtime. False makes the plaza overtime-exempt,
+    // which is what distinguishes "a director deliberately without a shift" from "nobody configured one".
+    bool GeneratesOvertime,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     string? Notes,
@@ -160,6 +173,9 @@ public sealed record PositionSlotExportRow(
     string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
+    // H-19/H-20 — whether work in this plaza can generate overtime. False makes the plaza overtime-exempt,
+    // which is what distinguishes "a director deliberately without a shift" from "nobody configured one".
+    bool GeneratesOvertime,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool IsActive,
@@ -177,7 +193,12 @@ public sealed record PositionSlotJobProfileLookup(
     Guid? ContractTypeId,
     string? ContractTypeCode,
     string? ContractTypeName,
-    JobProfileStatus JobProfileStatus);
+    JobProfileStatus JobProfileStatus,
+    // H-14 — the profile's approved salary band. Null bounds mean the profile has no active tabulator line, and
+    // then a configured salary cannot be asserted to be within limits at all.
+    decimal? BandMinAmount,
+    decimal? BandMaxAmount,
+    string? BandCurrencyCode);
 
 public sealed record SearchPositionSlotsQuery(
     Guid CompanyId,
@@ -187,6 +208,10 @@ public sealed record SearchPositionSlotsQuery(
     Guid? WorkCenterId,
     Guid? ContractTypeId,
     string? Search,
+    // H-15 — additive and off by default: a retired (Suspended) slot could not be excluded from the listing.
+    bool? IsActive = null,
+    // H-16 — the hierarchy filter: the direct children of a slot without pulling the whole company.
+    Guid? DirectDependencyPositionSlotId = null,
     int PageNumber = 1,
     int PageSize = PositionSlotValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false)
@@ -210,6 +235,8 @@ public sealed record GetPositionSlotExportRowsQuery(
     Guid? WorkCenterId,
     Guid? ContractTypeId,
     string? Search,
+    // H-15 — the export takes the same isActive filter as the listing, so the two cannot diverge.
+    bool? IsActive = null,
     int? MaxRows = null)
     : IQuery<IReadOnlyCollection<PositionSlotExportRow>>;
 
@@ -229,7 +256,9 @@ public sealed record CreatePositionSlotCommand(
     DateTime? EffectiveToUtc,
     string? Notes,
     decimal? ConfiguredBaseSalary = null,
-    string? ConfiguredBaseSalaryCurrencyCode = null)
+    string? ConfiguredBaseSalaryCurrencyCode = null,
+    // H-19/H-20 — default true: exemption is the exception and has to be declared.
+    bool GeneratesOvertime = true)
     : ICommand<PositionSlotResponse>;
 
 public sealed record UpdatePositionSlotCommand(
@@ -245,7 +274,9 @@ public sealed record UpdatePositionSlotCommand(
     string? Notes,
     Guid ConcurrencyToken,
     decimal? ConfiguredBaseSalary = null,
-    string? ConfiguredBaseSalaryCurrencyCode = null)
+    string? ConfiguredBaseSalaryCurrencyCode = null,
+    // H-19/H-20 — default true: exemption is the exception and has to be declared.
+    bool GeneratesOvertime = true)
     : ICommand<PositionSlotResponse>;
 
 public sealed record UpdatePositionSlotStatusCommand(
@@ -261,11 +292,8 @@ public sealed record UpdatePositionSlotDependenciesCommand(
     Guid ConcurrencyToken)
     : ICommand<PositionSlotResponse>;
 
-public sealed record UpdatePositionSlotOccupancyCommand(
-    Guid PositionSlotId,
-    int OccupiedEmployees,
-    Guid ConcurrencyToken)
-    : ICommand<PositionSlotResponse>;
+// H-23 — `UpdatePositionSlotOccupancyCommand`, its validator and its handler are gone with the counter:
+// the occupancy is derived from the active assignments, so there is nothing left to set by hand.
 
 internal sealed class SearchPositionSlotsQueryValidator : AbstractValidator<SearchPositionSlotsQuery>
 {
@@ -429,16 +457,6 @@ internal sealed class UpdatePositionSlotDependenciesCommandValidator : AbstractV
     }
 }
 
-internal sealed class UpdatePositionSlotOccupancyCommandValidator : AbstractValidator<UpdatePositionSlotOccupancyCommand>
-{
-    public UpdatePositionSlotOccupancyCommandValidator()
-    {
-        RuleFor(command => command.PositionSlotId).NotEmpty();
-        RuleFor(command => command.OccupiedEmployees).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
 internal sealed class SearchPositionSlotsQueryHandler(
     IPositionSlotAuthorizationService authorizationService,
     IPositionSlotRepository repository,
@@ -463,6 +481,8 @@ internal sealed class SearchPositionSlotsQueryHandler(
             query.WorkCenterId,
             query.ContractTypeId,
             query.Search,
+            query.IsActive,
+            query.DirectDependencyPositionSlotId,
             query.PageNumber,
             query.PageSize,
             cancellationToken);
@@ -580,6 +600,7 @@ internal sealed class GetPositionSlotExportRowsQueryHandler(
             query.WorkCenterId,
             query.ContractTypeId,
             query.Search,
+            query.IsActive,
             query.MaxRows,
             cancellationToken);
 
@@ -686,6 +707,14 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CostCenterInvalid);
         }
 
+        // H-14 — the plaza cannot sit outside the salary band its profile approved with two signatures.
+        if (PositionSlotCommandSupport.ValidateConfiguredSalary(
+                command.ConfiguredBaseSalary, command.ConfiguredBaseSalaryCurrencyCode, jobProfileLookup)
+            is { } salaryError)
+        {
+            return Result<PositionSlotResponse>.Failure(salaryError);
+        }
+
         PositionSlot slot;
         try
         {
@@ -699,8 +728,8 @@ internal sealed class CreatePositionSlotCommandHandler(
                 functionalDependencyResult.Value,
                 command.Status,
                 command.MaxEmployees,
-                command.OccupiedEmployees,
                 isFixedTerm,
+                command.GeneratesOvertime,
                 command.EffectiveFromUtc,
                 command.EffectiveToUtc,
                 command.Notes);
@@ -852,6 +881,14 @@ internal sealed class UpdatePositionSlotCommandHandler(
         var before = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Position slot response could not be resolved before update.");
 
+        // H-14 — the plaza cannot sit outside the salary band its profile approved with two signatures.
+        if (PositionSlotCommandSupport.ValidateConfiguredSalary(
+                command.ConfiguredBaseSalary, command.ConfiguredBaseSalaryCurrencyCode, jobProfileLookup)
+            is { } salaryError)
+        {
+            return Result<PositionSlotResponse>.Failure(salaryError);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -863,6 +900,7 @@ internal sealed class UpdatePositionSlotCommandHandler(
                 workCenterIdResult.Value,
                 command.MaxEmployees,
                 isFixedTerm,
+                command.GeneratesOvertime,
                 command.EffectiveFromUtc,
                 command.EffectiveToUtc,
                 command.Notes);
@@ -952,6 +990,19 @@ internal sealed class UpdatePositionSlotStatusCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ConcurrencyConflict);
         }
 
+        // H-15 — suspending is what "this position no longer exists" means here, and it must not be possible while
+        // people are still assigned: the aggregate would go IsActive=false with live occupants inside. Counted from
+        // the real assignments — H-23 removed the old `OccupiedEmployees` counter precisely because it was a manual
+        // note, and a guard trusting it would pass exactly when it must not.
+        if (command.Status == PositionSlotStatus.Suspended)
+        {
+            var usage = await repository.GetUsageAsync(slot.PublicId, slot.Id, cancellationToken);
+            if (usage.ActiveAssignments > 0)
+            {
+                return Result<PositionSlotResponse>.Failure(PositionSlotErrors.SuspendWithOccupants);
+            }
+        }
+
         var before = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Position slot response could not be resolved before status update.");
 
@@ -971,7 +1022,7 @@ internal sealed class UpdatePositionSlotStatusCommandHandler(
                     slot.PublicId,
                     slot.Code,
                     AuditActions.Update,
-                    $"Changed status of position slot {slot.Code} to {slot.Status}.",
+                    $"Changed status of position slot {slot.Code} to {command.Status}.",
                     Before: before,
                     After: after),
                 cancellationToken);
@@ -1128,82 +1179,6 @@ internal sealed class UpdatePositionSlotDependenciesCommandHandler(
         {
             await transaction.RollbackAsync(cancellationToken);
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.DependencySelfReference);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class UpdatePositionSlotOccupancyCommandHandler(
-    IPositionSlotAuthorizationService authorizationService,
-    IPositionSlotRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePositionSlotOccupancyCommand, PositionSlotResponse>
-{
-    public async Task<Result<PositionSlotResponse>> Handle(UpdatePositionSlotOccupancyCommand command, CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionSlotResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PositionSlotResponse>.Failure(authorizationResult.Error);
-        }
-
-        var slot = await repository.GetByIdAsync(command.PositionSlotId, cancellationToken);
-        if (slot is null)
-        {
-            return Result<PositionSlotResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PositionSlotId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionSlotErrors.PositionSlotNotFound);
-        }
-
-        if (slot.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ConcurrencyConflict);
-        }
-
-        var before = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Position slot response could not be resolved before occupancy update.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            slot.UpdateOccupancy(command.OccupiedEmployees);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Position slot response could not be resolved after occupancy update.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionSlotOccupancyChanged,
-                    AuditEntityTypes.PositionSlot,
-                    slot.PublicId,
-                    slot.Code,
-                    AuditActions.Update,
-                    $"Updated occupancy of position slot {slot.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionSlotResponse>.Success(after);
-        }
-        catch (InvalidOperationException exception)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Result<PositionSlotResponse>.Failure(PositionSlotCommandSupport.MapDomainValidation(exception));
         }
         catch
         {
@@ -1453,6 +1428,44 @@ internal static class PositionSlotGraphBuilder
 
 internal static class PositionSlotCommandSupport
 {
+    /// <summary>
+    /// H-14 — the plaza's configured base salary must sit inside the band its job profile already approved with
+    /// two signatures. The plaza was the one surface that could ignore it, which made that approval decorative and
+    /// propagated a capture error to every occupant (verified: 250 and 99999 were both accepted on a 408.80-550.00
+    /// line). The band is inclusive on both ends.
+    /// </summary>
+    internal static Error? ValidateConfiguredSalary(
+        decimal? configuredBaseSalary,
+        string? configuredBaseSalaryCurrencyCode,
+        PositionSlotJobProfileLookup jobProfileLookup)
+    {
+        if (configuredBaseSalary is not { } salary)
+        {
+            // Optional field: with no salary there is nothing to validate, and a plaza with no salary is still
+            // created normally even when the profile has no band.
+            return null;
+        }
+
+        if (jobProfileLookup.BandMinAmount is not { } minAmount || jobProfileLookup.BandMaxAmount is not { } maxAmount)
+        {
+            return PositionSlotErrors.JobProfileHasNoSalaryBand;
+        }
+
+        var bandCurrency = jobProfileLookup.BandCurrencyCode?.Trim();
+        var salaryCurrency = configuredBaseSalaryCurrencyCode?.Trim();
+        if (!string.IsNullOrWhiteSpace(bandCurrency)
+            && !string.IsNullOrWhiteSpace(salaryCurrency)
+            && !string.Equals(bandCurrency, salaryCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            // Comparing amounts across currencies means nothing, so this is refused rather than silently compared.
+            return PositionSlotErrors.ConfiguredSalaryCurrencyMismatch;
+        }
+
+        return salary < minAmount || salary > maxAmount
+            ? PositionSlotErrors.ConfiguredSalaryOutOfBand
+            : null;
+    }
+
     // §PS5: dispatch on the typed domain error code, not on Message text.
     // A reword/localization of the domain message no longer reclassifies errors
     // — the contract is PositionSlotDomainErrorCode. Untyped
@@ -1468,10 +1481,6 @@ internal static class PositionSlotCommandSupport
         PositionSlotDomainErrorCode.EffectiveFromRequired => PositionSlotErrors.EffectiveDatesInvalid,
         PositionSlotDomainErrorCode.EffectiveDateRangeInvalid => PositionSlotErrors.EffectiveDatesInvalid,
         PositionSlotDomainErrorCode.MaxEmployeesInvalid => PositionSlotErrors.CapacityRuleViolation,
-        PositionSlotDomainErrorCode.OccupiedEmployeesNegative => PositionSlotErrors.CapacityRuleViolation,
-        PositionSlotDomainErrorCode.OccupiedExceedsCapacity => PositionSlotErrors.CapacityRuleViolation,
-        PositionSlotDomainErrorCode.SuspendedOccupancyConflict => PositionSlotErrors.SuspendedOccupancyConflict,
-        PositionSlotDomainErrorCode.StatusOccupancyMismatch => PositionSlotErrors.StatusOccupancyMismatch,
         PositionSlotDomainErrorCode.DirectDependencySelfReference => PositionSlotErrors.DependencySelfReference,
         PositionSlotDomainErrorCode.FunctionalDependencySelfReference => PositionSlotErrors.DependencySelfReference,
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, "Unmapped PositionSlotDomainErrorCode — add a branch here.")

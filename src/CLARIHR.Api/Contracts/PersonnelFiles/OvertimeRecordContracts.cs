@@ -3,8 +3,10 @@ namespace CLARIHR.Api.Contracts.PersonnelFiles;
 /// <summary>
 /// Body for registering an overtime record ("hora extra del empleado", REQ-007). <c>FactorApplied</c> is optional
 /// — it defaults to the overtime type's reference factor when omitted (an override note is required only when it
-/// differs). <c>DurationHours</c> + <c>DurationMinutes</c> (minutes 0–59, positive total) yield the derived decimal
-/// hours. <c>AssignedPositionPublicId</c> is optional — the employee's principal plaza is resolved when omitted
+/// differs). <c>StartTime</c> + <c>EndTime</c> are mandatory and the duration is DERIVED from them (H-20); a range
+/// whose end precedes its start crosses midnight, which is legitimate for overtime. A range that falls inside the
+/// employee's contracted shift, that overlaps another record of the day, or that straddles the legal day/night
+/// boundary at 06:00/19:00 is rejected with a 422. <c>AssignedPositionPublicId</c> is optional — the employee's principal plaza is resolved when omitted
 /// (D-12). <c>RequesterFilePublicId</c> (the trío) is required on the HR channel; on the employee self-service
 /// portal channel it is ignored (the requester is the subject employee). <c>PayrollPeriodLabel</c> is mandatory;
 /// the period reference + end date are optional (degraded mode — no hard FK in PR-3).
@@ -14,10 +16,11 @@ public sealed record AddOvertimeRecordRequest(
     Guid OvertimeTypePublicId,
     decimal? FactorApplied,
     string? FactorOverrideNote,
-    int DurationHours,
-    int DurationMinutes,
-    TimeOnly? StartTime,
-    TimeOnly? EndTime,
+    // H-20 — the range is MANDATORY and the duration is derived from it. `durationHours`/`durationMinutes` are
+    // no longer accepted here: the engine pays the duration, so while the two were independent a record could
+    // declare 8 h against a 10:00-11:00 range and be paid for eight while the authorizer approved one.
+    TimeOnly StartTime,
+    TimeOnly EndTime,
     Guid JustificationTypePublicId,
     string? Observations,
     Guid? AssignedPositionPublicId,
@@ -33,10 +36,11 @@ public sealed record UpdateOvertimeRecordRequest(
     Guid OvertimeTypePublicId,
     decimal? FactorApplied,
     string? FactorOverrideNote,
-    int DurationHours,
-    int DurationMinutes,
-    TimeOnly? StartTime,
-    TimeOnly? EndTime,
+    // H-20 — the range is MANDATORY and the duration is derived from it. `durationHours`/`durationMinutes` are
+    // no longer accepted here: the engine pays the duration, so while the two were independent a record could
+    // declare 8 h against a 10:00-11:00 range and be paid for eight while the authorizer approved one.
+    TimeOnly StartTime,
+    TimeOnly EndTime,
     Guid JustificationTypePublicId,
     string? Observations,
     Guid? AssignedPositionPublicId,

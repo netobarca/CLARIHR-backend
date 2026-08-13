@@ -93,6 +93,9 @@ public static class AuditEventTypes
     public const string PositionCategoryInactivated = "POSITION_CATEGORY_INACTIVATED";
     public const string PositionSlotCreated = "POSITION_SLOT_CREATED";
     public const string PositionSlotUpdated = "POSITION_SLOT_UPDATED";
+    // H-15 — the slot can now be deleted outright when nothing references it; the audit entry is the only
+    // trace left, so it carries the full snapshot as `Before`.
+    public const string PositionSlotDeleted = "POSITION_SLOT_DELETED";
     public const string PositionSlotStatusChanged = "POSITION_SLOT_STATUS_CHANGED";
     public const string PositionSlotDependencyUpdated = "POSITION_SLOT_DEPENDENCY_UPDATED";
     public const string PositionSlotOccupancyChanged = "POSITION_SLOT_OCCUPANCY_CHANGED";
@@ -352,6 +355,7 @@ public static class AuditEventTypes
         PositionCategoryInactivated,
         PositionSlotCreated,
         PositionSlotUpdated,
+        PositionSlotDeleted,
         PositionSlotStatusChanged,
         PositionSlotDependencyUpdated,
         PositionSlotOccupancyChanged,

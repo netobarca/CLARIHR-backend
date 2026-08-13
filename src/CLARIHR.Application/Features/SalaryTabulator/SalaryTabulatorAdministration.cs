@@ -18,9 +18,18 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.SalaryTabulator;
 
+/// <remarks>
+/// H-08 — <c>SalaryClassCode</c> is what the line actually stores (the domain key: the unique index is
+/// <c>(TenantId, NormalizedSalaryClassCode, NormalizedSalaryScaleCode, EffectiveFromUtc)</c>), so it is
+/// never null and never lies. <c>SalaryClassId</c> and <c>SalaryClassName</c> are resolved from the salary
+/// class catalog; the id stays null when that class is inactive, which is why the code and the name have to
+/// travel with the line — otherwise an inactivated class made its lines unattributable.
+/// </remarks>
 public sealed record SalaryTabulatorLineListItemResponse(
     Guid Id,
     Guid? SalaryClassId,
+    string SalaryClassCode,
+    string? SalaryClassName,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -35,10 +44,13 @@ public sealed record SalaryTabulatorLineListItemResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
+/// <inheritdoc cref="SalaryTabulatorLineListItemResponse"/>
 public sealed record SalaryTabulatorLineResponse(
     Guid Id,
     Guid CompanyId,
     Guid? SalaryClassId,
+    string SalaryClassCode,
+    string? SalaryClassName,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -54,9 +66,15 @@ public sealed record SalaryTabulatorLineResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
+/// <remarks>
+/// H-08 — the class columns come before the scale so the sheet reads class → scale. Until this, the only
+/// identification of the class in the file a human opens was the raw <c>SalaryClassId</c> GUID.
+/// </remarks>
 public sealed record SalaryTabulatorLineExportRow(
     Guid Id,
     Guid? SalaryClassId,
+    string SalaryClassCode,
+    string? SalaryClassName,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -70,9 +88,12 @@ public sealed record SalaryTabulatorLineExportRow(
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
 
+/// <inheritdoc cref="SalaryTabulatorLineListItemResponse"/>
 public sealed record SalaryTabulatorChangeRequestItemResponse(
     Guid Id,
     Guid? SalaryClassId,
+    string SalaryClassCode,
+    string? SalaryClassName,
     string SalaryScaleCode,
     string CurrencyCode,
     SalaryTabulatorChangeType ChangeType,
@@ -101,7 +122,26 @@ public sealed record SalaryTabulatorChangeRequestResponse(
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
     IReadOnlyCollection<SalaryTabulatorChangeRequestItemResponse> Items,
-    AllowedActionsResponse? AllowedActions = null);
+    AllowedActionsResponse? AllowedActions = null,
+    // H-14 — plazas whose configured salary no longer fits the band this approval just changed. Reported,
+    // never blocking: the approved change is a salary-policy decision and the state of existing plazas must
+    // not be able to veto it. Empty on every response other than a successful approval.
+    IReadOnlyCollection<SalaryTabulatorOutOfBandPositionSlot>? OutOfBandPositionSlots = null);
+
+/// <summary>
+/// H-14 — one plaza left outside its band by an approved tabulator change. Carries what an operator needs to
+/// act without a second query: which plaza, what it pays today, and the bounds it no longer respects.
+/// </summary>
+public sealed record SalaryTabulatorOutOfBandPositionSlot(
+    Guid PositionSlotPublicId,
+    string PositionSlotCode,
+    Guid JobProfilePublicId,
+    string JobProfileCode,
+    decimal ConfiguredBaseSalary,
+    string? ConfiguredBaseSalaryCurrencyCode,
+    decimal? BandMinAmount,
+    decimal? BandMaxAmount,
+    string? BandCurrencyCode);
 
 public sealed record SalaryTabulatorChangeRequestListItemResponse(
     Guid Id,
@@ -118,9 +158,12 @@ public sealed record SalaryTabulatorChangeRequestListItemResponse(
     int ItemCount,
     AllowedActionsResponse? AllowedActions = null);
 
+/// <inheritdoc cref="SalaryTabulatorLineListItemResponse"/>
 public sealed record SalaryTabulatorChangeRequestImpactItemResponse(
     Guid ItemId,
     Guid? SalaryClassId,
+    string SalaryClassCode,
+    string? SalaryClassName,
     string SalaryScaleCode,
     SalaryTabulatorChangeType ChangeType,
     decimal? CurrentBaseAmount,
@@ -1363,8 +1406,25 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
             request.Approve(decidedByUserId, dateTimeProvider.UtcNow, command.DecisionComment, allowSelfApproval);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            // H-14: las plazas que la banda nueva deja fuera se REPORTAN, no bloquean. Un cambio aprobado es
+            // una decisión de política salarial y el estado de las plazas existentes no puede vetarlo; lo que
+            // sí corresponde es decirle al aprobador qué quedó fuera para que alguien lo corrija.
+            var outOfBandSlots = await repository.GetPositionSlotsOutsideBandAsync(
+                request.TenantId,
+                affectedCoverageKeys,
+                cancellationToken);
+
             var after = await repository.GetChangeRequestResponseByIdAsync(request.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Salary tabulator change request could not be resolved after approval.");
+
+            after = after with { OutOfBandPositionSlots = outOfBandSlots };
+
+            // El reporte va también a la auditoría: si solo viviera en la respuesta HTTP, se perdería en
+            // cuanto el aprobador cerrara la pantalla, y quedaría un dato que nadie puede recuperar después.
+            var outOfBandNote = outOfBandSlots.Count == 0
+                ? string.Empty
+                : $" {outOfBandSlots.Count} position slot(s) left outside the new band: " +
+                  string.Join(", ", outOfBandSlots.Select(slot => $"{slot.PositionSlotCode}={slot.ConfiguredBaseSalary}")) + ".";
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -1373,7 +1433,7 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
                     request.PublicId,
                     request.RequestNumber,
                     AuditActions.Update,
-                    $"Approved salary tabulator change request {request.RequestNumber}.",
+                    $"Approved salary tabulator change request {request.RequestNumber}.{outOfBandNote}",
                     Before: before,
                     After: after),
                 cancellationToken);

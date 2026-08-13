@@ -6663,18 +6663,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -11597,7 +11587,7 @@ paths:
       tags:
         - General Catalogs
       summary: List the AFP master catalog (enriched)
-      description: "Returns the country-scoped master catalog of pension fund administrators (AFP) with their\nidentity/contact attributes: `abbreviation`, `address`, `phone`, `fax` and `contactName`\n(nullable — completed by administration). The `countryCode` query parameter (a 2–3 letter\nISO-style code) selects the country and returns no items when missing or unknown. Items\nare ordered by `sortOrder`. The employee affiliation is stored on the person as `afpCode`."
+      description: "Returns the country-scoped master catalog of pension fund administrators (AFP) with their\nidentity/contact attributes: `abbreviation`, `address`, `phone`, `fax` and `contactName`\n(nullable — completed by administration). The `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Items\nare ordered by `sortOrder`. The employee affiliation is stored on the person as `afpCode`."
       parameters:
         - name: countryCode
           in: query
@@ -11651,7 +11641,7 @@ paths:
       tags:
         - General Catalogs
       summary: List the compensation concept types
-      description: "Returns the country-scoped catalog of compensation concept types with their default\nattributes (nature `Ingreso`/`Egreso`, statutory flag, default deduction class, default\ncalculation type/base, and the statutory employee/employer rates and contribution cap).\nThe `countryCode` query parameter (a 2–3 letter ISO-style code) selects the country and\nreturns no items when missing or unknown. Optionally filter by `nature`\n(`Ingreso` or `Egreso`). Items are ordered by `sortOrder`."
+      description: "Returns the country-scoped catalog of compensation concept types with their default\nattributes (nature `Ingreso`/`Egreso`, statutory flag, default deduction class, default\ncalculation type/base, and the statutory employee/employer rates and contribution cap).\nThe `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Optionally filter by `nature`\n(`Ingreso` or `Egreso`). Items are ordered by `sortOrder`."
       parameters:
         - name: countryCode
           in: query
@@ -11709,7 +11699,7 @@ paths:
       tags:
         - General Catalogs
       summary: List the contract types (enriched)
-      description: "Returns the country-scoped catalog of employment contract types with their enriched\nattributes: the optional short `abbreviation` and the `isTemporary` flag that marks\nfixed-term/temporary modalities (plazo fijo, obra, eventual…). The `countryCode` query\nparameter (a 2–3 letter ISO-style code) selects the country and returns no items when\nmissing or unknown. Items are ordered by `sortOrder`."
+      description: "Returns the country-scoped catalog of employment contract types with their enriched\nattributes: the optional short `abbreviation` and the `isTemporary` flag that marks\nfixed-term/temporary modalities (plazo fijo, obra, eventual…). The `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Items are ordered by `sortOrder`."
       parameters:
         - name: countryCode
           in: query
@@ -11763,7 +11753,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a general catalog
-      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/shifts/\nmodalities/careers, document types) are global and ignore `countryCode`; country-scoped\ncatalogs (languages, currencies, banks…) require the `countryCode` query parameter (a 2–3\nletter ISO-style code) to select the country and return no items when it is missing or\nunknown. Items are ordered by `sortOrder`."
+      description: "Returns the active items of the catalog identified by `catalogKey` (a closed whitelist —\ne.g. `countries`, `currencies`, `banks`, `languages`, `education-careers`,\n`file-document-types`; an unsupported key yields `400`). Authenticated read; no company\ncontext is required. System-scoped catalogs (education statuses/study types/levels/\nshifts/modalities, document types, `countries`) are global and ignore `countryCode` — they answer\nwith no country context at all, which is what the onboarding caller needs. Every other catalog is\ncountry-scoped: The `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Careers are country-scoped despite sitting among the education catalogs. Items are ordered by `sortOrder`."
       parameters:
         - name: catalogKey
           in: path
@@ -11822,7 +11812,7 @@ paths:
       tags:
         - General Catalogs
       summary: List a reference catalog
-      description: "Returns the active items of the country-scoped reference catalog identified by `catalogKey`\n(a closed whitelist — `professions`, `marital-statuses`, `identification-types`, `kinships`,\n`departments`, `municipalities`; an unsupported key yields `400`). Authenticated read; no\ncompany context is required. The `countryCode` query parameter (a 2–3 letter ISO-style code)\nis required and scopes the items to that country; items are ordered by `sortOrder`. For\nhierarchical catalogs, the optional `parentCode` narrows children\n(e.g. `municipalities?countryCode=SV&parentCode={departmentCode}`)."
+      description: "Returns the active items of the country-scoped reference catalog identified by `catalogKey`\n(a closed whitelist — `professions`, `marital-statuses`, `identification-types`, `kinships`,\n`departments`, `municipalities`; an unsupported key yields `400`). Authenticated read; no\ncompany context is required. The `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Items are ordered by `sortOrder`. For\nhierarchical catalogs, the optional `parentCode` narrows children\n(e.g. `municipalities?countryCode=SV&parentCode={departmentCode}`)."
       parameters:
         - name: catalogKey
           in: path
@@ -11885,7 +11875,7 @@ paths:
       tags:
         - General Catalogs
       summary: List the settlement concepts
-      description: "Returns the country-scoped catalog of settlement (\"liquidación\") concepts with the\nattributes the calculation consumes: the section (`Ingreso`, `Descuento`,\n`PagoPatronal`), the ISSS/AFP/Renta affectation matrix, the income-tax exemption rule\nwith its optional multiplier, whether the engine computes the line (vs manual entry),\nand the employer rate for the pagos-patronales section. The `countryCode` query\nparameter (a 2–3 letter ISO-style code) selects the country and returns no items when\nmissing or unknown. Optionally filter by `conceptClass`. Items are ordered by\n`sortOrder`."
+      description: "Returns the country-scoped catalog of settlement (\"liquidación\") concepts with the\nattributes the calculation consumes: the section (`Ingreso`, `Descuento`,\n`PagoPatronal`), the ISSS/AFP/Renta affectation matrix, the income-tax exemption rule\nwith its optional multiplier, whether the engine computes the line (vs manual entry),\nand the employer rate for the pagos-patronales section. The `countryCode` query parameter (a 2–3\nletter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a\ncode that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list\nnow means only that this country's catalog has no rows (H-21). A caller with no tenant (the\ncompany-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Optionally filter by `conceptClass`. Items are ordered by\n`sortOrder`."
       parameters:
         - name: countryCode
           in: query
@@ -13853,12 +13843,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -14184,12 +14170,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -14527,12 +14509,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -14870,12 +14848,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -15213,12 +15187,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -15794,12 +15764,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -16137,12 +16103,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -16817,12 +16779,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -17160,12 +17118,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -26860,6 +26814,187 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/employees/query':
+    post:
+      tags:
+      - Payroll Runs
+      summary: Query the payroll matrix (one row per employee)
+      description: 'The payroll matrix: **one row per employee** of the run, pivoted server-side over its INCLUDED lines —
+
+        days (period, unpaid, incapacity by payer, and the paid equivalent), income split into salary, bonuses,
+
+        commissions, overtime, non-deductible reimbursements and aguinaldo, then ISSS / AFP / Renta and the
+
+        external and internal deductions, with the totals and the net.
+
+
+        `totales` is computed over the WHOLE run and travels with every page — do not recompute it from
+
+        `items`, which only carries the current page. The `otrosIngresos` / `otrosDescuentos` buckets exist so
+
+        that `ingresoTotal − totalDescuentos = liquidoAPagar` always squares, even for a concept the catalog
+
+        never classified.
+
+
+        A multi-plaza employee is ONE row: that is how the engine computes and what the law requires (the
+
+        statutory deductions live at employee level and cannot be split per plaza). The period days are taken
+
+        once, never summed across plazas.'
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryPayrollRunEmployeeMatrixRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollRunEmployeeMatrixResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/employees/export':
+    get:
+      tags:
+      - Payroll Runs
+      summary: Export the payroll matrix (one row per employee)
+      description: 'The same matrix as `employees/query`, as a file, over the same server-side pivot — the two surfaces are
+
+        guaranteed to give the same number. The last row is the run''s TOTAL, so the file squares against the
+
+        run header without adding up the rows by hand.'
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        schema:
+          type: string
+          default: xlsx
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Content Too Large
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/payroll-runs/{publicId}/employer-cost-report/export':
     get:
       tags:
@@ -27414,18 +27549,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -28027,18 +28152,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -29088,18 +29203,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -29562,18 +29667,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -30651,18 +30746,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -30914,18 +30999,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -32154,18 +32229,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -32417,18 +32482,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -32922,18 +32977,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -34080,18 +34125,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -35339,18 +35374,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -36527,18 +36552,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -36912,12 +36927,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -37261,12 +37272,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -37610,12 +37617,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -37959,12 +37962,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -38308,12 +38307,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -38654,18 +38649,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -38770,7 +38755,7 @@ paths:
       tags:
         - Personnel Files
       summary: Add a bank account to a personnel file
-      description: "Creates a new bank account under the specified personnel file and returns it with a\n`201 Created` response. The `Location` header points to the created resource and the\n`ETag` header carries its initial `concurrencyToken`.\n\n**Requires permission:** one of `PersonnelFiles.Admin`, `iam.administration.manage`."
+      description: "Creates a new bank account under the specified personnel file and returns it with a\n`201 Created` response. The `Location` header points to the created resource and the\n`ETag` header carries its initial `concurrencyToken`.\n\nTwo rules the file itself enforces (H-27): an exact duplicate is rejected with\n`PERSONNEL_FILE_BANK_ACCOUNT_DUPLICATE` — the key is bank + **normalized** account number + currency, so\nseparators do not make a different account, while the same account in another currency is allowed — and\nthere is at most ONE primary account: marking a new one demotes the previous in the same commit, and the\nFIRST account is primary even when the body says otherwise. The primary is what decides where the salary\nis deposited when the plaza designates no account.\n\n**Requires permission:** one of `PersonnelFiles.Admin`, `iam.administration.manage`."
       parameters:
         - name: publicId
           in: path
@@ -39036,18 +39021,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -39418,18 +39393,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -40241,18 +40206,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -40659,18 +40614,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -41259,18 +41204,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -42095,12 +42030,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -42322,18 +42253,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -43113,18 +43034,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -44103,18 +44014,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -45263,18 +45164,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -46062,18 +45953,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -46497,12 +46378,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -46846,12 +46723,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -47195,12 +47068,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -47968,12 +47837,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -48317,12 +48182,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -48666,12 +48527,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -49015,12 +48872,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -49242,18 +49095,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -51104,12 +50947,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -51453,12 +51292,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -51802,12 +51637,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -51882,7 +51713,7 @@ paths:
       tags:
         - Personnel Files
       summary: Create a vacation fund period
-      description: "Creates a manual vacation fund period for the employee and year. The bounds are derived from the\nanniversary flag (defaulting to the company preference) and the employee's primary-plaza anniversary\nor the calendar year; the grants default to the company preference. Rejected when an active period\nalready exists for the year (`VACATION_PERIOD_DUPLICATE`) or the employee has not completed one year\nof service at the start of the period (`VACATION_ELIGIBILITY_NOT_MET`). Manager-only."
+      description: "Creates a manual vacation fund period for the employee and year. The bounds are derived from the\nanniversary flag (defaulting to the company preference) and the employee's **hire** anniversary\nor the calendar year; the grants default to the company preference. Rejected when an active period\nalready exists for the year (`VACATION_PERIOD_DUPLICATE`) or the employee does not complete one year\nof service (Art. 177, counted from the hire date) at any point within the period\n(`VACATION_ELIGIBILITY_NOT_MET`). Manager-only.\n\nSeniority is the seniority of the employment relationship, so it is anchored on `hireDate` — not on\nwhen the plaza was registered. A rehire resets `hireDate`, and therefore the anchor."
       parameters:
         - name: publicId
           in: path
@@ -52077,18 +51908,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -52925,18 +52746,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -54387,18 +54198,8 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '204':
+          description: No Content
         '400':
           description: Bad Request
           content:
@@ -57436,7 +57237,7 @@ paths:
       tags:
         - Personnel Files
       summary: Generate the yearly vacation fund for active employees
-      description: "Creates one active vacation fund period per active employee for the year (idempotent by\nemployee-year: a re-run creates nothing for employees that already have an active period).\nArt. 177-ineligible employees (less than one year of service at the start of the period) are\nreported per row (`errors`). The grants and anniversary flag default to the company preference; an\noptional `employeeIds` filter restricts the run. Returns a `{created, skipped, errors[]}` summary.\nManager-only (`ManageVacations`)."
+      description: "Creates one active vacation fund period per active employee for the year (idempotent by\nemployee-year: a re-run creates nothing for employees that already have an active period).\nArt. 177-ineligible employees (those who do not complete one year of service, counted from their **hire date**, at any point within the period) are\nreported per row (`errors`). The grants and anniversary flag default to the company preference; an\noptional `employeeIds` filter restricts the run. Returns a `{created, skipped, errors[]}` summary.\nManager-only (`ManageVacations`).\n\nAny year in `[2000, 2100]` is accepted, including past ones — that is how a company loads the fund it\nalready owed when it started using the system. A generated period always grants the full default days,\nso for a past year whose vacation was partly or fully taken, adjust the granted days afterwards with\n`PUT /api/v1/personnel-files/{publicId}/vacation-periods/{vacationPeriodPublicId}`."
       parameters:
         - name: companyPublicId
           in: path
@@ -58837,6 +58638,23 @@ paths:
           in: query
           schema:
             type: string
+        - name: isActive
+          in: query
+          description: >-
+            H-15. Filters slots in force from retired ones (a Suspended slot is isActive=false). Omitting it
+            returns both, which is the historical behaviour and the default.
+          schema:
+            type: boolean
+            nullable: true
+        - name: directDependencyPositionSlotPublicId
+          in: query
+          description: >-
+            H-16. Returns only the direct children of that slot. Each item also carries its own dependency
+            fields, null on a root.
+          schema:
+            type: string
+            format: uuid
+            nullable: true
         - name: page
           in: query
           schema:
@@ -59115,6 +58933,116 @@ paths:
           application/*+json:
             schema:
               $ref: '#/components/schemas/UpdatePositionSlotRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PositionSlotResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionSlotResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PositionSlotResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Position Slots
+      summary: Delete a position slot
+      description: >-
+        H-15. Deletes a slot that nothing references and returns its final snapshot. Requires If-Match with
+        the current concurrencyToken (missing -> 400, stale -> 409 CONCURRENCY_CONFLICT). Responds
+        409 POSITION_SLOT_IN_USE when the slot is still referenced by any employment assignment (active or
+        historical), contract history, authorization substitution or exit-interview submission, or when
+        another slot depends on it: those four references live in other tables WITHOUT a foreign key, so the
+        database would not stop the delete, it would silently orphan employment history. This verb is for a
+        slot that should never have existed; to retire a position that did exist, PATCH its status to
+        Suspended, which keeps the history and takes it out of isActive=true listings.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: OK
@@ -59480,6 +59408,14 @@ paths:
           in: query
           schema:
             type: string
+        - name: isActive
+          in: query
+          description: >-
+            H-15. Filters slots in force from retired ones (a Suspended slot is isActive=false). Omitting it
+            returns both, which is the historical behaviour and the default.
+          schema:
+            type: boolean
+            nullable: true
       responses:
         '200':
           description: OK
@@ -59750,120 +59686,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Conflict
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/position-slots/{publicId}/occupancy':
-    patch:
-      tags:
-        - Position Slots
-      summary: Update a position slot's occupancy
-      description: "Sets the number of occupied employees for the slot. A value exceeding the\nslot's capacity yields `422`. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409 CONCURRENCY_CONFLICT`). The\nrefreshed token is returned in the body and the `ETag` header.\n\n**Requires permission:** one of `PositionSlots.Admin`, `iam.administration.manage`."
-      parameters:
-        - name: publicId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: If-Match
-          in: header
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdatePositionSlotOccupancyRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/UpdatePositionSlotOccupancyRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/UpdatePositionSlotOccupancyRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/PositionSlotResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PositionSlotResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/PositionSlotResponse'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: Forbidden
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Conflict
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Unprocessable Content
           content:
             text/plain:
               schema:
@@ -65641,10 +65463,10 @@ components:
           nullable: true
         startDate:
           type: string
-          format: date-time
+          format: date
         endDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
         isPrimary:
           type: boolean
@@ -66229,20 +66051,12 @@ components:
         factorOverrideNote:
           type: string
           nullable: true
-        durationHours:
-          type: integer
-          format: int32
-        durationMinutes:
-          type: integer
-          format: int32
         startTime:
           type: string
           format: time
-          nullable: true
         endTime:
           type: string
           format: time
-          nullable: true
         justificationTypePublicId:
           type: string
           format: uuid
@@ -69207,6 +69021,12 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
         normalizedCode:
           type: string
           readOnly: true
@@ -69703,9 +69523,8 @@ components:
         maxEmployees:
           type: integer
           format: int32
-        occupiedEmployees:
-          type: integer
-          format: int32
+        generatesOvertime:
+          type: boolean
         effectiveFromUtc:
           type: string
           format: date-time
@@ -72376,6 +72195,12 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
         isSystem:
           type: boolean
         isActive:
@@ -73041,13 +72866,6 @@ components:
         totalCount:
           type: integer
           format: int32
-      additionalProperties: false
-    JobProfileParentConcurrencyResult:
-      type: object
-      properties:
-        parentConcurrencyToken:
-          type: string
-          format: uuid
       additionalProperties: false
     JobProfileRelationResponse:
       type: object
@@ -75997,6 +75815,18 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRecordWarning'
+      additionalProperties: false
+    OvertimeRecordWarning:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
       additionalProperties: false
     OvertimeTotalsByTypeResponse:
       type: object
@@ -77769,6 +77599,30 @@ components:
           items:
             $ref: '#/components/schemas/PayrollRunLineResponse'
       additionalProperties: false
+    PayrollRunEmployeeMatrixResponse:
+      type: object
+      properties:
+        payrollRunPublicId:
+          type: string
+          format: uuid
+        moneda:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanillaEmpleadoRow'
+        totales:
+          $ref: '#/components/schemas/PlanillaEmpleadoRow'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+      additionalProperties: false
     PayrollRunLineResponse:
       type: object
       properties:
@@ -77796,6 +77650,24 @@ components:
           type: string
         lineClass:
           type: string
+        incomeClass:
+          type: string
+          nullable: true
+        deductionClass:
+          type: string
+          nullable: true
+        unpaidDays:
+          type: number
+          format: double
+          nullable: true
+        employerPaidDays:
+          type: number
+          format: double
+          nullable: true
+        subsidizedDays:
+          type: number
+          format: double
+          nullable: true
         units:
           type: number
           format: double
@@ -79102,10 +78974,10 @@ components:
           nullable: true
         startDate:
           type: string
-          format: date-time
+          format: date
         endDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
         isPrimary:
           type: boolean
@@ -79756,13 +79628,6 @@ components:
         isActive:
           type: boolean
         concurrencyToken:
-          type: string
-          format: uuid
-      additionalProperties: false
-    PersonnelFileParentConcurrencyResult:
-      type: object
-      properties:
-        parentConcurrencyToken:
           type: string
           format: uuid
       additionalProperties: false
@@ -81011,6 +80876,86 @@ components:
           type: string
           readOnly: true
       additionalProperties: false
+    PlanillaEmpleadoRow:
+      type: object
+      properties:
+        codigoEmpleado:
+          type: string
+          nullable: true
+        empleado:
+          type: string
+        diasPeriodo:
+          type: number
+          format: double
+        diasSinGoce:
+          type: number
+          format: double
+        diasIncapacidadEmpresa:
+          type: number
+          format: double
+        diasIncapacidadIsss:
+          type: number
+          format: double
+        diasIncapacidadSinPago:
+          type: number
+          format: double
+        diasPagadosEquivalentes:
+          type: number
+          format: double
+        salarioBase:
+          type: number
+          format: double
+        salarioDelPeriodo:
+          type: number
+          format: double
+        bonos:
+          type: number
+          format: double
+        comisiones:
+          type: number
+          format: double
+        horasExtras:
+          type: number
+          format: double
+        ingresosAdicionales:
+          type: number
+          format: double
+        aguinaldo:
+          type: number
+          format: double
+        otrosIngresos:
+          type: number
+          format: double
+        ingresoTotal:
+          type: number
+          format: double
+        isss:
+          type: number
+          format: double
+        afp:
+          type: number
+          format: double
+        renta:
+          type: number
+          format: double
+        descuentosExternos:
+          type: number
+          format: double
+        descuentosInternos:
+          type: number
+          format: double
+        otrosDescuentos:
+          type: number
+          format: double
+        totalDescuentos:
+          type: number
+          format: double
+        liquidoAPagar:
+          type: number
+          format: double
+        moneda:
+          type: string
+      additionalProperties: false
     PositionCategoryClassificationResponse:
       type: object
       properties:
@@ -81299,6 +81244,20 @@ components:
         workCenterName:
           type: string
           nullable: true
+        directDependencyPositionSlotPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        directDependencyPositionSlotCode:
+          type: string
+          nullable: true
+        functionalDependencyPositionSlotPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        functionalDependencyPositionSlotCode:
+          type: string
+          nullable: true
         positionCategoryCode:
           type: string
           nullable: true
@@ -81327,6 +81286,8 @@ components:
         occupiedEmployees:
           type: integer
           format: int32
+        generatesOvertime:
+          type: boolean
         effectiveFromUtc:
           type: string
           format: date-time
@@ -81469,6 +81430,8 @@ components:
         occupiedEmployees:
           type: integer
           format: int32
+        generatesOvertime:
+          type: boolean
         effectiveFromUtc:
           type: string
           format: date-time
@@ -82002,6 +81965,18 @@ components:
           type: string
           format: date
           nullable: true
+        pageNumber:
+          type: integer
+          format: int32
+          nullable: true
+        pageSize:
+          type: integer
+          format: int32
+          nullable: true
+      additionalProperties: false
+    QueryPayrollRunEmployeeMatrixRequest:
+      type: object
+      properties:
         pageNumber:
           type: integer
           format: int32
@@ -83935,6 +83910,11 @@ components:
           type: string
           format: uuid
           nullable: true
+        salaryClassCode:
+          type: string
+        salaryClassName:
+          type: string
+          nullable: true
         salaryScaleCode:
           type: string
         changeType:
@@ -84015,6 +83995,11 @@ components:
         salaryClassPublicId:
           type: string
           format: uuid
+          nullable: true
+        salaryClassCode:
+          type: string
+        salaryClassName:
+          type: string
           nullable: true
         salaryScaleCode:
           type: string
@@ -84192,6 +84177,11 @@ components:
           type: string
           format: uuid
           nullable: true
+        salaryClassCode:
+          type: string
+        salaryClassName:
+          type: string
+          nullable: true
         salaryScaleCode:
           type: string
         currencyCode:
@@ -84261,6 +84251,11 @@ components:
         salaryClassPublicId:
           type: string
           format: uuid
+          nullable: true
+        salaryClassCode:
+          type: string
+        salaryClassName:
+          type: string
           nullable: true
         salaryScaleCode:
           type: string
@@ -85541,10 +85536,10 @@ components:
           nullable: true
         startDate:
           type: string
-          format: date-time
+          format: date
         endDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
         isPrimary:
           type: boolean
@@ -85817,6 +85812,12 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
         isActive:
           type: boolean
         normalizedCode:
@@ -86310,20 +86311,12 @@ components:
         factorOverrideNote:
           type: string
           nullable: true
-        durationHours:
-          type: integer
-          format: int32
-        durationMinutes:
-          type: integer
-          format: int32
         startTime:
           type: string
           format: time
-          nullable: true
         endTime:
           type: string
           format: time
-          nullable: true
         justificationTypePublicId:
           type: string
           format: uuid
@@ -86623,13 +86616,6 @@ components:
           format: uuid
           nullable: true
       additionalProperties: false
-    UpdatePositionSlotOccupancyRequest:
-      type: object
-      properties:
-        occupiedEmployees:
-          type: integer
-          format: int32
-      additionalProperties: false
     UpdatePositionSlotRequest:
       type: object
       properties:
@@ -86652,6 +86638,8 @@ components:
         maxEmployees:
           type: integer
           format: int32
+        generatesOvertime:
+          type: boolean
         effectiveFromUtc:
           type: string
           format: date-time

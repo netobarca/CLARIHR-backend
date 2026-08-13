@@ -357,7 +357,8 @@ public sealed partial class ApiIntegrationTests
 
         var delete = await DeleteAssignmentAsync(client, employeeId, secondary.Id, secondary.Token);
 
-        Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
+        // H-34 — el DELETE de un hijo responde 204 sin cuerpo.
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
     }
 
     // Same shape as EmploymentAssignmentBody but with the D-26 rest-day field. Kept separate so the

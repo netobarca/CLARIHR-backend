@@ -1108,6 +1108,8 @@ internal static class PayrollRunReviewSupport
             var plazaRow = line.AssignedPositionPublicId is { } plaza && assembled.RowByPlaza.TryGetValue(plaza, out var byPlaza)
                 ? byPlaza
                 : snapshot;
+            var classification = assembled.ClassificationFor(line.ConceptCode);
+            var days = assembled.DaysFor(line.SourceReferencePublicId);
             var entity = PayrollRunLine.Create(
                 snapshot.PersonnelFileId,
                 line.PersonnelFilePublicId,
@@ -1118,6 +1120,11 @@ internal static class PayrollRunReviewSupport
                 line.ConceptCode,
                 line.ConceptName,
                 line.LineClass,
+                classification.IncomeClass,
+                classification.DeductionClass,
+                days.UnpaidDays,
+                days.EmployerPaidDays,
+                days.SubsidizedDays,
                 line.Units,
                 line.BaseAmount,
                 line.CalculatedAmount,
@@ -1199,6 +1206,11 @@ internal static class PayrollRunReviewSupport
         line.ConceptCode,
         line.ConceptName,
         line.LineClass,
+        line.IncomeClass?.ToString(),
+        line.DeductionClass?.ToString(),
+        line.UnpaidDays,
+        line.EmployerPaidDays,
+        line.SubsidizedDays,
         line.Units,
         line.BaseAmount,
         line.CalculatedAmount,

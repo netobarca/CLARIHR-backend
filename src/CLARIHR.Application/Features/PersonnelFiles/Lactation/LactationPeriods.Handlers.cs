@@ -81,7 +81,7 @@ internal sealed class AddPersonnelFileLactationPeriodCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileLactationPeriodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileLactationPeriodResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var item = command.Item;

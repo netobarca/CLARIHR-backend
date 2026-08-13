@@ -131,8 +131,15 @@ internal sealed class CreateWorkScheduleCommandHandler(
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
-            // Day-set violations (duplicated weekday, bad meal break, night shift with meal, zero shift,
-            // anchor/class out of range) → clean 422 instead of a 500 (REQ-012 §5).
+            // Day-set violations (duplicated weekday, bad meal break, night shift with meal, zero shift)
+            // → clean 422 instead of a 500 (REQ-012 §5). These are invariants of the day SET, which only the
+            // aggregate can judge.
+            //
+            // H-18(b) — this comment used to include "anchor/class out of range", and that was the defect: an
+            // invalid `scheduleClass` or `attendanceDateAnchor` throws the same exception types and came back
+            // as "the days are not valid", sending the reader to audit shifts that were fine. Those two are now
+            // rejected by the validator with a `400` naming the field, like every other invalid-value case in
+            // the module. Do not widen this catch back over them.
             return Result<WorkScheduleResponse>.Failure(WorkScheduleErrors.DayInvalid);
         }
 

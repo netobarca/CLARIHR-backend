@@ -57,8 +57,12 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
         Assert.Equal(5, result.Value.Seniority.Months);
     }
 
+    /// <summary>
+    /// H-25 — the code now names the missing transition instead of the generic "state rule violation", and carries
+    /// the remedy in the payload: the lifecycle it is in, the call that unlocks it and the readiness endpoint.
+    /// </summary>
     [Fact]
-    public async Task Get_WhenFileIsNotACompletedEmployee_ReturnsStateRuleViolation()
+    public async Task Get_WhenFileIsNotACompletedEmployee_ReturnsNotFinalized()
     {
         // Draft (not finalized) employee: the read precondition must reject it before touching the profile.
         var draftEmployee = CreateEmployee();
@@ -70,7 +74,10 @@ public sealed class PersonnelFileEmployeeProfileQueryTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.UnprocessableEntity, result.Error.Type);
-        Assert.Equal("PERSONNEL_FILE_STATE_RULE_VIOLATION", result.Error.Code);
+        Assert.Equal("PERSONNEL_FILE_NOT_FINALIZED", result.Error.Code);
+        Assert.Equal("Draft", result.Error.Extensions!["lifecycleStatus"]);
+        Assert.Contains("finalize", (string)result.Error.Extensions["requiredTransition"]!);
+        Assert.Contains("finalize/preview", (string)result.Error.Extensions["readiness"]!);
     }
 
     private static GetPersonnelFileEmployeeProfileQueryHandler CreateHandler(

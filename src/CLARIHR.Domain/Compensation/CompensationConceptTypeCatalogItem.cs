@@ -25,6 +25,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         CompensationNature nature,
         bool isStatutory,
         DeductionClass? defaultDeductionClass,
+        IncomeClass? defaultIncomeClass,
+        bool affectsIsss,
+        bool affectsAfp,
+        bool affectsRenta,
         CompensationCalculationType defaultCalculationType,
         string? defaultCalculationBaseCode,
         decimal? defaultEmployeeRate,
@@ -40,6 +44,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         Nature = nature;
         IsStatutory = isStatutory;
         DefaultDeductionClass = defaultDeductionClass;
+        DefaultIncomeClass = defaultIncomeClass;
+        AffectsIsss = affectsIsss;
+        AffectsAfp = affectsAfp;
+        AffectsRenta = affectsRenta;
         DefaultCalculationType = defaultCalculationType;
         DefaultCalculationBaseCode = NormalizeOptionalCode(defaultCalculationBaseCode);
         DefaultEmployeeRate = defaultEmployeeRate;
@@ -55,6 +63,27 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
     public bool IsStatutory { get; private set; }
 
     public DeductionClass? DefaultDeductionClass { get; private set; }
+
+    /// <summary>
+    /// H-29 — el eje del lado de INGRESO, simétrico a <see cref="DefaultDeductionClass"/>. Null en los conceptos de
+    /// egreso. Es lo que decide en qué columna del reporte de planilla cae el monto, así que un concepto nuevo se
+    /// clasifica una vez acá en vez de agregarse a una lista de códigos dentro de la consulta.
+    /// </summary>
+    public IncomeClass? DefaultIncomeClass { get; private set; }
+
+    /// <summary>
+    /// H-29 — si el concepto entra en la base de cotización del ISSS. Espejo de
+    /// <c>SettlementConceptCatalogItem</c>, que ya modelaba este eje mientras la planilla lo tenía fijo en
+    /// <c>true</c> dentro del código: por eso los viáticos y reembolsos se venían cotizando y gravando. Sin
+    /// significado en los conceptos de egreso, donde queda en <c>false</c>.
+    /// </summary>
+    public bool AffectsIsss { get; private set; }
+
+    /// <summary>Si el concepto entra en la base de cotización de la AFP (H-29).</summary>
+    public bool AffectsAfp { get; private set; }
+
+    /// <summary>Si el concepto entra en la base gravable de la Renta (H-29).</summary>
+    public bool AffectsRenta { get; private set; }
 
     public CompensationCalculationType DefaultCalculationType { get; private set; }
 
@@ -93,6 +122,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         CompensationNature nature,
         bool isStatutory,
         DeductionClass? defaultDeductionClass,
+        IncomeClass? defaultIncomeClass,
+        bool affectsIsss,
+        bool affectsAfp,
+        bool affectsRenta,
         CompensationCalculationType defaultCalculationType,
         string? defaultCalculationBaseCode,
         decimal? defaultEmployeeRate,
@@ -112,6 +145,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
             nature,
             isStatutory,
             defaultDeductionClass,
+            defaultIncomeClass,
+            affectsIsss,
+            affectsAfp,
+            affectsRenta,
             defaultCalculationType,
             defaultCalculationBaseCode,
             defaultEmployeeRate,
@@ -131,6 +168,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         CompensationNature nature,
         bool isStatutory,
         DeductionClass? defaultDeductionClass,
+        IncomeClass? defaultIncomeClass,
+        bool affectsIsss,
+        bool affectsAfp,
+        bool affectsRenta,
         CompensationCalculationType defaultCalculationType,
         string? defaultCalculationBaseCode,
         decimal? defaultEmployeeRate,
@@ -143,6 +184,10 @@ public sealed class CompensationConceptTypeCatalogItem : CountryScopedCatalogIte
         Nature = nature;
         IsStatutory = isStatutory;
         DefaultDeductionClass = defaultDeductionClass;
+        DefaultIncomeClass = defaultIncomeClass;
+        AffectsIsss = affectsIsss;
+        AffectsAfp = affectsAfp;
+        AffectsRenta = affectsRenta;
         DefaultCalculationType = defaultCalculationType;
         DefaultCalculationBaseCode = NormalizeOptionalCode(defaultCalculationBaseCode);
         DefaultEmployeeRate = defaultEmployeeRate;

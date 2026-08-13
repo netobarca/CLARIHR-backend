@@ -200,7 +200,10 @@ public sealed class OccupationalPyramidLevelPatchApplierTests
     {
         var state = NewState();
 
-        var apply = OccupationalPyramidLevelPatchApplier.Apply(new[] { Op("replace", "/name", new string('z', 121)) }, state);
+        // H-11 — derived from the domain constant, not a literal. This was hardcoded to 121 and silently
+        // stopped testing anything the moment the ceiling moved from 120 to 150.
+        var tooLong = new string('z', OccupationalPyramidLevel.MaxNameLength + 1);
+        var apply = OccupationalPyramidLevelPatchApplier.Apply(new[] { Op("replace", "/name", tooLong) }, state);
         Assert.True(apply.IsSuccess);
 
         Assert.True(OccupationalPyramidLevelPatchApplier.Validate(state).IsFailure);
@@ -222,7 +225,8 @@ public sealed class OccupationalPyramidLevelPatchApplierTests
     {
         var state = NewState();
 
-        var apply = OccupationalPyramidLevelPatchApplier.Apply(new[] { Op("replace", "/description", new string('z', 501)) }, state);
+        var tooLong = new string('z', OccupationalPyramidLevel.MaxDescriptionLength + 1);
+        var apply = OccupationalPyramidLevelPatchApplier.Apply(new[] { Op("replace", "/description", tooLong) }, state);
         Assert.True(apply.IsSuccess);
 
         Assert.True(OccupationalPyramidLevelPatchApplier.Validate(state).IsFailure);

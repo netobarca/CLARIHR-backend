@@ -57,7 +57,7 @@ internal sealed class AddPersonnelFileContractHistoryCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // contractTypeCode is a country-scoped catalog code (general-catalogs key `contract-types`). An
@@ -129,7 +129,7 @@ internal sealed class UpdatePersonnelFileContractHistoryCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetContractHistoryAsync(personnelFile.PublicId, command.ContractHistoryPublicId, cancellationToken);
@@ -212,7 +212,7 @@ internal sealed class PatchPersonnelFileContractHistoryCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileContractHistoryResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetContractHistoryAsync(personnelFile.PublicId, command.ContractHistoryPublicId, cancellationToken);

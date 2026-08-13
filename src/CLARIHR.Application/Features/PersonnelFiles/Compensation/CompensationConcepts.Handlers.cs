@@ -146,7 +146,7 @@ internal sealed class AddPersonnelFileCompensationConceptCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var validation = await CompensationConceptCommandSupport.ValidateAsync(
@@ -238,7 +238,7 @@ internal sealed class UpdatePersonnelFileCompensationConceptCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCompensationConceptAsync(personnelFile.PublicId, command.CompensationConceptPublicId, cancellationToken);
@@ -342,7 +342,7 @@ internal sealed class PatchPersonnelFileCompensationConceptCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCompensationConceptResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCompensationConceptAsync(personnelFile.PublicId, command.CompensationConceptPublicId, cancellationToken);
@@ -438,13 +438,13 @@ internal sealed class DeletePersonnelFileCompensationConceptCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileCompensationConceptCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileCompensationConceptCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileCompensationConceptCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -458,24 +458,24 @@ internal sealed class DeletePersonnelFileCompensationConceptCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCompensationConceptAsync(personnelFile.PublicId, command.CompensationConceptPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteCompensationConceptAsync(command.CompensationConceptPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -494,8 +494,8 @@ internal sealed class DeletePersonnelFileCompensationConceptCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

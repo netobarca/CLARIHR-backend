@@ -73,7 +73,7 @@ public sealed record PatchJobProfileRequirementCommand(
 public sealed record RemoveJobProfileRequirementCommand(
     Guid JobProfileId,
     Guid RequirementId,
-    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetJobProfileRequirementsQueryValidator : AbstractValidator<GetJobProfileRequirementsQuery>
 {
@@ -283,7 +283,7 @@ internal sealed class AddJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(requirementTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(command.CatalogItemPublicId, command.RequirementType, catalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
@@ -409,7 +409,7 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(requirementTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(command.CatalogItemPublicId, command.RequirementType, catalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
@@ -446,7 +446,7 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
                 descriptionResult.Value.Description,
                 command.SortOrder);
 
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -559,7 +559,8 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(requirementTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(patchState.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveCatalogItemInternalIdAsync(
+            patchState.CatalogItemPublicId, patchState.RequirementType, catalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
@@ -593,7 +594,7 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
                 descriptionResult.Value.Description,
                 patchState.SortOrder);
 
-            profile.BumpDescriptorVersion();
+            profile.EnsureDescriptorEditable();
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -635,25 +636,25 @@ internal sealed class RemoveJobProfileRequirementCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileRequirementCommand, JobProfileParentConcurrencyResult>
+    : ICommandHandler<RemoveJobProfileRequirementCommand, ChildDeletionResult>
 {
-    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileRequirementCommand command, CancellationToken cancellationToken)
+    public async Task<Result<ChildDeletionResult>> Handle(RemoveJobProfileRequirementCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<ChildDeletionResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
+            return Result<ChildDeletionResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithRequirementsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -662,12 +663,12 @@ internal sealed class RemoveJobProfileRequirementCommandHandler(
         var requirement = profile.Requirements.FirstOrDefault(item => item.PublicId == command.RequirementId);
         if (requirement is null)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.RequirementNotFound);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.RequirementNotFound);
         }
 
         if (requirement.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetRequirementResponseAsync(profile.PublicId, requirement.PublicId, cancellationToken)
@@ -693,12 +694,12 @@ internal sealed class RemoveJobProfileRequirementCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FromDomainException(ex));
+            return Result<ChildDeletionResult>.Failure(JobProfileErrors.FromDomainException(ex));
         }
         catch
         {
@@ -981,8 +982,29 @@ internal static class JobProfileRequirementCommandSupport
             RbacPermissionAction.Update,
             cancellationToken);
 
+    /// <summary>
+    /// H-07 — the only two requirement types that reference the job catalogs, and the category each one
+    /// demands. The other three (<c>Certification</c>, <c>Experience</c>, <c>Other</c>) have no corresponding
+    /// <see cref="JobCatalogCategory"/>: they carry their content in <c>description</c>, which auto-resolves
+    /// against the internal catalogs (<c>job-profile.requirements.*</c>). Supplying a catalog item for those is
+    /// refused rather than stored, because there is no category that would make it coherent.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<JobRequirementType, JobCatalogCategory> CatalogCategoryByRequirementType =
+        new Dictionary<JobRequirementType, JobCatalogCategory>
+        {
+            [JobRequirementType.Education] = JobCatalogCategory.EducationLevel,
+            [JobRequirementType.Knowledge] = JobCatalogCategory.KnowledgeArea,
+        };
+
+    /// <summary>
+    /// H-07 — resolves the requirement's catalog item AND checks it belongs to the category its
+    /// <paramref name="requirementType"/> expects. Before this it matched on publicId alone, so an
+    /// <c>EducationLevel</c> item could hang off a <c>Certification</c> requirement and the write returned
+    /// <c>201</c>. The field stays optional: what is validated is the pairing, not the presence.
+    /// </summary>
     public static async Task<Result<long?>> ResolveCatalogItemInternalIdAsync(
         Guid? catalogItemPublicId,
+        JobRequirementType requirementType,
         IJobCatalogRepository catalogRepository,
         CancellationToken cancellationToken)
     {
@@ -991,10 +1013,20 @@ internal static class JobProfileRequirementCommandSupport
             return Result<long?>.Success(null);
         }
 
+        if (!CatalogCategoryByRequirementType.TryGetValue(requirementType, out var expectedCategory))
+        {
+            return Result<long?>.Failure(JobProfileErrors.RequirementCatalogItemNotApplicable);
+        }
+
         var catalogItem = await catalogRepository.GetByIdAsync(catalogItemPublicId.Value, cancellationToken);
         if (catalogItem is null)
         {
             return Result<long?>.Failure(JobProfileErrors.CatalogItemNotFound);
+        }
+
+        if (catalogItem.Category != expectedCategory)
+        {
+            return Result<long?>.Failure(JobProfileErrors.RequirementCatalogCategoryMismatch);
         }
 
         return Result<long?>.Success(catalogItem.Id);

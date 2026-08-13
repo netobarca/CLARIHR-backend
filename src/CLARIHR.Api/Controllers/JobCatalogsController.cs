@@ -90,13 +90,40 @@ public sealed class JobCatalogsController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new CreateJobCatalogItemCommand(companyId, category, request.Code, request.Name),
+            new CreateJobCatalogItemCommand(
+                companyId, category, request.Code, request.Name, request.Description, request.SortOrder),
             cancellationToken);
 
         return this.ToCreatedResult(
             result,
             value => $"{Request.Path}/{value.Id:D}",
             value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("order")]
+    [ProducesResponseType<ReorderJobCatalogItemsResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Reorder the items of a category",
+        Description = """
+            Rewrites `sortOrder` for the whole category in one transaction. Send `orderedPublicIds` with **every**
+            item of the category exactly once, in the desired order; the server assigns `10`, `20`, `30`, …
+
+            A partial or duplicated list is rejected with `422 JOB_CATALOG_ORDER_SET_INCOMPLETE`.
+
+            **No `If-Match`**, deliberately — see the occupational pyramid's equivalent for the reasoning.
+            """)]
+    public async Task<ActionResult<ReorderJobCatalogItemsResponse>> ReorderItems(
+        Guid companyId,
+        JobCatalogCategory category,
+        [FromBody] ReorderCatalogRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ReorderJobCatalogItemsCommand(companyId, category, request.OrderedPublicIds),
+            cancellationToken);
+
+        return this.ToActionResult(result);
     }
 
     [HttpPut("{jobCatalogPublicId:guid}")]
@@ -129,7 +156,9 @@ public sealed class JobCatalogsController(
                 request.Code,
                 request.Name,
                 request.IsActive,
-                concurrencyToken),
+                concurrencyToken,
+                request.Description,
+                request.SortOrder),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
@@ -201,12 +230,23 @@ public sealed class JobCatalogsController(
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+
+        /// <summary>H-11 — optional; the definition of the item. Up to 500 characters.</summary>
+        public string? Description { get; set; }
+
+        /// <summary>
+        /// H-11 — optional display order, ascending, `0` when omitted. NOT unique: two items may share a value,
+        /// and `code` is the tie-break. The list obeys it.
+        /// </summary>
+        public int SortOrder { get; set; }
     }
 
     public sealed class UpdateJobCatalogItemRequest
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

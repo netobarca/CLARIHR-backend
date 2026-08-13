@@ -47,7 +47,7 @@ public sealed record DeleteDisciplinaryActionDocumentCommand(
     Guid DisciplinaryActionPublicId,
     Guid DocumentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 // ── Validators ───────────────────────────────────────────────────────────────────────────────────
 

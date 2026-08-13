@@ -1150,13 +1150,21 @@ internal static class GlobalCatalogSeedData
     // carrying payroll defaults (nature, statutory flag, deduction class, calc type/base, ISSS/AFP rates + cap).
     public static IEnumerable<object> GetCompensationConceptTypeCatalogItems() =>
     [
-        CreateCompensationConceptTypeSeed(-9720L, "SV", "SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10, isBaseSalary: true),
-        CreateCompensationConceptTypeSeed(-9721L, "SV", "HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20),
-        CreateCompensationConceptTypeSeed(-9722L, "SV", "COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30),
-        CreateCompensationConceptTypeSeed(-9723L, "SV", "BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40),
-        CreateCompensationConceptTypeSeed(-9724L, "SV", "VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50),
-        CreateCompensationConceptTypeSeed(-9725L, "SV", "AGUINALDO", "Aguinaldo", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 60),
-        CreateCompensationConceptTypeSeed(-9726L, "SV", "OTRO_INGRESO", "Otro ingreso", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 70),
+        CreateCompensationConceptTypeSeed(-9720L, "SV", "SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10, defaultIncomeClass: IncomeClass.Salario, affectsIsss: true, affectsAfp: true, affectsRenta: true, isBaseSalary: true),
+        CreateCompensationConceptTypeSeed(-9721L, "SV", "HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20, defaultIncomeClass: IncomeClass.HorasExtra, affectsIsss: true, affectsAfp: true, affectsRenta: true),
+        CreateCompensationConceptTypeSeed(-9722L, "SV", "COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30, defaultIncomeClass: IncomeClass.Comision, affectsIsss: true, affectsAfp: true, affectsRenta: true),
+        CreateCompensationConceptTypeSeed(-9723L, "SV", "BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40, defaultIncomeClass: IncomeClass.Bono, affectsIsss: true, affectsAfp: true, affectsRenta: true),
+        CreateCompensationConceptTypeSeed(-9724L, "SV", "VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50, defaultIncomeClass: IncomeClass.NoDeducible, affectsIsss: false, affectsAfp: false, affectsRenta: false),
+        // El aguinaldo NO cotiza ISSS ni AFP, y sí tributa Renta: es la regla que el catálogo de FINIQUITOS ya
+        // tenía ratificada para `AGUINALDO_PROPORCIONAL` (f/f/t). Antes la planilla lo cotizaba, porque los dos
+        // mapeos de ingreso fijaban las tres banderas en `true` a mano.
+        // ⚠️ LO QUE ESTO NO ARREGLA: la exención parcial de Renta. El finiquito la modela con
+        //    `exemption_rule = HastaLimitePorMinimo` y `exemption_multiplier = 2.00` (exento hasta dos salarios
+        //    mínimos); el motor de planilla solo tiene un booleano, así que con `true` el aguinaldo pagado por
+        //    planilla tributa COMPLETO. Es sobre-retención, no bajo-retención, y la regla exacta ya está en el
+        //    sistema para portarla — pero es una feature del motor, no una bandera.
+        CreateCompensationConceptTypeSeed(-9725L, "SV", "AGUINALDO", "Aguinaldo", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 60, defaultIncomeClass: IncomeClass.Aguinaldo, affectsIsss: false, affectsAfp: false, affectsRenta: true),
+        CreateCompensationConceptTypeSeed(-9726L, "SV", "OTRO_INGRESO", "Otro ingreso", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 70, defaultIncomeClass: IncomeClass.NoDeducible, affectsIsss: false, affectsAfp: false, affectsRenta: false),
         CreateCompensationConceptTypeSeed(-9727L, "SV", "ISSS", "ISSS", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 3.00m, 7.50m, 1000.00m, 100, isBaseSalary: false, defaultPensionedEmployerRate: null, minContributionBase: 365.00m),
         CreateCompensationConceptTypeSeed(-9728L, "SV", "AFP", "AFP", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 7.25m, 8.75m, 7045.06m, 110, isBaseSalary: false, defaultPensionedEmployerRate: 8.75m, minContributionBase: 365.00m),
         CreateCompensationConceptTypeSeed(-9729L, "SV", "RENTA", "Renta (ISR)", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "SALARIO_BRUTO", null, null, null, 120),
@@ -1252,6 +1260,30 @@ internal static class GlobalCatalogSeedData
     [
         CreateEducationCatalogSeed("EDUCATION_STATUS_CATALOG", -9760L, "GRADUATED", "Graduado", 10),
         CreateEducationCatalogSeed("EDUCATION_STATUS_CATALOG", -9761L, "IN_PROGRESS", "En curso", 20),
+    ];
+
+    // H-22 — document types are SYSTEM-scoped (no tenant, no country: a "recibo" is a recibo everywhere) and
+    // platform-curated through `api/platform/document-type-catalogs` in the Backoffice API. That surface always
+    // existed; what did not was a BASELINE, so every fresh environment started with an empty catalog — and
+    // `personnel_file_documents` / `medical_claim_documents` have a NOT NULL FK to it, so not one document could
+    // be attached to a personnel file until a platform operator created a type by hand.
+    // The operator can still add, rename and deactivate on top of these; the seed only guarantees a usable start.
+    // NOT to be confused with `identification_type_catalog_items` (DUI/NIT/passport — the identity of the PERSON,
+    // country-scoped with its format regex); this catalog is the kind of the attached FILE.
+    public static IEnumerable<object> GetDocumentTypeCatalogItems() =>
+    [
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9978L, "CONSTANCIA_MEDICA", "Constancia médica", 10),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9979L, "INCAPACIDAD", "Incapacidad ISSS", 20),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9980L, "RECETA", "Receta o indicación médica", 30),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9981L, "FACTURA", "Factura", 40),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9982L, "RECIBO", "Recibo", 50),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9983L, "CONTRATO", "Contrato", 60),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9984L, "CARTA", "Carta o nota", 70),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9985L, "TITULO", "Título o diploma", 80),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9986L, "CURRICULUM", "Currículum", 90),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9987L, "IDENTIFICACION", "Copia de documento de identidad", 100),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9988L, "RESPALDO", "Respaldo", 110),
+        CreateEducationCatalogSeed("DOCUMENT_TYPE_CATALOG", -9989L, "OTRO", "Otro", 120),
     ];
 
     // Study types reseeded per §20.8 (RF-008): the 3 placeholders were renamed in place (id preserved so
@@ -1400,6 +1432,12 @@ internal static class GlobalCatalogSeedData
         decimal? defaultEmployerRate,
         decimal? contributionCap,
         int sortOrder,
+        // H-29 — el eje de ingreso y la afectación. Los egresos van con `null` + los tres en `false`: una
+        // deducción no entra en su propia base de cotización.
+        IncomeClass? defaultIncomeClass = null,
+        bool affectsIsss = false,
+        bool affectsAfp = false,
+        bool affectsRenta = false,
         bool isBaseSalary = false,
         decimal? defaultPensionedEmployerRate = null,
         decimal? minContributionBase = null) =>
@@ -1416,6 +1454,10 @@ internal static class GlobalCatalogSeedData
             Nature = nature,
             IsStatutory = isStatutory,
             DefaultDeductionClass = defaultDeductionClass,
+            DefaultIncomeClass = defaultIncomeClass,
+            AffectsIsss = affectsIsss,
+            AffectsAfp = affectsAfp,
+            AffectsRenta = affectsRenta,
             DefaultCalculationType = defaultCalculationType,
             DefaultCalculationBaseCode = defaultCalculationBaseCode,
             DefaultEmployeeRate = defaultEmployeeRate,

@@ -104,7 +104,26 @@ public interface IPositionDescriptionCatalogRepository : IPositionCatalogLookup
 
     Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken);
 
+    /// <summary>H-11 — every item of one catalog type, TRACKED, for the bulk reorder.</summary>
+    Task<IReadOnlyList<PositionDescriptionCatalogItem>> GetAllCatalogItemsAsync(
+        Guid tenantId,
+        PositionDescriptionCatalogType catalogType,
+        CancellationToken cancellationToken);
+
     Task<bool> HasWorkConditionsUsingWorkConditionAsync(long workConditionCatalogItemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// H-08 — salary tabulator lines reference their class by **normalized code**, not by id, so usage cannot
+    /// be probed with a catalog item id like every sibling above. <paramref name="activeLinesOnly"/> separates
+    /// the two guards: inactivating a class is blocked only by lines still in force (a class whose lines are
+    /// all historically closed has to stay retirable), while changing its code is blocked by **any** line,
+    /// because a closed line still has to keep saying which class it belonged to.
+    /// </summary>
+    Task<bool> HasSalaryTabulatorLinesUsingSalaryClassCodeAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        bool activeLinesOnly,
+        CancellationToken cancellationToken);
 
     void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType);
 

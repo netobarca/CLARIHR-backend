@@ -8,19 +8,12 @@ public enum PositionSlotDomainErrorCode
 {
     DirectDependencySelfReference,
     FunctionalDependencySelfReference,
-    SuspendedOccupancyConflict,
     MaxEmployeesInvalid,
-    OccupiedEmployeesNegative,
-    OccupiedExceedsCapacity,
     EffectiveFromRequired,
-    EffectiveDateRangeInvalid,
-
-    // §PS6: the caller explicitly supplied a status AND an occupancy that contradict
-    // each other on create (e.g. Vacant with occupants, or Occupied with zero). The
-    // value used to be coerced silently; it is now rejected. Note this is distinct from
-    // the intentional auto-correction on the status-only ChangeStatus transition, which
-    // has no caller-supplied occupancy to contradict.
-    StatusOccupancyMismatch
+    // H-23 — `SuspendedOccupancyConflict`, `OccupiedEmployeesNegative`, `OccupiedExceedsCapacity` and
+    // `StatusOccupancyMismatch` are gone with the occupancy counter: `Vacant`/`Occupied` and the occupant count
+    // are derived from the assignments, so there is no second number left to contradict the first.
+    EffectiveDateRangeInvalid
 }
 
 public sealed class PositionSlotDomainException(PositionSlotDomainErrorCode code, string message)

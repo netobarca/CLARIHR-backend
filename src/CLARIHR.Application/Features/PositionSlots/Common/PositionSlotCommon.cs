@@ -80,6 +80,65 @@ public static class PositionSlotErrors
         ErrorType.UnprocessableEntity);
 
     /// <summary>
+    /// H-14 — the configured salary falls outside the plaza's own salary band. The band comes from the job
+    /// profile's active tabulator line, which the company defined and <b>approved with two signatures</b>;
+    /// letting the plaza sit outside it made that approval decorative and propagated a capture error to every
+    /// occupant. The way to make an exception is to change the band through the tabulator, which has approval
+    /// — not to bypass it here.
+    /// </summary>
+    public static readonly Error ConfiguredSalaryOutOfBand = new(
+        "POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND",
+        "The configured base salary falls outside the salary band of the position's job profile.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-15 — the slot cannot be deleted because something still references it. This guard IS the feature:
+    /// nothing has a foreign key to <c>position_slots</c> except its own self-references, so a raw delete does
+    /// not fail — it silently orphans employment history. Blocked by ANY assignment (a historical row orphans
+    /// just as badly as a live one), by contract history, authorization substitutions, exit-interview
+    /// submissions, or by another slot depending on this one.
+    /// </summary>
+    public static readonly Error InUse = new(
+        "POSITION_SLOT_IN_USE",
+        "The position slot cannot be deleted because it is still referenced by employment records or by other position slots. Suspend it instead if the position no longer exists.",
+        ErrorType.Conflict);
+
+    /// <summary>
+    /// H-15 — suspending a slot that still has active assignments was allowed and left the aggregate
+    /// incoherent: <c>IsActive</c> went false while its occupants stayed assigned. Checked against the real
+    /// assignments, NOT <c>OccupiedEmployees</c> — that counter is only written by the slot's own
+    /// <c>/occupancy</c> endpoint, so trusting it would miss exactly this case.
+    /// </summary>
+    public static readonly Error SuspendWithOccupants = new(
+        "POSITION_SLOT_SUSPEND_WITH_OCCUPANTS",
+        "The position slot cannot be suspended while it still has active assignments. Release its occupants first.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-14 — a base salary was supplied for a plaza whose job profile has no active salary band. With no
+    /// bounds to compare against there is no way to assert the salary is within limits, so it cannot be
+    /// configured. Leaving it through was the bypass this closes: the plaza kept a salary nobody had ever
+    /// validated, and adding the tabulator line later did not revalidate it.
+    /// <para>
+    /// This does NOT make the profile's compensation a prerequisite for the plaza to exist — only for it to
+    /// carry a configured salary. A plaza with no salary is still created normally.
+    /// </para>
+    /// </summary>
+    public static readonly Error JobProfileHasNoSalaryBand = new(
+        "POSITION_SLOT_JOB_PROFILE_HAS_NO_SALARY_BAND",
+        "The position's job profile has no active salary band, so a base salary cannot be configured. Configure the job profile's compensation first.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// H-14 — the configured salary is expressed in a different currency than the band. Comparing amounts
+    /// across currencies is meaningless, so this is refused rather than silently compared or skipped.
+    /// </summary>
+    public static readonly Error ConfiguredSalaryCurrencyMismatch = new(
+        "POSITION_SLOT_CONFIGURED_SALARY_CURRENCY_MISMATCH",
+        "The configured base salary currency does not match the currency of the job profile's salary band.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
     /// H-01 — a plaza can only exist against an APPROVED job descriptor. 422 (not 404) on purpose: the
     /// profile exists and the caller can see it in the picker; what is unprocessable is its state, and the
     /// remedy is to publish it.

@@ -122,7 +122,7 @@ public sealed class RecurringIncomesController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Discard (soft-delete) an EN_REVISION recurring income draft",
@@ -131,7 +131,7 @@ public sealed class RecurringIncomesController(
             discarded — an authorized income is revoked or closed. HR-only. Requires the `If-Match` header with the
             current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteRecurringIncome(
+    public async Task<ActionResult> DeleteRecurringIncome(
         Guid publicId,
         Guid recurringIncomePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -141,7 +141,7 @@ public sealed class RecurringIncomesController(
             new DeletePersonnelFileRecurringIncomeCommand(publicId, recurringIncomePublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpPatch("api/v1/personnel-files/{publicId:guid}/recurring-incomes/{recurringIncomePublicId:guid}/suspension")]

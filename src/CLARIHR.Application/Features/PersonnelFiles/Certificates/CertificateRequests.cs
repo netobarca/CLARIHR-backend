@@ -60,7 +60,7 @@ public sealed record DeletePersonnelFileCertificateRequestCommand(
     Guid PersonnelFileId,
     Guid CertificateRequestPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record GetPersonnelFileCertificateRequestsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileCertificateRequestResponse>>;

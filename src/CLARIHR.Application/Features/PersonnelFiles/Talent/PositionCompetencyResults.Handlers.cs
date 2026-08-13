@@ -42,7 +42,7 @@ internal sealed class AddPersonnelFilePositionCompetencyResultCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var resolved = await PositionCompetencyResultSupport.ResolveAsync(
@@ -123,7 +123,7 @@ internal sealed class UpdatePersonnelFilePositionCompetencyResultCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetPositionCompetencyResultAsync(personnelFile.PublicId, command.PositionCompetencyResultPublicId, cancellationToken);
@@ -198,7 +198,7 @@ internal sealed class PatchPersonnelFilePositionCompetencyResultCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePositionCompetencyResultResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetPositionCompetencyResultAsync(personnelFile.PublicId, command.PositionCompetencyResultPublicId, cancellationToken);
@@ -270,13 +270,13 @@ internal sealed class DeletePersonnelFilePositionCompetencyResultCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFilePositionCompetencyResultCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFilePositionCompetencyResultCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFilePositionCompetencyResultCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageCompetenciesAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageCompetenciesAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -290,24 +290,24 @@ internal sealed class DeletePersonnelFilePositionCompetencyResultCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetPositionCompetencyResultAsync(personnelFile.PublicId, command.PositionCompetencyResultPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeletePositionCompetencyResultAsync(command.PositionCompetencyResultPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -326,8 +326,8 @@ internal sealed class DeletePersonnelFilePositionCompetencyResultCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

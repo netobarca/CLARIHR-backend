@@ -5,7 +5,7 @@ using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.Abstractions.PersonnelFiles;
 
-public interface IPersonnelFileRepository
+public interface IPersonnelFileRepository : ICatalogCountryLookup
 {
     void Add(PersonnelFile personnelFile);
 
@@ -253,8 +253,6 @@ public interface IPersonnelFileRepository
         string? parentCode,
         CancellationToken cancellationToken);
 
-    Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken);
-
     Task<bool> CatalogCodeIsActiveAsync(
         Guid companyId,
         string category,
@@ -348,8 +346,6 @@ public interface IPersonnelFileRepository
         Guid companyId,
         CancellationToken cancellationToken) =>
         Task.FromResult(new OvertimeCompanyPreferences(false, null));
-
-    Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
 
     Task<bool> ReferenceCatalogCodeIsActiveAsync(
         string countryCode,

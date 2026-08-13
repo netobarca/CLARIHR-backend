@@ -69,7 +69,7 @@ public sealed record DeletePersonnelFileBankAccountCommand(
     Guid PersonnelFileId,
     Guid BankAccountPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileBankAccountPatchOperation(
     string Op,

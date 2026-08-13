@@ -224,7 +224,7 @@ internal sealed class ApplyRecurringIncomeInstallmentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringIncomeInstallmentApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringIncomeInstallmentApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -380,7 +380,7 @@ internal sealed class AnnulRecurringIncomeInstallmentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringIncomeInstallmentApplicationResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringIncomeInstallmentApplicationResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (string.IsNullOrWhiteSpace(command.Reason))

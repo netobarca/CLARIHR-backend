@@ -325,8 +325,9 @@ internal sealed class RehireEmployeeCommandHandler(
             employeeRepository,
             tenantId,
             command.PositionSlotPublicId,
-            command.NewHireDate,
-            command.ContractEndDate,
+            // H-26/H-28 — la asignación razona en DÍAS; el comando de recontratación trae instantes.
+            DateOnly.FromDateTime(command.NewHireDate),
+            command.ContractEndDate is { } fin ? DateOnly.FromDateTime(fin) : null,
             isActive: true,
             excludeAssignmentPublicId: null,
             cancellationToken);
@@ -335,8 +336,8 @@ internal sealed class RehireEmployeeCommandHandler(
         var candidate = new EmploymentAssignmentRules.Candidate(
             PublicId: null,
             command.PositionSlotPublicId,
-            command.NewHireDate,
-            command.ContractEndDate,
+            DateOnly.FromDateTime(command.NewHireDate),
+            command.ContractEndDate is { } finRegla ? DateOnly.FromDateTime(finRegla) : null,
             IsPrimary: true,
             IsActive: true);
 
@@ -357,8 +358,8 @@ internal sealed class RehireEmployeeCommandHandler(
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: null,
-            command.NewHireDate,
-            command.ContractEndDate,
+            DateOnly.FromDateTime(command.NewHireDate),
+            command.ContractEndDate is { } finAlta ? DateOnly.FromDateTime(finAlta) : null,
             isPrimary: true,
             isActive: true,
             notes: null);

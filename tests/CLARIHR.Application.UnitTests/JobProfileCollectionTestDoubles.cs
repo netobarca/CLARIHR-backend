@@ -581,6 +581,9 @@ internal sealed class TestJobCatalogRepository : IJobCatalogRepository
     public void Add(JobCatalogItem item) { }
     public void Remove(JobCatalogItem item) { }
     public Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken) => Task.FromResult<JobCatalogItem?>(null);
+    // H-11 — deliberately not an empty list: the bulk reorder validates the submitted set against what
+    // this returns, so a permissive double would let any future test of it pass while proving nothing.
+    public Task<IReadOnlyList<JobCatalogItem>> GetAllByCategoryAsync(Guid tenantId, JobCatalogCategory category, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> CodeExistsAsync(Guid tenantId, JobCatalogCategory category, string normalizedCode, long? excludingItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasUsageAsync(long catalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -628,6 +631,13 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public Task<bool> HasRequirementsUsingRequirementTypeAsync(long requirementTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasWorkConditionsUsingWorkConditionAsync(long workConditionCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
+    // H-11 — same reasoning as the job catalog double above.
+    public Task<IReadOnlyList<PositionDescriptionCatalogItem>> GetAllCatalogItemsAsync(Guid tenantId, PositionDescriptionCatalogType catalogType, CancellationToken cancellationToken) => throw new NotImplementedException();
+    // H-08 — deliberately NOT `Task.FromResult(false)` like its siblings above. This one backs a guard (a
+    // salary class code cannot move while tabulator lines reference it); a permissive double would let any
+    // future test of that path pass while proving nothing. If a test reaches here it must fail loudly and
+    // model the answer it actually needs.
+    public Task<bool> HasSalaryTabulatorLinesUsingSalaryClassCodeAsync(Guid tenantId, string normalizedSalaryClassCode, bool activeLinesOnly, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken) => Task.FromResult((long?)1);
     public Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType) { }
@@ -749,6 +759,15 @@ internal sealed class TestSalaryTabulatorRepository : ISalaryTabulatorRepository
 
     public Task<bool> LineExistsOutsideTenantAsync(Guid lineId, CancellationToken cancellationToken) =>
         Task.FromResult(false);
+
+    // H-14: este doble no ejercita el reporte de plazas fuera de banda — throw en vez de devolver vacío, para
+    // que un test futuro que dependa del reporte falle en voz alta en lugar de pasar creyendo que no hay nada.
+    public Task<IReadOnlyCollection<SalaryTabulatorOutOfBandPositionSlot>> GetPositionSlotsOutsideBandAsync(
+        Guid tenantId,
+        IReadOnlyCollection<(string NormalizedSalaryClassCode, string NormalizedSalaryScaleCode)> affectedKeys,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException(
+            "This double does not model the out-of-band report. Use the integration tests for that path.");
 
     public Task<SalaryTabulatorLineResponse?> GetLineResponseByIdAsync(Guid lineId, CancellationToken cancellationToken) =>
         throw new NotImplementedException();

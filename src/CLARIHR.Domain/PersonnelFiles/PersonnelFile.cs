@@ -581,6 +581,58 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    /// <summary>
+    /// H-27 — ¿ya existe esta cuenta? La clave es <b>(banco, número normalizado, moneda)</b>: los separadores no
+    /// hacen una cuenta distinta, y la misma cuenta en otra moneda SÍ es un caso real (una en dólares y otra en
+    /// colones del mismo banco). El tipo de cuenta no entra: el mismo número no puede ser de dos tipos.
+    /// </summary>
+    public bool HasBankAccountLike(
+        long? bankCatalogItemId,
+        string accountNumber,
+        string currencyCode,
+        Guid? excludingBankAccountPublicId = null)
+    {
+        var normalized = PersonnelFileNormalization.NormalizeAccountNumber(accountNumber);
+        var currency = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+        return _bankAccounts.Any(item =>
+            item.PublicId != excludingBankAccountPublicId
+            && item.BankCatalogItemId == bankCatalogItemId
+            && string.Equals(item.NormalizedAccountNumber, normalized, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(item.CurrencyCode, currency, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// H-27 — desmarca las cuentas primarias, opcionalmente dejando una fuera. La invariante «una sola primaria»
+    /// la mantiene el agregado; el índice único parcial de la base es el respaldo contra la carrera.
+    /// <para>
+    /// ⚠️ Quien llame esto tiene que <b>descargar los cambios ANTES</b> de promover la nueva primaria: el índice
+    /// parcial se evalúa por sentencia y no es diferible, así que si EF ordena la promoción primero quedan dos
+    /// filas primarias por un instante y Postgres rechaza el lote — el cliente recibe un 500. Es la misma trampa
+    /// documentada en <c>LegalRepresentativeAdministration</c>.
+    /// </para>
+    /// </summary>
+    public void ClearPrimaryBankAccounts(Guid? excludingBankAccountPublicId = null)
+    {
+        foreach (var item in _bankAccounts.Where(item =>
+                     item.IsPrimary && item.PublicId != excludingBankAccountPublicId))
+        {
+            item.ClearPrimary();
+        }
+    }
+
+    /// <summary>H-27 — ¿el expediente ya tiene alguna cuenta? La primera es primaria por definición.</summary>
+    public bool HasAnyBankAccount() => _bankAccounts.Count > 0;
+
+    /// <summary>H-27 — el mismo tratamiento para las identificaciones (sus duplicados ya los cierra un índice).</summary>
+    public void ClearPrimaryIdentifications(Guid? excludingIdentificationPublicId = null)
+    {
+        foreach (var item in _identifications.Where(item =>
+                     item.IsPrimary && item.PublicId != excludingIdentificationPublicId))
+        {
+            item.ClearPrimary();
+        }
+    }
+
     public void UpdateBankAccount(
         Guid bankAccountPublicId,
         long? bankCatalogItemId,
@@ -1031,6 +1083,18 @@ public sealed class PersonnelFileIdentification : TenantEntity
         string? issuer,
         bool isPrimary) =>
         new(identificationType, identificationNumber, issuedDate, expiryDate, issuer, isPrimary);
+
+    /// <summary>H-27 — degradación de la primaria, igual que en la cuenta bancaria.</summary>
+    internal void ClearPrimary()
+    {
+        if (!IsPrimary)
+        {
+            return;
+        }
+
+        IsPrimary = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     internal void Update(
         string identificationType,
@@ -1542,7 +1606,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         BankCode = PersonnelFileNormalization.Clean(bankCode, nameof(bankCode));
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
         AccountNumber = PersonnelFileNormalization.Clean(accountNumber, nameof(accountNumber));
-        NormalizedAccountNumber = PersonnelFileNormalization.NormalizeCode(accountNumber);
+        NormalizedAccountNumber = PersonnelFileNormalization.NormalizeAccountNumber(accountNumber);
         AccountTypeCode = PersonnelFileNormalization.Clean(accountTypeCode, nameof(accountTypeCode));
         IsPrimary = isPrimary;
         ConcurrencyToken = Guid.NewGuid();
@@ -1579,6 +1643,18 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         bool isPrimary) =>
         new(bankCatalogItemId, bankCode, currencyCode, accountNumber, accountTypeCode, isPrimary);
 
+    /// <summary>H-27 — degradación de la primaria (la promoción va por <c>Update</c>).</summary>
+    internal void ClearPrimary()
+    {
+        if (!IsPrimary)
+        {
+            return;
+        }
+
+        IsPrimary = false;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     internal void Update(
         long? bankCatalogItemId,
         string bankCode,
@@ -1591,7 +1667,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         BankCode = PersonnelFileNormalization.Clean(bankCode, nameof(bankCode));
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
         AccountNumber = PersonnelFileNormalization.Clean(accountNumber, nameof(accountNumber));
-        NormalizedAccountNumber = PersonnelFileNormalization.NormalizeCode(accountNumber);
+        NormalizedAccountNumber = PersonnelFileNormalization.NormalizeAccountNumber(accountNumber);
         AccountTypeCode = PersonnelFileNormalization.Clean(accountTypeCode, nameof(accountTypeCode));
         IsPrimary = isPrimary;
         ConcurrencyToken = Guid.NewGuid();
@@ -2472,9 +2548,12 @@ public sealed class PersonnelFileDocument : TenantEntity
         int sizeBytes,
         string? observations)
     {
-        if (documentTypeCatalogItemId <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         if (filePublicId == Guid.Empty)
@@ -2553,9 +2632,12 @@ public sealed class PersonnelFileDocument : TenantEntity
         long documentTypeCatalogItemId,
         string? observations)
     {
-        if (documentTypeCatalogItemId <= 0)
+        // H-22 — `0` is the unset default and stays rejected; a NEGATIVE id is a legitimate row. The platform
+        // baseline of document types ships through `HasData`, whose repo-wide convention is negative ids so they
+        // never collide with the identity sequence — a `<= 0` guard rejected exactly the rows that ship.
+        if (documentTypeCatalogItemId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be set.");
         }
 
         DocumentTypeCatalogItemId = documentTypeCatalogItemId;

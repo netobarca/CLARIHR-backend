@@ -47,7 +47,7 @@ public sealed record DeleteRecognitionDocumentCommand(
     Guid RecognitionPublicId,
     Guid DocumentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 // ── Validators ───────────────────────────────────────────────────────────────────────────────────
 

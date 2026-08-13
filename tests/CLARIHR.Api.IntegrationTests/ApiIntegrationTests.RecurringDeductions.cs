@@ -35,8 +35,15 @@ public sealed partial class ApiIntegrationTests
         string employeeCode,
         string institutionalEmail,
         Guid? linkedUserPublicId = null,
-        bool retired = false)
+        bool retired = false,
+        // H-33/G5 — el desacople es opt-in: por defecto sigue siendo la misma fecha que antes, así que ningún
+        // test existente cambia. Quien necesite distinguir ingreso de inicio de plaza lo pide.
+        DateTime? hireDate = null,
+        DateOnly? plazaStartDate = null)
     {
+        var effectiveHire = hireDate ?? RecurringDeductionHireDate;
+        var effectivePlazaStart = plazaStartDate ?? DateOnly.FromDateTime(effectiveHire);
+
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -71,7 +78,7 @@ public sealed partial class ApiIntegrationTests
         await dbContext.SaveChangesAsync();
 
         var status = retired ? PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode : "ACTIVO";
-        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, status, RecurringDeductionHireDate);
+        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, status, effectiveHire);
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);
@@ -86,7 +93,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: null,
-            startDate: RecurringDeductionHireDate,
+            startDate: effectivePlazaStart,
             endDate: null,
             isPrimary: true,
             isActive: true,

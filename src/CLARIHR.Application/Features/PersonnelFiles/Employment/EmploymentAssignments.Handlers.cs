@@ -31,8 +31,8 @@ internal static class EmploymentAssignmentSlotResolver
         IPersonnelFileEmployeeRepository employeeRepository,
         Guid tenantId,
         Guid? positionSlotPublicId,
-        DateTime startDate,
-        DateTime? endDate,
+        DateOnly startDate,
+        DateOnly? endDate,
         bool isActive,
         Guid? excludeAssignmentPublicId,
         CancellationToken cancellationToken)
@@ -55,7 +55,7 @@ internal static class EmploymentAssignmentSlotResolver
 
         return new EmploymentAssignmentRules.PositionSlotFacts(
             Exists: true,
-            slot.Status,
+            slot.IsActive,
             slot.EffectiveFromUtc,
             slot.EffectiveToUtc,
             slot.MaxEmployees,
@@ -235,7 +235,7 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
         // is gated — a Candidate record cannot hold employment assignments.
         if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
-            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.NotEmployee);
         }
 
         var item = command.Item;
@@ -347,7 +347,13 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
         // D-20: when a plaza is created, auto-suggest the statutory (de-ley) deductions (ISSS/AFP) on it,
         // pre-filled from the catalog defaults. Registered on the unit of work; saved in this transaction.
         await CompensationConceptSuggestionService.SuggestStatutoryForAssignmentAsync(
-            personnelFileRepository, employeeRepository, personnelFile, entity.PublicId, entity.StartDate, cancellationToken);
+            personnelFileRepository,
+            employeeRepository,
+            personnelFile,
+            entity.PublicId,
+            // Los conceptos de compensación siguen fechados como instantes: el día entra como su medianoche UTC.
+            entity.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            cancellationToken);
 
         TouchPersonnelFile(personnelFile);
 
@@ -402,7 +408,7 @@ internal sealed class UpdatePersonnelFileEmploymentAssignmentCommandHandler(
         // is gated — a Candidate record cannot hold employment assignments.
         if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
-            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.NotEmployee);
         }
 
         var existing = await employeeRepository.GetEmploymentAssignmentAsync(personnelFile.PublicId, command.EmploymentAssignmentPublicId, cancellationToken);
@@ -552,7 +558,7 @@ internal sealed class PatchPersonnelFileEmploymentAssignmentCommandHandler(
         // is gated — a Candidate record cannot hold employment assignments.
         if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
-            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEmploymentAssignmentResponse>.Failure(PersonnelFileErrors.NotEmployee);
         }
 
         var existing = await employeeRepository.GetEmploymentAssignmentAsync(personnelFile.PublicId, command.EmploymentAssignmentPublicId, cancellationToken);
@@ -695,13 +701,13 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileEmploymentAssignmentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileEmploymentAssignmentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileEmploymentAssignmentCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -717,18 +723,18 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
         // see the create handler for the rationale. Only a Candidate record is blocked.
         if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotEmployee);
         }
 
         var existing = await employeeRepository.GetEmploymentAssignmentAsync(personnelFile.PublicId, command.EmploymentAssignmentPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // RF-002/RF-008: deleting the only active primary while other active plazas remain would leave the
@@ -741,14 +747,14 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
             if (others.Any(assignment => assignment.IsActive)
                 && !others.Any(assignment => assignment is { IsActive: true, IsPrimary: true }))
             {
-                return Result<PersonnelFileParentConcurrencyResult>.Failure(EmploymentAssignmentErrors.PrimaryRequired);
+                return Result<ChildDeletionResult>.Failure(EmploymentAssignmentErrors.PrimaryRequired);
             }
         }
 
         var removed = await employeeRepository.DeleteEmploymentAssignmentAsync(command.EmploymentAssignmentPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -767,8 +773,8 @@ internal sealed class DeletePersonnelFileEmploymentAssignmentCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 
@@ -958,12 +964,12 @@ internal static class PersonnelFileEmploymentAssignmentPatchApplier
         {
             return isRemove
                 ? PersonnelFileTalentPatch.ValidationFailure(path, "StartDate cannot be removed.")
-                : Mutate(state, () => state.StartDate = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+                : Mutate(state, () => state.StartDate = DateOnly.FromDateTime(PersonnelFileTalentPatch.ReadRequiredDateTime(value, path)));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "endDate"))
         {
-            return Mutate(state, () => state.EndDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+            return Mutate(state, () => state.EndDate = isRemove ? null : DateOnly.FromDateTime(PersonnelFileTalentPatch.ReadRequiredDateTime(value, path)));
         }
 
         if (PersonnelFileTalentPatch.IsSegment(property, "isPrimary"))

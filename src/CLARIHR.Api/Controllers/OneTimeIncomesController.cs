@@ -125,7 +125,7 @@ public sealed class OneTimeIncomesController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/one-time-incomes/{oneTimeIncomePublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Discard (soft-delete) an EN_REVISION one-time income draft",
@@ -134,7 +134,7 @@ public sealed class OneTimeIncomesController(
             discarded — an authorized income is revoked or annulled. HR-only. Requires the `If-Match` header with
             the current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteOneTimeIncome(
+    public async Task<ActionResult> DeleteOneTimeIncome(
         Guid publicId,
         Guid oneTimeIncomePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -144,7 +144,7 @@ public sealed class OneTimeIncomesController(
             new DeletePersonnelFileOneTimeIncomeCommand(publicId, oneTimeIncomePublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpPatch("api/v1/personnel-files/{publicId:guid}/one-time-incomes/{oneTimeIncomePublicId:guid}/annulment")]

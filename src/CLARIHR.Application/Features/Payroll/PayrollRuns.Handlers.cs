@@ -34,13 +34,37 @@ internal static class PayrollRunAssembler
         Guid RecordPublicId,
         IReadOnlyList<int> InstallmentNumbers);
 
+    /// <summary>H-31 — el desglose de días de un registro, por pagador.</summary>
+    internal sealed record PayrollDayBreakdown(decimal? UnpaidDays, decimal? EmployerPaidDays, decimal? SubsidizedDays);
+
     internal sealed record AssembledRun(
         PayrollCalculationInput EngineInput,
         IReadOnlyList<PoolApplyTarget> PoolTargets,
         IReadOnlyDictionary<Guid, PayrollPopulationRow> RowByPlaza,
         IReadOnlyDictionary<Guid, PayrollPopulationRow> PrimaryRowByFile,
         int CarryoverCount,
-        IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions);
+        IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions,
+        // H-29/H-30 — el snapshot del catálogo, para que la persistencia de la línea grabe su clase.
+        IReadOnlyDictionary<string, PayrollConceptClassification> ConceptClassifications,
+        // H-31 — los días de cada registro, por su referencia de origen.
+        IReadOnlyDictionary<Guid, PayrollDayBreakdown> DaysBySourceReference)
+    {
+        private static readonly PayrollDayBreakdown NoDays = new(null, null, null);
+
+        /// <summary>El desglose de días de la línea, o vacío si no viene de un registro con días.</summary>
+        internal PayrollDayBreakdown DaysFor(Guid? sourceReferencePublicId) =>
+            sourceReferencePublicId is { } reference && DaysBySourceReference.TryGetValue(reference, out var found)
+                ? found
+                : NoDays;
+
+        /// <summary>La clasificación del concepto, o <see cref="PayrollConceptClassification.Unknown"/>.</summary>
+        internal PayrollConceptClassification ClassificationFor(string conceptCode) =>
+            PayrollConceptClassification.Resolve(ConceptClassifications, conceptCode);
+    }
+
+    /// <summary>H-29 — la clasificación del concepto en el catálogo de la corrida, o el default conservador.</summary>
+    private static PayrollConceptClassification Classify(PayrollRunSourceData source, string conceptCode) =>
+        PayrollConceptClassification.Resolve(source.ConceptClassifications, conceptCode);
 
     public static AssembledRun Assemble(
         PayrollDefinition definition,
@@ -100,6 +124,7 @@ internal static class PayrollRunAssembler
                 continue;
             }
 
+            var recurringClass = Classify(source, row.ConceptCode);
             var plan = new RecurringIncomePlan(row.Plan.InstallmentValue, row.Plan.InstallmentCount, row.Plan.TotalAmount, row.Plan.IsIndefinite);
             foreach (var number in pending)
             {
@@ -109,9 +134,11 @@ internal static class PayrollRunAssembler
                     RecurringIncomeRules.InstallmentAmountFor(number, plan),
                     PayrollSourceModules.RecurringIncome,
                     row.PublicId,
-                    AffectsIsss: true,
-                    AffectsAfp: true,
-                    AffectsRenta: true,
+                    // H-29 — la afectación sale del catálogo, no de un literal: los ingresos NO deducibles
+                    // (viáticos, reembolsos) no entran en las bases de ISSS/AFP/Renta.
+                    recurringClass.AffectsIsss,
+                    recurringClass.AffectsAfp,
+                    recurringClass.AffectsRenta,
                     Units: number));
             }
 
@@ -127,15 +154,16 @@ internal static class PayrollRunAssembler
                 continue;
             }
 
+            var oneTimeClass = Classify(source, row.ConceptTypeCode);
             Bucket(incomesByPlaza, plaza.Value).Add(new PayrollIncomeItem(
                 row.ConceptTypeCode,
                 row.ConceptNameSnapshot,
                 row.Amount,
                 PayrollSourceModules.OneTimeIncome,
                 row.OneTimeIncomePublicId,
-                AffectsIsss: true,
-                AffectsAfp: true,
-                AffectsRenta: true));
+                oneTimeClass.AffectsIsss,
+                oneTimeClass.AffectsAfp,
+                oneTimeClass.AffectsRenta));
             poolTargets.Add(new PoolApplyTarget(PayrollSourceModules.OneTimeIncome, row.OneTimeIncomePublicId, []));
         }
 
@@ -231,7 +259,9 @@ internal static class PayrollRunAssembler
                 row.Amount,
                 PayrollSourceModules.NotWorkedTime,
                 row.RecordPublicId,
-                IsCarryover: row.IsCarryover));
+                IsCarryover: row.IsCarryover,
+                // H-31 — el hueco de `Units` existía y se dejaba en null; los descuentos de pool sí lo pasaban.
+                Units: row.UnpaidDays));
         }
 
         foreach (var row in source.DisciplinaryActions)
@@ -271,7 +301,8 @@ internal static class PayrollRunAssembler
                     row.ConceptName,
                     row.Amount,
                     PayrollSourceModules.Incapacity,
-                    row.RecordPublicId));
+                    row.RecordPublicId,
+                    Units: row.UnpaidDays));
             }
 
             if (row.EmployerAmount > 0m)
@@ -321,7 +352,21 @@ internal static class PayrollRunAssembler
             .ThenBy(target => target.RecordPublicId)
             .ToArray();
 
-        return new AssembledRun(engineInput, orderedTargets, rowByPlaza, primaryRowByFile, carryovers, source.ComplianceExclusions);
+        // H-31 — un registro puede producir más de una línea (la incapacidad produce el descuento del empleado y
+        // el aporte patronal), así que el desglose se indexa por su referencia y las dos líneas lo comparten.
+        var daysBySourceReference = source.NotWorkedTimes
+            .Concat(source.Incapacities)
+            .GroupBy(row => row.RecordPublicId)
+            .ToDictionary(
+                group => group.Key,
+                group => new PayrollDayBreakdown(
+                    group.Sum(row => row.UnpaidDays ?? 0m) is var unpaid && unpaid == 0m ? null : unpaid,
+                    group.Sum(row => row.EmployerPaidDays ?? 0m) is var employer && employer == 0m ? null : employer,
+                    group.Sum(row => row.SubsidizedDays ?? 0m) is var subsidized && subsidized == 0m ? null : subsidized));
+
+        return new AssembledRun(
+            engineInput, orderedTargets, rowByPlaza, primaryRowByFile, carryovers, source.ComplianceExclusions,
+            source.ConceptClassifications, daysBySourceReference);
     }
 }
 
@@ -413,6 +458,8 @@ internal sealed class GeneratePayrollRunCommandHandler(
                 var plazaRow = line.AssignedPositionPublicId is { } plaza && assembled.RowByPlaza.TryGetValue(plaza, out var byPlaza)
                     ? byPlaza
                     : snapshot;
+                var classification = assembled.ClassificationFor(line.ConceptCode);
+                var days = assembled.DaysFor(line.SourceReferencePublicId);
                 var entity = PayrollRunLine.Create(
                     snapshot.PersonnelFileId,
                     line.PersonnelFilePublicId,
@@ -423,6 +470,11 @@ internal sealed class GeneratePayrollRunCommandHandler(
                     line.ConceptCode,
                     line.ConceptName,
                     line.LineClass,
+                    classification.IncomeClass,
+                    classification.DeductionClass,
+                    days.UnpaidDays,
+                    days.EmployerPaidDays,
+                    days.SubsidizedDays,
                     line.Units,
                     line.BaseAmount,
                     line.CalculatedAmount,

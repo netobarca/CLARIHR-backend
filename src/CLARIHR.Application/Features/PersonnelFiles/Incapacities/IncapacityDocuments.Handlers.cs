@@ -160,7 +160,7 @@ internal sealed class AddIncapacityDocumentCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<IncapacityDocumentResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<IncapacityDocumentResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var incapacityInternalId = await incapacityRepository.GetInternalIdAsync(personnelFile.PublicId, command.IncapacityPublicId, cancellationToken);
@@ -250,14 +250,14 @@ internal sealed class DeleteIncapacityDocumentCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeleteIncapacityDocumentCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeleteIncapacityDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeleteIncapacityDocumentCommand command,
         CancellationToken cancellationToken)
     {
         // Deletes are manager-only.
-        var (failure, personnelFile) = await LoadForManageIncapacitiesAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageIncapacitiesAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -267,19 +267,19 @@ internal sealed class DeleteIncapacityDocumentCommandHandler(
         var incapacityInternalId = await incapacityRepository.GetInternalIdAsync(personnelFile!.PublicId, command.IncapacityPublicId, cancellationToken);
         if (incapacityInternalId is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         var document = await incapacityRepository.GetDocumentEntityAsync(
             command.IncapacityPublicId, command.DocumentPublicId, personnelFile.TenantId, cancellationToken);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.DocumentNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.DocumentNotFound);
         }
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -296,8 +296,8 @@ internal sealed class DeleteIncapacityDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

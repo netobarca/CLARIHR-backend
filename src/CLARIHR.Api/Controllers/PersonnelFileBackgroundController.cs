@@ -186,7 +186,7 @@ public sealed class PersonnelFileBackgroundController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/educations/{educationPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an education from a personnel file",
@@ -195,7 +195,7 @@ public sealed class PersonnelFileBackgroundController(
             current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEducation(
+    public async Task<ActionResult> DeleteEducation(
         Guid publicId,
         Guid educationPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -205,7 +205,7 @@ public sealed class PersonnelFileBackgroundController(
             new DeletePersonnelFileEducationCommand(publicId, educationPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Languages ────────────────────────────────────────────────────────────
@@ -347,7 +347,7 @@ public sealed class PersonnelFileBackgroundController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/languages/{languagePublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a language from a personnel file",
@@ -356,7 +356,7 @@ public sealed class PersonnelFileBackgroundController(
             current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteLanguage(
+    public async Task<ActionResult> DeleteLanguage(
         Guid publicId,
         Guid languagePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -366,7 +366,7 @@ public sealed class PersonnelFileBackgroundController(
             new DeletePersonnelFileLanguageCommand(publicId, languagePublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Trainings ────────────────────────────────────────────────────────────
@@ -530,7 +530,7 @@ public sealed class PersonnelFileBackgroundController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/trainings/{trainingPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a training from a personnel file",
@@ -539,7 +539,7 @@ public sealed class PersonnelFileBackgroundController(
             current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteTraining(
+    public async Task<ActionResult> DeleteTraining(
         Guid publicId,
         Guid trainingPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -549,7 +549,7 @@ public sealed class PersonnelFileBackgroundController(
             new DeletePersonnelFileTrainingCommand(publicId, trainingPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Previous Employments ─────────────────────────────────────────────────
@@ -705,7 +705,7 @@ public sealed class PersonnelFileBackgroundController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/previous-employments/{previousEmploymentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a previous employment from a personnel file",
@@ -715,7 +715,7 @@ public sealed class PersonnelFileBackgroundController(
             refreshed concurrency token so the caller can keep mutating without an extra
             round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeletePreviousEmployment(
+    public async Task<ActionResult> DeletePreviousEmployment(
         Guid publicId,
         Guid previousEmploymentPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -725,7 +725,7 @@ public sealed class PersonnelFileBackgroundController(
             new DeletePersonnelFilePreviousEmploymentCommand(publicId, previousEmploymentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── References ───────────────────────────────────────────────────────────
@@ -873,7 +873,7 @@ public sealed class PersonnelFileBackgroundController(
     }
 
     [HttpDelete("personnel-files/{publicId:guid}/references/{referencePublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a reference from a personnel file",
@@ -882,7 +882,7 @@ public sealed class PersonnelFileBackgroundController(
             current `concurrencyToken`. Returns the parent personnel file's refreshed
             concurrency token so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteReference(
+    public async Task<ActionResult> DeleteReference(
         Guid publicId,
         Guid referencePublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -892,6 +892,6 @@ public sealed class PersonnelFileBackgroundController(
             new DeletePersonnelFileReferenceCommand(publicId, referencePublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

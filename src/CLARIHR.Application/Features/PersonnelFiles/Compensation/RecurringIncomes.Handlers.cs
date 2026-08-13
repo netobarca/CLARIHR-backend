@@ -199,7 +199,7 @@ internal sealed class AddPersonnelFileRecurringIncomeCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringIncomeResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringIncomeResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -288,7 +288,7 @@ internal sealed class UpdatePersonnelFileRecurringIncomeCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringIncomeResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringIncomeResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -372,13 +372,13 @@ internal sealed class DeletePersonnelFileRecurringIncomeCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileRecurringIncomeCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileRecurringIncomeCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileRecurringIncomeCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageRecurringIncomesAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageRecurringIncomesAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -387,25 +387,25 @@ internal sealed class DeletePersonnelFileRecurringIncomeCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var entity = await employeeRepository.GetRecurringIncomeEntityAsync(
             personnelFile.PublicId, command.RecurringIncomePublicId, personnelFile.TenantId, cancellationToken);
         if (entity is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (entity.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // Only an EN_REVISION draft can be discarded (soft delete); an authorized income is revoked/closed.
         if (entity.StatusCode != RecurringIncomeStatuses.EnRevision)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(RecurringIncomeErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(RecurringIncomeErrors.StateRuleViolation);
         }
 
         entity.Deactivate();
@@ -425,7 +425,7 @@ internal sealed class DeletePersonnelFileRecurringIncomeCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
     }
 }
 

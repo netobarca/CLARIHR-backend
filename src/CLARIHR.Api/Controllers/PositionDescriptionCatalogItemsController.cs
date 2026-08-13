@@ -135,6 +135,34 @@ public sealed class PositionDescriptionCatalogItemsController(
             value => new { catalogType = PositionDescriptionCatalogRouteMap.ToSlug(catalogType), positionDescriptionCatalogItemPublicId = value.Id });
     }
 
+    [HttpPatch("companies/{companyPublicId:guid}/position-description-catalogs/{catalogType}/items/order")]
+    [ProducesResponseType<ReorderPositionDescriptionCatalogItemsResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Reorder the items of a catalog type",
+        Description = """
+            Rewrites `sortOrder` for the whole catalog type in one transaction. Send `orderedPublicIds` with
+            **every** item of the type exactly once, in the desired order; the server assigns `10`, `20`, `30`, …
+
+            Replaces the previous N-patches-per-reorder. A partial or duplicated list is rejected with
+            `422 POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE`.
+
+            **No `If-Match`**, deliberately — see the occupational pyramid's equivalent for the reasoning. Unlike
+            that one, `sortOrder` here is not unique, so a single write phase suffices.
+            """)]
+    public async Task<ActionResult<ReorderPositionDescriptionCatalogItemsResponse>> ReorderItems(
+        Guid companyPublicId,
+        PositionDescriptionCatalogType catalogType,
+        [FromBody] ReorderCatalogRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ReorderPositionDescriptionCatalogItemsCommand(companyPublicId, catalogType, request.OrderedPublicIds),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpPatch("position-description-catalogs/{catalogType}/items/{positionDescriptionCatalogItemPublicId:guid}")]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]

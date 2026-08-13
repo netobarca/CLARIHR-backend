@@ -333,7 +333,7 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
             responsibilityCatalogItemId: null, decisionScope: null, assignedResources: null,
             responsibilities: null,
             marketSalaryReference: null, valuationNotes: null,
-            effectiveFromUtc: null, effectiveToUtc: null, bumpVersion: false);
+            effectiveFromUtc: null, effectiveToUtc: null);
         dbContext.JobProfiles.Add(profile);
         await dbContext.SaveChangesAsync();
 

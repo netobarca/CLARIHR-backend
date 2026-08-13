@@ -130,7 +130,7 @@ public sealed class RecurringDeductionsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Discard (soft-delete) an EN_REVISION recurring-deduction draft",
@@ -139,7 +139,7 @@ public sealed class RecurringDeductionsController(
             discarded — an authorized credit is revoked or closed. HR-only. Requires the `If-Match` header with the
             current `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteRecurringDeduction(
+    public async Task<ActionResult> DeleteRecurringDeduction(
         Guid publicId,
         Guid recurringDeductionPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -149,7 +149,7 @@ public sealed class RecurringDeductionsController(
             new DeletePersonnelFileRecurringDeductionCommand(publicId, recurringDeductionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToNoContentResult(result);
     }
 
     [HttpPatch("api/v1/personnel-files/{publicId:guid}/recurring-deductions/{recurringDeductionPublicId:guid}/suspension")]

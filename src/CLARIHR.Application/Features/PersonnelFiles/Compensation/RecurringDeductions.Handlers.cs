@@ -374,7 +374,7 @@ internal sealed class AddPersonnelFileRecurringDeductionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringDeductionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringDeductionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -478,7 +478,7 @@ internal sealed class UpdatePersonnelFileRecurringDeductionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<RecurringDeductionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<RecurringDeductionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         if (await employeeRepository.IsRecurringIncomeProfileRetiredAsync(personnelFile.Id, cancellationToken))
@@ -577,13 +577,13 @@ internal sealed class DeletePersonnelFileRecurringDeductionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileRecurringDeductionCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileRecurringDeductionCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileRecurringDeductionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageRecurringDeductionsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageRecurringDeductionsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -594,18 +594,18 @@ internal sealed class DeletePersonnelFileRecurringDeductionCommandHandler(
             personnelFile!.PublicId, command.RecurringDeductionPublicId, personnelFile.TenantId, cancellationToken);
         if (entity is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (entity.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // Only a never-authorized draft can be discarded; an authorized credit is revoked or closed.
         if (entity.StatusCode != RecurringDeductionStatuses.EnRevision)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(RecurringDeductionErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(RecurringDeductionErrors.StateRuleViolation);
         }
 
         entity.Deactivate();
@@ -625,8 +625,8 @@ internal sealed class DeletePersonnelFileRecurringDeductionCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 

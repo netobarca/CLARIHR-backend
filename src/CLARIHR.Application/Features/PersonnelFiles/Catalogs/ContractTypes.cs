@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -33,14 +34,21 @@ internal sealed class GetContractTypesQueryValidator : AbstractValidator<GetCont
     }
 }
 
-internal sealed class GetContractTypesQueryHandler(IPersonnelFileRepository repository)
+internal sealed class GetContractTypesQueryHandler(IPersonnelFileRepository repository, ITenantContext tenantContext)
     : IQueryHandler<GetContractTypesQuery, IReadOnlyCollection<ContractTypeResponse>>
 {
     public async Task<Result<IReadOnlyCollection<ContractTypeResponse>>> Handle(
         GetContractTypesQuery query,
         CancellationToken cancellationToken)
     {
-        var items = await repository.GetContractTypesAsync(query.CountryCode, cancellationToken);
+        var country = await CatalogCountryResolution.ResolveAsync(
+            query.CountryCode, tenantContext, repository, cancellationToken);
+        if (country.IsFailure)
+        {
+            return Result<IReadOnlyCollection<ContractTypeResponse>>.Failure(country.Error);
+        }
+
+        var items = await repository.GetContractTypesAsync(country.Value, cancellationToken);
         return Result<IReadOnlyCollection<ContractTypeResponse>>.Success(items);
     }
 }

@@ -22,6 +22,11 @@ public sealed record JobCatalogItemResponse(
     JobCatalogCategory Category,
     string Code,
     string Name,
+    // H-11 — the two the catalog was missing. `sortOrder` is free (not unique), matching the
+    // position-description family; only the occupational pyramid enforces uniqueness, because there the
+    // order is a strict ranking rather than a display preference.
+    string? Description,
+    int SortOrder,
     bool IsSystem,
     bool IsActive,
     Guid ConcurrencyToken,
@@ -42,7 +47,9 @@ public sealed record CreateJobCatalogItemCommand(
     Guid CompanyId,
     JobCatalogCategory Category,
     string Code,
-    string Name) : ICommand<JobCatalogItemResponse>;
+    string Name,
+    string? Description = null,
+    int SortOrder = 0) : ICommand<JobCatalogItemResponse>;
 
 public sealed record UpdateJobCatalogItemCommand(
     Guid CompanyId,
@@ -51,7 +58,9 @@ public sealed record UpdateJobCatalogItemCommand(
     string Code,
     string Name,
     bool IsActive,
-    Guid ConcurrencyToken) : ICommand<JobCatalogItemResponse>;
+    Guid ConcurrencyToken,
+    string? Description = null,
+    int SortOrder = 0) : ICommand<JobCatalogItemResponse>;
 
 public sealed record JobCatalogItemPatchOperation(
     string Op,
@@ -93,7 +102,9 @@ internal sealed class CreateJobCatalogItemCommandValidator : AbstractValidator<C
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
-        RuleFor(command => command.Name).NotEmpty().MaximumLength(120);
+        RuleFor(command => command.Name).NotEmpty().MaximumLength(JobCatalogItem.MaxNameLength);
+        RuleFor(command => command.Description).MaximumLength(JobCatalogItem.MaxDescriptionLength);
+        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
     }
 }
 
@@ -108,7 +119,9 @@ internal sealed class UpdateJobCatalogItemCommandValidator : AbstractValidator<U
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
-        RuleFor(command => command.Name).NotEmpty().MaximumLength(120);
+        RuleFor(command => command.Name).NotEmpty().MaximumLength(JobCatalogItem.MaxNameLength);
+        RuleFor(command => command.Description).MaximumLength(JobCatalogItem.MaxDescriptionLength);
+        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -237,7 +250,8 @@ internal sealed class CreateJobCatalogItemCommandHandler(
             return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogCodeConflict);
         }
 
-        var item = JobCatalogItem.Create(command.Category, command.Code, command.Name);
+        var item = JobCatalogItem.Create(
+            command.Category, command.Code, command.Name, command.Description, command.SortOrder);
         item.SetTenantId(command.CompanyId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -328,7 +342,7 @@ internal sealed class UpdateJobCatalogItemCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            item.Update(command.Code, command.Name);
+            item.Update(command.Code, command.Name, command.Description, command.SortOrder);
             if (command.IsActive && !item.IsActive)
             {
                 item.Activate();
@@ -440,7 +454,7 @@ internal sealed class PatchJobCatalogItemCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            item.Update(patchState.Code, patchState.Name);
+            item.Update(patchState.Code, patchState.Name, patchState.Description, patchState.SortOrder);
             if (patchState.IsActive && !item.IsActive)
             {
                 item.Activate();
@@ -560,6 +574,8 @@ internal sealed class JobCatalogItemPatchState
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int SortOrder { get; set; }
     public bool IsActive { get; set; }
     public bool HasMutation { get; set; }
 
@@ -568,6 +584,8 @@ internal sealed class JobCatalogItemPatchState
         {
             Code = response.Code,
             Name = response.Name,
+            Description = response.Description,
+            SortOrder = response.SortOrder,
             IsActive = response.IsActive
         };
 }
@@ -635,9 +653,20 @@ internal static class JobCatalogItemPatchApplier
         {
             errors["name"] = ["Name is required."];
         }
-        else if (state.Name.Length > 120)
+        else if (state.Name.Length > JobCatalogItem.MaxNameLength)
         {
-            errors["name"] = ["Name must be 120 characters or fewer."];
+            errors["name"] = [$"Name must be {JobCatalogItem.MaxNameLength} characters or fewer."];
+        }
+
+        if (state.Description is { Length: > JobCatalogItem.MaxDescriptionLength })
+        {
+            errors["description"] =
+                [$"Description must be {JobCatalogItem.MaxDescriptionLength} characters or fewer."];
+        }
+
+        if (state.SortOrder < 0)
+        {
+            errors["sortOrder"] = ["Sort order cannot be negative."];
         }
 
         return errors.Count == 0
@@ -674,6 +703,26 @@ internal static class JobCatalogItemPatchApplier
             }
 
             state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            // `remove` clears it: unlike code and name, the description is optional.
+            state.Description = isRemove ? null : ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "sortOrder"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "SortOrder cannot be removed.");
+            }
+
+            state.SortOrder = ReadInt(value, path);
             state.HasMutation = true;
             return Result.Success();
         }
@@ -718,6 +767,23 @@ internal static class JobCatalogItemPatchApplier
         return value!.Value.ValueKind == JsonValueKind.String
             ? value.Value.GetString() ?? string.Empty
             : throw new JobProfilePatchValueException(path, "Value must be a string.");
+    }
+
+    // H-11 — accepts the JSON number and, like ReadBool, a numeric string, so a client that stringifies
+    // its form values is not rejected for a reason it cannot see.
+    private static int ReadInt(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new JobProfilePatchValueException(path, "Value must be an integer.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.Number when value.Value.TryGetInt32(out var number) => number,
+            JsonValueKind.String when int.TryParse(value.Value.GetString(), out var parsed) => parsed,
+            _ => throw new JobProfilePatchValueException(path, "Value must be an integer.")
+        };
     }
 
     private static bool ReadBool(JsonElement? value, string path)

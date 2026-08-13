@@ -146,6 +146,18 @@ internal static class ResultExtensions
         return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
     }
 
+    /// <summary>
+    /// H-34 — success with nothing to say: <c>204 No Content</c>. Used by the DELETE of a child, which used to
+    /// answer <c>200</c> with the parent's concurrency token in the body AND in the ETag — a value that only
+    /// changed in about half of those endpoints, so it could not be trusted anywhere.
+    /// </summary>
+    public static ActionResult ToNoContentResult<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result) =>
+        result.IsSuccess
+            ? controller.NoContent()
+            : ProblemDetailsFactory.Create(controller.HttpContext, result.Error);
+
     public static ActionResult ToActionResult(this ControllerBase controller, CLARIHR.Application.Common.Errors.Result result)
     {
         if (result.IsSuccess)

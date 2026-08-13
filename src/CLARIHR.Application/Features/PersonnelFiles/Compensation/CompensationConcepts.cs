@@ -69,7 +69,7 @@ public sealed record DeletePersonnelFileCompensationConceptCommand(
     Guid PersonnelFileId,
     Guid CompensationConceptPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileParentConcurrencyResult>;
+    : ICommand<ChildDeletionResult>;
 
 public sealed record PersonnelFileCompensationConceptPatchOperation(
     string Op,

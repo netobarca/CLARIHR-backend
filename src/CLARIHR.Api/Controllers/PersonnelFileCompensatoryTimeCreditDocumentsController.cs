@@ -110,7 +110,7 @@ public sealed class PersonnelFileCompensatoryTimeCreditDocumentsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/compensatory-time-credits/{creditPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an authorization document from a compensatory-time credit",
@@ -118,7 +118,7 @@ public sealed class PersonnelFileCompensatoryTimeCreditDocumentsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header
             with the document's current `concurrencyToken`. HR-only.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteCreditDocument(
+    public async Task<ActionResult> DeleteCreditDocument(
         Guid publicId,
         Guid creditPublicId,
         Guid documentPublicId,
@@ -129,6 +129,6 @@ public sealed class PersonnelFileCompensatoryTimeCreditDocumentsController(
             new DeleteCompensatoryTimeCreditDocumentCommand(publicId, creditPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 }

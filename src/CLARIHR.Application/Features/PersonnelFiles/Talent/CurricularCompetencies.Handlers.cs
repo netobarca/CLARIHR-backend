@@ -119,7 +119,7 @@ internal sealed class AddPersonnelFileCurricularCompetencyCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var catalogValidation = await CurricularCompetencyCommandValidation.ValidateAsync(
@@ -196,7 +196,7 @@ internal sealed class UpdatePersonnelFileCurricularCompetencyCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCurricularCompetencyAsync(personnelFile.PublicId, command.CurricularCompetencyPublicId, cancellationToken);
@@ -286,7 +286,7 @@ internal sealed class PatchPersonnelFileCurricularCompetencyCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCurricularCompetencyAsync(personnelFile.PublicId, command.CurricularCompetencyPublicId, cancellationToken);
@@ -374,13 +374,13 @@ internal sealed class DeletePersonnelFileCurricularCompetencyCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileCurricularCompetencyCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileCurricularCompetencyCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileCurricularCompetencyCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -394,24 +394,24 @@ internal sealed class DeletePersonnelFileCurricularCompetencyCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCurricularCompetencyAsync(personnelFile.PublicId, command.CurricularCompetencyPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var removed = await employeeRepository.DeleteCurricularCompetencyAsync(command.CurricularCompetencyPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -430,8 +430,8 @@ internal sealed class DeletePersonnelFileCurricularCompetencyCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(
-            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(
+            ChildDeletionResult.Instance);
     }
 }
 
@@ -460,7 +460,7 @@ internal sealed class GetPersonnelFileCurricularCompetenciesQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.GetCurricularCompetenciesAsync(personnelFile.PublicId, cancellationToken);
@@ -493,7 +493,7 @@ internal sealed class GetPersonnelFileCurricularCompetencyByIdQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCurricularCompetencyResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.GetCurricularCompetencyAsync(personnelFile!.PublicId, query.CurricularCompetencyPublicId, cancellationToken);

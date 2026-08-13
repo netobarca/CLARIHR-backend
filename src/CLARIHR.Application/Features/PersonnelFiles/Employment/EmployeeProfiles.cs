@@ -187,7 +187,7 @@ internal sealed class UpdatePersonnelFileEmployeeProfileCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileEmployeeProfileResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // employee-profile is a 1:1 upsert: enforce optimistic concurrency only when a profile already exists.

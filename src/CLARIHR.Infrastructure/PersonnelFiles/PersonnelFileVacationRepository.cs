@@ -72,20 +72,27 @@ internal sealed class PersonnelFileVacationRepository(ApplicationDbContext dbCon
 
     public void AddPeriod(PersonnelFileVacationPeriod entity) => dbContext.PersonnelFileVacationPeriods.Add(entity);
 
+    /// <summary>
+    /// H-28 — el ancla de la antigüedad del Art. 177 es el <b>ingreso a la empresa</b> (<c>HireDate</c>), no el
+    /// inicio de la plaza.
+    /// <para>
+    /// Antes esta consulta leía el <c>StartDate</c> de la asignación primaria activa y solo caía al ingreso cuando
+    /// el empleado no tenía NINGUNA asignación — o sea, justo el caso donde no hay nada que calcular. Para una
+    /// empresa que arranca hoy con empleados de años, las plazas se registran hoy y otra regla (correcta) impide
+    /// que la asignación empiece antes de que la plaza exista: la antigüedad de todos empezaba hoy. Medido: 0 de 59
+    /// elegibles, incluidos empleados con 2.5 años.
+    /// </para>
+    /// <para>
+    /// Sin fallback a la plaza, deliberadamente: un fallback que solo dispara cuando falta un dato es la trampa que
+    /// produjo el defecto. <c>HireDate</c> es no-nullable y el perfil es obligatorio para un expediente finalizado
+    /// (los handlers ya exigen <c>IsCompletedEmployee</c>), así que el ancla siempre resuelve; el <c>null</c> queda
+    /// solo para el expediente sin perfil. Y es el ancla que ya usan los otros seis consumidores de antigüedad
+    /// (perfil, tablero, ayuda económica, constancias, guard del retiro y el finiquito), incluida la
+    /// recontratación, que reescribe <c>HireDate</c> justo para reiniciarla (D-03).
+    /// </para>
+    /// </summary>
     public async Task<DateOnly?> GetAnchorDateAsync(long personnelFileId, CancellationToken cancellationToken)
     {
-        var primaryStart = await dbContext.PersonnelFileEmploymentAssignments
-            .AsNoTracking()
-            .Where(assignment => assignment.PersonnelFileId == personnelFileId && assignment.IsActive)
-            .OrderByDescending(assignment => assignment.IsPrimary)
-            .ThenBy(assignment => assignment.StartDate)
-            .Select(assignment => (DateTime?)assignment.StartDate)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (primaryStart is { } start)
-        {
-            return DateOnly.FromDateTime(start);
-        }
-
         var hireDate = await dbContext.PersonnelFileEmployeeProfiles
             .AsNoTracking()
             .Where(profile => profile.PersonnelFileId == personnelFileId)
@@ -239,27 +246,16 @@ internal sealed class PersonnelFileVacationRepository(ApplicationDbContext dbCon
             return [];
         }
 
-        var fileIds = files.Select(file => file.Id).ToArray();
-        var primaryStartByFile = await dbContext.PersonnelFileEmploymentAssignments
-            .AsNoTracking()
-            .Where(assignment => fileIds.Contains(assignment.PersonnelFileId) && assignment.IsActive)
-            .Select(assignment => new { assignment.PersonnelFileId, assignment.IsPrimary, assignment.StartDate })
-            .ToListAsync(cancellationToken);
-
-        var anchorByFile = primaryStartByFile
-            .GroupBy(assignment => assignment.PersonnelFileId)
-            .ToDictionary(
-                group => group.Key,
-                group => DateOnly.FromDateTime(
-                    group.OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate).First().StartDate));
-
+        // H-28 — el ancla es el ingreso, igual que en GetAnchorDateAsync. Esta era la SEGUNDA resolución del ancla
+        // (la del camino masivo, el del escenario del hallazgo) y tenía la misma precedencia por plaza: arreglar
+        // solo la individual dejaba roto justo el endpoint que se midió con 0 de 59.
         return files
             .Select(file => new VacationGenerationCandidate(
                 file.Id,
                 file.PublicId,
                 file.FullName,
                 file.EmployeeCode,
-                anchorByFile.TryGetValue(file.Id, out var start) ? start : DateOnly.FromDateTime(file.HireDate)))
+                DateOnly.FromDateTime(file.HireDate)))
             .ToArray();
     }
 

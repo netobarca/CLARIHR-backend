@@ -182,7 +182,7 @@ internal sealed class AddPersonnelFilePersonnelActionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePersonnelActionResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         // actionTypeCode / actionStatusCode are country-scoped catalog codes (general-catalogs keys
@@ -297,7 +297,7 @@ internal sealed class SearchPersonnelFilePersonnelActionsQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PagedResponse<PersonnelFilePersonnelActionResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PagedResponse<PersonnelFilePersonnelActionResponse>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.SearchPersonnelActionsAsync(
@@ -341,7 +341,7 @@ internal sealed class ExportPersonnelFilePersonnelActionsQueryHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<IReadOnlyCollection<PersonnelFilePersonnelActionExportRow>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<IReadOnlyCollection<PersonnelFilePersonnelActionExportRow>>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var response = await employeeRepository.ExportPersonnelActionsAsync(

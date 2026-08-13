@@ -518,6 +518,34 @@ Comportamiento observable:
 - autorización **handler-gated** vía `ISalaryTabulatorAuthorizationService` (no declarativa); rutas `api/v1` literales sin versionar (no rompe el path del FE)
 - la estrategia de eliminar `companyId` de rutas tenant-scoped nuevas y migrar rutas legacy esta registrada en `docs/technical/api/tenant-route-technical-debt.md`
 
+**Identidad de la clase salarial (H-08).** La linea del tabulador referencia su clase por **codigo**, no por
+FK: el indice unico es `(TenantId, NormalizedSalaryClassCode, NormalizedSalaryScaleCode, EffectiveFromUtc)`.
+Cuatro respuestas exponen ahora los tres campos —`salaryClassPublicId`, **`salaryClassCode`** y
+**`salaryClassName`**—: el listado de lineas, la linea por id, los `items[]` del change request y los del
+`impact`. El export agrega las mismas dos columnas antes de `salaryScaleCode`, para que la hoja se lea
+clase → escala en vez de exhibir un GUID.
+
+- `salaryClassCode` — lo que la linea **guarda**. Nunca nulo. Es el campo por el que agrupar.
+- `salaryClassName` — etiqueta del catalogo. Nulo solo si esa clase no existe en el catalogo.
+- `salaryClassPublicId` — **sin cambio de semantica**: se resuelve contra el catalogo y sigue viniendo `null`
+  cuando la clase esta **inactiva**. Sirve para navegar al catalogo, no para identificar la linea.
+
+Antes existia solo el `publicId` derivado, asi que una clase inactivada dejaba a todas sus lineas **sin
+ninguna** identificacion de clase.
+
+**El codigo de una clase salarial no se puede renombrar con lineas de tabulador.**
+`PATCH /position-description-catalogs/salary-classes/items/{publicId}` con `/code` responde
+**`409 POSITION_DESCRIPTION_CATALOG_CODE_IN_USE`** si existe **cualquier** linea (activa o cerrada) con ese
+codigo: la linea cerrada tambien tiene que seguir diciendo a que clase pertenecio. Para cambiar de codigo se
+crea una clase nueva. **`/name`, `/description` y `/sortOrder` siguen editables** sin restriccion — la
+etiqueta no es la clave.
+
+**Tampoco se puede inactivar con lineas activas**: `/isActive=false` responde
+`409 POSITION_DESCRIPTION_CATALOG_IN_USE`. Solo bloquean las lineas **en vigencia**; una clase cuyas lineas
+estan todas cerradas se retira sin problema. Ese guard ya existia para el resto de los catalogos, pero
+`SalaryClass` caia en el branch por defecto —que consulta FKs de `JobProfile` que nunca son la clase— asi que
+para esta familia respondia siempre `false`.
+
 ### 4.8 Education Catalogs
 
 Core (solo lectura): los valores activos se consumen via catalogos generales (`GET /api/v1/companies/{companyPublicId}/general-catalogs/{catalogKey}`), no por una ruta dedicada de education-catalogs.
@@ -1078,7 +1106,12 @@ Este modulo es el puente entre `Auth` y `api/v1`. Primero autentica la cuenta, l
 - Todas las rutas requieren autenticacion.
 - El scope aqui es por ownership del usuario autenticado, no por RBAC tenant-scoped.
 - Las consultas y mutaciones principales solo operan sobre companias cuyo `CreatedByUserPublicId` coincide con el usuario autenticado.
-- `switch` agrega una regla adicional: ademas de ser owner, el usuario debe tener membresia activa en la compania destino.
+- **`switch` es la excepcion al ownership (H-04): se autoriza por MEMBRESIA, no por propiedad.** Un usuario
+  invitado a una empresa nunca es su creador, y entrar a ella es exactamente para lo que existe la
+  invitacion. Antes exigia ambas cosas y devolvia `403 COMPANY_OWNERSHIP_FORBIDDEN` a un miembro legitimo.
+  - miembro activo (dueño o no) → `200` con tokens nuevos
+  - **sin membresia → `403 COMPANY_MEMBERSHIP_FORBIDDEN`** (es el limite de aislamiento multi-tenant)
+  - compania no activa → `409 ACTIVE_COMPANY_SWITCH_FORBIDDEN` (conflicto de estado, no de autorizacion)
 - `list` y `detail` exponen `IsActiveContext`, calculado desde el `tenantId` actual del token.
 - `create` no cambia automaticamente la compania activa ni devuelve tokens nuevos; solo provisiona y devuelve detalle de la nueva compania.
 - `create` provisiona la compania con una suscripcion activa al plan de sistema `FREE`, crea representante legal inicial, siembra locations por pais, crea roles de sistema iniciales, genera permisos admin/matrix RBAC y vincula al owner como administrador con el rol `Admin de Empresa` sincronizado contra todos los permisos tenant-scoped existentes.
@@ -2527,6 +2560,12 @@ Es el modulo base de localizacion del tenant. Primero define la estructura, lueg
 - `WORK_CENTER_ADDRESS_REQUIRED`: `400`, el tipo seleccionado exige `Address`.
 - `WORK_CENTER_GEO_REQUIRED`: `400`, el tipo seleccionado exige `GeoLat` y `GeoLong`.
 - `WORK_CENTER_INVALID_COORDINATES`: `400`, latitud o longitud fuera de rango.
+- `WORK_CENTER_COORDINATES_INCOMPLETE`: `422` (H-17), llego **una sola** de las dos coordenadas. Se exigen
+  juntas o ninguna, **independientemente de `requiresGeo`**: antes la regla de "las dos" solo corria cuando el
+  tipo exigia geo, asi que cualquier otro tipo podia guardar una latitud sin longitud, que no es un punto.
+- `WORK_CENTER_COORDINATES_PLACEHOLDER`: `422` (H-17), el par exacto `(0, 0)` — la isla nula del Golfo de
+  Guinea. Pasaba presencia y rango, y en la practica siempre es un valor de relleno olvidado. Se verifica
+  **despues** del rango, para que un par fuera de rango siga reportando el error de rango.
 - `LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL`: `409`, no puede activarse modo single-level si no existe exactamente un nivel activo.
 - `400` de validacion: `page/pageSize` invalidos, `LevelOrder <= 0`, `code` invalido, ids vacios, email invalido o `ConcurrencyToken` ausente.
 
@@ -2743,7 +2782,123 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/position-slots/export`
 - `/api/v1/position-slots/{id}/status`
 - `/api/v1/position-slots/{id}/dependencies`
-- `/api/v1/position-slots/{id}/occupancy`
+- `DELETE /api/v1/position-slots/{id}` — **borrado real, guardado** (H-15)
+
+**Retirar una plaza (H-15).** Hay dos operaciones distintas y no son intercambiables:
+
+| Quiero… | Uso | Resultado |
+| --- | --- | --- |
+| borrar una plaza que **nunca debio existir** | `DELETE /position-slots/{id}` | la fila desaparece; devuelve `200` con su snapshot final |
+| retirar un puesto que **si existio** | `PATCH /position-slots/{id}/status` → `Suspended` | conserva el historial, bloquea asignaciones nuevas y sale de `isActive=true` |
+
+El `DELETE` pide `If-Match` y responde **`409 POSITION_SLOT_IN_USE`** si algo todavia la referencia: **cualquier**
+asignacion laboral (activa **o historica** — una fila historica se orfana igual de mal), historial de contrato,
+sustitucion de autorizacion, entrevista de retiro, o **otra plaza que dependa de ella**.
+
+Ese guard es la funcionalidad, no un adorno: **ninguna tabla tiene FK hacia `position_slots` salvo sus
+autorreferencias**. Cuatro tablas la referencian por `public_id` sin FK, asi que un borrado crudo **no falla:
+orfana el historial laboral en silencio**. Y las FK que salen de la plaza son todas `RESTRICT`, asi que borrar
+una plaza padre sin guard daba un `500` crudo de Postgres en vez de un error de contrato.
+
+**Suspender exige liberar primero a los ocupantes**: `422 POSITION_SLOT_SUSPEND_WITH_OCCUPANTS`. Antes se podia
+suspender con gente adentro y el agregado quedaba incoherente (`isActive=false` con asignaciones vivas). El
+chequeo mira las **asignaciones reales**, no `occupiedEmployees`: ese contador solo lo escribe el endpoint
+`/occupancy` de la propia plaza —crear una asignacion no lo toca—, asi que confiar en el habria dejado pasar
+justo el caso que debe bloquear.
+
+**Filtro `isActive`** en `GET .../position-slots` y en `GET .../position-slots/export`: `true` deja las vigentes,
+`false` solo las retiradas (una plaza `Suspended` es `isActive=false`), y **omitirlo devuelve ambas**, que es el
+comportamiento historico y el default. Se agrego a los dos para que listado y export no divergieran.
+
+**La jerarquia viaja en el listado (H-16).** Cada item de `GET .../position-slots` trae ahora los mismos cuatro
+campos que ya publicaba el detalle —`directDependencyPositionSlotPublicId`, `directDependencyPositionSlotCode`
+y el par funcional—, en `null` cuando la plaza es raiz.
+
+Antes el listado era la unica superficie que los omitia: `/graph` y el detalle si los tenian, asi que un cliente
+no podia distinguir **"no tiene padre"** de **"el listado no me lo dice"**. El efecto medido en el ambiente real:
+el script de verificacion del playbook §4.4 cuenta raices sobre el listado y reportaba `plazas raiz: 33 ->
+REVISAR` con el arbol perfecto (33 plazas, 32 con padre, 1 raiz `PL-DG-001`, profundidad 5). Con los campos
+presentes el mismo script devuelve `1 -> OK`.
+
+`directDependencyPositionSlotPublicId` sirve tambien como **filtro**: pide los hijos directos de una plaza sin
+traer la empresa entera. Verificado contra `/graph`: los 9 hijos de `PL-DG-001` coinciden con sus 9 aristas
+directas.
+
+No se agrego un `rootsOnly`: con el campo expuesto, contar raices en cliente es exactamente lo que hace el
+script del playbook y funciona.
+
+**La ocupación y el estado de la plaza son DERIVADOS (H-23).** `occupiedEmployees` cuenta las **asignaciones
+activas** que referencian la plaza, y `status` sale de ahí: `Occupied` si tiene gente, `Vacant` si no, `Suspended`
+si esta retirada. Los tres campos siguen en el listado, el detalle y el export **con el mismo nombre y tipo**: lo
+que cambia es que ahora dicen la verdad.
+
+| Antes | Ahora |
+|---|---|
+| `occupiedEmployees` era una columna que **solo** escribia `PATCH /position-slots/{id}/occupancy` | se calcula al leer |
+| crear o borrar una asignacion **no lo tocaba** | la plaza sigue a sus asignaciones sola |
+| `PATCH /status` **inventaba** el numero (Occupied ⇒ 1, Vacant ⇒ 0) | el estado no puede inventar ocupantes |
+| `GET .../dashboard/overview` sumaba ese contador en `positionOccupancy` | cuenta asignaciones reales |
+
+⚠️ **`PATCH /api/v1/position-slots/{id}/occupancy` fue ELIMINADO** (responde `404`). No hay reemplazo porque no
+hace falta: la ocupacion se deriva. `PATCH /position-slots/{id}/status` sigue existiendo y es la unica escritura
+de estado — pedir `Vacant` u `Occupied` solo significa «esta plaza esta vigente»; la respuesta devuelve el estado
+**derivado**, que puede diferir de lo pedido si la plaza tiene o no ocupantes.
+
+El filtro `?status=` del listado tambien evalua el estado derivado: `status=Occupied` significa «tiene gente
+adentro», no «alguien escribio Occupied aqui».
+
+**Horas extra por plaza (H-19).** `generatesOvertime` es un `boolean` nuevo en el `POST` y el `PUT` de la plaza, y
+viaja en el listado y en el detalle. **Default `true`**: la mayoria de las plazas si generan horas extra, y una
+plaza nueva no deberia quedar exenta por olvido — la exencion es la excepcion y hay que declararla.
+
+Vive en la **plaza y no en la persona** porque la elegibilidad es una propiedad del puesto: una direccion general
+no genera horas extra sea quien sea quien la ocupe, y la regla sobrevive al cambio de titular. Ademas el
+multi-plaza es real (hay empleados con dos plazas), asi que una bandera por persona seria incorrecta para ellos.
+
+Con la plaza en `false`, registrar una hora extra a quien la ocupa responde **`422 OVERTIME_POSITION_EXEMPT`** en
+el **alta**, no en la autorizacion, para que el error aparezca donde se comete.
+
+**El tramo manda en la hora extra (H-20).** `POST` y `PUT` de
+`/api/v1/personnel-files/{publicId}/overtime-records` **cambian de contrato**:
+
+| Campo | Antes | Ahora |
+| --- | --- | --- |
+| `startTime` / `endTime` | opcionales, se guardaban y no se usaban para nada | **obligatorios**, unica fuente de verdad |
+| `durationHours` / `durationMinutes` | de entrada, independientes del tramo | **ya no se aceptan**; se **derivan** del tramo y siguen saliendo en la respuesta |
+
+El motivo: el motor de planilla paga `Σ(durationDecimalHours × factor)` y el tramo nunca entraba en la cuenta, asi
+que un registro podia declarar 8 h con tramo de 10:00 a 11:00 y cobrar ocho mientras el autorizador aprobaba una.
+Al derivarla, lo que el autorizador lee es exactamente lo que se paga.
+
+`endTime < startTime` **no es un error**: es un cruce de medianoche, legitimo en horas extra (22:00-02:00 = 4 h), la
+misma convencion que ya usa la jornada laboral.
+
+Cuatro `422` nuevos, todos en el alta y en la edicion:
+
+| Codigo | Cuando |
+| --- | --- |
+| `OVERTIME_RANGE_EMPTY` | `startTime == endTime`; un tramo de cero minutos no es trabajo (antes se aceptaba) |
+| `OVERTIME_WITHIN_SCHEDULED_SHIFT` | el tramo solapa la jornada contratada de ese dia, que ya se paga como salario ordinario |
+| `OVERTIME_RECORDS_OVERLAP` | el tramo solapa otro registro activo del mismo empleado y fecha |
+| `OVERTIME_CROSSES_LEGAL_BOUNDARY` | el tramo cruza el corte legal 06:00 / 19:00 (art. 161 CT) |
+
+El solape con la jornada se mide contra **todo el turno**, sin descontar el tiempo de comida: su duracion varia por
+empresa (1 h, 2 h) y el empleado la toma a la hora que acuerde con su jefatura, asi que la ventana almacenada es
+**nominal** y no se puede reclamar como "fuera de jornada". Un solape parcial **rechaza el registro completo**, no
+lo recorta: recortar en silencio cambiaria lo que la persona pidio.
+
+**Un dia sin fila en la jornada es dia libre**, y toda hora trabajada ahi es extra. Eso cubre las jornadas custom
+sin modelar nada nuevo: 06:00-18:00 de lunes a jueves deja viernes, sabado y domingo simplemente ausentes.
+
+El cruce de banda se rechaza en vez de partirse solo porque **un registro lleva un solo factor**: 18:00-21:00 es 1 h
+diurna (×2.00) + 2 h nocturna (×2.50) = 7.00 h-factor, y ni todo-`HED` (6.00, corto) ni todo-`HEN` (7.50, de mas) lo
+expresan. Se rechaza para que el usuario lo divida, y asi una solicitud sigue siendo un registro en la bandeja y en
+la auditoria.
+
+**Sin jornada asignada se advierte, no se bloquea.** El registro pasa con
+`warnings: [{ code: "OVERTIME_WARNING_MISSING_WORK_SCHEDULE", message }]` en la respuesta del `POST`/`PUT` (las
+lecturas traen la lista vacia, igual que el plan de vacaciones). Es un hueco de configuracion, no un intento de
+cobrar dos veces; la forma de decir "esta plaza no genera horas extra" a proposito es `generatesOvertime = false`.
 
 #### 5.9.2 Proposito funcional en CLARIHR
 
@@ -2781,23 +2936,23 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PUT /job-profiles/{publicId}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
 - `PATCH /job-profiles/{publicId}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
-- Los sub-recursos granulares de `JobProfiles` (`requirements`, `functions`, `relations`, `competencies`, `trainings`, `benefits`, `working-conditions`, `dependent-positions` y `compensations`) devuelven solo el sub-recurso mutado, no el `JobProfileResponse` completo ni wrappers `{ item, parentConcurrencyToken }`.
+- Los sub-recursos granulares de `JobProfiles` (`requirements`, `functions`, `relations`, `competencies`, `trainings`, `benefits`, `working-conditions`, `dependent-positions` y `compensations`) devuelven solo el sub-recurso mutado, no el `JobProfileResponse` completo ni wrappers `{ item, parentConcurrencyToken }` — y el `DELETE` no retorna nada (**`204`**, H-34).
 - En requests y responses de sub-recursos de `JobProfiles`, el identificador externo expuesto sigue el canon `*PublicId`: `trainingPublicId`, `benefitPublicId`, `workingConditionPublicId`, `dependentPositionPublicId` y `compensationPublicId`. Las referencias relacionadas tambien usan `*PublicId`: `catalogItemPublicId`, `workConditionTypeCatalogItemPublicId`, `dependentJobProfilePublicId` y `salaryTabulatorLinePublicId`.
 - `POST`, `PUT` y `PATCH` de cada sub-recurso granular comparten un unico DTO de mutacion por sub-recurso (`Mutate*Request` en API), porque `PUT` ya recibe concurrencia por `If-Match` y no necesita un request body distinto al de `POST`.
 - `PATCH` granular de `trainings`, `benefits`, `working-conditions`, `dependent-positions` y `compensations` tambien usa JSON Pointer con nombres `*PublicId`; por ejemplo `/catalogItemPublicId`, `/workConditionTypeCatalogItemPublicId`, `/dependentJobProfilePublicId` y `/salaryTabulatorLinePublicId`.
-- `POST` de sub-recursos responde `201 Created` con `Location` apuntando al `*PublicId` creado y `ETag` del sub-recurso creado; `PUT` y `PATCH` retornan `200 OK` con el snapshot del sub-recurso y `ETag` del nuevo token del sub-recurso; `DELETE` retorna `200 OK` con `{ parentConcurrencyToken }` y `ETag` del nuevo token del `JobProfile` padre.
+- `POST` de sub-recursos responde `201 Created` con `Location` apuntando al `*PublicId` creado y `ETag` del sub-recurso creado; `PUT` y `PATCH` retornan `200 OK` con el snapshot del sub-recurso y `ETag` del nuevo token del sub-recurso; `DELETE` retorna **`204 No Content`** (H-34).
 - `JobProfileRequirements` ya usa concurrencia granular por entidad hija: `GET /api/v1/job-profiles/{jobProfilePublicId}/requirements` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileRequirementResponse>`; `POST` crea un requisito sin pedir token y responde `201 Created` con `JobProfileRequirementResponse`; `PUT` y `PATCH` retornan la entidad del requisito y validan `If-Match` con el token del requisito; `DELETE` valida `If-Match` con el token del requisito y retorna el token actualizado del padre.
 - `PATCH /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: "<ConcurrencyToken-del-requisito>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
-- `JobProfileFunctions` aplica el mismo patron granular que `requirements`: `GET /api/v1/job-profiles/{jobProfilePublicId}/functions` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileFunctionResponse>`; `POST` crea una funcion sin pedir token y responde `201 Created` con `JobProfileFunctionResponse`; `PUT` y `PATCH` retornan la entidad de la funcion y validan `If-Match` con el token de la funcion; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `functionPublicId`, `frequencyCatalogItemId` pasa a `frequencyCatalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: "<ConcurrencyToken-del-requisito>"` y responde **`204 No Content`** (H-34).
+- `JobProfileFunctions` aplica el mismo patron granular que `requirements`: `GET /api/v1/job-profiles/{jobProfilePublicId}/functions` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileFunctionResponse>`; `POST` crea una funcion sin pedir token y responde `201 Created` con `JobProfileFunctionResponse`; `PUT` y `PATCH` retornan la entidad de la funcion y validan `If-Match` con el token de la funcion; `DELETE` retorna **`204 No Content`** (H-34). Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `functionPublicId`, `frequencyCatalogItemId` pasa a `frequencyCatalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
 - `PATCH /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-funcion>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
-- `JobProfileRelations` aplica el mismo patron granular que `requirements` y `functions`: `GET /api/v1/job-profiles/{jobProfilePublicId}/relations` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileRelationResponse>`; `POST` crea una relacion sin pedir token y responde `201 Created` con `JobProfileRelationResponse`; `PUT` y `PATCH` retornan la entidad de la relacion y validan `If-Match` con el token de la relacion; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `relationPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-funcion>"` y responde **`204 No Content`** (H-34).
+- `JobProfileRelations` aplica el mismo patron granular que `requirements` y `functions`: `GET /api/v1/job-profiles/{jobProfilePublicId}/relations` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileRelationResponse>`; `POST` crea una relacion sin pedir token y responde `201 Created` con `JobProfileRelationResponse`; `PUT` y `PATCH` retornan la entidad de la relacion y validan `If-Match` con el token de la relacion; `DELETE` retorna **`204 No Content`** (H-34). Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `relationPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
 - `PATCH /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-relacion>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
-- `JobProfileCompetencies` (competencias legacy, independiente de la matriz de `CompetencyFrameworkController`) aplica el mismo patron granular: `GET /api/v1/job-profiles/{jobProfilePublicId}/competencies` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileLegacyCompetencyResponse>`; `POST` crea una competencia sin pedir token y responde `201 Created` con `JobProfileLegacyCompetencyResponse`; `PUT` y `PATCH` retornan la entidad de la competencia y validan `If-Match` con el token de la competencia; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `competencyPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`. Si `name` llega vacio en `POST`/`PUT`, se toma del `JobCatalogItem` referenciado; si no hay catalogo y `name` queda vacio se responde `JOB_PROFILE_COMPETENCY_NAME_REQUIRED` (`400`).
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-relacion>"` y responde **`204 No Content`** (H-34).
+- `JobProfileCompetencies` (competencias legacy, independiente de la matriz de `CompetencyFrameworkController`) aplica el mismo patron granular: `GET /api/v1/job-profiles/{jobProfilePublicId}/competencies` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileLegacyCompetencyResponse>`; `POST` crea una competencia sin pedir token y responde `201 Created` con `JobProfileLegacyCompetencyResponse`; `PUT` y `PATCH` retornan la entidad de la competencia y validan `If-Match` con el token de la competencia; `DELETE` retorna **`204 No Content`** (H-34). Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `competencyPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`. Si `name` llega vacio en `POST`/`PUT`, se toma del `JobCatalogItem` referenciado; si no hay catalogo y `name` queda vacio se responde `JOB_PROFILE_COMPETENCY_NAME_REQUIRED` (`400`).
 - `PATCH /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-competencia>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-competencia>"` y responde **`204 No Content`** (H-34).
 - `GET /api/v1/job-profiles/{jobProfilePublicId}/trainings`, `/benefits`, `/working-conditions` y `/dependent-positions` aceptan paging opcional con `page` y `pageSize`, default `20`, maximo `100`, y responden `PagedResponse<JobProfileTrainingResponse>`, `PagedResponse<JobProfileBenefitResponse>`, `PagedResponse<JobProfileWorkingConditionResponse>` y `PagedResponse<JobProfileDependentPositionResponse>` respectivamente.
 - `GET /api/v1/job-profiles/{jobProfilePublicId}/compensations` permanece sin paginar porque el modelo actual permite una sola compensacion por perfil; el handler aplica cap duro de `1` item antes de responder `IReadOnlyCollection<JobProfileCompensationItemResponse>`.
 - `PUT /job-profiles/{publicId}` y `PATCH /job-profiles/{publicId}` tambien requieren `If-Match` y responden con `ETag`; `PUT` ya no acepta `concurrencyToken` en body y `PATCH` ya no acepta `/concurrencyToken`.
@@ -2988,6 +3143,178 @@ editable mientras lo este.
 Codigos nuevos: `JOB_PROFILE_STATE_RULE_VIOLATION` (422, el descriptor esta congelado o archivado, o la
 transicion es ilegal) y `POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED` (422).
 
+**`version` es el numero de revision del descriptor (H-09): cuantas veces fue APROBADO.** No es un contador
+de escrituras. **Un borrador que nunca se publico devuelve `0`**; `version: 2` significa publicado dos veces.
+
+| Operacion | Mueve `version` |
+| --- | --- |
+| `PATCH .../publication` | **si** — es la unica |
+| `PATCH .../reopening` | no — reabrir es trabajar *hacia* la revision siguiente, no producirla |
+| `PATCH .../archival` | no — archivar no cambia contenido |
+| `PUT /job-profiles/{publicId}` (nucleo) | no |
+| altas, bajas y ediciones de las 9 colecciones hijas | no |
+| `competency-matrix` | no — es una capa operativa sobre un descriptor aprobado |
+
+El campo contaba escrituras: tras cargar las 9 colecciones los 33 perfiles de la corrida quedaron entre 30 y
+39, correlacionado con cuantas filas hijas tenia cada uno. Un frontend que rotulara eso "version del
+descriptor" mostraba un numero sin significado.
+
+Dos consecuencias observables del cambio:
+
+- el `jobProfileVersion` de `competency-matrix` pasa a ser **la revision aprobada sobre la que cuelga la
+  matriz**, que es informacion util; antes se movia con cada celda
+- el `modifiedAtUtc` **del perfil** ya no se mueve al editar una coleccion hija: la fila del perfil no cambia,
+  asi que su fecha no miente. Cada hijo trae su propio `modifiedAtUtc`
+
+**Banda salarial de la plaza (H-14).** `configuredBaseSalary` se valida contra la banda del perfil de puesto
+—resuelta de su linea ACTIVA del tabulador, la que la empresa aprobo con doble firma— en `POST` y `PUT` de
+plazas. Cotas **inclusivas**.
+
+- fuera de `[min, max]` → **`422 POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND`**
+- moneda distinta a la de la banda → **`422 POSITION_SLOT_CONFIGURED_SALARY_CURRENCY_MISMATCH`**
+- **perfil sin banda** (sin compensacion, o linea inactiva) **y se manda salario** →
+  **`422 POSITION_SLOT_JOB_PROFILE_HAS_NO_SALARY_BAND`**: sin cotas no hay con que comparar, asi que el
+  salario no se puede configurar
+- `configuredBaseSalary` ausente → no se valida. **La plaza SI se crea sin banda mientras no lleve salario**:
+  la compensacion del perfil es requisito para tener salario configurado, no para que la plaza exista
+
+El tabulador NO valida contra ningun salario minimo legal: esa configuracion es de la empresa y su control es
+la aprobacion (H-05 descartado). El minimo legal vincula donde se paga —planilla y liquidacion, por
+empleado— no donde se configura.
+
+**Cambio de banda: se reporta, no se bloquea.** `PATCH /salary-tabulator/change-requests/{id}/approve` nunca
+falla por plazas fuera de banda —eso dejaria que el estado de las plazas vete una decision de politica
+salarial ya aprobada— pero su respuesta trae `outOfBandPositionSlots[]`:
+
+```
+outOfBandPositionSlots: [{
+  positionSlotPublicId, positionSlotCode,
+  jobProfilePublicId, jobProfileCode,
+  configuredBaseSalary, configuredBaseSalaryCurrencyCode,
+  bandMinAmount, bandMaxAmount, bandCurrencyCode
+}]
+```
+
+Acotado a los pares (clase salarial, escala) que la aprobacion toco, asi que no arrastra desajustes previos
+ajenos al cambio. Vacio cuando no hay ninguna. El mismo detalle queda registrado en la auditoria del evento
+`SalaryTabulatorRequestApproved`, para que no se pierda al cerrar la pantalla.
+
+**Categoria del catalogo en `requirements` (H-07).** `catalogItemPublicId` resuelve contra los
+`job-catalogs`, y solo dos tipos de requisito tienen categoria equivalente. La validacion aplica en `POST`,
+`PUT` y `PATCH` de `requirements`.
+
+| `requirementType` | `catalogItemPublicId` |
+| --- | --- |
+| `Education` | debe ser de categoria `EducationLevel` |
+| `Knowledge` | debe ser de categoria `KnowledgeArea` |
+| `Certification`, `Experience`, `Other` | **no se acepta** — el contenido va en `description` |
+
+- categoria distinta a la que exige el tipo → **`422 JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH`**
+- tipo sin categoria equivalente y se manda item → **`422 JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE`**
+- `catalogItemPublicId` ausente → no se valida; sigue siendo opcional para todos los tipos
+
+Antes se resolvia el item **solo por publicId**, asi que un `EducationLevel` colgado de un requisito
+`Knowledge` respondia `201` y dejaba el descriptor incoherente sin que nada objetara.
+
+En el manifiesto (`GET /api/v1/job-profiles/catalog-manifest`) los tres catalogos internos
+(`job-profile.requirements.education|knowledge|certification`) quedaron bindeados al campo **`description`**,
+que es el que realmente alimentan; antes se declaraban sobre `catalogItemPublicId`, ofreciendo cinco listas
+para un campo que solo acepta dos.
+
+**Estructura de puestos en el manifiesto (H-10).** `GET /api/v1/job-profiles/catalog-manifest` gana una cuarta
+familia, **`PositionStructure`**, con dos tipos canonicos: `PositionCategory` (slug `position-categories`) y
+`PositionCategoryClassification` (slug `position-category-classifications`). Su
+`apiEndpointTemplate` es la coleccion tenant-scoped directa —`/api/v1/companies/{companyId}/{slug}`— no una
+ruta `/items` bajo un tipo de catalogo, porque **no son catalogos de items**: son recursos con su propio CRUD.
+
+- `jobProfile.positionCategoryPublicId` → **`position-categories`**. Antes apuntaba a
+  `position-function-types`, que es el primer **eje** de la clasificacion de la que cuelga una categoria, no la
+  categoria: los publicId viven en tablas distintas, asi que **toda** opcion de esa lista se rechazaba con
+  `POSITION_CATEGORY_NOT_FOUND`. La relacion tampoco es 1→1: un eje de funcion puede abrirse en varias
+  categorias, y puede no tener ninguna.
+- `subResources` gana la entrada **`positionCategory`** con el campo **`classificationPublicId`** →
+  `position-category-classifications`. No es un sub-recurso del perfil: es el recurso que **alimenta**
+  `positionCategoryPublicId`, y su propia referencia no tenia donde publicarse. Se agrego **al final** del
+  arreglo, asi que ningun indice existente se movio.
+
+**La cadena queda cerrada de punta a punta.** `subResources` gana tambien
+**`positionCategoryClassification`** con sus tres ejes, todos obligatorios en el `POST`:
+
+| Campo | Tipo canonico | Endpoint |
+| --- | --- | --- |
+| `positionFunctionTypePublicId` | `PositionFunctionType` | `/position-description-catalogs/position-function-types/items` |
+| `positionContractTypePublicId` | `PositionContractType` | `/position-description-catalogs/position-contract-types/items` |
+| `orgUnitTypePublicId` | `OrgUnitType` | `/organization-structure-catalogs/unit-types` |
+
+El tercero trae una **quinta familia, `OrgStructure`** (plantilla
+`/api/v1/companies/{companyId}/organization-structure-catalogs/{slug}`), porque ese catalogo pertenece al modulo
+de estructura organizativa. Publicar solo `classificationPublicId` dejaba al frontend **eligiendo**
+clasificaciones pero sin poder **crearlas**, y cubrir un formulario a medias es peor que no cubrirlo: el cliente
+igual necesita el caso especial y ademas puede no notar que le falta un campo.
+
+Recorrido completo: `unit-types` / `position-function-types` / `position-contract-types` →
+`position-category-classifications` → `position-categories` → `jobProfile.positionCategoryPublicId`.
+
+`functional-areas`, la otra coleccion de ese modulo, **queda afuera**: ningun campo de esta cadena la referencia.
+
+Los tres tipos nuevos los siembra el servicio idempotente de arranque (`CatalogTypeDescriptorSeedService`), no
+una migracion: **un ambiente ya levantado necesita reiniciar la API** para verlos.
+
+**Riesgo asumido y como esta cubierto:** los slugs de la familia `OrgStructure` son literales en los atributos
+del controller, sin un route map al que anclarlos —a diferencia de `PositionDescription`, cuyo guardrail los fija
+contra `PositionDescriptionCatalogRouteMap`—. Si ese modulo renombra su ruta, el manifiesto volveria a mentir.
+Lo que lo impide son los tests **end-to-end del manifiesto**: no comparan strings, **caminan la URL publicada** y
+meten el id que devuelve en el campo que el manifiesto dice que alimenta, asi que el drift sale como test rojo.
+
+**Convenciones de los catálogos de la sección (H-11).** Cinco recursos que el usuario percibe como
+equivalentes no coincidían en cuatro ejes. Tabla vigente:
+
+| Recurso | Campo de orden | ¿Único? | Cuerpo | Verbos | Baja | `name` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `occupational-pyramid-levels` | **`levelOrder`** | **sí** | code, name, levelOrder, description | `GET POST PUT PATCH` + `/activate` `/inactivate` | rutas dedicadas | 150 |
+| `position-description-catalogs/*/items` | `sortOrder` | no | code, name, description, sortOrder | `GET POST PATCH` | `PATCH /isActive` | 150 |
+| `position-category-classifications` | `sortOrder` | no | + 3 ejes | `GET POST PATCH` | `PATCH /isActive` | 150 |
+| `position-categories` | `sortOrder` | no | + clasificación | `GET POST PATCH` | `PATCH /isActive` | 150 |
+| `job-catalogs/{category}` | **`sortOrder`** (nuevo) | no | code, name, **description**, **sortOrder** | `GET POST PUT PATCH DELETE` | `DELETE` real | 150 |
+
+Lo que **se armonizó**:
+
+- `job-catalogs` gana **`sortOrder`** y **`description`**, ambos opcionales en `POST`/`PUT` y parcheables
+  (`/description` acepta `remove`; `/sortOrder` no). **El listado ahora ordena por `sortOrder` y desempata por
+  `code`** — antes ordenaba por nombre, algo que ningún cliente podía influir. Sin esos campos un selector de
+  competencias solo podía ir alfabético y un diccionario de competencias no tenía dónde definir sus términos.
+- `name` a **150** en toda la sección. Estaban en 120 la pirámide, `job-catalogs`, la escala de calificación y
+  sus niveles. Subir un techo nunca rechaza un valor que antes entraba.
+
+Lo que **NO se normalizó, a propósito**: los nombres del campo de orden y los sets de verbos. Renombrar
+`levelOrder` a `sortOrder` rompe el contrato del frontend y no habilita nada.
+
+**El `levelOrder` único de la pirámide es un invariante deliberado, no una inconsistencia.** Una pirámide
+ocupacional es un ranking estricto: dos niveles en la misma posición no significa nada. Se conserva.
+
+### Reordenamiento en lote
+
+Tres endpoints, **un mismo cuerpo** (`{ "orderedPublicIds": [...] }`):
+
+- `PATCH /api/v1/companies/{companyPublicId}/occupational-pyramid-levels/order`
+- `PATCH /api/v1/companies/{companyPublicId}/position-description-catalogs/{catalogType}/items/order`
+- `PATCH /api/v1/companies/{companyPublicId}/job-catalogs/{category}/order`
+
+Se manda **la lista completa** de ids en el orden deseado y **el servidor asigna** `10, 20, 30…`. **No viajan
+números en el request**, así que un cliente no puede construir una colisión. Lista parcial o con ids repetidos →
+**`422 OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE`** / **`POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE`**
+/ **`JOB_CATALOG_ORDER_SET_INCOMPLETE`**; nunca se aplica a medias.
+
+**Sin `If-Match`**, y es deliberado: no hay un agregado único que sostenga un token, y como el request trae el
+orden completo, la semántica honesta de un guardado de arrastrar-y-soltar es last-writer-wins. Dos personas
+reordenando a la vez significa que la que pierde vuelve a arrastrar.
+
+En la pirámide el reordenamiento es lo que resuelve el problema real que dejaba su rango único: **un intercambio
+simple no se podía expresar llamada por llamada** —poner el primero en el rango del otro choca—, así que el
+cliente tenía que inventar un valor temporal en tres llamadas. El handler escribe en **dos fases** (parquea todo
+el conjunto en una banda por encima del máximo, después asigna los valores finales), porque el índice único no es
+diferible y Postgres lo verifica por sentencia. Los otros dos usan una sola fase: su orden no es único.
+
 Uso principal:
 
 - crear y mantener el descriptor maestro de un puesto dentro del tenant
@@ -3007,7 +3334,7 @@ Observaciones funcionales:
 - `export` soporta solo `json|csv`.
 - el payload de `create/update` mezcla campos escalares y colecciones anidadas.
 - `update` es de reemplazo total sobre las colecciones; no es un merge parcial y no acepta cambios de `status`.
-- `patch` es parcial sobre campos escalares, `status` y `compensation`; soporta operaciones `add`, `replace` y `remove`. `status` no es obligatorio, pero si llega como `add` o `replace /status` aplica la transicion de estado sobre la entidad. `remove /compensation` limpia la referencia, pero cualquier patch que no toque `/compensation` conserva la compensacion actual.
+- `patch` es parcial sobre campos escalares y `compensation`; soporta operaciones `add`, `replace` y `remove`. **`/status` ya no es parcheable** (H-01): un `add`/`replace /status` responde `400`; las transiciones viven en `publication`, `reopening` y `archival`. `remove /compensation` limpia la referencia, pero cualquier patch que no toque `/compensation` conserva la compensacion actual.
 - `compensation` no es coleccion: es una sola referencia opcional (`salaryTabulatorLineId`) y el backend valida que la linea exista y este activa en `Salary Tabulator` para la fecha efectiva.
 - `create/update` resuelven referencias a `OrgUnit`, `ReportsToJobProfile`, `PositionCategory`, `StrategicObjective`, `AssignedWorkEquipment` y `Responsibility`.
 - `OrgUnitPublicId` es obligatoria en `create/update`; incluso un borrador debe quedar asociado a una unidad organizativa valida.
@@ -3015,7 +3342,7 @@ Observaciones funcionales:
 - las referencias a `StrategicObjective`, `AssignedWorkEquipment`, `Responsibility`, `RequirementType`, `Frequency` y `WorkConditionType` deben existir y estar activas.
 - el sistema detecta ciclos tanto en `reportsTo` como en `dependentPositions`.
 - `Published` no es un estado inmutable: un job profile publicado todavia puede editarse y volver a publicarse mientras no este archivado.
-- `PUT /api/v1/job-profiles/{publicId}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir. Las transiciones de estado se hacen exclusivamente con `PATCH /api/v1/job-profiles/{publicId}` usando `/status`.
+- `PUT /api/v1/job-profiles/{publicId}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir. Las transiciones de estado se hacen exclusivamente con `PATCH /api/v1/job-profiles/{publicId}/publication`, `/reopening` y `/archival` (H-01).
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
 - `publish` no exige competencias, trainings, beneficios, compensacion ni categoria de puesto.
@@ -3318,10 +3645,42 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/dynamic-query`
 - `/api/v1/companies/{companyId}/personnel-files/export`
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
-- `/api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
-- `/api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
+- `/api/v1/general-catalogs/{catalogKey}` — **sin `companyId`**: superficie company-less
+- `/api/v1/reference-catalogs/{catalogKey}` — **sin `companyId`**
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `/api/v1/personnel-custom-field-definitions/{id}`
+
+**El pais de un catalogo se resuelve solo (H-21).** Los catalogos por pais —`general-catalogs` (salvo los de
+sistema), `reference-catalogs`, `compensation-concept-types`, `settlement-concepts`, `contract-types`, `afps`—
+aceptan `countryCode` **opcional**:
+
+| Caso | Respuesta |
+|---|---|
+| con `?countryCode=SV` | el catalogo de ese pais (sirve para leer otro pais y para el llamante sin empresa) |
+| **sin el parametro** | el catalogo del pais **del tenant** del token |
+| sin parametro y sin tenant | **`400 CATALOG_COUNTRY_REQUIRED`** |
+| pais que no existe (`XX`) | **`400 CATALOG_COUNTRY_UNKNOWN`** |
+| pais valido sin filas | `200 []` — y **ahora eso solo significa "vacio"** |
+
+Antes, las dos primeras filas de error respondian **`200 []`**, indistinguible de un catalogo sin sembrar: el
+`GET /compensation-concept-types` devolvia lista vacia con **19 tipos** cargados. Los `400` nuevos aparecen solo
+donde antes habia una respuesta inutil, asi que el cliente que ya manda el parametro no nota ningun cambio.
+
+**Los catalogos de sistema no llevan pais** y siguen respondiendo sin ningun contexto —es lo que necesita el
+onboarding—: `countries`, `education-statuses`, `education-study-types`, `education-levels`, `education-shifts`,
+`education-modalities` y `file-document-types`. Ojo: **`education-careers` SI es por pais** pese a vivir entre los
+de educacion.
+
+**Tipos documentales (H-22).** `file-document-types` es un catalogo **global de plataforma** —sin tenant y sin
+pais— y llega **sembrado con 12 tipos** (`CONSTANCIA_MEDICA`, `INCAPACIDAD`, `RECETA`, `FACTURA`, `RECIBO`,
+`CONTRATO`, `CARTA`, `TITULO`, `CURRICULUM`, `IDENTIFICACION`, `RESPALDO`, `OTRO`). Se leen en el Core; se
+**administran** en la **Backoffice API** (`api/platform/document-type-catalogs`, politica `PlatformOperator`),
+no aqui. Los tipos que agregue un operador los ven **todas** las empresas.
+
+`documentTypeCatalogItemPublicId` es **obligatorio** en documentos del expediente
+(`POST/PUT /personnel-files/{id}/documents`) y en adjuntos de reclamo medico; en incapacidades, tiempo
+compensatorio, amonestaciones, reconocimientos, ayuda economica y transacciones fuera de nomina es **opcional**
+(el adjunto se crea sin clasificar).
 
 #### 5.10.2 Proposito funcional en CLARIHR
 
@@ -3400,7 +3759,7 @@ Errores transversales:
 Errores funcionales del expediente:
 
 - `PERSONNEL_FILE_IDENTIFICATION_CONFLICT`: `409`, otra persona del tenant ya usa la misma identificacion.
-- `PERSONNEL_FILE_STATE_RULE_VIOLATION`: `422`, la operacion no aplica al estado o tipo actual del expediente.
+- `PERSONNEL_FILE_NOT_FINALIZED`: `422`, la operacion no aplica al estado o tipo actual del expediente.
 - `PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED`: `422`, se intento cambiar `RecordType` dentro del modulo.
 - `PERSONNEL_FILE_PROVISIONING_FIELDS_LOCKED`: `422`, se intento cambiar `InstitutionalEmail` o `AssignedPositionSlotId` despues de completar el expediente.
 - `PERSONNEL_FILE_FINALIZE_REQUIRES_INSTITUTIONAL_EMAIL`: `422`, falta el correo institucional requerido para aprovisionar el usuario.
@@ -3639,7 +3998,7 @@ Observaciones funcionales:
 - `finalize/preview` usa `createUserAccount` como query param opcional (default `true`) y devuelve `isEligible` + `issues` para prerevisar bloqueos antes de ejecutar `finalize`; cada issue expone `section`, `fieldKey` y `navigationKey`.
 - `finalize` exige que el expediente sea `Employee`, siga en `Draft`, tenga `InstitutionalEmail` y plaza asignada; la validacion de rol IAM de la plaza aplica solo cuando `createUserAccount = true`.
 - `finalize` cambia el expediente a `Completed`; cuando `createUserAccount = true` crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula el usuario al expediente, y cuando `createUserAccount = false` completa sin aprovisionar usuario.
-- Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
+- Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_NOT_FINALIZED`.
 - Los endpoints `GET` del bloque devuelven el subrecurso solicitado sin exigir `ConcurrencyToken`.
 - Los endpoints `PUT` del bloque devuelven `PersonnelFileSectionResult<T>` para que frontend pueda encadenar mutaciones usando el nuevo `personnelFileConcurrencyToken`.
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
@@ -3737,7 +4096,43 @@ Observaciones funcionales:
 - `GET` de lista devuelve la coleccion completa del subrecurso (unico endpoint de listado, sin paginacion); `GET /{entityPublicId}` devuelve un item individual con su `concurrencyToken`.
 - `POST` responde `201 Created` con el item creado, `Location` apuntando al recurso y `ETag: "<concurrencyToken>"` inicial.
 - `PUT` y `PATCH` responden `200 OK` con el item actualizado y el nuevo `ETag`. `PATCH` consume `application/json-patch+json` (JSON Patch RFC 6902) y re-ejecuta la misma validacion de `Add`/`Update` (solo `NotEmpty`/longitud/normalizacion de fechas; no hay validacion de catalogo en `Talent`).
-- `DELETE` es hard delete (sin soft-delete): responde `200 OK` con `PersonnelFileParentConcurrencyResult` (`parentConcurrencyToken`), el token refrescado del expediente padre, para encadenar mutaciones sin un `GET` adicional.
+- `DELETE` es hard delete (sin soft-delete): responde **`204 No Content`** (H-34).
+
+**La compuerta de `finalize`, y el error que ahora la nombra (H-25).** El expediente nace en
+`LifecycleStatus = Draft`. En `Draft` se pueden escribir identificaciones, cuentas bancarias **y la asignación de
+plaza** — esta última tiene que poder, porque **`finalize` EXIGE una plaza asignada** (explícita o la primaria
+activa deducida) mas el correo institucional. Lo que NO se puede escribir en `Draft` es **informacion de empleo** ni
+**compensacion**. O sea que el orden lo impone el codigo:
+
+```
+crear (Draft) → identificaciones · cuenta bancaria · ASIGNAR PLAZA → finalize → informacion de empleo · compensacion
+```
+
+| Situacion | Codigo |
+|---|---|
+| empleado en `Draft` escribiendo empleo/compensacion | **`422 PERSONNEL_FILE_NOT_FINALIZED`** — el cuerpo trae `lifecycleStatus`, `requiredTransition` y `readiness` |
+| el expediente no es de tipo empleado | **`422 PERSONNEL_FILE_NOT_EMPLOYEE`** |
+| finalizar uno ya finalizado | **`422 PERSONNEL_FILE_ALREADY_FINALIZED`** |
+| abrir vacaciones sin ancla de antiguedad | **`422 PERSONNEL_FILE_VACATION_ANCHOR_MISSING`** |
+| hijo curricular inexistente (idioma, referencia) | **`404 PERSONNEL_FILE_CHILD_NOT_FOUND`** |
+
+Los cinco eran **un solo codigo**, `PERSONNEL_FILE_STATE_RULE_VIOLATION`, usado 154 veces: 143 significaban «falta
+finalizar», 4 «no es empleado», 5 eran excepciones de dominio atrapadas (un 404 y una validacion disfrazados de
+problema de estado) y 2 otras cosas. Ese codigo ya no existe.
+
+**Dos trampas del camino, verificadas:** asignar la plaza **toca el expediente**, asi que su `concurrencyToken`
+cambia y hay que releerlo antes del `finalize` (si no, `409`); y el `If-Match` del `PUT employment-information` es
+**obligatorio incluso la primera vez**, cuando la seccion todavia no existe.
+
+**Por qué el `DELETE` de un hijo no devuelve nada (H-34).** Antes respondia `200 OK` con
+`{ parentConcurrencyToken }` —y ese mismo valor en el `ETag`—, documentado como «el token **actualizado** del
+padre, para seguir editando sin otra vuelta». De los **53** endpoints que lo devolvian, la promesa era cierta en
+**29** y falsa en **24**: el agregado `JobProfile` nunca rota su token al escribir un hijo, y 14 de las secciones
+del expediente tampoco. El mismo campo, en la misma forma de respuesta, significaba dos cosas segun que modulo
+contestara.
+
+La concurrencia de estos modulos es **por hijo**: el `If-Match` del `DELETE` lleva el token **del hijo**, nunca el
+del padre. El campo era un atajo que no hacia falta, asi que el `DELETE` responde `204` sin cuerpo.
 - Si el item referenciado por `{entityPublicId}` no existe, `GET /{entityPublicId}`, `PUT`, `PATCH` y `DELETE` responden `ITEM_NOT_FOUND` (`404`); el chequeo de existencia precede al de concurrencia, de modo que un item ausente nunca produce `CONCURRENCY_CONFLICT`.
 - `evaluations` mantiene resultados de evaluacion con score cuantitativo, score cualitativo y comentario.
 - `position-competency-results` mantiene resultados observados por `CompetencyCode`; el endpoint lee el estado persistido del expediente, no una recomputacion en vivo desde `CompetencyFramework`.
@@ -4125,6 +4520,24 @@ El primer caso de uso implementado es la imagen de perfil del expediente de pers
 - Futuros modulos pueden registrar nuevos propositos para documentos, evidencias u otros binarios sin cambiar la infraestructura de file management.
 
 ## 6. Reglas observables transversales
+
+**Fechas: se aceptan con o sin zona, y siempre se interpretan en UTC (H-26).** La frontera de la API normaliza toda
+fecha que entra, por las **dos** vías: el cuerpo JSON y los parametros de query/ruta.
+
+| Lo que manda el cliente | Como se interpreta |
+|---|---|
+| `"2026-08-01"` (sin zona) | UTC — es la forma natural y ahora es valida |
+| `"2026-08-01T00:00:00Z"` | UTC, tal cual |
+| `"2026-08-01T00:00:00-06:00"` | **se convierte**: `2026-08-01T06:00:00Z`. Un offset explicito nunca se reetiqueta |
+
+Los campos que semanticamente son un **dia** —`startDate` y `endDate` de la asignacion, `hireDate` de la
+informacion de empleo— viajan como `DateOnly` (`"2026-08-01"`), y aceptan igual la forma de instante para no romper
+a los clientes que ya la mandaban.
+
+Antes de esto, una fecha sin zona producia un **`500`** cuyo `detail` traia el mensaje de PostgreSQL, y solo en los
+endpoints donde el valor terminaba en una comparacion SQL. El `detail` de un `500` ya no lleva texto de
+infraestructura: queda en el log, localizable por el `traceId` de la respuesta.
+
 
 - las rutas autenticadas `api/v1` son tenant-scoped por defecto
 - los listados usan normalmente paginacion, filtros o ambos

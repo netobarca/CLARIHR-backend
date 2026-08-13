@@ -67,6 +67,17 @@ public sealed class PersonnelFileEmploymentController(
             Transitions the specified personnel file out of `Draft` (and optionally provisions a user
             account). Requires the `If-Match` header with the current `concurrencyToken`. Returns the
             finalization outcome.
+
+            **What it unlocks (H-25):** while the file is in `Draft`, `PUT employment-information` and the
+            compensation endpoints answer `422 PERSONNEL_FILE_NOT_FINALIZED`. Identifications, bank accounts
+            and the POSITION ASSIGNMENT do work in `Draft` — the assignment has to, because finalizing
+            REQUIRES an assigned plaza (explicit `positionSlotPublicId`, or the active primary one deduced
+            from the file) plus an institutional email. So the order the code enforces is:
+            create → assign the plaza → finalize → employment information and compensation.
+
+            `GET /api/v1/personnel-files/{id}/finalize/preview` lists what is still missing without mutating
+            anything. And note that creating the assignment TOUCHES the file, so its `concurrencyToken`
+            changes: re-read the file before sending this `If-Match` or it answers `409`.
             """)]
     public async Task<ActionResult<FinalizePersonnelFileResponse>> Finalize(
         Guid publicId,
@@ -178,10 +189,18 @@ public sealed class PersonnelFileEmploymentController(
     [SwaggerOperation(
         Summary = "Create or replace a personnel file's employment information",
         Description = """
-            Upserts the single employment-information section of the specified personnel file. When a profile
-            already exists, the `If-Match` header with its current `concurrencyToken` is required to
-            prevent lost updates; the refreshed token is returned in the `ETag` header. The first
-            create requires no `If-Match`. Supplying `institutionalEmail` changes the employee's institutional
+            Upserts the single employment-information section of the specified personnel file.
+
+            **Requires a FINALIZED file (H-25):** on a file still in `Draft` this answers
+            `422 PERSONNEL_FILE_NOT_FINALIZED`, whose payload carries the current `lifecycleStatus`, the
+            transition to call (`PATCH /personnel-files/{id}/finalize`) and the readiness endpoint
+            (`GET /personnel-files/{id}/finalize/preview`). On a file that is not an employee record it answers
+            `422 PERSONNEL_FILE_NOT_EMPLOYEE`.
+
+            The `If-Match` header is **always required** — including the very first create, where the section
+            does not exist yet and the value is not compared against anything. (It used to be documented as
+            optional on the first create; the binder has always demanded it.) The refreshed token comes back in
+            the `ETag` header. Supplying `institutionalEmail` changes the employee's institutional
             email — which is the linked sign-in account's identifier, so the account is re-synced to it; omit it
             (or send `null`) to leave it unchanged. A `409` is returned when the email already belongs to
             another account. The retirement metadata is NOT written here (retirement module D-01): the baja is
@@ -199,7 +218,8 @@ public sealed class PersonnelFileEmploymentController(
                 publicId,
                 request.EmployeeCode,
                 request.EmploymentStatusCode,
-                request.HireDate,
+                // H-26 (parte B) — el contrato habla de un día; el dominio guarda UTC a medianoche.
+                request.HireDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
                 concurrencyToken,
                 request.InstitutionalEmail,
                 request.MinimumMonthlyWage),
@@ -374,7 +394,7 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/assigned-positions/{employmentAssignmentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an employment assignment from a personnel file",
@@ -383,7 +403,7 @@ public sealed class PersonnelFileEmploymentController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteEmploymentAssignment(
+    public async Task<ActionResult> DeleteEmploymentAssignment(
         Guid publicId,
         Guid employmentAssignmentPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -393,7 +413,7 @@ public sealed class PersonnelFileEmploymentController(
             new DeletePersonnelFileEmploymentAssignmentCommand(publicId, employmentAssignmentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/contract-history")]
@@ -881,7 +901,7 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/assets-accesses/{assetAccessPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove an asset/access from a personnel file",
@@ -890,7 +910,7 @@ public sealed class PersonnelFileEmploymentController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
             so the caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteAssetAccess(
+    public async Task<ActionResult> DeleteAssetAccess(
         Guid publicId,
         Guid assetAccessPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -900,7 +920,7 @@ public sealed class PersonnelFileEmploymentController(
             new DeletePersonnelFileAssetAccessCommand(publicId, assetAccessPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
 }

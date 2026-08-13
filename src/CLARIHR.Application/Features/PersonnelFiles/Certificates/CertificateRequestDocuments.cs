@@ -55,7 +55,7 @@ public sealed record DeleteCertificateRequestDocumentCommand(
     Guid PersonnelFileId,
     Guid CertificateRequestPublicId,
     Guid DocumentPublicId,
-    Guid ConcurrencyToken) : ICommand<PersonnelFileParentConcurrencyResult>;
+    Guid ConcurrencyToken) : ICommand<ChildDeletionResult>;
 
 internal sealed class GetCertificateRequestDocumentsQueryValidator : AbstractValidator<GetCertificateRequestDocumentsQuery>
 {

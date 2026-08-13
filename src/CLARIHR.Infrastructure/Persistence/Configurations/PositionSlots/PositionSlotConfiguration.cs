@@ -53,19 +53,16 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
         builder.Property(slot => slot.FunctionalDependencyPositionSlotId)
             .HasColumnName("functional_dependency_position_slot_id");
 
-        builder.Property(slot => slot.Status)
-            .HasColumnName("status")
-            .HasConversion<string>()
-            .HasMaxLength(20);
-
         builder.Property(slot => slot.MaxEmployees)
             .HasColumnName("max_employees");
 
-        builder.Property(slot => slot.OccupiedEmployees)
-            .HasColumnName("occupied_employees");
-
         builder.Property(slot => slot.IsFixedTerm)
             .HasColumnName("is_fixed_term");
+
+        // H-19/H-20 — default true: a new plaza must not become overtime-exempt by omission.
+        builder.Property(slot => slot.GeneratesOvertime)
+            .HasColumnName("generates_overtime")
+            .HasDefaultValue(true);
 
         builder.Property(slot => slot.EffectiveFromUtc)
             .HasColumnName("effective_from_utc");
@@ -102,12 +99,12 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
             .IsUnique()
             .HasDatabaseName("uq_position_slots__public_id");
 
+        // H-23 — `status` and `occupied_employees` no longer exist: `Vacant`/`Occupied` and the occupant count
+        // are derived from the active assignments, and `IsActive` (persisted) is what records the one real
+        // decision — retired or in force. The `(tenant, status)` index went with the column.
         builder.HasIndex(slot => new { slot.TenantId, slot.NormalizedCode })
             .IsUnique()
             .HasDatabaseName(PositionSlotValidationRules.CodeUniqueConstraintName);
-
-        builder.HasIndex(slot => new { slot.TenantId, slot.Status })
-            .HasDatabaseName("ix_position_slots__tenant_status");
 
         builder.HasIndex(slot => new { slot.TenantId, slot.JobProfileId })
             .HasDatabaseName("ix_position_slots__tenant_job_profile");

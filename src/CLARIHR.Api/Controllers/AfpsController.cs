@@ -25,8 +25,11 @@ public sealed class AfpsController(IQueryDispatcher queryDispatcher) : Controlle
         Description = """
             Returns the country-scoped master catalog of pension fund administrators (AFP) with their
             identity/contact attributes: `abbreviation`, `address`, `phone`, `fax` and `contactName`
-            (nullable — completed by administration). The `countryCode` query parameter (a 2–3 letter
-            ISO-style code) selects the country and returns no items when missing or unknown. Items
+            (nullable — completed by administration). The `countryCode` query parameter (a 2–3
+            letter ISO-style code) is OPTIONAL: when omitted the country of the CURRENT TENANT is used, and a
+            code that matches no active country is rejected with `400 CATALOG_COUNTRY_UNKNOWN` — an empty list
+            now means only that this country's catalog has no rows (H-21). A caller with no tenant (the
+            company-less onboarding surface) must send it, or gets `400 CATALOG_COUNTRY_REQUIRED`. Items
             are ordered by `sortOrder`. The employee affiliation is stored on the person as `afpCode`.
             """)]
     public async Task<ActionResult<IReadOnlyCollection<AfpResponse>>> GetAfps(

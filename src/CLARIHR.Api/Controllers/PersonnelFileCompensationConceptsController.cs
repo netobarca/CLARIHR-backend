@@ -74,6 +74,10 @@ public sealed class PersonnelFileCompensationConceptsController(
             Creates a new compensation concept (ingreso/egreso, fixed or percentage) under the specified
             personnel file and returns it with a `201 Created` response. The `Location` header points to
             the created resource and the `ETag` header carries its initial `concurrencyToken`.
+
+            **Requires a FINALIZED file (H-25):** on a file still in `Draft` this answers
+            `422 PERSONNEL_FILE_NOT_FINALIZED`, whose payload carries the transition to call
+            (`PATCH /personnel-files/{id}/finalize`) and the readiness endpoint that lists what is missing.
             """)]
     public async Task<ActionResult<PersonnelFileCompensationConceptResponse>> AddCompensationConcept(
         Guid publicId,
@@ -154,7 +158,7 @@ public sealed class PersonnelFileCompensationConceptsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/compensation-concepts/{compensationConceptPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a compensation concept from a personnel file",
@@ -163,7 +167,7 @@ public sealed class PersonnelFileCompensationConceptsController(
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token so the
             caller can keep mutating without an extra round-trip.
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteCompensationConcept(
+    public async Task<ActionResult> DeleteCompensationConcept(
         Guid publicId,
         Guid compensationConceptPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -173,7 +177,7 @@ public sealed class PersonnelFileCompensationConceptsController(
             new DeletePersonnelFileCompensationConceptCommand(publicId, compensationConceptPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     private static CompensationConceptInput ToInput(AddCompensationConceptRequest request) =>

@@ -16,6 +16,7 @@ using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.DocumentTypeCatalogs;
@@ -256,9 +257,14 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<AccountCompanyItem>>(JsonOptions);
         Assert.NotNull(payload);
+        // H-33 — este test se llamaba «OwnedCompaniesOnly» y afirmaba que la lista traía LAS DOS empresas, porque
+        // el actor era dueño de ambas: habría pasado igual si el endpoint devolviera todas las empresas de la base.
+        // Con `Acme Two` en manos de otro dueño, el «Only» por fin significa algo — y lo que lo prueba es la
+        // AUSENCIA, no la presencia.
         Assert.Equal(2, payload!.TotalCount);
         Assert.Contains(payload.Items, static item => item.Name == "Acme One" && item.IsActiveContext);
-        Assert.Contains(payload.Items, static item => item.Name == "Acme Two" && !item.IsActiveContext);
+        Assert.Contains(payload.Items, static item => item.Name == "Acme Three" && !item.IsActiveContext);
+        Assert.DoesNotContain(payload.Items, static item => item.Name == "Acme Two");
     }
 
     [Fact]
@@ -476,7 +482,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -509,7 +515,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -538,7 +544,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -587,7 +593,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -608,7 +614,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -646,7 +652,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
@@ -708,9 +714,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
         };
@@ -722,7 +728,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Equal("Acme Two Updated", payload!.Name);
-        Assert.Equal("acme-two", payload.Slug);
+        Assert.Equal("acme-three", payload.Slug);
         Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
         Assert.Equal($"\"{payload.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
     }
@@ -747,7 +753,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
         };
@@ -765,9 +771,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var companyType = (await GetAccountCompanyTypesAsync(client, "SV"))
             .Single(item => item.Code == "SA_DE_CV");
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = companyType.Id }),
@@ -794,9 +800,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
 
         var usCompanyType = (await GetAccountCompanyTypesAsync(client, "US"))
             .Single(item => item.Code == "LLC");
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
-        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = usCompanyType.Id }),
@@ -815,9 +821,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
@@ -842,10 +848,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
         // Status transitions go through /archive and /reactivate; a /status patch op must be rejected (400).
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/status", value = "Archived" } }),
@@ -864,7 +870,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}")
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}")
         {
             Content = new StringContent(
                 JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
@@ -909,16 +915,16 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
-            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-three");
             companyToArchive.Archive();
             await dbContext.SaveChangesAsync();
         });
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+        var current = await GetAccountCompanyAsync(client, scenario.OwnedSecondTenantId);
 
-        using var reactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OtherTenantId}/reactivate");
+        using var reactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/account/companies/{scenario.OwnedSecondTenantId}/reactivate");
         reactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
 
         var response = await client.SendAsync(reactivateRequest);
@@ -927,7 +933,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Equal("Active", payload!.Status);
-        Assert.Equal("Acme Two", payload.Name);
+        Assert.Equal("Acme Three", payload.Name);
         Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
         Assert.Equal($"\"{payload.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
     }
@@ -1135,6 +1141,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
             var actorUser = dbContext.AuthUsers.Single(user => user.PublicId == Guid.Parse("11111111-1111-1111-1111-111111111111"));
+            // H-33 — `acme-two` es de OTRO dueño a propósito: es lo que hace que este test pruebe de verdad
+            // «miembro pero no propietario». Cuando las dos empresas eran del actor, pasaba por el camino de la
+            // propiedad y el de membresía nunca corría.
             var companyB = dbContext.Companies.Single(company => company.Slug == "acme-two");
             var roleB = dbContext.IamRoles.IgnoreQueryFilters().Single(role => role.Name == "Auditor B");
 
@@ -1180,6 +1189,133 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             .Select(company => company.PublicId)
             .Single();
         Assert.Equal(scenario.OtherTenantId, primaryCompanyPublicId);
+    }
+
+    /// <summary>
+    /// H-04 regression. Switching used to resolve the company by OWNERSHIP, so an invited user with an
+    /// active membership got <c>403 COMPANY_OWNERSHIP_FORBIDDEN</c> — the exact case the endpoint exists to
+    /// serve. A user may belong to several companies but only one is active at a time; the only way into the
+    /// others is this switch, so rejecting non-owners locked invited users into their primary company.
+    /// <para>
+    /// Note what <c>AccountCompanies_Switch_ShouldReturnTokenWithSelectedTenant</c> does NOT cover: the
+    /// seeder creates BOTH companies with <c>actorUserId</c> as the creator
+    /// (<c>IntegrationTestSeeder.cs:33-34</c>), so that test passes on ownership and never exercises a
+    /// non-owner. This one creates a company owned by somebody else on purpose.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task AccountCompanies_Switch_AsNonOwnerMember_ShouldSucceed()
+    {
+        var foreignCompanyId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var actorUser = dbContext.AuthUsers.Single(user => user.PublicId == Guid.Parse("11111111-1111-1111-1111-111111111111"));
+            var countryCatalogItemId = await dbContext.CountryCatalogItems
+                .Where(item => item.NormalizedCode == "SV")
+                .Select(item => item.Id)
+                .SingleAsync();
+            var roleB = dbContext.IamRoles.IgnoreQueryFilters().Single(role => role.Name == "Auditor B");
+
+            // Owned by someone else entirely — the actor is a guest here, exactly like an invited user.
+            var foreignCompany = Company.Create(
+                "Invited Guest Company",
+                "invited-guest-company",
+                Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                "SV",
+                countryCatalogItemId);
+            dbContext.Companies.Add(foreignCompany);
+            await dbContext.SaveChangesAsync();
+
+            dbContext.CompanySubscriptions.Add(CompanySubscription.Activate(
+                foreignCompany.Id,
+                await dbContext.CommercialPlans
+                    .Include(plan => plan.Versions)
+                    .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode),
+                DateTime.UtcNow.Date));
+
+            dbContext.UserCompanyMemberships.Add(
+                UserCompanyMembership.Create(actorUser.Id, foreignCompany.Id, roleB.Id, isPrimary: false));
+
+            await dbContext.SaveChangesAsync();
+            foreignCompanyId = foreignCompany.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsync($"/api/v1/account/companies/{foreignCompanyId}/switch", content: null);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException(
+                $"A member who is not the owner must be able to switch. Got {(int)response.StatusCode}. Body: {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<SwitchActiveCompanyItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(foreignCompanyId, payload!.ActiveCompany.PublicId);
+
+        // The new token must be scoped to the company just entered — that is what makes it impossible to
+        // operate in two companies with one token.
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
+        Assert.Equal(foreignCompanyId.ToString(), token.Claims.Single(claim => claim.Type == "tid").Value);
+
+        // And the primary moved: only one company is active at a time.
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var actor = dbContext.AuthUsers.Single(user => user.PublicId == scenario.ActorUserId);
+        var primary = Assert.Single(dbContext.UserCompanyMemberships
+            .Where(membership => membership.UserId == actor.Id && membership.IsPrimary)
+            .ToList());
+        Assert.Equal(foreignCompanyId, dbContext.Companies
+            .Where(company => company.Id == primary.CompanyId)
+            .Select(company => company.PublicId)
+            .Single());
+    }
+
+    /// <summary>
+    /// H-04 guardrail on the opposite side. Relaxing ownership to membership must NOT become "anyone can
+    /// enter any company" — that would be a multi-tenant isolation hole, considerably worse than the bug it
+    /// replaced. Without a membership the switch is refused.
+    /// </summary>
+    [Fact]
+    public async Task AccountCompanies_Switch_WithoutMembership_ShouldReturn403()
+    {
+        var foreignCompanyId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var countryCatalogItemId = await dbContext.CountryCatalogItems
+                .Where(item => item.NormalizedCode == "SV")
+                .Select(item => item.Id)
+                .SingleAsync();
+
+            // Someone else's company, and this time the actor has NO membership in it.
+            var foreignCompany = Company.Create(
+                "Unrelated Company",
+                "unrelated-company",
+                Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                "SV",
+                countryCatalogItemId);
+            dbContext.Companies.Add(foreignCompany);
+            await dbContext.SaveChangesAsync();
+
+            dbContext.CompanySubscriptions.Add(CompanySubscription.Activate(
+                foreignCompany.Id,
+                await dbContext.CommercialPlans
+                    .Include(plan => plan.Versions)
+                    .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode),
+                DateTime.UtcNow.Date));
+
+            await dbContext.SaveChangesAsync();
+            foreignCompanyId = foreignCompany.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsync($"/api/v1/account/companies/{foreignCompanyId}/switch", content: null);
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_MEMBERSHIP_FORBIDDEN");
     }
 
     [Fact]
@@ -2346,7 +2482,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/addresses/{added.Id}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated!.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);  // H-34: el DELETE de un hijo responde 204 sin cuerpo
 
         var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/addresses");
         getAfterDeleteResponse.EnsureSuccessStatusCode();
@@ -2410,7 +2546,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added.Id}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated!.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);  // H-34: el DELETE de un hijo responde 204 sin cuerpo
 
         var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts");
         getAfterDeleteResponse.EnsureSuccessStatusCode();
@@ -2598,7 +2734,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);  // H-34: el DELETE de un hijo responde 204 sin cuerpo
 
         var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
         getResponse.EnsureSuccessStatusCode();
@@ -2869,14 +3005,12 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.Equal("Parcheado", patched!.Observations);
         Assert.NotEqual(updated.ConcurrencyToken, patched.ConcurrencyToken);
 
-        // DELETE (If-Match) — soft-delete; returns the parent personnel file's refreshed token.
+        // DELETE (If-Match) — soft-delete. H-34: answers 204 with no body; the parent's token is no longer
+        // reported because it only changed in about half of these endpoints.
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/documents/{added.Id}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
-        var parent = await deleteResponse.Content.ReadFromJsonAsync<ParentConcurrencyItem>(JsonOptions);
-        Assert.NotNull(parent);
-        Assert.NotEqual(Guid.Empty, parent!.ParentConcurrencyToken);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         // Soft-deleted: the document is retained in the listing but marked inactive.
         var listResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/documents");
@@ -3049,6 +3183,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3070,6 +3211,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3091,6 +3239,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3114,6 +3269,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3135,6 +3297,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3167,11 +3336,70 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
         Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
         await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    /// <summary>
+    /// H-02 regression. Inviting a user used to write the user correctly and then return
+    /// <c>500 "No route matches the supplied values."</c> while building the <c>Location</c>: the route value
+    /// was keyed <c>userPublicId</c> (the JSON rename of <c>userId</c>) while the rewritten route expects
+    /// <c>publicId</c> (the ROUTE rename).
+    /// <para>
+    /// The GET on the returned <c>Location</c> is the part that matters — a bare <c>201</c> assertion would
+    /// not have caught this, because the failure was in the URL, not the status.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task CompanyUsers_Invite_ShouldReturn201WithResolvableLocation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        // Authenticate as the TARGET user, not the actor: the seeder deliberately gives the actor's role
+        // `email` and `firstName` as non-editable to exercise field-level restrictions, and creating a user
+        // needs Create rights on exactly those fields — so the actor legitimately gets 403 here.
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.TargetUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Create)));
+
+        var response = await client.PostJsonAsync("/api/v1/company/users", new
+        {
+            email = "invited-user@acme.test",
+            firstName = "Invited",
+            lastName = "User",
+            rolePublicIds = new[] { scenario.TargetRoleId }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+        Assert.NotNull(response.Headers.ETag);
+
+        var invitation = await response.Content.ReadFromJsonAsync<CompanyUserInvitationItem>(JsonOptions);
+        Assert.NotNull(invitation);
+        Assert.NotEqual(Guid.Empty, invitation!.User.Id);
+
+        // The Location must actually resolve to the created user.
+        var followed = await client.GetAsync(response.Headers.Location);
+        followed.EnsureSuccessStatusCode();
+
+        var fetched = await followed.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
+        Assert.NotNull(fetched);
+        Assert.Equal(invitation.User.Id, fetched!.Id);
+        Assert.Equal("Invited", fetched.FirstName);
     }
 
     [Fact]
@@ -3200,6 +3428,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3226,6 +3461,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -3659,7 +3901,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/hobbies/{added.Id}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);  // H-34: el DELETE de un hijo responde 204 sin cuerpo
 
         var afterDelete = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/hobbies");
         afterDelete.EnsureSuccessStatusCode();
@@ -4184,6 +4426,13 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             {
                 break;
             }
+
+            // H-02: a rate-limit loop must never SWALLOW a server error. Some of these loops send
+            // deliberately invalid requests (a stale If-Match, for instance), so 4xx is legitimate here —
+            // but a 5xx never is. The invite endpoint returned 500 on all 10 pre-limit calls for weeks
+            // and this loop reported green. Happy-path behaviour is asserted by the dedicated tests.
+            Assert.True((int)lastResponse.StatusCode < 500,
+                $"call {index} returned {(int)lastResponse.StatusCode} before the rate limit engaged.");
         }
 
         Assert.NotNull(lastResponse);
@@ -5683,7 +5932,12 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var reopened = await reopenResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(reopened);
         Assert.Equal(JobProfileStatus.Draft, reopened!.Status);
-        Assert.True(reopened.Version > publishedVersion);
+        // H-09 — this asserted `>` when H-01 wrote it, back when `version` counted writes. Reopening does not
+        // advance the revision: the revision in force is still the one that was approved, and the next number
+        // is earned by publishing again (asserted below). What makes the reopen traceable is the audit entry
+        // with its mandatory reason, plus the rotated token — not this counter.
+        Assert.Equal(publishedVersion, reopened.Version);
+        Assert.NotEqual(published.ConcurrencyToken, reopened.ConcurrencyToken);
 
         // Now editable again — this is the original intent of the old test: assigning the position category.
         using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{published.Id}")
@@ -5815,18 +6069,21 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var orgUnit = await CreateOrgUnitAsync(adminClient, scenario.TenantId, "DIR-JP-SOD", "Direccion SoD", "Direccion");
         var draft = await CreateJobProfileAsync(adminClient, scenario.TenantId, "JP-SOD", "Perfil SoD", orgUnit.Id);
 
-        await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/functions", new
+        var functionResponse = await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/functions", new
         {
             functionType = "General",
             description = "Funcion",
             sortOrder = 1
         });
-        await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/requirements", new
+        functionResponse.EnsureSuccessStatusCode();
+
+        var requirementResponse = await adminClient.PostJsonAsync($"/api/v1/job-profiles/{draft.Id}/requirements", new
         {
             requirementType = "Experience",
             description = "Experiencia",
             sortOrder = 1
         });
+        requirementResponse.EnsureSuccessStatusCode();
 
         var ready = await GetJobProfileAsync(adminClient, draft.Id);
 
@@ -5843,6 +6100,310 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         // And the profile really did stay a draft.
         var unchanged = await GetJobProfileAsync(adminClient, draft.Id);
         Assert.Equal(JobProfileStatus.Draft, unchanged.Status);
+    }
+
+    // ── H-14 · la banda aprobada gobierna la configuración de la plaza ───────────────────────────────
+    //
+    // El tabulador produce la banda a través de una solicitud aprobada con doble firma (anti-self
+    // verificado). Esa banda solo validaba el salario del EMPLEADO: la plaza —la fuente de verdad de
+    // cuánto paga el puesto— se podía configurar fuera de su propia banda, así que la aprobación no
+    // gobernaba nada y un error de captura se propagaba a todos los ocupantes.
+    //
+    // H-05 quedó descartado a propósito: el tabulador NO valida contra el salario mínimo legal. La
+    // empresa es dueña de su configuración; el mínimo legal vincula donde se paga (planilla y
+    // liquidación, por empleado), no donde se configura.
+
+    private const decimal BandMin = 408.80m;
+    private const decimal BandMax = 550.00m;
+
+    // ── H-07 · el catalog item de un requisito debe corresponder a su tipo ──────────────────────────────
+    //
+    // `ResolveCatalogItemInternalIdAsync` buscaba el ítem SOLO por publicId, sin comparar su
+    // JobCatalogCategory contra el requirementType. Se podía colgar un EducationLevel en un requisito de
+    // Certification y el POST respondía 201, dejando el descriptor internamente incoherente.
+    //
+    // Solo dos de los cinco tipos tienen categoría equivalente: Education→EducationLevel y
+    // Knowledge→KnowledgeArea. Certification, Experience y Other no tienen ninguna, así que NO aceptan
+    // catalog item — que es exactamente el uso observado en los 33 perfiles cargados.
+
+    [Fact]
+    public async Task JobProfiles_AddRequirement_WithCatalogItemOfWrongCategory_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // CreateJobProfileAdminContext no incluye JobCatalogs.Admin, y sembrar items de catalogo lo exige.
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REQ-CAT", "Perfil");
+        var knowledgeArea = await CreateJobCatalogItemAsync(
+            client, scenario.TenantId, JobCatalogCategory.KnowledgeArea, "KA-WRONG", "Finanzas");
+
+        // Requisito de Education apuntando a un ítem de KnowledgeArea.
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+        {
+            requirementType = "Education",
+            requirementTypeCatalogItemPublicId = (Guid?)null,
+            catalogItemPublicId = (Guid?)knowledgeArea.Id,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description = "Licenciatura",
+            sortOrder = 1
+        });
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_REQUIREMENT_CATALOG_CATEGORY_MISMATCH");
+    }
+
+    [Fact]
+    public async Task JobProfiles_AddRequirement_WithCatalogItemOnTypeThatAcceptsNone_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // CreateJobProfileAdminContext no incluye JobCatalogs.Admin, y sembrar items de catalogo lo exige.
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REQ-NONE", "Perfil");
+        var training = await CreateJobCatalogItemAsync(
+            client, scenario.TenantId, JobCatalogCategory.Training, "TR-NONE", "Curso");
+
+        // Certification no tiene categoría equivalente, así que no acepta catalog item de ninguna.
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+        {
+            requirementType = "Certification",
+            requirementTypeCatalogItemPublicId = (Guid?)null,
+            catalogItemPublicId = (Guid?)training.Id,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description = "PMP",
+            sortOrder = 1
+        });
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_REQUIREMENT_CATALOG_ITEM_NOT_APPLICABLE");
+    }
+
+    [Fact]
+    public async Task JobProfiles_AddRequirement_WithMatchingCatalogItem_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // CreateJobProfileAdminContext no incluye JobCatalogs.Admin, y sembrar items de catalogo lo exige.
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REQ-OK", "Perfil");
+        var educationLevel = await CreateJobCatalogItemAsync(
+            client, scenario.TenantId, JobCatalogCategory.EducationLevel, "EDU-OK", "Licenciatura");
+        var knowledgeArea = await CreateJobCatalogItemAsync(
+            client, scenario.TenantId, JobCatalogCategory.KnowledgeArea, "KA-OK", "Contabilidad");
+
+        // Los dos pares válidos. El gate no puede bloquear lo legítimo.
+        foreach (var (type, itemId, order) in new[]
+        {
+            ("Education", educationLevel.Id, 1),
+            ("Knowledge", knowledgeArea.Id, 2)
+        })
+        {
+            var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+            {
+                requirementType = type,
+                requirementTypeCatalogItemPublicId = (Guid?)null,
+                catalogItemPublicId = (Guid?)itemId,
+                catalogCode = (string?)null,
+                catalogName = (string?)null,
+                description = $"Requisito {type}",
+                sortOrder = order
+            });
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task JobProfiles_AddRequirement_WithoutCatalogItem_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        // CreateJobProfileAdminContext no incluye JobCatalogs.Admin, y sembrar items de catalogo lo exige.
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REQ-NULL", "Perfil");
+
+        // El campo es opcional y lo sigue siendo: los tres tipos sin categoría se usan así.
+        foreach (var (type, order) in new[] { ("Certification", 1), ("Experience", 2), ("Other", 3) })
+        {
+            var response = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+            {
+                requirementType = type,
+                requirementTypeCatalogItemPublicId = (Guid?)null,
+                catalogItemPublicId = (Guid?)null,
+                catalogCode = (string?)null,
+                catalogName = (string?)null,
+                description = $"Requisito {type}",
+                sortOrder = order
+            });
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithSalaryBelowBand_ShouldReturn422()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-LOW", "JP-BAND-LOW");
+
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-BAND-LOW", profileId, configuredBaseSalary: 250m);
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithSalaryAboveBand_ShouldReturn422()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-HIGH", "JP-BAND-HIGH");
+
+        // 182× el techo de la banda — el caso que el hallazgo reportó guardándose con 201.
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-BAND-HIGH", profileId, configuredBaseSalary: 99999m);
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithMismatchedCurrency_ShouldReturn422()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-CUR", "JP-BAND-CUR");
+
+        // El monto cae dentro de [408.80, 550.00] como número, pero la banda está en USD: comparar
+        // montos entre monedas distintas no significa nada y hoy nadie lo verificaba.
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-BAND-CUR", profileId, configuredBaseSalary: 480m, currencyCode: "GTQ");
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CONFIGURED_SALARY_CURRENCY_MISMATCH");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Update_MovingSalaryOutOfBand_ShouldReturn422()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-UPD", "JP-BAND-UPD");
+
+        var created = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-BAND-UPD", profileId, configuredBaseSalary: 480m);
+        created.EnsureSuccessStatusCode();
+        var slot = (await created.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions))!;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put, $"/api/v1/position-slots/{slot.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                code = "PS-BAND-UPD",
+                title = (string?)null,
+                jobProfilePublicId = profileId,
+                workCenterPublicId = (Guid?)null,
+                status = "Vacant",
+                maxEmployees = 1,
+                occupiedEmployees = 0,
+                effectiveFromUtc = DateTime.UtcNow.Date,
+                effectiveToUtc = (DateTime?)null,
+                notes = (string?)null,
+                configuredBaseSalary = 250m,
+                configuredBaseSalaryCurrencyCode = "USD"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{slot.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(request);
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CONFIGURED_SALARY_OUT_OF_BAND");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithSalaryInsideBand_ShouldSucceed()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-OK", "JP-BAND-OK");
+
+        // El gate no puede bloquear lo legítimo. Los bordes cuentan: la banda es inclusiva.
+        foreach (var amount in new[] { BandMin, 480m, BandMax })
+        {
+            var response = await PostPositionSlotWithSalaryAsync(
+                client, scenario.TenantId, $"PS-BAND-OK-{amount:0}", profileId, configuredBaseSalary: amount);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithoutConfiguredSalary_ShouldSucceed()
+    {
+        var (scenario, client, profileId) = await ArrangeSlotBandScenarioAsync("DIR-BAND-NULL", "JP-BAND-NULL");
+
+        // configuredBaseSalary es opcional: si no viene, no hay nada que validar.
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-BAND-NULL", profileId, configuredBaseSalary: null);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>
+    /// H-14 · **la brecha, cerrada.** Sin banda no hay parámetro contra el que comparar, así que no se puede
+    /// afirmar que el salario esté dentro de límites — y por lo tanto no se puede configurar. Antes esto
+    /// devolvía `201` y era un bypass: la plaza quedaba con un salario que nadie había validado nunca, y
+    /// agregar la línea del tabulador después no la revalidaba.
+    /// </summary>
+    [Fact]
+    public async Task PositionSlots_Create_WithSalaryWhenProfileHasNoBand_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOBAND", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-NOBAND", "Perfil", orgUnit.Id);
+        await EnsureJobProfilePublishedAsync(client, profile.Id);
+
+        // Sin SeedJobProfileSalaryBandAsync: el perfil no tiene compensación, así que no hay banda.
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-NOBAND", profile.Id, configuredBaseSalary: 250m);
+
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_JOB_PROFILE_HAS_NO_SALARY_BAND");
+    }
+
+    /// <summary>
+    /// El contrapeso del test anterior: la plaza **sí** se crea sin banda mientras no se le configure salario.
+    /// Cerrar la brecha no puede convertir la compensación del perfil en un requisito para existir — solo para
+    /// tener salario configurado. Sin este test, "exigir banda" degeneraría en una dependencia dura del
+    /// tabulador para armar el organigrama.
+    /// </summary>
+    [Fact]
+    public async Task PositionSlots_Create_WithoutSalaryWhenProfileHasNoBand_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOBAND-OK", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-NOBAND-OK", "Perfil", orgUnit.Id);
+        await EnsureJobProfilePublishedAsync(client, profile.Id);
+
+        var response = await PostPositionSlotWithSalaryAsync(
+            client, scenario.TenantId, "PS-NOBAND-OK", profile.Id, configuredBaseSalary: null);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private async Task<(IntegrationTestScenario Scenario, HttpClient Client, Guid JobProfileId)> ArrangeSlotBandScenarioAsync(
+        string orgUnitCode,
+        string jobProfileCode)
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, orgUnitCode, "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, jobProfileCode, "Perfil", orgUnit.Id);
+        await EnsureJobProfilePublishedAsync(client, profile.Id);
+        await SeedJobProfileSalaryBandAsync(scenario.TenantId, profile.Id, BandMin, BandMax);
+
+        return (scenario, client, profile.Id);
     }
 
     [Fact]
@@ -6449,6 +7010,152 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.Equal("S1", compensation.SalaryScaleCode);
     }
 
+    /// <summary>
+    /// H-14 · el reporte de plazas fuera de banda. Cuando una línea del tabulador se aprueba con cotas nuevas,
+    /// las plazas ya configuradas pueden quedar fuera — y eso **se reporta, no se bloquea**.
+    /// <para>
+    /// La razón de no bloquear: un cambio aprobado es una decisión de política salarial firmada por dos
+    /// personas, y el estado de las plazas existentes no puede vetarla. Una empresa que sube su banda es el
+    /// caso normal, y bloquearla por plazas viejas la dejaría atascada. Lo que sí corresponde es decirle al
+    /// aprobador qué quedó fuera, con lo necesario para actuar.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task SalaryTabulator_Approve_WhenNewBandLeavesSlotsOutside_ShouldSucceedAndReportThem()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var slotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-OUTBAND");
+
+        // Banda inicial amplia: 400 – 900.
+        await ApproveTabulatorBandAsync(
+            requesterClient, approverClient, scenario.TenantId, salaryClass.Id,
+            changeType: "Create", baseAmount: 500m, minAmount: 400m, maxAmount: 900m);
+
+        var lineId = await GetSalaryTabulatorLineIdAsync(scenario.TenantId, salaryClass.Id, "S1");
+
+        var orgUnit = await CreateOrgUnitAsync(slotClient, scenario.TenantId, "DIR-OUTBAND", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-OUTBAND", "Perfil", orgUnit.Id);
+        (await slotClient.PostJsonAsync(
+            $"/api/v1/job-profiles/{profile.Id}/compensations",
+            new { salaryTabulatorLinePublicId = lineId })).EnsureSuccessStatusCode();
+        await EnsureJobProfilePublishedAsync(slotClient, profile.Id);
+
+        // Plaza en 850: dentro de 400–900, así que se configura sin problema.
+        var slotResponse = await PostPositionSlotWithSalaryAsync(
+            slotClient, scenario.TenantId, "PS-OUTBAND", profile.Id, configuredBaseSalary: 850m);
+        slotResponse.EnsureSuccessStatusCode();
+        var slot = (await slotResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions))!;
+
+        // Ahora la empresa angosta la banda a 400 – 600. La plaza en 850 queda fuera.
+        var approval = await ApproveTabulatorBandAsync(
+            requesterClient, approverClient, scenario.TenantId, salaryClass.Id,
+            changeType: "Update", baseAmount: 500m, minAmount: 400m, maxAmount: 600m);
+
+        // No bloquea.
+        Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approval.Status);
+
+        // Y reporta, con lo necesario para actuar.
+        Assert.NotNull(approval.OutOfBandPositionSlots);
+        var reported = Assert.Single(approval.OutOfBandPositionSlots!);
+        Assert.Equal(slot.Id, reported.PositionSlotPublicId);
+        Assert.Equal("PS-OUTBAND", reported.PositionSlotCode);
+        Assert.Equal(profile.Id, reported.JobProfilePublicId);
+        Assert.Equal(850m, reported.ConfiguredBaseSalary);
+        Assert.Equal(600m, reported.BandMaxAmount);
+    }
+
+    /// <summary>
+    /// El contrapeso: si la banda nueva sigue conteniendo a la plaza, el reporte viene vacío. Sin este test,
+    /// un reporte que devolviera siempre todas las plazas pasaría por bueno.
+    /// </summary>
+    [Fact]
+    public async Task SalaryTabulator_Approve_WhenNewBandStillContainsSlots_ShouldReportNone()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var slotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-INBAND");
+
+        await ApproveTabulatorBandAsync(
+            requesterClient, approverClient, scenario.TenantId, salaryClass.Id,
+            changeType: "Create", baseAmount: 500m, minAmount: 400m, maxAmount: 600m);
+
+        var lineId = await GetSalaryTabulatorLineIdAsync(scenario.TenantId, salaryClass.Id, "S1");
+
+        var orgUnit = await CreateOrgUnitAsync(slotClient, scenario.TenantId, "DIR-INBAND", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-INBAND", "Perfil", orgUnit.Id);
+        (await slotClient.PostJsonAsync(
+            $"/api/v1/job-profiles/{profile.Id}/compensations",
+            new { salaryTabulatorLinePublicId = lineId })).EnsureSuccessStatusCode();
+        await EnsureJobProfilePublishedAsync(slotClient, profile.Id);
+
+        (await PostPositionSlotWithSalaryAsync(
+            slotClient, scenario.TenantId, "PS-INBAND", profile.Id, configuredBaseSalary: 500m))
+            .EnsureSuccessStatusCode();
+
+        // La banda se ENSANCHA: la plaza en 500 sigue dentro.
+        var approval = await ApproveTabulatorBandAsync(
+            requesterClient, approverClient, scenario.TenantId, salaryClass.Id,
+            changeType: "Update", baseAmount: 500m, minAmount: 300m, maxAmount: 900m);
+
+        Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approval.Status);
+        Assert.Empty(approval.OutOfBandPositionSlots ?? []);
+    }
+
+    /// <summary>Crea, somete y aprueba una solicitud de una sola línea con cotas explícitas.</summary>
+    private async Task<SalaryTabulatorChangeRequestItem> ApproveTabulatorBandAsync(
+        HttpClient requesterClient,
+        HttpClient approverClient,
+        Guid companyId,
+        Guid salaryClassId,
+        string changeType,
+        decimal baseAmount,
+        decimal minAmount,
+        decimal maxAmount)
+    {
+        var createResponse = await requesterClient.PostJsonAsync(
+            $"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
+            {
+                reason = $"Banda {minAmount}-{maxAmount}",
+                effectiveFromUtc = DateTime.UtcNow.Date,
+                items = new[]
+                {
+                    new
+                    {
+                        salaryClassPublicId = salaryClassId,
+                        salaryScaleCode = "S1",
+                        currencyCode = "USD",
+                        changeType,
+                        proposedBaseAmount = (decimal?)baseAmount,
+                        proposedMinAmount = (decimal?)minAmount,
+                        proposedMaxAmount = (decimal?)maxAmount,
+                        notes = (string?)null
+                    }
+                }
+            });
+        createResponse.EnsureSuccessStatusCode();
+        var created = (await createResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions))!;
+
+        var submitResponse = await requesterClient.PatchJsonAsync(
+            $"/api/v1/salary-tabulator/change-requests/{created.Id}/submit",
+            new { concurrencyToken = created.ConcurrencyToken });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = (await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions))!;
+
+        var approveResponse = await approverClient.PatchJsonAsync(
+            $"/api/v1/salary-tabulator/change-requests/{created.Id}/approve",
+            new { decisionComment = "Aprobado", concurrencyToken = submitted.ConcurrencyToken });
+        approveResponse.EnsureSuccessStatusCode();
+
+        return (await approveResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions))!;
+    }
+
     [Fact]
     public async Task SalaryTabulator_Approve_WhenInactivationLeavesJobProfileCompensationUncovered_ShouldReturn409()
     {
@@ -6583,8 +7290,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
                 marketSalaryReference: null,
                 valuationNotes: null,
                 effectiveFromUtc: null,
-                effectiveToUtc: null,
-                bumpVersion: false);
+                effectiveToUtc: null);
             dbContext.JobProfiles.Add(externalDependentProfile);
             await dbContext.SaveChangesAsync();
 
@@ -7477,9 +8183,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
         deleteResponse.EnsureSuccessStatusCode();
-        var deleteResult = await deleteResponse.Content.ReadFromJsonAsync<JobProfileParentConcurrencyResult>(JsonOptions);
-        Assert.NotNull(deleteResult);
-        Assert.NotEqual(Guid.Empty, deleteResult!.ParentConcurrencyToken);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
     [Fact]
@@ -8115,7 +8819,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         profileAfterResponse.EnsureSuccessStatusCode();
         var profileAfter = await profileAfterResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(profileAfter);
-        Assert.True(profileAfter!.Version > profileBefore!.Version);
+        // H-09 — this asserted the OPPOSITE until the version stopped counting writes. Filling in the
+        // competency matrix is an operational overlay on an approved descriptor, not a revision of it, so the
+        // descriptor's revision number must NOT move. Only Publish() advances it.
+        Assert.Equal(profileBefore!.Version, profileAfter!.Version);
 
         var csvResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
@@ -8257,7 +8964,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             sortOrder = 1
         });
 
-        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT");
+        // H-06: código propio. El genérico JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT cubría varias causas con un
+        // mensaje que no distinguía ninguna, así que el consumidor no sabía qué corregir.
+        await AssertProblemDetailsAsync(
+            response, HttpStatusCode.Conflict, "JOB_PROFILE_COMPETENCY_MATRIX_CONDUCT_TRIPLE_MISMATCH");
     }
 
     /// <summary>
@@ -8266,10 +8976,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
     /// must stay writable while the profile is published.
     /// <para>
     /// This is the test that fails loudly if the freeze ever leaks into the domain. The matrix reaches the
-    /// aggregate through <c>JobProfile.BumpVersion()</c>, which is intentionally guarded by the WEAKER
-    /// invariant (not-archived). Routing it through <c>BumpDescriptorVersion()</c> — or extending the
-    /// strict check to cover <c>BumpVersion()</c> — compiles clean and silently makes every matrix write on
-    /// a published profile throw. If this test goes red, that is what happened.
+    /// aggregate through <c>JobProfile.EnsureMatrixWritable()</c>, which is intentionally guarded by the
+    /// WEAKER invariant (not-archived). Routing it through <c>EnsureDescriptorEditable()</c> — or extending
+    /// the strict check to cover <c>EnsureMatrixWritable()</c> — compiles clean and silently makes every
+    /// matrix write on a published profile throw. If this test goes red, that is what happened.
     /// </para>
     /// </summary>
     [Fact]
@@ -8521,13 +9231,11 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.Equal(9, patched.SortOrder);
         Assert.Equal(2, patched.Conducts.Count);
 
-        // DELETE returns the parent profile token; matrix ends empty.
+        // DELETE answers 204 (H-34); matrix ends empty.
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/competency-matrix/items/{created.ItemPublicId}");
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        deleteResponse.EnsureSuccessStatusCode();
-        var parent = (await deleteResponse.Content.ReadFromJsonAsync<ParentConcurrencyItem>(JsonOptions))!;
-        Assert.NotEqual(Guid.Empty, parent.ParentConcurrencyToken);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         var matrix = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix"))
             .Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
@@ -8664,21 +9372,15 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.NotNull(withDependencies);
         Assert.Equal(dependency.Id, withDependencies!.DirectDependencyPositionSlotId);
 
-        var occupancyResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{primary.Id}/occupancy", new
-        {
-            occupiedEmployees = 1,
-            concurrencyToken = withDependencies.ConcurrencyToken
-        });
-        occupancyResponse.EnsureSuccessStatusCode();
-        var withOccupancy = await occupancyResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
-        Assert.NotNull(withOccupancy);
-        Assert.Equal(PositionSlotStatus.Occupied, withOccupancy!.Status);
-        Assert.Equal(1, withOccupancy.OccupiedEmployees);
+        // H-23 — the plaza has no occupants, so it reads Vacant with 0: the count and the status are derived from
+        // the assignments now, and the manual `/occupancy` write that used to set them here no longer exists.
+        Assert.Equal(PositionSlotStatus.Vacant, withDependencies.Status);
+        Assert.Equal(0, withDependencies.OccupiedEmployees);
 
         var statusResponse = await client.PatchJsonAsync($"/api/v1/position-slots/{primary.Id}/status", new
         {
             status = "Suspended",
-            concurrencyToken = withOccupancy.ConcurrencyToken
+            concurrencyToken = withDependencies.ConcurrencyToken
         });
         statusResponse.EnsureSuccessStatusCode();
         var suspended = await statusResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
@@ -8967,24 +9669,11 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task PositionSlots_UpdateOccupancy_WhenOverCapacity_ShouldReturn422()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
-
-        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CAP", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CAP", "Perfil", orgUnit.Id);
-        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-CAP", "Capacidad", profile.Id, 1);
-
-        var response = await client.PatchJsonAsync($"/api/v1/position-slots/{slot.Id}/occupancy", new
-        {
-            occupiedEmployees = 2,
-            concurrencyToken = slot.ConcurrencyToken
-        });
-
-        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CAPACITY_RULE_VIOLATION");
-    }
+    // H-23 — `PositionSlots_UpdateOccupancy_WhenOverCapacity_ShouldReturn422` was removed with the endpoint it
+    // exercised (`PATCH /position-slots/{id}/occupancy`). What it was really about — the capacity ceiling — is
+    // covered where the ceiling is actually enforced: EmploymentAssignment_ExceedingCapacity_IsRejected asserts
+    // `EMPLOYMENT_ASSIGNMENT_CAPACITY_EXCEEDED` when a second person is assigned to a one-seat plaza, counted by
+    // overlapping validity rather than by a counter.
 
     [Fact]
     public async Task PositionSlots_List_WithTenantMismatch_ShouldReturn403()
@@ -11224,7 +11913,10 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         string code,
         string title,
         Guid jobProfileId,
-        int maxEmployees)
+        int maxEmployees,
+        // H-19 — la elegibilidad de horas extras vive en la PLAZA. `true` es el default del contrato, así que
+        // ninguno de los ~57 sitios que llaman esto cambia; declararla exenta es opt-in.
+        bool generatesOvertime = true)
     {
         // H-01: a plaza can only exist against a PUBLISHED descriptor. This is the single lever for every
         // slot-creating test in the suite, which is why the gate landed here instead of in ~27 call sites.
@@ -11241,6 +11933,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             status = "Vacant",
             maxEmployees,
             occupiedEmployees = 0,
+            generatesOvertime,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = (string?)null
@@ -11251,6 +11944,82 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.NotNull(payload);
         return payload!;
     }
+
+    /// <summary>
+    /// H-14 — gives a job profile an active salary band by seeding the chain the resolver walks
+    /// (<c>JobProfileCompensation</c> → <c>SalaryTabulatorLine</c>) straight into the database.
+    /// <para>
+    /// Deliberately not driven through the tabulator's HTTP flow (request → submit → approve with anti-self):
+    /// the band's provenance is not what these tests are about, that flow has its own coverage, and going
+    /// through it would bury the assertion under setup. <c>IsActive</c> comes out <c>true</c> because the line
+    /// is created with no <c>effectiveToUtc</c> (<c>SalaryTabulatorLine.cs:36</c>).
+    /// </para>
+    /// </summary>
+    private async Task SeedJobProfileSalaryBandAsync(
+        Guid tenantId,
+        Guid jobProfilePublicId,
+        decimal minAmount,
+        decimal maxAmount,
+        string currencyCode = "USD")
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // IgnoreQueryFilters: este scope no tiene tenant ambiente, así que el filtro global lo excluiría todo.
+        var jobProfileInternalId = await dbContext.JobProfiles
+            .IgnoreQueryFilters()
+            .Where(profile => profile.PublicId == jobProfilePublicId)
+            .Select(profile => profile.Id)
+            .SingleAsync();
+
+        var line = SalaryTabulatorLine.Create(
+            salaryClassCode: $"BAND-{jobProfilePublicId:N}"[..20],
+            salaryScaleCode: "01",
+            currencyCode: currencyCode,
+            baseAmount: minAmount,
+            minAmount: minAmount,
+            maxAmount: maxAmount,
+            effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
+            notes: null);
+        line.SetTenantId(tenantId);
+        dbContext.Add(line);
+        await dbContext.SaveChangesAsync();
+
+        var compensation = JobProfileCompensation.Create(jobProfileInternalId, line.Id, notes: null);
+        compensation.SetTenantId(tenantId);
+        dbContext.Add(compensation);
+        await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// POSTs a position slot with an explicit <c>configuredBaseSalary</c>, returning the raw response so the
+    /// caller can assert on it. The shared <c>CreatePositionSlotAsync</c> never sends that field.
+    /// </summary>
+    private async Task<HttpResponseMessage> PostPositionSlotWithSalaryAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        Guid jobProfileId,
+        decimal? configuredBaseSalary,
+        string? currencyCode = "USD") =>
+        await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
+        {
+            code,
+            title = (string?)null,
+            jobProfilePublicId = jobProfileId,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null,
+            configuredBaseSalary,
+            configuredBaseSalaryCurrencyCode = currencyCode
+        });
 
     private async Task<SalaryTabulatorChangeRequestItem> CreateSalaryTabulatorRequestAsync(
         HttpClient client,
@@ -11490,6 +12259,8 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         int PageSize,
         int TotalCount);
 
+    private sealed record CompanyUserInvitationItem(CompanyUserItem User, DateTime InvitationExpiresUtc);
+
     private sealed record CompanyUserItem(
         Guid Id,
         string? Email,
@@ -11644,7 +12415,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
 
-    private sealed record ParentConcurrencyItem(Guid ParentConcurrencyToken);
+    // H-34 — `ParentConcurrencyItem` se fue con el campo: el DELETE de un hijo responde 204 sin cuerpo.
 
     private sealed record PersonnelFileObservationItem(
         Guid Id,
@@ -11961,7 +12732,8 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Guid? OrgUnitId,
         string? OrgUnitName,
         Guid ConcurrencyToken,
-        // H-01: every publish / reopen cycle increments it, which is what makes the cycle traceable.
+        // H-09: the descriptor's revision number — how many times it has been APPROVED. 0 = draft never
+        // published. Reopening and archiving do not move it; only Publish() does.
         int Version = 0);
 
     private sealed record JobProfileEntityItem(
@@ -12222,7 +12994,20 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Guid Id,
         string RequestNumber,
         SalaryTabulatorChangeRequestStatus Status,
-        Guid ConcurrencyToken);
+        Guid ConcurrencyToken,
+        // H-14 — solo viene poblado en una aprobación exitosa.
+        IReadOnlyCollection<OutOfBandPositionSlotItem>? OutOfBandPositionSlots = null);
+
+    private sealed record OutOfBandPositionSlotItem(
+        Guid PositionSlotPublicId,
+        string PositionSlotCode,
+        Guid JobProfilePublicId,
+        string JobProfileCode,
+        decimal ConfiguredBaseSalary,
+        string? ConfiguredBaseSalaryCurrencyCode,
+        decimal? BandMinAmount,
+        decimal? BandMaxAmount,
+        string? BandCurrencyCode);
 
     private sealed record AuditLogSummaryItem(
         Guid Id,

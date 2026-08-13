@@ -162,7 +162,7 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
             }
 
             maxPositions += slot.MaxEmployees;
-            occupied += slot.OccupiedEmployees;
+            occupied += slot.ActiveAssignments;
         }
 
         return new DashboardPositionOccupancy(maxPositions, occupied, Math.Max(0, maxPositions - occupied));
@@ -815,7 +815,11 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
                 slot.WorkCenterId,
                 slot.DirectDependencyPositionSlotId,
                 slot.MaxEmployees,
-                slot.OccupiedEmployees
+                // H-23 — the occupancy KPI used to add up `slot.OccupiedEmployees`, a number no writer maintained
+                // and that `PATCH /status` fabricated (Occupied ⇒ 1). Two API calls were enough to make this board
+                // report an occupied position that did not exist. Counted from the assignments now.
+                ActiveAssignments = dbContext.Set<PersonnelFileEmploymentAssignment>()
+                    .Count(assignment => assignment.PositionSlotPublicId == slot.PublicId && assignment.IsActive)
             })
             .ToArrayAsync(cancellationToken);
         var slotInfos = slots
@@ -826,7 +830,7 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
                 slot.WorkCenterId,
                 slot.DirectDependencyPositionSlotId,
                 slot.MaxEmployees,
-                slot.OccupiedEmployees))
+                slot.ActiveAssignments))
             .ToArray();
 
         return new DimensionLookups(
@@ -859,7 +863,7 @@ internal sealed class PersonnelFileDashboardRepository(ApplicationDbContext dbCo
         long? WorkCenterId,
         long? DirectDependencyPositionSlotId,
         int MaxEmployees,
-        int OccupiedEmployees);
+        int ActiveAssignments);
 
     private sealed record DimensionLookups(
         IReadOnlyDictionary<Guid, OrgUnitInfo> OrgUnitsByPublicId,

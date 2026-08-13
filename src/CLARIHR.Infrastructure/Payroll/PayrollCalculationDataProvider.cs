@@ -81,6 +81,23 @@ internal sealed class PayrollCalculationDataProvider(
         var disciplinary = await BuildDisciplinaryRowsAsync(tenantId, period, populationFileIds, cancellationToken);
         var incapacities = await BuildIncapacityRowsAsync(tenantId, period, populationFileIds, cancellationToken);
 
+        // H-29/H-30 — el catálogo de conceptos se lee UNA vez y viaja como snapshot: es lo que fija en qué columna
+        // del reporte cae cada monto y si entra en las bases de ley. Sin país en el filtro no: el catálogo está
+        // indexado por (country, code) y la corrida es de un tenant, cuyo país resuelve la compañía.
+        var conceptClassifications = await dbContext.Set<CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new
+            {
+                item.NormalizedCode,
+                item.DefaultIncomeClass,
+                item.DefaultDeductionClass,
+                item.AffectsIsss,
+                item.AffectsAfp,
+                item.AffectsRenta,
+            })
+            .ToListAsync(cancellationToken);
+
         return new PayrollRunSourceData(
             population,
             isss,
@@ -95,7 +112,18 @@ internal sealed class PayrollCalculationDataProvider(
             notWorkedTimes,
             disciplinary,
             incapacities,
-            complianceExclusions);
+            complianceExclusions,
+            conceptClassifications
+                .GroupBy(item => item.NormalizedCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => new PayrollConceptClassification(
+                        group.First().DefaultIncomeClass,
+                        group.First().DefaultDeductionClass,
+                        group.First().AffectsIsss,
+                        group.First().AffectsAfp,
+                        group.First().AffectsRenta),
+                    StringComparer.OrdinalIgnoreCase));
     }
 
     private async Task<(IReadOnlyList<PayrollPopulationRow> Population, IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions)> BuildPopulationAsync(
@@ -403,6 +431,7 @@ internal sealed class PayrollCalculationDataProvider(
                 record.TypeNameSnapshot,
                 record.DeductionConceptTypeCodeSnapshot,
                 record.DiscountAmount,
+                record.DiscountedDays,
                 record.EndDate,
             })
             .ToListAsync(cancellationToken);
@@ -420,7 +449,10 @@ internal sealed class PayrollCalculationDataProvider(
                 row.TypeNameSnapshot,
                 row.DiscountAmount,
                 EmployerAmount: 0m,
-                IsCarryover: row.EndDate < period.StartDate))
+                IsCarryover: row.EndDate < period.StartDate,
+                // El TNT ya trae los días EQUIVALENTES descontados (una llegada tarde vale un cuarto de día), así
+                // que el decimal viaja tal cual.
+                UnpaidDays: row.DiscountedDays))
             .ToArray();
     }
 
@@ -488,6 +520,9 @@ internal sealed class PayrollCalculationDataProvider(
                 FilePublicId = file.PublicId,
                 incapacity.DiscountAmount,
                 incapacity.EmployerAmount,
+                incapacity.DiscountDays,
+                incapacity.EmployerDays,
+                incapacity.SubsidizedDays,
             })
             .ToListAsync(cancellationToken);
 
@@ -500,7 +535,13 @@ internal sealed class PayrollCalculationDataProvider(
                 "Incapacidad",
                 row.DiscountAmount,
                 row.EmployerAmount,
-                IsCarryover: false))
+                IsCarryover: false,
+                // Los tres pagadores por separado: lo que no se paga, lo que paga la empresa al % del tramo y lo
+                // que subsidia el ISSS. El equivalente en días pagados se deriva del monto patronal y la diaria,
+                // no de un porcentaje único — los tramos por riesgo pueden tener porcentajes distintos.
+                UnpaidDays: row.DiscountDays,
+                EmployerPaidDays: row.EmployerDays,
+                SubsidizedDays: row.SubsidizedDays))
             .ToArray();
     }
 }

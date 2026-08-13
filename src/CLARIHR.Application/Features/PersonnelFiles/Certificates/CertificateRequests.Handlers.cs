@@ -82,7 +82,7 @@ internal sealed class AddPersonnelFileCertificateRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var resolveResult = await CertificateRequestWriteSupport.ResolveAndValidateAsync(
@@ -155,7 +155,7 @@ internal sealed class UpdatePersonnelFileCertificateRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileCertificateRequestResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCertificateRequestAsync(personnelFile.PublicId, command.CertificateRequestPublicId, cancellationToken);
@@ -211,13 +211,13 @@ internal sealed class DeletePersonnelFileCertificateRequestCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileCertificateRequestCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileCertificateRequestCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileCertificateRequestCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageCertificateRequestsAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, personnelFile) = await LoadForManageCertificateRequestsAsync<ChildDeletionResult>(
             command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null)
         {
@@ -226,25 +226,25 @@ internal sealed class DeletePersonnelFileCertificateRequestCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var existing = await employeeRepository.GetCertificateRequestAsync(personnelFile.PublicId, command.CertificateRequestPublicId, cancellationToken);
         if (existing is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (existing.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         // Soft delete (RN-08): deactivate, preserving the record for audit/history.
         var removed = await employeeRepository.SoftDeleteCertificateRequestAsync(command.CertificateRequestPublicId, personnelFile.TenantId, cancellationToken);
         if (!removed)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -263,7 +263,7 @@ internal sealed class DeletePersonnelFileCertificateRequestCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileParentConcurrencyResult>.Success(new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        return Result<ChildDeletionResult>.Success(ChildDeletionResult.Instance);
     }
 }
 

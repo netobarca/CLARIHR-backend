@@ -74,6 +74,18 @@ public interface ISalaryTabulatorRepository
         DateTime fallbackEffectiveAtUtc,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// H-14 — plazas whose configured base salary no longer fits the ACTIVE band of the given
+    /// (salary class, salary scale) pairs. Used to REPORT after an approval, never to block it: an approved
+    /// change is a salary-policy decision and the state of existing plazas must not veto it. Scoped to the
+    /// pairs the approval actually touched, so it does not surface pre-existing drift unrelated to the change.
+    /// <para>No default implementation on purpose: a report that silently returns nothing fails open.</para>
+    /// </summary>
+    Task<IReadOnlyCollection<SalaryTabulatorOutOfBandPositionSlot>> GetPositionSlotsOutsideBandAsync(
+        Guid tenantId,
+        IReadOnlyCollection<(string NormalizedSalaryClassCode, string NormalizedSalaryScaleCode)> affectedKeys,
+        CancellationToken cancellationToken);
+
     Task<SalaryTabulatorChangeRequest?> GetChangeRequestByIdAsync(Guid requestId, CancellationToken cancellationToken);
 
     Task<bool> ChangeRequestExistsOutsideTenantAsync(Guid requestId, CancellationToken cancellationToken);

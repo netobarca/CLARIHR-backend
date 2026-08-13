@@ -82,6 +82,15 @@ internal sealed class JobCatalogRepository(
     public Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems.SingleOrDefaultAsync(item => item.PublicId == itemId, cancellationToken);
 
+    public async Task<IReadOnlyList<JobCatalogItem>> GetAllByCategoryAsync(
+        Guid tenantId,
+        JobCatalogCategory category,
+        CancellationToken cancellationToken) =>
+        await dbContext.JobCatalogItems
+            .Where(item => item.TenantId == tenantId && item.Category == category)
+            .OrderBy(item => item.SortOrder)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
@@ -135,7 +144,9 @@ internal sealed class JobCatalogRepository(
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-            .OrderBy(item => item.Name)
+            // H-11 — sortOrder first, then code as the deterministic tie-break (it is unique per category,
+            // so the ordering is total). Was name-then-code, which no client could influence.
+            .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Code)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -144,6 +155,8 @@ internal sealed class JobCatalogRepository(
                 item.Category,
                 item.Code,
                 item.Name,
+                item.Description,
+                item.SortOrder,
                 item.IsSystem,
                 item.IsActive,
                 item.ConcurrencyToken,
@@ -167,6 +180,8 @@ internal sealed class JobCatalogRepository(
                 item.Category,
                 item.Code,
                 item.Name,
+                item.Description,
+                item.SortOrder,
                 item.IsSystem,
                 item.IsActive,
                 item.ConcurrencyToken,

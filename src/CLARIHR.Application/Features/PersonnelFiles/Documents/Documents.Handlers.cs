@@ -518,28 +518,28 @@ internal sealed class DeletePersonnelFileDocumentCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileDocumentCommand, PersonnelFileParentConcurrencyResult>
+    : ICommandHandler<DeletePersonnelFileDocumentCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileDocumentCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<ChildDeletionResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
+            return Result<ChildDeletionResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
             command.PersonnelFileId, PersonnelFileTrackedSection.Documents, cancellationToken);
         if (personnelFile is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
@@ -548,7 +548,7 @@ internal sealed class DeletePersonnelFileDocumentCommandHandler(
         var document = personnelFile.Documents.SingleOrDefault(d => d.PublicId == command.DocumentPublicId);
         if (document is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
+            return Result<ChildDeletionResult>.Failure(
                 await repository.DocumentExistsOutsideTenantAsync(command.DocumentPublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.DocumentNotFound);
@@ -556,7 +556,7 @@ internal sealed class DeletePersonnelFileDocumentCommandHandler(
 
         if (document.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -585,8 +585,8 @@ internal sealed class DeletePersonnelFileDocumentCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch
         {

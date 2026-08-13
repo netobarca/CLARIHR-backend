@@ -41,8 +41,15 @@ public sealed partial class ApiIntegrationTests
         string firstName,
         string lastName,
         string employeeCode,
-        string institutionalEmail)
+        string institutionalEmail,
+        // H-33/G5 — el desacople es opt-in: por defecto sigue siendo la misma fecha que antes, así que ningún
+        // test existente cambia. Quien necesite distinguir ingreso de inicio de plaza lo pide.
+        DateTime? hireDate = null,
+        DateOnly? plazaStartDate = null)
     {
+        var effectiveHire = hireDate ?? RetirementHireDate;
+        var effectivePlazaStart = plazaStartDate ?? DateOnly.FromDateTime(effectiveHire);
+
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
@@ -79,14 +86,14 @@ public sealed partial class ApiIntegrationTests
         dbContext.Set<PersonnelFile>().Add(file);
         await dbContext.SaveChangesAsync();
 
-        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", RetirementHireDate, 365m);
+        var profile = PersonnelFileEmployeeProfile.Create(employeeCode, "ACTIVO", effectiveHire, 365m);
         profile.BindToPersonnelFile(file.Id);
         profile.SetTenantId(tenantId);
         dbContext.Set<PersonnelFileEmployeeProfile>().Add(profile);
 
         var contract = PersonnelFileContractHistory.Create(
             "INDEFINIDO",
-            RetirementHireDate,
+            effectiveHire,
             contractEndDate: null,
             positionSlotPublicId: null,
             isActive: true,
@@ -104,7 +111,7 @@ public sealed partial class ApiIntegrationTests
             orgUnitPublicId: null,
             workCenterPublicId: null,
             costCenterPublicId: costCenter.PublicId,
-            startDate: RetirementHireDate,
+            startDate: effectivePlazaStart,
             endDate: null,
             isPrimary: true,
             isActive: true,
@@ -128,7 +135,7 @@ public sealed partial class ApiIntegrationTests
             payPeriodCode: "MENSUAL",
             counterpartyName: null,
             externalReference: null,
-            startDate: RetirementHireDate,
+            startDate: effectiveHire,
             endDate: null,
             isActive: true,
             isSystemSuggested: false,

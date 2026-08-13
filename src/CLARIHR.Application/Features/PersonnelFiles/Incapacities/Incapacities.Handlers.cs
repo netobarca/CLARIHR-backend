@@ -178,7 +178,7 @@ internal sealed class AddPersonnelFileIncapacityCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileIncapacityResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileIncapacityResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var item = command.Item;
@@ -806,7 +806,7 @@ internal sealed class AddPersonnelFileIncapacityExtensionCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileIncapacityResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileIncapacityResponse>.Failure(PersonnelFileErrors.NotCompletedEmployee(personnelFile!));
         }
 
         var source = await incapacityRepository.GetEntityAsync(personnelFile.PublicId, command.SourceIncapacityPublicId, cancellationToken);

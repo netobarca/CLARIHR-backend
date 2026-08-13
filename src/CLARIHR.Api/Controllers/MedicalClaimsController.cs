@@ -154,7 +154,7 @@ public sealed class MedicalClaimsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a medical claim from a personnel file",
@@ -162,7 +162,7 @@ public sealed class MedicalClaimsController(
             Deletes the specified medical claim. Requires the `If-Match` header with the current
             `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token. Manager-only (D-09).
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteMedicalClaim(
+    public async Task<ActionResult> DeleteMedicalClaim(
         Guid publicId,
         Guid medicalClaimPublicId,
         [FromIfMatch] Guid concurrencyToken,
@@ -172,7 +172,7 @@ public sealed class MedicalClaimsController(
             new DeletePersonnelFileMedicalClaimCommand(publicId, medicalClaimPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     // ─── Medical Claim Documents (attachments) ────────────────────────────────
@@ -274,7 +274,7 @@ public sealed class MedicalClaimsController(
     }
 
     [HttpDelete("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}/documents/{documentPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     [SwaggerOperation(
         Summary = "Remove a supporting document from a medical claim",
@@ -282,7 +282,7 @@ public sealed class MedicalClaimsController(
             Soft-deletes the attachment and marks its backing blob for cleanup. Requires the `If-Match` header
             with the document's current `concurrencyToken`. Manager-only (D-09).
             """)]
-    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteMedicalClaimDocument(
+    public async Task<ActionResult> DeleteMedicalClaimDocument(
         Guid publicId,
         Guid medicalClaimPublicId,
         Guid documentPublicId,
@@ -293,7 +293,7 @@ public sealed class MedicalClaimsController(
             new DeleteMedicalClaimDocumentCommand(publicId, medicalClaimPublicId, documentPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+        return this.ToNoContentResult(result);
     }
 
     private static MedicalClaimInput ToInput(AddMedicalClaimRequest request) =>

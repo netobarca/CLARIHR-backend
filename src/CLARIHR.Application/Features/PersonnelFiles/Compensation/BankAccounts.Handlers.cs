@@ -151,17 +151,38 @@ internal sealed class AddPersonnelFileBankAccountCommandHandler(
         }
 
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+
+        // H-27 — el duplicado exacto no tiene lectura de negocio: es un doble clic o un reintento.
+        if (personnelFile.HasBankAccountLike(
+                bankLookup.InternalId, command.BankAccount.AccountNumber, command.BankAccount.CurrencyCode))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.BankAccountDuplicate);
+        }
+
+        // H-27 — la PRIMERA cuenta es primaria por definición: si no, el expediente queda con cuentas y ninguna
+        // principal, y el consumidor de la conciliación cae en un `FirstOrDefault()` sin criterio.
+        var becomesPrimary = command.BankAccount.IsPrimary || !personnelFile.HasAnyBankAccount();
         var bankAccount = PersonnelFileBankAccount.Create(
             bankLookup.InternalId,
             bankLookup.Code,
             command.BankAccount.CurrencyCode,
             command.BankAccount.AccountNumber,
             command.BankAccount.AccountTypeCode,
-            command.BankAccount.IsPrimary);
+            becomesPrimary);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (becomesPrimary)
+            {
+                // La degradación se descarga ANTES del insert: el índice único parcial se evalúa por sentencia y
+                // no es diferible, así que batcheados juntos EF puede ordenar el insert primero y dejar dos filas
+                // primarias por un instante — Postgres lo rechaza y el cliente recibe un 500. Misma trampa que
+                // documenta LegalRepresentativeAdministration. Las dos escrituras quedan en esta transacción.
+                personnelFile.ClearPrimaryBankAccounts();
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.AddBankAccount(bankAccount);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -281,9 +302,23 @@ internal sealed class UpdatePersonnelFileBankAccountCommandHandler(
 
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
 
+        // H-27 — el duplicado también se juzga al editar, excluyendo la propia cuenta.
+        if (personnelFile.HasBankAccountLike(
+                bankLookup.InternalId, command.BankAccount.AccountNumber, command.BankAccount.CurrencyCode, command.BankAccountPublicId))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.BankAccountDuplicate);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (command.BankAccount.IsPrimary)
+            {
+                // Degradar y DESCARGAR antes de promover — ver el comentario del alta.
+                personnelFile.ClearPrimaryBankAccounts(command.BankAccountPublicId);
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.UpdateBankAccount(
                 command.BankAccountPublicId,
                 bankLookup.InternalId,
@@ -341,13 +376,13 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<DeletePersonnelFileBankAccountCommand, PersonnelFileParentConcurrencyResult>
+      ICommandHandler<DeletePersonnelFileBankAccountCommand, ChildDeletionResult>
 {
-    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+    public async Task<Result<ChildDeletionResult>> Handle(
         DeletePersonnelFileBankAccountCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
+        var (failure, file) = await LoadForSectionManageAsync<ChildDeletionResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.BankAccounts,
             tenantContext,
@@ -364,12 +399,12 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
         var bankAccount = personnelFile.BankAccounts.FirstOrDefault(item => item.PublicId == command.BankAccountPublicId);
         if (bankAccount is null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         if (bankAccount.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
@@ -408,12 +443,12 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileParentConcurrencyResult>.Success(
-                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+            return Result<ChildDeletionResult>.Success(
+                ChildDeletionResult.Instance);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<ChildDeletionResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -525,9 +560,23 @@ internal sealed class PatchPersonnelFileBankAccountCommandHandler(
 
         var beforeList = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
 
+        // H-27 — el duplicado también se juzga al editar, excluyendo la propia cuenta.
+        if (personnelFile.HasBankAccountLike(
+                bankLookup.InternalId, input.AccountNumber, input.CurrencyCode, command.BankAccountPublicId))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.BankAccountDuplicate);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (input.IsPrimary)
+            {
+                // Degradar y DESCARGAR antes de promover — ver el comentario del alta.
+                personnelFile.ClearPrimaryBankAccounts(command.BankAccountPublicId);
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             personnelFile.UpdateBankAccount(
                 command.BankAccountPublicId,
                 bankLookup.InternalId,
