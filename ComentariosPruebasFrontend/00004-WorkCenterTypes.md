@@ -114,26 +114,25 @@ DELETE  /v1/work-center-types/{publicId}      ← If-Match obligatorio
 | `CONCURRENCY_CONFLICT` | `409` | `If-Match` desactualizado | — |
 | `common.validation` | `400` | Formato de código inválido | `code` |
 | `common.validation` | `400` | Falta `If-Match` | **`If-Match`** |
-| `common.validation` | `400` | Búsqueda de 1 carácter | **`search`** ⚠️ |
+| `common.validation` | `400` | Búsqueda de 1 carácter | **`q`** ✅ |
 | `LOCATIONS_FORBIDDEN` | `403` | Sin permiso | — |
 
-> ⚠️ **La clave del error de búsqueda sigue siendo `search` en esta pantalla** — verificado por el cable
-> el 2026-08-21. **Pero ya no es así en todas**, y la diferencia importa para el mapeo:
+> ✅ **La clave del error de búsqueda es `q`**, el nombre con el que el cliente envía el parámetro —
+> verificado por el cable el 2026-08-21.
+>
+> Cuando se probó esta pantalla devolvía `search`, que es el nombre interno del objeto de consulta del
+> servidor: no corresponde a ningún control del formulario, así que no había forma de colocar el mensaje
+> junto a la caja de búsqueda. [00005 / B-02](../ComentariosPruebasBackend/00005-WorkCenters.md) lo
+> normalizó en 40 de los 45 endpoints; los **cinco** restantes —tipos de centro de trabajo · centros de
+> trabajo · tipos de centro de costo · grupos de ubicación · unidades organizativas— quedaron cerrados
+> el 2026-08-21.
 >
 > | Forma | Clave que devuelve | Cuántos endpoints |
 > |---|---|---|
-> | La mayoría del producto | **`q`** ✅ | **40** |
-> | **`work-center-types` y otros 4** | **`search`** ⚠️ | **5** |
+> | Todo el producto | **`q`** ✅ | **45** |
 >
-> Los cinco que aún devuelven `search` son: **tipos de centro de trabajo · centros de trabajo · tipos de
-> centro de costo · grupos de ubicación · unidades organizativas**.
->
-> **Recomendación práctica: mapear las dos claves al mismo control.** Es una línea, cubre los 45
-> endpoints y no hay que recordar cuál es cuál. Cuando el servidor unifique, el mapeo seguirá funcionando.
->
-> *(El origen es [00005 / B-02](../ComentariosPruebasBackend/00005-WorkCenters.md), que normalizó la clave
-> en 40 sitios. Los 5 restantes declaran el parámetro con otra forma que la traducción no alcanza —
-> queda anotado para el backend.)*
+> **Si mapeaste `search` y `q` al mismo control mientras faltaban cinco, puedes dejarlo tal cual**:
+> `search` ya no aparece. Si aún no lo hiciste, basta con `q`.
 >
 > 🟢 **En cambio, la clave del `If-Match` sí nombra la cabecera.** Es la forma correcta, y contrasta con el [`400` de clave vacía del Paso 1](../ComentariosPruebasBackend/00001-CompanyLegalProfile.md#3-b-02--el-400-de-validación-agrupa-todos-los-mensajes-bajo-la-clave-vacía).
 
@@ -235,9 +234,11 @@ Ejecutado con los cinco tipos de la guía AVIANCA (guía §4.2).
 | 4 | `PUT` sin `If-Match` | `400` · clave **`If-Match`** | 🟢 |
 | 5 | `PUT` con `If-Match` vencido | `409 CONCURRENCY_CONFLICT` | 🟢 |
 | 6 | `GET` de un id inexistente | `404 WORK_CENTER_TYPE_NOT_FOUND` | 🟢 |
-| 7 | Búsqueda de 1 carácter | `400` · clave `search` | 🟡 correcto salvo la clave |
+| 7 | Búsqueda de 1 carácter | `400` · clave `search` | 🟡 correcto salvo la clave — **hoy devuelve `q`** (§2.5) |
 
-**Los siete se comportan según el contrato.** El único reparo es la clave del caso 7, que es el hallazgo transversal ya abierto.
+**Los siete se comportan según el contrato.** El único reparo era la clave del caso 7, el hallazgo
+transversal que se cerró el 2026-08-21. La columna conserva lo que la corrida observó; §2.5 dice lo que
+el servidor devuelve hoy.
 
 ### 4.2 El buscador — probado en ciclo cerrado
 
@@ -416,7 +417,7 @@ Lo que sí hace es **confirmar y ampliar tres transversales ya abiertos**:
 |---|---|
 | [00003 / B-04](../ComentariosPruebasBackend/00003-OrgUnits.md#5-b-04--el-servidor-sabe-por-qué-no-se-puede-inactivar-y-no-lo-dice-y-lo-creado-por-error-no-se-puede-borrar-nunca) — sin `DELETE` ni `/usage` | **Este paso subió el alcance de 2 recursos a 4**; acabó cubriendo **5**. 🟢 **Resuelto**: el 2026-08-16 los dos primeros, el 2026-08-21 los tres restantes —incluido este tipo de centro— (§2.6) |
 | [00003 / B-03](../ComentariosPruebasBackend/00003-OrgUnits.md#4-b-03--el-producto-tiene-un-canal-de-localización-completo-que-ningún-cliente-puede-activar) — canal de localización | **Este paso lo re-diagnosticó por completo** y acertó: las traducciones existían y el canal estaba cableado; fallaba que la preferencia nunca llegaba. 🟢 **Resuelto el 2026-08-16.** Verificado por el cable en esta pantalla el 2026-08-21: los mensajes llegan en español |
-| [00002 / B-02](../ComentariosPruebasBackend/00002-UnitTypes.md#3-b-02--la-clave-del-error-de-búsqueda-es-search-pero-el-parámetro-público-es-q) — clave `search` vs parámetro `q` | **Tercer módulo** con el desajuste idéntico. 🟡 **Resuelto en 40 de 45 endpoints** (en [00005 / B-02](../ComentariosPruebasBackend/00005-WorkCenters.md)); **esta pantalla es uno de los 5 que aún devuelve `search`** — §2.5 |
+| [00002 / B-02](../ComentariosPruebasBackend/00002-UnitTypes.md#3-b-02--la-clave-del-error-de-búsqueda-es-search-pero-el-parámetro-público-es-q) — clave `search` vs parámetro `q` | **Tercer módulo** con el desajuste idéntico. 🟢 **Resuelto en los 45 endpoints**: 40 en [00005 / B-02](../ComentariosPruebasBackend/00005-WorkCenters.md) y los 5 restantes —esta pantalla entre ellos— el 2026-08-21 — §2.5 |
 
 ---
 
@@ -484,13 +485,13 @@ Verificado por el cable en **esta misma pantalla** el 2026-08-21:
 venía en inglés o porque no explicaba el formato—, ahora habrá **dos textos en español diciendo lo mismo
 con distintas palabras**. Conviene revisarlo. El punto 2 afecta directamente a **F-02**.
 
-### 9.3 La clave del buscador — mapear las dos
+### 9.3 La clave del buscador — ya es `q` en todas partes
 
-Esta pantalla **sigue devolviendo `search`** como clave del error de búsqueda, mientras que 40 endpoints
-del producto ya devuelven `q` (§2.5).
+Esta pantalla devolvía `search` como clave del error de búsqueda; desde el 2026-08-21 devuelve `q`, igual
+que los otros 44 endpoints del producto (§2.5).
 
-**La recomendación es mapear ambas al mismo control.** Una línea, cubre los 45 endpoints, y sigue
-funcionando cuando el servidor unifique los 5 que faltan.
+**Basta con leer `q`.** Si el mapeo defensivo de las dos claves ya está escrito, no estorba — `search` no
+volverá a aparecer.
 
 ### 9.4 Capacidad nueva, opcional — el borrado condicional
 

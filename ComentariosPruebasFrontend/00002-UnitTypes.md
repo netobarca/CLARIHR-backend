@@ -308,6 +308,11 @@ a fallar.
 
 > **Prueba decisiva de F-01:** el mismo valor de un carácter da `400` como `q` y `200` como `Search`. Si el proxy renombrara el parámetro, ambos darían `400`. No lo renombra: **`Search` se descarta**.
 
+> ℹ️ **Las respuestas de la tabla son las de la corrida.** El fondo —qué parámetro enlaza y cuál se
+> descarta— no ha cambiado y F-01 sigue en pie, pero **la forma del `400` sí**: hoy la clave es `q` y el
+> mensaje llega en español (§2.8). Al repetir estas sondas, esperar
+> `{"q":["La búsqueda debe tener al menos 2 caracteres cuando se envía."]}`.
+
 ---
 
 ## 5. Ciclo completo — resultado
@@ -598,10 +603,13 @@ GET /v1/unit-types?q={texto}&isActive={bool}&page=1&pageSize=20&includeAllowedAc
 | Valor de `q` | Resultado |
 |---|---|
 | ausente, vacío o solo espacios | `200` — «sin filtro», es válido |
-| 1 carácter tras `Trim` | **`400`** `{"search":["Search must be at least 2 characters when provided."]}` |
+| 1 carácter tras `Trim` | **`400`** `{"q":["La búsqueda debe tener al menos 2 caracteres cuando se envía."]}` |
 | 2 o más | `200` filtrado |
 
-> La clave del error es `search`, no `q` — ver **B-02**.
+> **La regla no cambió; el `400` sí se ve distinto que en la corrida.** Entonces devolvía
+> `{"search":["Search must be at least 2 characters when provided."]}` — clave interna y mensaje en
+> inglés. Hoy la clave es `q` (**B-02**, cerrado en los 45 endpoints el 2026-08-21) y el mensaje llega
+> traducido (**00003 / B-03**). El comportamiento —qué se acepta y qué no— es el mismo.
 
 #### Ajuste pedido al frontend
 

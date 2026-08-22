@@ -43,7 +43,7 @@ public sealed class WorkCenterTypesController(
     public async Task<ActionResult<PagedResponse<WorkCenterTypeResponse>>> List(
         Guid companyId,
         [FromQuery] bool? isActive,
-        [FromQuery] string? q,
+        [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [Range(1, LocationValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = LocationValidationRules.DefaultPageSize,
@@ -51,7 +51,7 @@ public sealed class WorkCenterTypesController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetWorkCenterTypesQuery(companyId, isActive, q, page, pageSize, includeAllowedActions),
+            new GetWorkCenterTypesQuery(companyId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

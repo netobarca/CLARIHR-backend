@@ -479,6 +479,62 @@ El frontend traduce por su cuenta a partir de `extensions.code`. Funciona, y **e
 | 2026-08-15 | 🔲 Propuesto | Levantado en el Paso 3 como «los mensajes no están localizados» |
 | 2026-08-15 | 🔲 Propuesto | **Re-diagnosticado en el Paso 4.** El `.resx` sí tiene las traducciones y el canal está cableado; lo que falta es que la preferencia de idioma llegue al servidor. **Sustituye también a [00002 / B-01](00002-UnitTypes.md#2-b-01--el-español-que-se-sirve-estaba-roto-199-mensajes-en-dos-idiomas-y-320-sin-tildes)**, que tenía el mismo diagnóstico equivocado |
 | 2026-08-16 | 🟢 Resuelto | **Verificado tras recuperar la corrida perdida.** Unitarias **2970/2970**; integración dirigida **776/776** en cinco lotes (guardrails·repr.legales·empresas 111 · centros trabajo·unidades·ubicaciones 74 · expedientes·puestos·plazas 200 · nómina·ausencias·reportes 282 · contratación·competencias·centros costo 109). **Cero fallos.** Resultados en `TestResults/lote*.trx` |
+| 2026-08-21 | 🟢 Resuelto **por completo** | Quedaba media respuesta sin traducir: en un `400` de *model-binding* los mensajes salían en español y `title`/`detail` en inglés (§4.9). **Verificado**: unitarias **3047/3047** · integración **990/990**, cero fallos |
+
+### 4.9 La mitad de la respuesta que seguía en inglés — 🟢 **cerrado el 2026-08-21**
+
+El canal quedó abierto el 2026-08-16 y los mensajes empezaron a llegar traducidos. Pero la revalidación de los documentos de frontend midió la respuesta **entera** y encontró que una parte no había cambiado nunca:
+
+```jsonc
+// POST /companies/{id}/work-centers  ·  Accept-Language: es
+{
+  "title":  "One or more validation errors occurred.",        // ⚠️ inglés
+  "detail": "One or more validation errors occurred.",        // ⚠️ inglés
+  "errors": { "locationGroupPublicId": ["El valor debe ser un UUID válido."] }   // ✅ español
+}
+```
+
+**La misma respuesta en dos idiomas.**
+
+**La causa, verificada en el código.** `ProblemDetailsDefaults` intentaba traducir así:
+
+```csharp
+problemDetails.Title ??= localizer?.Localize(ValidationCode, ValidationTitle) ?? ValidationTitle;
+```
+
+`??=` asigna **sólo si el valor es nulo**, y ASP.NET ya había puesto el título por defecto antes de llegar aquí. La traducción estaba escrita, cableada y correcta — **y no se ejecutaba nunca**. No es una traducción que falte: es una línea que no dispara.
+
+**Por qué se mantuvo invisible.** Hay dos caminos que producen un `400` y sólo uno pasa por aquí:
+
+| Camino | Traducía `title`/`detail` |
+|---|---|
+| Validación de negocio (FluentValidation → `ProblemDetailsFactory`) | ✅ sí |
+| **Model-binding** (tipo mal formado, JSON inválido) → `ProblemDetailsDefaults` | ❌ **no** |
+
+Y el test que cubría este caso —`ApiIntegrationTests.cs`, el `400` de `dependentJobProfilePublicId = "not-a-guid"`— aceptaba **cualquiera de los dos idiomas**:
+
+```csharp
+var expectedValidationMessages = new[]
+{
+    "One or more validation errors occurred.",
+    "Se encontraron uno o más errores de validación."
+};
+Assert.Contains(title, expectedValidationMessages);
+```
+
+Escrito así para no acoplarse al idioma, el test **no podía distinguir** el comportamiento correcto del defectuoso. Es el mismo patrón que ya se registró en [00002 / B-01](00002-UnitTypes.md#2-b-01--el-español-que-se-sirve-estaba-roto-199-mensajes-en-dos-idiomas-y-320-sin-tildes) y en el doble de test de los endpoints anónimos: **una aserción permisiva no es cobertura, es permiso**.
+
+**El arreglo.** Traducir también cuando el título **es** el texto por defecto de ASP.NET —el que puso el framework, no una decisión de nadie—, y respetar cualquier otro:
+
+```csharp
+if (string.IsNullOrWhiteSpace(problemDetails.Title) ||
+    string.Equals(problemDetails.Title, ValidationTitle, StringComparison.Ordinal))
+{
+    problemDetails.Title = localizer?.Localize(ValidationCode, ValidationTitle) ?? ValidationTitle;
+}
+```
+
+Lo mismo para `detail`. **Verificado con su contrapeso**: un test exige el título en español con `Accept-Language: es`; el otro, que **sin** idioma pedido siga saliendo en inglés. Sin el segundo, traducir a lo bruto pasaría por bueno.
 
 ---
 

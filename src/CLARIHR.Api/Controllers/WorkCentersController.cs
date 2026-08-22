@@ -45,7 +45,7 @@ public sealed class WorkCentersController(
         [FromQuery] Guid? groupId,
         [FromQuery] Guid? typeId,
         [FromQuery] bool? isActive,
-        [FromQuery] string? q,
+        [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [Range(1, LocationValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = LocationValidationRules.DefaultPageSize,
@@ -53,7 +53,7 @@ public sealed class WorkCentersController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchWorkCentersQuery(companyId, groupId, typeId, isActive, q, page, pageSize, includeAllowedActions),
+            new SearchWorkCentersQuery(companyId, groupId, typeId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

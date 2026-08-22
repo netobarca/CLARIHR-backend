@@ -945,7 +945,7 @@ Es coherente con las dependencias declaradas. **Se anota porque cambia el orden 
 |---|---|---|
 | [**00001 / B-03**](../ComentariosPruebasBackend/00001-CompanyLegalProfile.md#4-b-03--el-proxy-descarta-cabeceras-del-upstream-etag-y-location) | `Content-Disposition` **también se descarta** · pero el frontend fija el nombre de archivo por su cuenta | Pregunta cerrada. **Sin síntoma visible hoy** — el impacto es latente, no actual |
 | [**00002 / F-01**](00002-UnitTypes.md#-f-01--el-buscador-envía-search-y-la-api-espera-q-no-filtra-nada) | **Esta pantalla manda `q=` correctamente** | El defecto del Paso 2 es una **inconsistencia entre pestañas**, no desconocimiento. Hay implementación de referencia en el mismo código |
-| [**00002 / B-02**](../ComentariosPruebasBackend/00002-UnitTypes.md#3-b-02--la-clave-del-error-de-búsqueda-es-search-pero-el-parámetro-público-es-q) | El desajuste `search` / `q` **se repite en `OrgUnits`** | Deja de ser «un endpoint»: es un patrón |
+| [**00002 / B-02**](../ComentariosPruebasBackend/00002-UnitTypes.md#3-b-02--la-clave-del-error-de-búsqueda-es-search-pero-el-parámetro-público-es-q) | El desajuste `search` / `q` **se repite en `OrgUnits`** | Dejó de ser «un endpoint»: era un patrón. 🟢 **Cerrado en los 45 endpoints el 2026-08-21** — el listado de unidades organizativas era uno de los 5 últimos. La clave del error de búsqueda es hoy `q` en todo el producto |
 
 ---
 

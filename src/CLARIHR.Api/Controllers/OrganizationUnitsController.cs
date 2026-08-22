@@ -54,14 +54,14 @@ public sealed class OrganizationUnitsController(
         [FromQuery] Guid? orgUnitTypeId,
         [FromQuery] Guid? functionalAreaId,
         [FromQuery] Guid? parentId,
-        [FromQuery] string? q,
+        [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery, Range(1, OrgUnitValidationRules.MaxPageSize)] int pageSize = OrgUnitValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchOrgUnitsQuery(companyId, isActive, q, orgUnitTypeId, functionalAreaId, parentId, page, pageSize, includeAllowedActions),
+            new SearchOrgUnitsQuery(companyId, isActive, search, orgUnitTypeId, functionalAreaId, parentId, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

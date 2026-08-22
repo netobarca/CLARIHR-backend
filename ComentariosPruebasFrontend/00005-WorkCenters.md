@@ -130,21 +130,26 @@ cable el 2026-08-21.
 > [00005 / B-02](../ComentariosPruebasBackend/00005-WorkCenters.md), que lo normalizó en **40 endpoints**
 > del producto. **Éste está entre los corregidos.**
 >
-> ⚠️ **Pero no todos lo están.** Cinco endpoints siguen devolviendo `search` como clave del buscador, y
-> **el listado de esta misma pantalla es uno de ellos**. Ver §2.6.
+> Quedaban cinco endpoints devolviendo `search` —el listado de esta misma pantalla entre ellos—;
+> cerrados el 2026-08-21. Ver §2.6.
 
-⚠️ **No mostrar `title` ni `detail` de un `400`; mostrar los mensajes de `errors`.** Hay dos caminos que
-producen un `400` y **no localizan igual**:
+✅ **`title` y `detail` también salen en el idioma pedido.** Verificado por el cable el 2026-08-21.
 
-| Camino | `errors[campo]` | `title` / `detail` |
-|---|---|---|
-| Validación de negocio (FluentValidation) | español ✅ | español ✅ |
-| Model-binding (tipo mal formado, JSON inválido) | español ✅ | **inglés** ⚠️ |
+> Cuando se probó, los dos caminos que producen un `400` **no localizaban igual**: los mensajes de
+> `errors` salían en español y el texto de cabecera en inglés, así que la misma respuesta mezclaba dos
+> idiomas. Medido en esta pantalla: enviar `locationGroupPublicId: "no-es-un-guid"` devolvía
+> `"errors": { "locationGroupPublicId": ["El valor debe ser un UUID válido."] }` junto a
+> `"title": "One or more validation errors occurred."`.
+>
+> | Camino | `errors[campo]` | `title` / `detail` |
+> |---|---|---|
+> | Validación de negocio (FluentValidation) | español ✅ | español ✅ |
+> | Model-binding (tipo mal formado, JSON inválido) | español ✅ | español ✅ *(antes inglés)* |
 
-Ejemplo real medido: enviar `locationGroupPublicId: null` devuelve
-`"errors": { "locationGroupPublicId": ["El valor debe ser un UUID válido."] }` con
-`"title": "One or more validation errors occurred."`. **Los mensajes de `errors` siempre están
-traducidos**; el texto de cabecera, no siempre.
+**Aun así conviene seguir mostrando los mensajes de `errors` y no `title`/`detail`** — y ahora por una
+razón distinta de la traducción: `title` es un texto genérico («Se encontraron uno o más errores de
+validación.») que no dice **qué** campo falló. `errors[campo]` es lo que el usuario necesita leer junto
+a su control.
 
 ### 2.5 Borrado condicional — capacidad nueva (2026-08-21)
 
@@ -177,22 +182,23 @@ DELETE  /v1/work-centers/{publicId}           If-Match obligatorio → 200
 
 ### 2.6 La clave del buscador en esta pantalla
 
-El listado **sigue devolviendo `search`** como clave del error de búsqueda, mientras que 40 endpoints del
-producto ya devuelven `q`.
+✅ **El listado ya devuelve `q`** —el nombre con el que el cliente envía el parámetro—. Verificado por
+el cable el 2026-08-21.
 
-| Forma | Clave | Endpoints |
-|---|---|---|
-| La mayoría | **`q`** ✅ | 40 |
-| **`work-centers` y otros 4** | **`search`** ⚠️ | 5 |
+> Cuando se probó devolvía `search`, que es el nombre interno del objeto de consulta del servidor y no
+> corresponde a nada que el cliente conozca. El caso se había normalizado en 40 de los 45 endpoints; los
+> **cinco** que faltaban —centros de trabajo · tipos de centro de trabajo · tipos de centro de costo ·
+> grupos de ubicación · unidades organizativas— quedaron cerrados el 2026-08-21.
+>
+> | Forma | Clave | Endpoints |
+> |---|---|---|
+> | Todos | **`q`** ✅ | **45** |
 
-Los cinco: **centros de trabajo · tipos de centro de trabajo · tipos de centro de costo · grupos de
-ubicación · unidades organizativas**.
+**Si ya mapeaste `search` y `q` al mismo control, no hace falta deshacerlo**: `search` simplemente no
+volverá a aparecer. Si aún no lo hiciste, basta con `q`.
 
-**Recomendación: mapear las dos claves al mismo control.** Una línea, cubre los 45 endpoints y sigue
-funcionando cuando el servidor unifique.
-
-> Ojo con la asimetría dentro de esta misma pantalla: el **campo del cuerpo** ya usa el nombre público
-> (`locationGroupPublicId` ✅) pero el **parámetro del buscador** aún no (`search` ⚠️).
+> La asimetría que tenía esta pantalla desapareció: el **campo del cuerpo** (`locationGroupPublicId`) y
+> el **parámetro del buscador** (`q`) usan ya los dos su nombre público.
 
 
 ---
@@ -597,7 +603,7 @@ Además confirmaba dos transversales, **hoy los dos resueltos**:
 | Transversal | Estado |
 |---|---|
 | Sin `DELETE` ni `/usage` ([00003 / B-04](../ComentariosPruebasBackend/00003-OrgUnits.md#5-b-04--el-servidor-sabe-por-qué-no-se-puede-inactivar-y-no-lo-dice-y-lo-creado-por-error-no-se-puede-borrar-nunca)) | 🟢 **Resuelto en los 5 recursos** — §2.5 |
-| Mensajes en inglés ([00003 / B-03](../ComentariosPruebasBackend/00003-OrgUnits.md#4-b-03--el-producto-tiene-un-canal-de-localización-completo-que-ningún-cliente-puede-activar)) | 🟢 **Resuelto.** ⚠️ Con un matiz medido: `title` y `detail` de un `400` de *model-binding* siguen en inglés — §2.4 |
+| Mensajes en inglés ([00003 / B-03](../ComentariosPruebasBackend/00003-OrgUnits.md#4-b-03--el-producto-tiene-un-canal-de-localización-completo-que-ningún-cliente-puede-activar)) | 🟢 **Resuelto por completo.** El matiz que quedaba —`title` y `detail` en inglés en un `400` de *model-binding*— se cerró el 2026-08-21: hoy la respuesta entera va en el idioma pedido — §2.4 |
 
 **Y hay un efecto nuevo que esta pantalla no conoció:** desde el 2026-08-21, un centro de trabajo
 **inactivo no admite plazas nuevas** → `422 POSITION_SLOT_WORK_CENTER_INACTIVE`
@@ -726,10 +732,11 @@ de literales en el cliente antes de publicar.
 
 ### 10.3 Dos reglas de presentación de errores que conviene fijar
 
-1. **Mostrar los mensajes de `errors`, no `title` ni `detail`.** Hay dos caminos que producen un `400` y
-   solo uno traduce el texto de cabecera (§2.4). Los mensajes de `errors` **siempre** están traducidos.
-2. **Mapear `search` y `q` al mismo control** (§2.6). El listado de esta pantalla es uno de los 5
-   endpoints que aún devuelve `search`.
+1. **Mostrar los mensajes de `errors`, no `title` ni `detail`.** Los dos caminos que producen un `400`
+   traducen ya la respuesta entera (§2.4), así que esto dejó de ser una cuestión de idioma: `title` es
+   un texto genérico que no dice **qué** campo falló, y `errors[campo]` sí.
+2. **La clave del buscador es `q` en los 45 endpoints** (§2.6). Si mapeaste `search` y `q` al mismo
+   control mientras faltaban cinco, puedes dejarlo: `search` ya no aparece.
 
 ### 10.4 Capacidad nueva, opcional — el borrado condicional
 

@@ -43,8 +43,21 @@ internal static class ProblemDetailsDefaults
         }
 
         var localizer = context.HttpContext.RequestServices.GetService<IBackendMessageLocalizer>();
-        problemDetails.Title ??= localizer?.Localize(ValidationCode, ValidationTitle) ?? ValidationTitle;
-        problemDetails.Detail ??= problemDetails.Title;
+        // ASP.NET deja el título por defecto ya puesto antes de llegar aquí, así que un `??=` no asigna
+        // nunca: el `400` de model-binding salía con el título en inglés y los mensajes en español, la
+        // misma respuesta en dos idiomas. Se traduce también cuando el título ES ese texto por defecto
+        // —es el que ASP.NET puso, no una decisión de nadie—; un título propio se respeta.
+        if (string.IsNullOrWhiteSpace(problemDetails.Title) ||
+            string.Equals(problemDetails.Title, ValidationTitle, StringComparison.Ordinal))
+        {
+            problemDetails.Title = localizer?.Localize(ValidationCode, ValidationTitle) ?? ValidationTitle;
+        }
+
+        if (string.IsNullOrWhiteSpace(problemDetails.Detail) ||
+            string.Equals(problemDetails.Detail, ValidationTitle, StringComparison.Ordinal))
+        {
+            problemDetails.Detail = problemDetails.Title;
+        }
 
         if (!problemDetails.Extensions.ContainsKey(CodeExtensionKey))
         {

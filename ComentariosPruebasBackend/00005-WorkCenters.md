@@ -378,6 +378,7 @@ El frontend puede mantener una tabla de equivalencias clave-de-error → control
 | 2026-08-15 | 🔲 Propuesto | Cuarto caso del patrón y **primero sobre un campo del cuerpo**. Reencuadra [00002 / B-02](00002-UnitTypes.md#3-b-02--la-clave-del-error-de-búsqueda-es-search-pero-el-parámetro-público-es-q): no es un desajuste del buscador, es la convención de nombres filtrándose a los mensajes de error |
 | 2026-08-16 | 🟢 Resuelto | Resuelto en un solo sitio (§3.9). **El alcance era el doble de lo reportado** (50 parámetros, no 3) y **la solución propuesta habría arreglado 1 de 4 casos** |
 | 2026-08-16 | 🟢 Resuelto | **Verificado tras recuperar la corrida perdida.** Unitarias **2970/2970**; integración dirigida **776/776** en cinco lotes (guardrails·repr.legales·empresas 111 · centros trabajo·unidades·ubicaciones 74 · expedientes·puestos·plazas 200 · nómina·ausencias·reportes 282 · contratación·competencias·centros costo 109). **Cero fallos.** Resultados en `TestResults/lote*.trx` |
+| 2026-08-21 | 🟢 Resuelto **por completo** | **Faltaban 5 de 45** y se cerraron (§3.10). **Verificado**: unitarias **3047/3047** · integración **990/990** en una sola corrida de 1 h 44 min, cero fallos (`<Counters>` del trx, no el código de salida). La huella del contrato quedó intacta — el renombre es interno y el parámetro público sigue siendo `q`, así que no hubo que regenerar `openapi.yaml`.  El arreglo del 2026-08-16 sólo alcanzaba a los parámetros que MVC ve renombrados; cinco controllers declaraban `q` directamente, así que no había renombre que contar. Se añade un guardrail que impide que reaparezca, y que de paso destapó **dos listados sin ninguna prueba de camino feliz** |
 
 ### 3.9 Lo que se hizo — y dos correcciones al hallazgo
 
@@ -408,3 +409,35 @@ Por eso el defecto no se veía en los errores de binding. El arreglo va en `Prob
 > ⚠️ **Por qué no se aplicó `Id → PublicId` a ciegas**, que es lo que §3.4 proponía: §9 dice que los `Guid *Id` se exponen como `*PublicId`, **pero no es universal** — `companyId` viaja en la ruta llamándose `companyId`. Un reemplazo ciego habría renombrado esa clave a un campo inexistente, **cambiando un desajuste por otro**.
 
 **Verificado con su contrapeso:** un test exige que `q` salga como `q`; el otro, que un parámetro **no** renombrado siga saliendo igual. Sin el segundo, una traducción demasiado agresiva pasaría por buena.
+
+### 3.10 Los cinco que faltaban — 🟢 **cerrado el 2026-08-21**
+
+El arreglo del 2026-08-16 dejó **40 de 45**. La revalidación de los documentos de frontend midió los cinco restantes por el cable: **`work-centers` · `work-center-types` · `cost-center-types` · `location-groups` · `organization-units`** seguían devolviendo `search`.
+
+**Por qué se escaparon.** `PublicFieldNameMap` deduce el nombre público de una sola fuente honesta: el renombre que declara MVC. Eso deja dos formas de escribir lo mismo, y sólo una es legible para el mapa:
+
+| Forma en el controller | Lo que MVC reporta | Clave del error |
+|---|---|---|
+| `[FromQuery(Name = "q")] string? search` | `search` → `q` | **`q`** ✅ |
+| `[FromQuery] string? q` | *nada — no hay renombre* | **`search`** ⚠️ |
+
+En la segunda forma el parámetro ya se llama `q`, así que no hay ningún renombre que contar y nada une la propiedad `Search` del *query object* con el parámetro. El mapa no falla: **no tiene con qué**.
+
+**El arreglo**: declarar los cinco como los otros cuarenta —`[FromQuery(Name = "q")] string? search`—. Es interno; el parámetro público sigue llamándose `q` y **la huella del contrato no cambió** (verificado: `ContractFingerprint` + guardrails de contrato en verde, sin regenerar `openapi.yaml`).
+
+> ⚠️ **Por qué NO se declaró `Search → q` como convención global**, que es el atajo evidente y habría sido una línea en `ContractConventions`. Al medir el contrato publicado aparecieron **cinco endpoints que exponen el parámetro públicamente como `search`** —`authorization/roles`, `company/users`, `exit-interview-forms` y los dos `export` de nómina (`one-time-incomes`, `overtime-records`)— y **uno como `Search`** con mayúscula (`audit/logs`). En esos seis la clave `search` **es correcta**: coincide con lo que el cliente envía. Una convención global les habría cambiado la clave a `q`, un parámetro que no existe en ellos — **cambiando un desajuste por otro**, exactamente el error que §3.9 evitó al no aplicar `Id → PublicId` a ciegas.
+
+**Dos inconsistencias del contrato que esta medición dejó a la vista.** Ninguna se convierte en hallazgo —no se ha vuelto a probar a mano y las dos son ruptura de contrato— pero las dos quedan medidas:
+
+| # | Qué | Tamaño |
+|---|---|---|
+| 1 | El parámetro de búsqueda se expone como **`q` en 45 endpoints y como `search` en 5** | 5 endpoints |
+| 2 | **`GET /api/v1/audit/logs` expone sus 9 parámetros en PascalCase** | 1 endpoint |
+
+El segundo es el más nítido: enlaza el objeto de consulta entero con `[FromQuery] GetAuditLogsQuery query`, así que las propiedades salen con su nombre de C#: `FromUtc`, `ToUtc`, `ActorUserPublicId`, `EntityPublicId`, `EntityType`, `EventType`, `Search`, `Page`, `PageSize`. **Es el único endpoint de los 918 del contrato que lo hace**, y de paso incumple §4.3 🔒 de las definiciones técnicas —*«Todo listado: `page`, `pageSize`»*— exponiendo `Page` y `PageSize`.
+
+**El guardrail.** `ValidationKeyContractGuardrailsTests` recorre los descriptores de acción y exige que todo parámetro expuesto como `q` se declare `search`. Es estático —sin base de datos, 3 ms— y nombra al infractor. Corrido antes del arreglo, listó exactamente los cinco.
+
+**Lo que el guardrail destapó de paso.** La primera versión de la prueba por el cable era un `[Theory]` con el recurso interpolado en la URL. G6 (`NoEndpoint_MayHaveOnlyErrorAssertionsAsItsCoverage`) normaliza cada `{…}` a `{id}`, así que producía el endpoint fantasma `GET /api/v1/companies/{id}/{id}` y lo acusaba por tener sólo cobertura de error. Reescrita con las cinco rutas literales, el fantasma desapareció **y afloraron dos endpoints reales**: `GET /companies/{id}/work-centers` y `GET /companies/{id}/work-center-types` **no tenían ninguna prueba de camino feliz** — se creaban centros en otros casos, pero nadie comprobaba que listarlos devolviera algo. Se añadieron las dos (`ApiIntegrationTests.WorkCenterListing.cs`).
+
+> La lección se repite: **la prueba nueva no encontró el defecto, encontró el hueco de cobertura que lo dejaba invisible.**

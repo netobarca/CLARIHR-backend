@@ -64,7 +64,7 @@ public sealed class LocationGroupsController(
         Guid companyId,
         [FromQuery] int? levelOrder,
         [FromQuery] bool? isActive,
-        [FromQuery] string? q,
+        [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [Range(1, LocationValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = LocationValidationRules.DefaultPageSize,
@@ -72,7 +72,7 @@ public sealed class LocationGroupsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchLocationGroupsQuery(companyId, levelOrder, isActive, q, page, pageSize, includeAllowedActions),
+            new SearchLocationGroupsQuery(companyId, levelOrder, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

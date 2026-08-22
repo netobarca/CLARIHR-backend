@@ -44,7 +44,7 @@ public sealed class CostCenterTypesController(
     public async Task<ActionResult<PagedResponse<CostCenterTypeListItemResponse>>> List(
         Guid companyId,
         [FromQuery] bool? isActive,
-        [FromQuery] string? q,
+        [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [Range(1, CostCenterValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = CostCenterValidationRules.DefaultPageSize,
@@ -52,7 +52,7 @@ public sealed class CostCenterTypesController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetCostCenterTypesQuery(companyId, isActive, q, page, pageSize, includeAllowedActions),
+            new GetCostCenterTypesQuery(companyId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

@@ -167,6 +167,11 @@ Por endpoint: `[ProducesResponseType<T>]` · `[ProducesStandardErrors(StandardEr
 Todo listado: `page`, `pageSize` con `[Range(1, <Modulo>ValidationRules.MaxPageSize)]`.
 **El máximo del `[Range]` debe ser idéntico al máximo del validator.** Respuesta `PagedResponse<T>`.
 
+**Búsqueda libre: se declara `search` y se expone `q`** → `[FromQuery(Name = "q")] string? search`.
+Declararlo directamente `q` compila y responde igual, pero deja el error de validación con la clave
+interna `search`: `PublicFieldNameMap` deduce el nombre público del renombre que reporta MVC, y sin
+renombre no tiene nada que leer. Lo fija `ValidationKeyContractGuardrailsTests`.
+
 ### 4.4 Concurrencia optimista 🔒
 
 - Se transporta por header **`If-Match`** → `[FromIfMatch] Guid concurrencyToken` (binder dedicado). **No** va en el body.
