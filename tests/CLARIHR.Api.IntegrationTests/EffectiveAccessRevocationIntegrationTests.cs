@@ -158,9 +158,9 @@ public sealed class EffectiveAccessRevocationIntegrationTests(CoreJwtIntegration
                     representationType = "PrimaryLegalRepresentative",
                     authorityDescription = (string?)null,
                     appointmentInstrument = (string?)null,
-                    appointmentDateUtc = (DateTime?)null,
-                    effectiveFromUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    effectiveToUtc = (DateTime?)null,
+                    appointmentDate = (DateOnly?)null,
+                    effectiveFrom = new DateOnly(2026, 1, 1),
+                    effectiveTo = (DateOnly?)null,
                     email = (string?)null,
                     phone = (string?)null,
                     isPrimary = true

@@ -433,6 +433,9 @@
   <data name="ORG_STRUCTURE_CATALOG_IN_USE" xml:space="preserve">
     <value>The catalog item cannot be inactivated while it is in use.</value>
   </data>
+  <data name="ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE" xml:space="preserve">
+    <value>The catalog item cannot be deleted because other records still reference it.</value>
+  </data>
   <data name="ORG_STRUCTURE_CATALOG_NOT_FOUND" xml:space="preserve">
     <value>The requested organization structure catalog item could not be found.</value>
   </data>
@@ -453,6 +456,9 @@
   </data>
   <data name="ORG_UNIT_HAS_ACTIVE_CHILDREN" xml:space="preserve">
     <value>The organization unit cannot be inactivated because it still has active child units.</value>
+  </data>
+  <data name="ORG_UNIT_IN_USE" xml:space="preserve">
+    <value>The organization unit cannot be deleted because other records still reference it.</value>
   </data>
   <data name="ORG_UNIT_NOT_FOUND" xml:space="preserve">
     <value>The organization unit could not be found.</value>
@@ -781,6 +787,9 @@
   <data name="POSITION_SLOT_NOT_FOUND" xml:space="preserve">
     <value>The position slot could not be found.</value>
   </data>
+  <data name="POSITION_SLOT_ORG_UNIT_INACTIVE" xml:space="preserve">
+    <value>The job profile's organization unit is inactive. Reactivate the unit before creating or updating position slots under it.</value>
+  </data>
   <data name="POSITION_SLOT_ROLE_NOT_FOUND" xml:space="preserve">
     <value>The selected role could not be found.</value>
   </data>
@@ -792,6 +801,9 @@
   </data>
   <data name="POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT" xml:space="preserve">
     <value>Suspended position slots cannot update occupancy.</value>
+  </data>
+  <data name="POSITION_SLOT_WORK_CENTER_INACTIVE" xml:space="preserve">
+    <value>The selected work center is inactive. Reactivate it before creating or updating position slots against it.</value>
   </data>
   <data name="POSITION_SLOT_WORK_CENTER_NOT_FOUND" xml:space="preserve">
     <value>The selected work center could not be found.</value>
@@ -910,6 +922,9 @@
   <data name="WORK_CENTER_INVALID_COORDINATES" xml:space="preserve">
     <value>The provided latitude or longitude is outside the supported range.</value>
   </data>
+  <data name="WORK_CENTER_IN_USE_FOR_DELETE" xml:space="preserve">
+    <value>The work center cannot be deleted because position slots or personnel assignments still reference it.</value>
+  </data>
   <data name="WORK_CENTER_NOT_FOUND" xml:space="preserve">
     <value>The work center could not be found.</value>
   </data>
@@ -921,6 +936,9 @@
   </data>
   <data name="WORK_CENTER_TYPE_IN_USE" xml:space="preserve">
     <value>The work center type cannot be inactivated because active work centers still use it.</value>
+  </data>
+  <data name="WORK_CENTER_TYPE_IN_USE_FOR_DELETE" xml:space="preserve">
+    <value>The work center type cannot be deleted because work centers still reference it.</value>
   </data>
   <data name="WORK_CENTER_TYPE_NOT_FOUND" xml:space="preserve">
     <value>The work center type could not be found.</value>
@@ -1128,6 +1146,45 @@
   </data>
   <data name="provisioning.user_not_found" xml:space="preserve">
     <value>The user to provision was not found.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_3_group_fields_is_allowed" xml:space="preserve">
+    <value>A maximum of 3 group fields is allowed.</value>
+  </data>
+  <data name="validation.message.aguinaldo_exemptions_must_have_at_most_one_row_per_year" xml:space="preserve">
+    <value>Aguinaldo exemptions must have at most one row per year.</value>
+  </data>
+  <data name="validation.message.an_aguinaldo_payroll_has_exactly_one_period_per_year" xml:space="preserve">
+    <value>An aguinaldo payroll has exactly one period per year.</value>
+  </data>
+  <data name="validation.message.an_aguinaldo_payroll_must_use_the_anual_pay_period" xml:space="preserve">
+    <value>An aguinaldo payroll must use the ANUAL pay period.</value>
+  </data>
+  <data name="validation.message.beneficiarytype_must_be_principal_or_contingente" xml:space="preserve">
+    <value>BeneficiaryType must be 'PRINCIPAL' or 'CONTINGENTE'.</value>
+  </data>
+  <data name="validation.message.code_must_start_with_a_letter_or_number_and_may_contain_only_letters_numbers_hyphen_and_underscore_up_to_50_characters" xml:space="preserve">
+    <value>Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.</value>
+  </data>
+  <data name="validation.message.code_must_start_with_a_letter_or_number_and_may_contain_only_letters_numbers_hyphen_and_underscore_up_to_80_characters" xml:space="preserve">
+    <value>Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 80 characters.</value>
+  </data>
+  <data name="validation.message.code_must_start_with_a_letter_or_number_and_may_contain_only_letters_numbers_hyphen_underscore_and_period_up_to_80_characters" xml:space="preserve">
+    <value>Code must start with a letter or number and may contain only letters, numbers, hyphen, underscore and period, up to 80 characters.</value>
+  </data>
+  <data name="validation.message.code_must_start_with_a_letter_or_number_and_may_contain_only_letters_numbers_hyphen_underscore_period_and_slash_up_to_80_characters" xml:space="preserve">
+    <value>Code must start with a letter or number and may contain only letters, numbers, hyphen, underscore, period and slash, up to 80 characters.</value>
+  </data>
+  <data name="validation.message.search_must_be_at_least_2_characters_when_provided" xml:space="preserve">
+    <value>Search must be at least 2 characters when provided.</value>
+  </data>
+  <data name="validation.message.the_aguinaldo_payment_date_must_fall_between_october_20_and_december_20" xml:space="preserve">
+    <value>The aguinaldo payment date must fall between October 20 and December 20.</value>
+  </data>
+  <data name="validation.message.the_aguinaldo_payment_month_and_day_must_be_provided_together_or_both_omitted" xml:space="preserve">
+    <value>The aguinaldo payment month and day must be provided together or both omitted.</value>
+  </data>
+  <data name="validation.message.unknown_payroll_purpose" xml:space="preserve">
+    <value>Unknown payroll purpose.</value>
   </data>
   <data name="validation.message.an_external_provider_is_required" xml:space="preserve">
     <value>An external provider is required.</value>
@@ -3058,6 +3115,33 @@
   <data name="PAYROLL_RUN_NOT_FOUND" xml:space="preserve">
     <value>The payroll run could not be found.</value>
   </data>
+  <data name="AGUINALDO_EXEMPTION_DUPLICATE_YEAR" xml:space="preserve">
+    <value>Aguinaldo exemptions must have at most one row per year.</value>
+  </data>
+  <data name="AGUINALDO_PAYMENT_DATE_INCOMPLETE" xml:space="preserve">
+    <value>The aguinaldo payment month and day must be provided together or both omitted.</value>
+  </data>
+  <data name="AGUINALDO_PAYMENT_DATE_OUT_OF_WINDOW" xml:space="preserve">
+    <value>The aguinaldo payment date must fall between October 20 and December 20.</value>
+  </data>
+  <data name="AGUINALDO_PAYMENT_DATE_NOT_CONFIGURED" xml:space="preserve">
+    <value>The company has not configured its aguinaldo payment date.</value>
+  </data>
+  <data name="PAYROLL_PURPOSE_UNKNOWN" xml:space="preserve">
+    <value>Unknown payroll purpose.</value>
+  </data>
+  <data name="PAYROLL_AGUINALDO_REQUIRES_ANNUAL_PERIOD" xml:space="preserve">
+    <value>An aguinaldo payroll must use the ANUAL pay period.</value>
+  </data>
+  <data name="PAYROLL_AGUINALDO_REQUIRES_SINGLE_PERIOD" xml:space="preserve">
+    <value>An aguinaldo payroll has exactly one period per year.</value>
+  </data>
+  <data name="PAYROLL_AGUINALDO_ALREADY_PAID_FOR_YEAR" xml:space="preserve">
+    <value>The aguinaldo of this year is already paid by another active payroll run.</value>
+  </data>
+  <data name="PAYROLL_WARNING_AGUINALDO_NO_EXEMPTION" xml:space="preserve">
+    <value>No aguinaldo income-tax exemption is registered for this year: the whole amount was taxed.</value>
+  </data>
   <data name="PAYROLL_RUN_ALREADY_ACTIVE" xml:space="preserve">
     <value>The payroll definition already has an active run for this period.</value>
   </data>
@@ -3165,5 +3249,140 @@
   </data>
   <data name="PERSONNEL_FILE_CHILD_NOT_FOUND" xml:space="preserve">
     <value>The requested item does not belong to this personnel file.</value>
+  </data>
+  <data name="validation.property.address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="validation.property.amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="validation.property.catalogcode" xml:space="preserve">
+    <value>Catalog Code</value>
+  </data>
+  <data name="validation.property.catalogname" xml:space="preserve">
+    <value>Catalog Name</value>
+  </data>
+  <data name="validation.property.code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="validation.property.comment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="validation.property.comments" xml:space="preserve">
+    <value>Comments</value>
+  </data>
+  <data name="validation.property.countrycode" xml:space="preserve">
+    <value>Country Code</value>
+  </data>
+  <data name="validation.property.currencycode" xml:space="preserve">
+    <value>Currency Code</value>
+  </data>
+  <data name="validation.property.date" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="validation.property.day" xml:space="preserve">
+    <value>Day</value>
+  </data>
+  <data name="validation.property.days" xml:space="preserve">
+    <value>Days</value>
+  </data>
+  <data name="validation.property.description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="validation.property.documenttypecode" xml:space="preserve">
+    <value>Document Type Code</value>
+  </data>
+  <data name="validation.property.effectivedate" xml:space="preserve">
+    <value>Effective Date</value>
+  </data>
+  <data name="validation.property.email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="validation.property.enddate" xml:space="preserve">
+    <value>End Date</value>
+  </data>
+  <data name="validation.property.firstname" xml:space="preserve">
+    <value>First Name</value>
+  </data>
+  <data name="validation.property.fromdate" xml:space="preserve">
+    <value>From Date</value>
+  </data>
+  <data name="validation.property.hours" xml:space="preserve">
+    <value>Hours</value>
+  </data>
+  <data name="validation.property.identificationnumber" xml:space="preserve">
+    <value>Identification Number</value>
+  </data>
+  <data name="validation.property.institutionalemail" xml:space="preserve">
+    <value>Institutional Email</value>
+  </data>
+  <data name="validation.property.justification" xml:space="preserve">
+    <value>Justification</value>
+  </data>
+  <data name="validation.property.lastname" xml:space="preserve">
+    <value>Last Name</value>
+  </data>
+  <data name="validation.property.month" xml:space="preserve">
+    <value>Month</value>
+  </data>
+  <data name="validation.property.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="validation.property.note" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="validation.property.notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="validation.property.observations" xml:space="preserve">
+    <value>Observations</value>
+  </data>
+  <data name="validation.property.payperiodcode" xml:space="preserve">
+    <value>Pay Period Code</value>
+  </data>
+  <data name="validation.property.payrollperiodlabel" xml:space="preserve">
+    <value>Payroll Period Label</value>
+  </data>
+  <data name="validation.property.payrolltypecode" xml:space="preserve">
+    <value>Payroll Type Code</value>
+  </data>
+  <data name="validation.property.percentage" xml:space="preserve">
+    <value>Percentage</value>
+  </data>
+  <data name="validation.property.phone" xml:space="preserve">
+    <value>Phone</value>
+  </data>
+  <data name="validation.property.quantity" xml:space="preserve">
+    <value>Quantity</value>
+  </data>
+  <data name="validation.property.reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="validation.property.reference" xml:space="preserve">
+    <value>Reference</value>
+  </data>
+  <data name="validation.property.salary" xml:space="preserve">
+    <value>Salary</value>
+  </data>
+  <data name="validation.property.sortorder" xml:space="preserve">
+    <value>Sort Order</value>
+  </data>
+  <data name="validation.property.startdate" xml:space="preserve">
+    <value>Start Date</value>
+  </data>
+  <data name="validation.property.status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="validation.property.title" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="validation.property.todate" xml:space="preserve">
+    <value>To Date</value>
+  </data>
+  <data name="validation.property.value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="validation.property.year" xml:space="preserve">
+    <value>Year</value>
   </data>
 </root>

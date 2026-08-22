@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
@@ -295,7 +296,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedEmail.Contains(normalizedSearch) ||
                 item.FirstName.ToUpper().Contains(normalizedSearch) ||

@@ -12,6 +12,7 @@ using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.LegalRepresentatives;
 using FluentValidation;
 
@@ -22,7 +23,7 @@ public sealed record ActiveLegalRepresentativeSummary(
     string FullName,
     LegalRepresentativeRepresentationType RepresentationType,
     string PositionTitle,
-    bool? IsPrimary);
+    bool IsPrimary);
 
 public sealed record LegalRepresentativeListItemResponse(
     Guid Id,
@@ -34,10 +35,10 @@ public sealed record LegalRepresentativeListItemResponse(
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
-    bool? IsPrimary,
+    bool IsPrimary,
     bool IsActive,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
@@ -55,12 +56,12 @@ public sealed record LegalRepresentativeResponse(
     LegalRepresentativeRepresentationType RepresentationType,
     string? AuthorityDescription,
     string? AppointmentInstrument,
-    DateTime? AppointmentDateUtc,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly? AppointmentDate,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     string? Email,
     string? Phone,
-    bool? IsPrimary,
+    bool IsPrimary,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -94,12 +95,12 @@ public sealed record LegalRepresentativeExportRow(
     LegalRepresentativeRepresentationType RepresentationType,
     string? AuthorityDescription,
     string? AppointmentInstrument,
-    DateTime? AppointmentDateUtc,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly? AppointmentDate,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     string? Email,
     string? Phone,
-    bool? IsPrimary,
+    bool IsPrimary,
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -146,9 +147,9 @@ public sealed record CreateLegalRepresentativeCommand(
     LegalRepresentativeRepresentationType RepresentationType,
     string? AuthorityDescription,
     string? AppointmentInstrument,
-    DateTime? AppointmentDateUtc,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly? AppointmentDate,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     string? Email,
     string? Phone,
     bool IsPrimary)
@@ -164,9 +165,9 @@ public sealed record UpdateLegalRepresentativeCommand(
     LegalRepresentativeRepresentationType RepresentationType,
     string? AuthorityDescription,
     string? AppointmentInstrument,
-    DateTime? AppointmentDateUtc,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly? AppointmentDate,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     string? Email,
     string? Phone,
     bool IsPrimary,
@@ -202,7 +203,7 @@ internal sealed class SearchLegalRepresentativesQueryValidator : AbstractValidat
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(LegalRepresentativeValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {LegalRepresentativeValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(LegalRepresentativeValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LegalRepresentativeValidationRules.MaxPageSize);
     }
@@ -232,7 +233,7 @@ internal sealed class ExportLegalRepresentativesQueryValidator : AbstractValidat
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(LegalRepresentativeValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {LegalRepresentativeValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(LegalRepresentativeValidationRules.SearchLengthMessage);
     }
 }
 
@@ -266,9 +267,9 @@ internal sealed class CreateLegalRepresentativeCommandValidator : AbstractValida
             .WithMessage("PositionTitle format is invalid.");
         RuleFor(command => command.AuthorityDescription).MaximumLength(500);
         RuleFor(command => command.AppointmentInstrument).MaximumLength(500);
-        RuleFor(command => command.EffectiveFromUtc).NotEmpty();
-        RuleFor(command => command.EffectiveToUtc)
-            .Must((command, to) => !to.HasValue || to.Value.Date >= command.EffectiveFromUtc.Date)
+        RuleFor(command => command.EffectiveFrom).NotEmpty();
+        RuleFor(command => command.EffectiveTo)
+            .Must((command, to) => !to.HasValue || to.Value >= command.EffectiveFrom)
             .WithMessage(LegalRepresentativeErrors.EffectiveDatesInvalid.Message);
         RuleFor(command => command.Email)
             .EmailAddress()
@@ -308,9 +309,9 @@ internal sealed class UpdateLegalRepresentativeCommandValidator : AbstractValida
             .WithMessage("PositionTitle format is invalid.");
         RuleFor(command => command.AuthorityDescription).MaximumLength(500);
         RuleFor(command => command.AppointmentInstrument).MaximumLength(500);
-        RuleFor(command => command.EffectiveFromUtc).NotEmpty();
-        RuleFor(command => command.EffectiveToUtc)
-            .Must((command, to) => !to.HasValue || to.Value.Date >= command.EffectiveFromUtc.Date)
+        RuleFor(command => command.EffectiveFrom).NotEmpty();
+        RuleFor(command => command.EffectiveTo)
+            .Must((command, to) => !to.HasValue || to.Value >= command.EffectiveFrom)
             .WithMessage(LegalRepresentativeErrors.EffectiveDatesInvalid.Message);
         RuleFor(command => command.Email)
             .EmailAddress()
@@ -649,6 +650,16 @@ internal sealed class CreateLegalRepresentativeCommandHandler(
             return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.DocumentConflict);
         }
 
+        // B-04 — la empresa debe tener siempre exactamente un principal activo. El handler sabía DEGRADAR al
+        // anterior cuando llegaba un `true`, pero no PROMOVER: crear el primero con `isPrimary: false` dejaba
+        // la empresa sin ninguno. Si no hay principal activo, el que entra lo es, lo haya pedido o no.
+        var currentPrimary = await repository.GetActivePrimaryAsync(
+            command.CompanyId,
+            excludingLegalRepresentativePublicId: null,
+            cancellationToken);
+
+        var isPrimary = command.IsPrimary || currentPrimary is null;
+
         var legalRepresentative = LegalRepresentative.Create(
             command.FirstName,
             command.LastName,
@@ -658,29 +669,24 @@ internal sealed class CreateLegalRepresentativeCommandHandler(
             command.RepresentationType,
             command.AuthorityDescription,
             command.AppointmentInstrument,
-            command.AppointmentDateUtc,
-            command.EffectiveFromUtc,
-            command.EffectiveToUtc,
+            command.AppointmentDate,
+            command.EffectiveFrom,
+            command.EffectiveTo,
             command.Email,
             command.Phone,
-            command.IsPrimary);
+            isPrimary);
         legalRepresentative.SetTenantId(command.CompanyId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (command.IsPrimary)
+            if (isPrimary && currentPrimary is not null)
             {
-                var currentPrimary = await repository.GetActivePrimaryAsync(command.CompanyId, excludingLegalRepresentativePublicId: null, cancellationToken);
-
-                if (currentPrimary is not null)
-                {
-                    currentPrimary.ClearPrimary();
-                    // Flushed before the insert — see SetPrimaryLegalRepresentativeCommandHandler.
-                    // This path happens to survive on EF's current statement ordering, but that ordering
-                    // is not a contract: pinning it here keeps all three primary-switch paths identical.
-                    _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-                }
+                currentPrimary.ClearPrimary();
+                // Flushed before the insert — see SetPrimaryLegalRepresentativeCommandHandler.
+                // This path happens to survive on EF's current statement ordering, but that ordering
+                // is not a contract: pinning it here keeps all three primary-switch paths identical.
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
             repository.Add(legalRepresentative);
@@ -812,9 +818,9 @@ internal sealed class UpdateLegalRepresentativeCommandHandler(
                 command.RepresentationType,
                 command.AuthorityDescription,
                 command.AppointmentInstrument,
-                command.AppointmentDateUtc,
-                command.EffectiveFromUtc,
-                command.EffectiveToUtc,
+                command.AppointmentDate,
+                command.EffectiveFrom,
+                command.EffectiveTo,
                 command.Email,
                 command.Phone,
                 command.IsPrimary);
@@ -972,8 +978,28 @@ internal sealed class InactivateLegalRepresentativeCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // B-04 — `Inactivate()` limpia el flag de principal, así que dar de baja al principal dejaba la
+            // empresa SIN ninguno mientras quedaban otros activos. Se promueve al activo más antiguo.
+            // El orden importa: se degrada primero y se guarda, porque el índice único parcial
+            // `ux_legal_representatives__tenant_primary_active` se evalúa por sentencia y dos filas
+            // (primary, active) a la vez —aunque sea un instante— hacen que Postgres rechace el lote.
+            var wasPrimary = legalRepresentative.IsPrimary;
             legalRepresentative.Inactivate();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (wasPrimary)
+            {
+                var successor = await repository.GetPromotionCandidateAsync(
+                    legalRepresentative.TenantId,
+                    legalRepresentative.PublicId,
+                    cancellationToken);
+
+                if (successor is not null)
+                {
+                    successor.SetPrimary();
+                    _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+            }
 
             var after = await repository.GetResponseByIdAsync(legalRepresentative.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Legal representative response could not be resolved after inactivation.");
@@ -1173,12 +1199,14 @@ internal sealed class PatchLegalRepresentativeCommandHandler(
                 state.RepresentationType,
                 state.AuthorityDescription,
                 state.AppointmentInstrument,
-                state.AppointmentDateUtc,
-                before.EffectiveFromUtc,
-                before.EffectiveToUtc,
+                state.AppointmentDate,
+                before.EffectiveFrom,
+                before.EffectiveTo,
                 state.Email,
                 state.Phone,
-                before.IsPrimary ?? false);
+                // B-04 — el `?? false` que había aquí era el síntoma del tri-estado: el PATCH no toca el flag,
+                // así que se reenvía tal cual y ya no hay `null` que interpretar.
+                before.IsPrimary);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(legalRepresentative.PublicId, cancellationToken)
@@ -1216,7 +1244,7 @@ internal sealed class LegalRepresentativePatchState
     public LegalRepresentativeRepresentationType RepresentationType { get; set; }
     public string? AuthorityDescription { get; set; }
     public string? AppointmentInstrument { get; set; }
-    public DateTime? AppointmentDateUtc { get; set; }
+    public DateOnly? AppointmentDate { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public bool HasMutation { get; set; }
@@ -1230,7 +1258,7 @@ internal sealed class LegalRepresentativePatchState
             RepresentationType = response.RepresentationType,
             AuthorityDescription = response.AuthorityDescription,
             AppointmentInstrument = response.AppointmentInstrument,
-            AppointmentDateUtc = response.AppointmentDateUtc,
+            AppointmentDate = response.AppointmentDate,
             Email = response.Email,
             Phone = response.Phone
         };
@@ -1373,7 +1401,7 @@ internal static class LegalRepresentativePatchApplier
             return ValidationFailure(path, "The legal identity (document) is not patchable here; use PUT (it is uniqueness-checked).");
         }
 
-        if (IsSegment(property, "effectiveFromUtc") || IsSegment(property, "effectiveToUtc"))
+        if (IsSegment(property, "effectiveFrom") || IsSegment(property, "effectiveTo"))
         {
             return ValidationFailure(path, "The effective date range is not patchable here; use PUT (the range is validated as a unit).");
         }
@@ -1440,9 +1468,9 @@ internal static class LegalRepresentativePatchApplier
             return Result.Success();
         }
 
-        if (IsSegment(property, "appointmentDateUtc"))
+        if (IsSegment(property, "appointmentDate"))
         {
-            state.AppointmentDateUtc = isRemove ? null : ReadNullableDateTime(value, path);
+            state.AppointmentDate = isRemove ? null : ReadNullableDate(value, path);
             state.HasMutation = true;
             return Result.Success();
         }
@@ -1511,16 +1539,21 @@ internal static class LegalRepresentativePatchApplier
             : throw new LegalRepresentativePatchValueException(path, "Value must be a string or null.");
     }
 
-    private static DateTime? ReadNullableDateTime(JsonElement? value, string path)
+    /// <summary>
+    /// B-02 — el campo es un <see cref="DateOnly"/>, así que ya no hace falta el puente a medianoche UTC:
+    /// <see cref="CalendarDateReader.TryReadDay"/> devuelve el día tal como está escrito. Sigue aceptando la
+    /// forma de instante que los clientes venían mandando, igual que el converter del cuerpo.
+    /// </summary>
+    private static DateOnly? ReadNullableDate(JsonElement? value, string path)
     {
         if (IsNull(value))
         {
             return null;
         }
 
-        return value!.Value.ValueKind == JsonValueKind.String && value.Value.TryGetDateTime(out var parsed)
+        return value!.Value.ValueKind == JsonValueKind.String && CalendarDateReader.TryReadDay(value.Value.GetString(), out var parsed)
             ? parsed
-            : throw new LegalRepresentativePatchValueException(path, "Value must be an ISO-8601 date-time or null.");
+            : throw new LegalRepresentativePatchValueException(path, "Value must be a date in `yyyy-MM-dd` format, or null.");
     }
 
     private static TEnum ReadEnum<TEnum>(JsonElement? value, string path)

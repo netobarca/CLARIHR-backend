@@ -120,8 +120,23 @@ public sealed class JwtTokenServiceTests
         Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
+    /// <summary>
+    /// 00002 / B-01 → 00003 / B-03 — <b>este test afirmaba lo contrario y estaba fijando el defecto.</b>
+    /// Se llamaba <c>…ShouldEmitDefaultLanguageClaim</c> y exigía que un usuario SIN preferencia guardada
+    /// recibiera igualmente un claim <c>language = "en"</c>.
+    /// <para>
+    /// Ese claim es el que anula la cabecera: <c>RequestLanguageResolver</c> resuelve
+    /// <c>claim → Accept-Language → "en"</c>, así que un claim siempre presente hace que la cabecera
+    /// <b>nunca</b> se consulte. Con <c>?? "en"</c>, «no eligió idioma» y «eligió inglés» eran
+    /// indistinguibles, y el producto entero respondía en inglés aunque se pidiera español explícitamente.
+    /// </para>
+    /// <para>
+    /// Sin claim, el resolvedor cae a <c>Accept-Language</c> tal y como está documentado. Quien SÍ elige
+    /// idioma lo sigue recibiendo — lo cubre <c>GenerateAsync_WhenUserPreferenceExists_…</c>.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task GenerateAsync_WhenUserPreferenceMissing_ShouldEmitDefaultLanguageClaim()
+    public async Task GenerateAsync_WhenUserPreferenceMissing_ShouldNotEmitLanguageClaim()
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
@@ -142,7 +157,7 @@ public sealed class JwtTokenServiceTests
 
         Assert.True(result.IsSuccess);
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
-        Assert.Equal("en", jwt.Claims.Single(claim => claim.Type == "language").Value);
+        Assert.DoesNotContain(jwt.Claims, claim => claim.Type == "language");
     }
 
     [Fact]

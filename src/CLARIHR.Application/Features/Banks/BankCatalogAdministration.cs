@@ -130,7 +130,7 @@ internal sealed class CreateBankCatalogItemCommandValidator : AbstractValidator<
             .NotEmpty()
             .MaximumLength(80)
             .Must(BankCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(BankCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(200);
         RuleFor(command => command.Alias).MaximumLength(120);
         RuleFor(command => command.SwiftCode).MaximumLength(40);
@@ -152,7 +152,7 @@ internal sealed class UpdateBankCatalogItemCommandValidator : AbstractValidator<
             .NotEmpty()
             .MaximumLength(80)
             .Must(BankCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(BankCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(200);
         RuleFor(command => command.Alias).MaximumLength(120);
         RuleFor(command => command.SwiftCode).MaximumLength(40);

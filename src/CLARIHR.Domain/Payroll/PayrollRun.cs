@@ -368,7 +368,8 @@ public sealed class PayrollRunLine : TenantEntity
         Guid? sourceReferencePublicId,
         string currencyCode,
         string? warningCodesJson,
-        int sortOrder)
+        int sortOrder,
+        decimal exemptAmount = 0m)
     {
         if (!PayrollLineClasses.All.Contains(lineClass))
         {
@@ -411,6 +412,10 @@ public sealed class PayrollRunLine : TenantEntity
         CurrencyCode = currencyCode;
         WarningCodesJson = warningCodesJson;
         SortOrder = sortOrder;
+        // La exención solo tiene sentido en una línea de ingreso, y nunca puede superar lo pagado.
+        ExemptAmount = lineClass == PayrollLineClasses.Ingreso
+            ? Math.Min(Math.Max(0m, exemptAmount), Math.Max(0m, calculatedAmount))
+            : 0m;
     }
 
     public long PayrollRunId { get; private set; }
@@ -464,6 +469,17 @@ public sealed class PayrollRunLine : TenantEntity
     /// <summary>H-31 — días de incapacidad subsidiados por el ISSS.</summary>
     public decimal? SubsidizedDays { get; private set; }
 
+    /// <summary>
+    /// Porción del ingreso EXENTA de Renta, congelada al generar. Hoy solo la usa el aguinaldo —los primeros
+    /// $1,500 no tributan y la tabla cae sobre el excedente—, pero el campo es del ingreso, no del aguinaldo:
+    /// cualquier concepto con exención parcial se modela igual. Cero en descuentos y pagos patronales.
+    /// <para>
+    /// Se persiste en vez de recalcularse porque el monto exento cambia por año y por ley: una corrida de 2026
+    /// tiene que seguir explicando su retención con la exención de 2026 aunque la de 2027 ya sea otra.
+    /// </para>
+    /// </summary>
+    public decimal ExemptAmount { get; private set; }
+
     public decimal? Units { get; private set; }
 
     public decimal? BaseAmount { get; private set; }
@@ -516,7 +532,8 @@ public sealed class PayrollRunLine : TenantEntity
         Guid? sourceReferencePublicId,
         string currencyCode,
         string? warningCodesJson,
-        int sortOrder) =>
+        int sortOrder,
+        decimal exemptAmount = 0m) =>
         new(
             Guid.NewGuid(),
             personnelFileId,
@@ -541,7 +558,8 @@ public sealed class PayrollRunLine : TenantEntity
             sourceReferencePublicId,
             currencyCode,
             warningCodesJson,
-            sortOrder);
+            sortOrder,
+            exemptAmount);
 
     /// <summary>Review override with its mandatory audit note (null amount clears the override).</summary>
     public void SetOverride(decimal? overrideAmount, string? note, Guid adjustedByUserId)

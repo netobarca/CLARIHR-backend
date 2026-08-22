@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Leave;
@@ -93,7 +94,7 @@ internal sealed class CompensatoryTimeTypeRepository(ApplicationDbContext dbCont
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(type =>
                 type.NormalizedCode.Contains(normalizedSearch) ||
                 type.NormalizedName.Contains(normalizedSearch));

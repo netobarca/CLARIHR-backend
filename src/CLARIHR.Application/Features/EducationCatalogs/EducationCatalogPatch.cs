@@ -193,7 +193,7 @@ internal static class EducationCatalogItemPatchApplier
         }
         else if (!EducationCatalogValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [EducationCatalogValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

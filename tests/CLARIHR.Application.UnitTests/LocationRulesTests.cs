@@ -268,6 +268,14 @@ public sealed class LocationRulesTests
         public bool HasActiveWorkCentersValue { get; init; }
 
         public void Add(WorkCenterType workCenterType) => throw new NotSupportedException();
+
+        // 00003 / B-04 — este doble no ejercita el borrado. Lanzar es deliberado: devolver "sin usos"
+        // convertiria el guard en decoracion silenciosa si alguna prueba llegara a pasar por aqui.
+        public void Remove(WorkCenterType workCenterType) => throw new NotSupportedException();
+
+        public Task<CLARIHR.Application.Features.Locations.WorkCenterTypes.WorkCenterTypeUsageResponse?> GetUsageByIdAsync(
+            Guid workCenterTypeId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<WorkCenterType?> GetByIdAsync(Guid workCenterTypeId, CancellationToken cancellationToken) => Task.FromResult(_workCenterType is not null && _workCenterType.PublicId == workCenterTypeId ? _workCenterType : null);
         public Task<bool> ExistsOutsideTenantAsync(Guid workCenterTypeId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterTypeId, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -292,6 +300,14 @@ public sealed class LocationRulesTests
         }
 
         public Task<WorkCenter?> GetByIdAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // 00003 / B-04 — este doble no ejercita el borrado. Lanzar es deliberado: devolver "sin usos"
+        // convertiria el guard en decoracion silenciosa si alguna prueba llegara a pasar por aqui.
+        public void Remove(WorkCenter workCenter) => throw new NotSupportedException();
+
+        public Task<CLARIHR.Application.Features.Locations.WorkCenters.WorkCenterUsageResponse?> GetUsageByIdAsync(
+            Guid workCenterId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> ExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterId, CancellationToken cancellationToken) => Task.FromResult(CodeExists);
         public Task<PagedResponse<WorkCenterResponse>> SearchAsync(Guid tenantId, Guid? groupId, Guid? typeId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();

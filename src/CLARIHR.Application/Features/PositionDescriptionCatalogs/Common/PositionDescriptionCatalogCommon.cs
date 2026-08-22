@@ -15,6 +15,13 @@ public static partial class PositionDescriptionCatalogValidationRules
     // with the existing Internal Catalogs precedent (MinQueryLength: 2).
     // See project-foundation.md §12.8 / ADR-0002.
     public const int MinSearchLength = 2;
+
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
     public const int MaxSearchLength = 150;
 
     // Empty/whitespace search means "no filter" (the repository skips the predicate
@@ -22,6 +29,14 @@ public static partial class PositionDescriptionCatalogValidationRules
     // length on the trimmed term.
     public static bool IsValidSearchLength(string? search) =>
         string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());

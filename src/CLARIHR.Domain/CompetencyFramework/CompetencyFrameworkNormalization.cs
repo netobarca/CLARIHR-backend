@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 namespace CLARIHR.Domain.CompetencyFramework;
 
 internal static class CompetencyFrameworkNormalization
@@ -26,5 +27,5 @@ internal static class CompetencyFrameworkNormalization
         Clean(value, nameof(value)).ToUpperInvariant();
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 }

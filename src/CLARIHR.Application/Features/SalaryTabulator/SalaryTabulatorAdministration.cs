@@ -288,7 +288,7 @@ internal sealed class SearchSalaryTabulatorLinesQueryValidator : AbstractValidat
         RuleFor(query => query.Search)
             .MaximumLength(SalaryTabulatorValidationRules.MaxSearchLength)
             .Must(SalaryTabulatorValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {SalaryTabulatorValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(SalaryTabulatorValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, SalaryTabulatorValidationRules.MaxPageSize);
     }
@@ -313,7 +313,7 @@ internal sealed class ExportSalaryTabulatorLinesQueryValidator : AbstractValidat
         RuleFor(query => query.Search)
             .MaximumLength(SalaryTabulatorValidationRules.MaxSearchLength)
             .Must(SalaryTabulatorValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {SalaryTabulatorValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(SalaryTabulatorValidationRules.SearchLengthMessage);
     }
 }
 

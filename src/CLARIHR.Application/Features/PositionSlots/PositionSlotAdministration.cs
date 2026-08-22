@@ -187,6 +187,9 @@ public sealed record PositionSlotJobProfileLookup(
     Guid JobProfileId,
     Guid? OrgUnitId,
     string? OrgUnitName,
+    // 00950/B-02 — se trae para poder rechazar plazas nuevas bajo una unidad de baja. Nullable porque
+    // el join es LEFT: un perfil sin unidad resuelve con null y no dispara el guard.
+    bool? OrgUnitIsActive,
     string? CostCenterCode,
     Guid? PositionCategoryId,
     Guid? PositionCategoryClassificationId,
@@ -315,7 +318,7 @@ internal sealed class SearchPositionSlotsQueryValidator : AbstractValidator<Sear
         RuleFor(query => query.Search)
             .MaximumLength(PositionSlotValidationRules.MaxSearchLength)
             .Must(PositionSlotValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PositionSlotValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PositionSlotValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionSlotValidationRules.MaxPageSize);
     }
@@ -364,7 +367,7 @@ internal sealed class GetPositionSlotExportRowsQueryValidator : AbstractValidato
         RuleFor(query => query.Search)
             .MaximumLength(PositionSlotValidationRules.MaxSearchLength)
             .Must(PositionSlotValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PositionSlotValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PositionSlotValidationRules.SearchLengthMessage);
     }
 }
 
@@ -377,7 +380,7 @@ internal sealed class CreatePositionSlotCommandValidator : AbstractValidator<Cre
             .NotEmpty()
             .MaximumLength(50)
             .Must(PositionSlotValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(PositionSlotValidationRules.CodeFormatMessage);
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.RoleId)
@@ -414,7 +417,7 @@ internal sealed class UpdatePositionSlotCommandValidator : AbstractValidator<Upd
             .NotEmpty()
             .MaximumLength(50)
             .Must(PositionSlotValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(PositionSlotValidationRules.CodeFormatMessage);
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.RoleId)
@@ -1509,9 +1512,21 @@ internal static class PositionSlotCommandSupport
         var lookup = await repository.GetJobProfileLookupAsync(tenantId, jobProfileId, cancellationToken);
         if (lookup is not null)
         {
-            return lookup.JobProfileStatus == JobProfileStatus.Published
-                ? Result<PositionSlotJobProfileLookup>.Success(lookup)
-                : Result<PositionSlotJobProfileLookup>.Failure(PositionSlotErrors.JobProfileNotPublished);
+            if (lookup.JobProfileStatus != JobProfileStatus.Published)
+            {
+                return Result<PositionSlotJobProfileLookup>.Failure(PositionSlotErrors.JobProfileNotPublished);
+            }
+
+            // 00950/B-02 — se comprueba DESPUES de la publicacion a proposito: si el perfil ni siquiera
+            // esta publicado, ese es el problema que hay que contar primero. Va aqui, en el helper que
+            // ya documenta tener como unicos llamadores crear y actualizar, para que la regla siga
+            // teniendo una sola casa y no pueda olvidarse en un call site nuevo.
+            if (lookup.OrgUnitIsActive == false)
+            {
+                return Result<PositionSlotJobProfileLookup>.Failure(PositionSlotErrors.OrgUnitInactive);
+            }
+
+            return Result<PositionSlotJobProfileLookup>.Success(lookup);
         }
 
         return Result<PositionSlotJobProfileLookup>.Failure(
@@ -1533,10 +1548,16 @@ internal static class PositionSlotCommandSupport
             return Result<long?>.Success(null);
         }
 
-        var internalId = await repository.ResolveWorkCenterIdAsync(tenantId, workCenterId.Value, cancellationToken);
-        if (internalId.HasValue)
+        var workCenter = await repository.ResolveWorkCenterIdAsync(tenantId, workCenterId.Value, cancellationToken);
+        if (workCenter.HasValue)
         {
-            return Result<long?>.Success(internalId.Value);
+            // 00950 / B-02 (§3.6) — dar de baja una sede es legitimo y las plazas que ya viven ahi se
+            // conservan; lo que no tiene defensa es crear plazas NUEVAS contra ella, que no preserva
+            // historico sino que crea futuro. Vive aqui, en el unico resolvedor, para que cubra tambien
+            // la actualizacion sin depender de que alguien lo recuerde en un call site nuevo.
+            return workCenter.Value.IsActive
+                ? Result<long?>.Success(workCenter.Value.Id)
+                : Result<long?>.Failure(PositionSlotErrors.WorkCenterInactive);
         }
 
         return Result<long?>.Failure(

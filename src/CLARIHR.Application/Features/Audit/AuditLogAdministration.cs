@@ -89,7 +89,7 @@ internal sealed class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLog
             // Interpolated message (like the sibling search validators) so it stays out of the resx
             // localization catalog.
             .Must(static search => AuditValidationRules.HasValidSearchLength(search))
-            .WithMessage($"Search must be at least {AuditValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(AuditValidationRules.SearchLengthMessage);
 
         RuleFor(query => query)
             .Must(static query => !query.FromUtc.HasValue || !query.ToUtc.HasValue || query.FromUtc.Value <= query.ToUtc.Value)

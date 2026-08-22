@@ -126,6 +126,14 @@ file sealed class TestWorkCenterTypeRepository : IWorkCenterTypeRepository
 
     public void Add(WorkCenterType workCenterType) => _byPublicId[workCenterType.PublicId] = workCenterType;
 
+        // 00003 / B-04 — este doble no ejercita el borrado. Lanzar es deliberado: devolver "sin usos"
+        // convertiria el guard en decoracion silenciosa si alguna prueba llegara a pasar por aqui.
+    public void Remove(WorkCenterType workCenterType) => throw new NotSupportedException();
+
+    public Task<CLARIHR.Application.Features.Locations.WorkCenterTypes.WorkCenterTypeUsageResponse?> GetUsageByIdAsync(
+        Guid workCenterTypeId,
+        CancellationToken cancellationToken) => throw new NotSupportedException();
+
     public Task<WorkCenterType?> GetByIdAsync(Guid workCenterTypeId, CancellationToken cancellationToken) =>
         Task.FromResult(_byPublicId.GetValueOrDefault(workCenterTypeId));
 

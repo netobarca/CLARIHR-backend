@@ -8,6 +8,8 @@ public interface IOrgUnitRepository
 {
     void Add(OrgUnit orgUnit);
 
+    void Remove(OrgUnit orgUnit);
+
     Task<OrgUnit?> GetByIdAsync(Guid orgUnitId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken);
@@ -26,6 +28,8 @@ public interface IOrgUnitRepository
         CancellationToken cancellationToken);
 
     Task<OrgUnitResponse?> GetResponseByIdAsync(Guid orgUnitId, CancellationToken cancellationToken);
+
+    Task<OrgUnitUsageResponse?> GetUsageByIdAsync(Guid orgUnitId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<OrgUnitHierarchyNodeData>> GetHierarchyAsync(Guid tenantId, CancellationToken cancellationToken);
 

@@ -143,6 +143,28 @@ public sealed record SearchOrgUnitsQuery(
 
 public sealed record GetOrgUnitByIdQuery(Guid OrgUnitId) : IQuery<OrgUnitResponse>;
 
+/// <summary>
+/// Active/inactive reference counts for an org unit, so a client can tell WHY it cannot be
+/// inactivated instead of only being told that it cannot.
+/// </summary>
+/// <remarks>
+/// The inactivation guard rejects on active children alone (<c>ORG_UNIT_HAS_ACTIVE_CHILDREN</c>), but the
+/// unit is also referenced by job profiles. Reporting only what blocks would answer half the question, so
+/// both are counted — and inactive references too, which is what tells the user whether the record is
+/// dormant or genuinely unused.
+/// </remarks>
+public sealed record OrgUnitUsageResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int ActiveChildren,
+    int InactiveChildren,
+    int JobProfileActiveReferences,
+    int JobProfileInactiveReferences,
+    bool HasActiveReferences);
+
+public sealed record GetOrgUnitUsageQuery(Guid OrgUnitId) : IQuery<OrgUnitUsageResponse>;
+
 public sealed record GetOrgUnitExportRowsQuery(
     Guid CompanyId,
     bool? IsActive,
@@ -187,6 +209,12 @@ public sealed record ActivateOrgUnitCommand(Guid OrgUnitId, Guid ConcurrencyToke
 
 public sealed record InactivateOrgUnitCommand(Guid OrgUnitId, Guid ConcurrencyToken) : ICommand<OrgUnitResponse>;
 
+/// <summary>
+/// Borrado duro condicional. Existe para el caso que la baja logica no resuelve: el registro creado por
+/// error que nadie llego a referenciar y que hoy se queda para siempre ensuciando el catalogo.
+/// </summary>
+public sealed record DeleteOrgUnitCommand(Guid OrgUnitId, Guid ConcurrencyToken) : ICommand<OrgUnitResponse>;
+
 public sealed record OrgUnitPatchOperation(
     string Op,
     string Path,
@@ -212,7 +240,7 @@ internal sealed class SearchOrgUnitsQueryValidator : AbstractValidator<SearchOrg
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(OrgUnitValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {OrgUnitValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(OrgUnitValidationRules.SearchLengthMessage);
         RuleFor(query => query.OrgUnitTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.OrgUnitTypeId.HasValue);
@@ -222,6 +250,23 @@ internal sealed class SearchOrgUnitsQueryValidator : AbstractValidator<SearchOrg
         RuleFor(query => query.ParentId).NotEqual(Guid.Empty).When(static query => query.ParentId.HasValue);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgUnitValidationRules.MaxPageSize);
+    }
+}
+
+internal sealed class DeleteOrgUnitCommandValidator : AbstractValidator<DeleteOrgUnitCommand>
+{
+    public DeleteOrgUnitCommandValidator()
+    {
+        RuleFor(command => command.OrgUnitId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class GetOrgUnitUsageQueryValidator : AbstractValidator<GetOrgUnitUsageQuery>
+{
+    public GetOrgUnitUsageQueryValidator()
+    {
+        RuleFor(query => query.OrgUnitId).NotEmpty();
     }
 }
 
@@ -242,7 +287,7 @@ internal sealed class CreateOrgUnitCommandValidator : AbstractValidator<CreateOr
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgUnitValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgUnitValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.OrgUnitTypeId).NotEmpty();
         RuleFor(command => command.FunctionalAreaId)
@@ -271,7 +316,7 @@ internal sealed class UpdateOrgUnitCommandValidator : AbstractValidator<UpdateOr
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgUnitValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgUnitValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.OrgUnitTypeId).NotEmpty();
         RuleFor(command => command.FunctionalAreaId)
@@ -376,7 +421,7 @@ internal sealed class GetOrgUnitExportRowsQueryValidator : AbstractValidator<Get
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(OrgUnitValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {OrgUnitValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(OrgUnitValidationRules.SearchLengthMessage);
         RuleFor(query => query.OrgUnitTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.OrgUnitTypeId.HasValue);
@@ -432,6 +477,40 @@ internal sealed class SearchOrgUnitsQueryHandler(
 
         result = result with { Items = items };
         return Result<PagedResponse<OrgUnitListItemResponse>>.Success(result);
+    }
+}
+
+internal sealed class GetOrgUnitUsageQueryHandler(
+    IOrgUnitAuthorizationService authorizationService,
+    IOrgUnitRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetOrgUnitUsageQuery, OrgUnitUsageResponse>
+{
+    public async Task<Result<OrgUnitUsageResponse>> Handle(
+        GetOrgUnitUsageQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<OrgUnitUsageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<OrgUnitUsageResponse>.Failure(authorizationResult.Error);
+        }
+
+        var response = await repository.GetUsageByIdAsync(query.OrgUnitId, cancellationToken);
+        if (response is not null)
+        {
+            return Result<OrgUnitUsageResponse>.Success(response);
+        }
+
+        return Result<OrgUnitUsageResponse>.Failure(
+            await repository.ExistsOutsideTenantAsync(query.OrgUnitId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : OrgUnitErrors.OrgUnitNotFound);
     }
 }
 
@@ -897,8 +976,13 @@ internal sealed class MoveOrgUnitCommandHandler(
                 return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CycleDetected);
             }
 
+            // A move must account for BOTH where the node lands and what it drags along. Measuring only
+            // the node (the create path's rule, correct there because a new node has no descendants) let a
+            // subtree push its own children past MaxDepth while a leaf was correctly rejected. The height
+            // is read from the hierarchy already in memory — no extra query.
             var newDepth = OrgUnitHierarchyBuilder.CalculateDepth(parent.Id, byInternalId);
-            if (newDepth > OrgUnitValidationRules.MaxDepth)
+            var subtreeHeight = OrgUnitHierarchyBuilder.CalculateSubtreeHeight(orgUnit.Id, byInternalId);
+            if (newDepth + subtreeHeight - 1 > OrgUnitValidationRules.MaxDepth)
             {
                 return Result<OrgUnitResponse>.Failure(OrgUnitErrors.DepthLimitExceeded);
             }
@@ -1082,6 +1166,88 @@ internal sealed class InactivateOrgUnitCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeleteOrgUnitCommandHandler(
+    IOrgUnitAuthorizationService authorizationService,
+    IOrgUnitRepository repository,
+    IUnitOfWork unitOfWork,
+    IAuditService auditService,
+    ITenantContext tenantContext)
+    : ICommandHandler<DeleteOrgUnitCommand, OrgUnitResponse>
+{
+    // Devuelve el recurso eliminado, como hace el borrado hermano de JobCatalogs: le da al cliente el
+    // estado final sin tener que haberlo guardado antes.
+    public async Task<Result<OrgUnitResponse>> Handle(DeleteOrgUnitCommand command, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<OrgUnitResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<OrgUnitResponse>.Failure(authorizationResult.Error);
+        }
+
+        var orgUnit = await repository.GetByIdAsync(command.OrgUnitId, cancellationToken);
+        if (orgUnit is null)
+        {
+            return Result<OrgUnitResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.OrgUnitId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Delete)
+                    : OrgUnitErrors.OrgUnitNotFound);
+        }
+
+        if (orgUnit.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.ConcurrencyConflict);
+        }
+
+        // El guard lee LA MISMA fuente que /usage, a proposito: el defecto que este hallazgo corrige es
+        // justamente que el servidor sabia por que bloqueaba y no lo decia. Si el bloqueo y la explicacion
+        // se calcularan por separado, podrian divergir y volveriamos al mismo sitio.
+        // Cuentan activas E inactivas: el borrado es duro y las dos FK que apuntan aqui son RESTRICT.
+        var usage = await repository.GetUsageByIdAsync(orgUnit.PublicId, cancellationToken);
+        if (usage is not null &&
+            usage.ActiveChildren + usage.InactiveChildren +
+            usage.JobProfileActiveReferences + usage.JobProfileInactiveReferences > 0)
+        {
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.InUse);
+        }
+
+        var before = await repository.GetResponseByIdAsync(orgUnit.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Org unit response could not be resolved before deletion.");
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.Remove(orgUnit);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.OrgUnitDeleted,
+                    AuditEntityTypes.OrgUnit,
+                    orgUnit.PublicId,
+                    orgUnit.Code,
+                    AuditActions.Delete,
+                    $"Deleted organization unit {orgUnit.Code}.",
+                    Before: before,
+                    After: null),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<OrgUnitResponse>.Success(before);
         }
         catch
         {
@@ -1566,6 +1732,76 @@ internal static class OrgUnitHierarchyBuilder
         }
 
         return depth;
+    }
+
+    /// <summary>
+    /// Height of the subtree rooted at <paramref name="rootInternalId"/>, counting the root itself:
+    /// 1 for a leaf, 2 for a node with children, and so on.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart of <see cref="CalculateDepth"/>, which walks UP. A move needs both: the depth the
+    /// node lands at, plus what it drags along. Measuring only the node let a subtree push its descendants
+    /// past <see cref="OrgUnitValidationRules.MaxDepth"/> while a leaf was correctly rejected.
+    /// Walks in memory over the hierarchy the caller already loaded — no extra query — and caps at
+    /// MaxDepth + 1 so pre-existing cyclic data cannot spin here.
+    /// </remarks>
+    public static int CalculateSubtreeHeight(long rootInternalId, IReadOnlyDictionary<long, OrgUnitHierarchyNodeData> byInternalId)
+    {
+        var childrenByParent = new Dictionary<long, List<long>>();
+        foreach (var node in byInternalId.Values)
+        {
+            if (node.ParentInternalId is not { } parentInternalId)
+            {
+                continue;
+            }
+
+            if (!childrenByParent.TryGetValue(parentInternalId, out var siblings))
+            {
+                siblings = [];
+                childrenByParent[parentInternalId] = siblings;
+            }
+
+            siblings.Add(node.InternalId);
+        }
+
+        var height = 1;
+        var visited = new HashSet<long> { rootInternalId };
+        var level = new List<long> { rootInternalId };
+
+        while (level.Count > 0)
+        {
+            var next = new List<long>();
+            foreach (var internalId in level)
+            {
+                if (!childrenByParent.TryGetValue(internalId, out var children))
+                {
+                    continue;
+                }
+
+                foreach (var child in children)
+                {
+                    if (visited.Add(child))
+                    {
+                        next.Add(child);
+                    }
+                }
+            }
+
+            if (next.Count == 0)
+            {
+                break;
+            }
+
+            height++;
+            if (height > OrgUnitValidationRules.MaxDepth)
+            {
+                return height;
+            }
+
+            level = next;
+        }
+
+        return height;
     }
 
     private static IReadOnlyList<OrgUnitHierarchyNodeData> SelectNodes(

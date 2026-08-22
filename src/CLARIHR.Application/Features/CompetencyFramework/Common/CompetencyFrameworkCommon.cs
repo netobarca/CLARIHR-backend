@@ -18,6 +18,14 @@ public static partial class CompetencyFrameworkValidationRules
     public const int MaxConductsPerMatrixItem = 50;
     public const int MaxBehaviorsPerConduct = 50;
 
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
 

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Api.Configuration;
 
@@ -29,16 +30,11 @@ public sealed class LenientDateOnlyJsonConverter : JsonConverter<DateOnly>
             throw new JsonException("A date is required in `yyyy-MM-dd` format.");
         }
 
-        if (DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        // B-01 — la lectura vive en `CalendarDateReader`, en el dominio: acepta las dos formas y NUNCA
+        // desplaza el día. Los lectores de JSON Patch usan la misma, que es lo que antes faltaba.
+        if (CalendarDateReader.TryReadDay(text, out var date))
         {
             return date;
-        }
-
-        // The instant form: keep the calendar day it names. An offset is meaningless for a day field, so the day
-        // is read as written rather than shifted into UTC — shifting it would move a birth date across midnight.
-        if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var instant))
-        {
-            return DateOnly.FromDateTime(instant.Date);
         }
 
         throw new JsonException($"'{text}' is not a valid date. Use `yyyy-MM-dd`.");

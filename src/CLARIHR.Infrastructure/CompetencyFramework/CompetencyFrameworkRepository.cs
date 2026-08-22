@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompetencyFramework;
@@ -92,7 +93,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(level =>
                 level.NormalizedCode.Contains(normalizedSearch) ||
                 level.NormalizedName.Contains(normalizedSearch));
@@ -251,7 +252,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.Conduct.NormalizedDescription.Contains(normalizedSearch) ||
                 item.Competency.NormalizedCode.Contains(normalizedSearch) ||

@@ -103,7 +103,8 @@ public sealed class PayrollDefinitionsController(
                 request.OvertimeWindowEnabled,
                 request.OvertimeWindowOffsetDays,
                 request.AttendanceWindowEnabled,
-                request.AttendanceWindowOffsetDays),
+                request.AttendanceWindowOffsetDays,
+                request.PurposeCode),
             cancellationToken);
 
         // The PublicContractRouteConvention rewrites the GetById route token `{id}` to `{publicId}`,
@@ -147,7 +148,8 @@ public sealed class PayrollDefinitionsController(
                 request.OvertimeWindowOffsetDays,
                 request.AttendanceWindowEnabled,
                 request.AttendanceWindowOffsetDays,
-                concurrencyToken),
+                concurrencyToken,
+                request.PurposeCode),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
@@ -208,7 +210,11 @@ public sealed class PayrollDefinitionsController(
         bool OvertimeWindowEnabled = false,
         int? OvertimeWindowOffsetDays = null,
         bool AttendanceWindowEnabled = false,
-        int? AttendanceWindowOffsetDays = null);
+        int? AttendanceWindowOffsetDays = null,
+        // Para qué sirve la nómina: `ORDINARIA` (por defecto) o `AGUINALDO`. Una nómina de aguinaldo cambia
+        // la naturaleza de la corrida —población completa, sin salario ni pools, una sola línea— y exige
+        // `payPeriodCode = ANUAL` con `totalPeriods = 1`.
+        string PurposeCode = "ORDINARIA");
 
     public sealed record UpdatePayrollDefinitionRequest(
         string Code,
@@ -221,5 +227,9 @@ public sealed class PayrollDefinitionsController(
         bool OvertimeWindowEnabled = false,
         int? OvertimeWindowOffsetDays = null,
         bool AttendanceWindowEnabled = false,
-        int? AttendanceWindowOffsetDays = null);
+        int? AttendanceWindowOffsetDays = null,
+        // Para qué sirve la nómina: `ORDINARIA` (por defecto) o `AGUINALDO`. Una nómina de aguinaldo cambia
+        // la naturaleza de la corrida —población completa, sin salario ni pools, una sola línea— y exige
+        // `payPeriodCode = ANUAL` con `totalPeriods = 1`.
+        string PurposeCode = "ORDINARIA");
 }

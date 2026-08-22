@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 namespace CLARIHR.Domain.JobProfiles;
 
 internal static class JobProfileNormalization
@@ -21,5 +22,5 @@ internal static class JobProfileNormalization
         Clean(value, nameof(value)).ToUpperInvariant();
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 }

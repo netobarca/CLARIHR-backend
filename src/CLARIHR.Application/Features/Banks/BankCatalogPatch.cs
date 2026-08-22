@@ -252,7 +252,7 @@ internal static class BankCatalogItemPatchApplier
         }
         else if (!BankCatalogValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [BankCatalogValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

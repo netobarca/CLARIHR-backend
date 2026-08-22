@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 namespace CLARIHR.Domain.Leave;
 
 internal static class LeaveNormalization
@@ -21,5 +22,5 @@ internal static class LeaveNormalization
         Clean(value, nameof(value)).ToUpperInvariant();
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 }

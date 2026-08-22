@@ -523,7 +523,7 @@ public sealed class FinalizePersonnelFileTests
 
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<(long Id, bool IsActive)?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

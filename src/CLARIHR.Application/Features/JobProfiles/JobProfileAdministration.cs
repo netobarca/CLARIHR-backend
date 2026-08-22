@@ -24,6 +24,7 @@ using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
@@ -513,7 +514,7 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
             .NotEmpty()
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(JobProfileValidationRules.CodeFormatMessage);
         RuleFor(command => command.Title).NotEmpty().MaximumLength(180);
         RuleFor(command => command.Objective).MaximumLength(4000);
         RuleFor(command => command.DecisionScope).MaximumLength(4000);
@@ -555,7 +556,7 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
             .NotEmpty()
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(JobProfileValidationRules.CodeFormatMessage);
         RuleFor(command => command.Title).NotEmpty().MaximumLength(180);
         RuleFor(command => command.Objective).MaximumLength(4000);
         RuleFor(command => command.DecisionScope).MaximumLength(4000);
@@ -1706,7 +1707,7 @@ internal static class JobProfilePatchApplier
         AddMaxLength(errors, "code", state.Code, 50);
         if (!string.IsNullOrWhiteSpace(state.Code) && !JobProfileValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [JobProfileValidationRules.CodeFormatMessage];
         }
 
         AddRequired(errors, "title", state.Title);
@@ -1924,7 +1925,7 @@ internal static class JobProfilePatchApplier
             return null;
         }
 
-        if (value!.Value.ValueKind == JsonValueKind.String && value.Value.TryGetDateTime(out var parsed))
+        if (value!.Value.ValueKind == JsonValueKind.String && CalendarDateReader.TryReadInstant(value.Value.GetString(), out var parsed))
         {
             return parsed;
         }

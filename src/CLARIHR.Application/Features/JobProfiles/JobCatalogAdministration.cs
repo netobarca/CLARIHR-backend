@@ -101,7 +101,7 @@ internal sealed class CreateJobCatalogItemCommandValidator : AbstractValidator<C
             .NotEmpty()
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(JobProfileValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(JobCatalogItem.MaxNameLength);
         RuleFor(command => command.Description).MaximumLength(JobCatalogItem.MaxDescriptionLength);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -118,7 +118,7 @@ internal sealed class UpdateJobCatalogItemCommandValidator : AbstractValidator<U
             .NotEmpty()
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(JobProfileValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(JobCatalogItem.MaxNameLength);
         RuleFor(command => command.Description).MaximumLength(JobCatalogItem.MaxDescriptionLength);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -646,7 +646,7 @@ internal static class JobCatalogItemPatchApplier
         }
         else if (!JobProfileValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [JobProfileValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

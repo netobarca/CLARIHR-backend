@@ -20,7 +20,7 @@ public static class PersonnelReferenceCatalog
             [
                 ("SOLTERO_A", "Soltero/a"),
                 ("CASADO_A", "Casado/a"),
-                ("UNION_NO_MATRIMONIAL", "Union no matrimonial"),
+                ("UNION_NO_MATRIMONIAL", "Unión no matrimonial"),
                 ("DIVORCIADO_A", "Divorciado/a"),
                 ("VIUDO_A", "Viudo/a"),
                 ("SEPARADO_A", "Separado/a")
@@ -55,7 +55,7 @@ public static class PersonnelReferenceCatalog
                 ("CAJERO_A", "Cajero/a"),
                 ("COMERCIANTE", "Comerciante"),
                 ("CONTADOR_A", "Contador/a"),
-                ("DISENADOR_A_GRAFICO_A", "Disenador/a grafico/a"),
+                ("DISENADOR_A_GRAFICO_A", "Diseñador/a gráfico/a"),
                 ("DOCENTE", "Docente"),
                 ("ECONOMISTA", "Economista"),
                 ("ELECTRICISTA", "Electricista"),
@@ -66,18 +66,18 @@ public static class PersonnelReferenceCatalog
                 ("INGENIERO_A_INDUSTRIAL", "Ingeniero/a industrial"),
                 ("INGENIERO_A_EN_SISTEMAS", "Ingeniero/a en sistemas"),
                 ("JEFE_A_DE_OPERACIONES", "Jefe/a de operaciones"),
-                ("MEDICO_A", "Medico/a"),
+                ("MEDICO_A", "Médico/a"),
                 ("MERCADERISTA", "Mercaderista"),
                 ("MOTORISTA", "Motorista"),
-                ("ODONTOLOGO_A", "Odontologo/a"),
-                ("OPERARIO_A_DE_PRODUCCION", "Operario/a de produccion"),
+                ("ODONTOLOGO_A", "Odontólogo/a"),
+                ("OPERARIO_A_DE_PRODUCCION", "Operario/a de producción"),
                 ("PERIODISTA", "Periodista"),
-                ("PSICOLOGO_A", "Psicologo/a"),
+                ("PSICOLOGO_A", "Psicólogo/a"),
                 ("RECEPCIONISTA", "Recepcionista"),
                 ("SOLDADOR_A", "Soldador/a"),
                 ("SUPERVISOR_A", "Supervisor/a"),
-                ("TECNICO_A_DE_MANTENIMIENTO", "Tecnico/a de mantenimiento"),
-                ("TECNICO_A_DE_SOPORTE", "Tecnico/a de soporte"),
+                ("TECNICO_A_DE_MANTENIMIENTO", "Técnico/a de mantenimiento"),
+                ("TECNICO_A_DE_SOPORTE", "Técnico/a de soporte"),
                 ("VENDEDOR_A", "Vendedor/a")
             ]);
 

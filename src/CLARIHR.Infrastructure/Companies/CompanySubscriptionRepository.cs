@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PlatformSubscriptions;
@@ -210,7 +211,7 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(row =>
                 row.Company.Name.ToUpper().Contains(normalizedSearch) ||
                 row.Company.Slug.ToUpper().Contains(normalizedSearch) ||
@@ -409,7 +410,7 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(row =>
                 row.CompanyAddon.AddonCode.Contains(normalizedSearch) ||
                 row.CompanyAddon.AddonName.ToUpper().Contains(normalizedSearch));
@@ -475,7 +476,7 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(addon =>
                 addon.Code.Contains(normalizedSearch) ||
                 addon.Name.ToUpper().Contains(normalizedSearch));

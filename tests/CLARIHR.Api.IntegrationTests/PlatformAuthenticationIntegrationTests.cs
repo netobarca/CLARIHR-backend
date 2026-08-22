@@ -280,9 +280,9 @@ public sealed class PlatformAuthenticationIntegrationTests(
         representationType = "PrimaryLegalRepresentative",
         authorityDescription = "Representacion general",
         appointmentInstrument = "Acta de nombramiento",
-        appointmentDateUtc = DateTime.UtcNow.Date,
-        effectiveFromUtc = DateTime.UtcNow.Date,
-        effectiveToUtc = (DateTime?)null,
+        appointmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
+        effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+        effectiveTo = (DateOnly?)null,
         email = "ana.mendoza@test.com",
         phone = "+50370000000",
         isPrimary = true

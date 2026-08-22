@@ -91,7 +91,7 @@ internal sealed class DisciplinaryActionCauseRepository(ApplicationDbContext dbC
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(cause =>
                 cause.NormalizedCode.Contains(normalizedSearch) ||
                 cause.NormalizedName.Contains(normalizedSearch));

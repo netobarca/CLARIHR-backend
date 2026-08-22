@@ -493,12 +493,11 @@ public sealed class AccountCompanyAdministrationTests
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
             "Representación general judicial y administrativa",
             "Acta de nombramiento",
-            new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            new DateOnly(2026, 1, 10),
+            new DateOnly(2026, 1, 10),
             null,
             "ana.mendoza@test.com",
-            "+50370000000",
-            IsPrimary: true);
+            "+50370000000");
 
     private static void SetEntityId(Entity entity, long id)
     {
@@ -1196,8 +1195,28 @@ public sealed class AccountCompanyAdministrationTests
         public void AddOrgUnitType(CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem item) =>
             throw new NotSupportedException();
 
+        // 00003/B-04 — este doble sirve a pruebas de EMPRESA, que nunca borran tipos de unidad.
+        // Lanzar es deliberado: un doble que devolviera «sin usos» convertiria el guard de borrado
+        // en decoracion silenciosa si algun dia una prueba de aqui llegara a pasar por el.
+        public void RemoveOrgUnitType(CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem item) =>
+            throw new NotSupportedException();
+
+        public Task<CLARIHR.Application.Features.OrgStructureCatalogs.OrgUnitTypeUsageResponse?> GetOrgUnitTypeUsageByIdAsync(
+            Guid orgUnitTypeId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public void AddFunctionalArea(CLARIHR.Domain.OrgStructureCatalogs.FunctionalAreaCatalogItem item) =>
             throw new NotSupportedException();
+
+        // 00003 / B-04 — este doble no ejercita el borrado. Lanzar es deliberado: devolver "sin usos"
+        // convertiria el guard en decoracion silenciosa si alguna prueba llegara a pasar por aqui.
+        public void RemoveFunctionalArea(CLARIHR.Domain.OrgStructureCatalogs.FunctionalAreaCatalogItem item) =>
+            throw new NotSupportedException();
+
+        public Task<CLARIHR.Application.Features.OrgStructureCatalogs.FunctionalAreaUsageResponse?> GetFunctionalAreaUsageByIdAsync(
+            Guid functionalAreaId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem?> GetOrgUnitTypeByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
             Task.FromResult<CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem?>(null);

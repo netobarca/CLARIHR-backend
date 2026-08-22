@@ -105,12 +105,11 @@ public sealed class AccountCompaniesController(
                     request.InitialLegalRepresentative.RepresentationType,
                     request.InitialLegalRepresentative.AuthorityDescription,
                     request.InitialLegalRepresentative.AppointmentInstrument,
-                    request.InitialLegalRepresentative.AppointmentDateUtc,
-                    request.InitialLegalRepresentative.EffectiveFromUtc,
-                    request.InitialLegalRepresentative.EffectiveToUtc,
+                    request.InitialLegalRepresentative.AppointmentDate,
+                    request.InitialLegalRepresentative.EffectiveFrom,
+                    request.InitialLegalRepresentative.EffectiveTo,
                     request.InitialLegalRepresentative.Email,
-                    request.InitialLegalRepresentative.Phone,
-                    request.InitialLegalRepresentative.IsPrimary)),
+                    request.InitialLegalRepresentative.Phone)),
             cancellationToken);
 
         return this.ToCreatedAtActionResult(
@@ -250,12 +249,16 @@ public sealed class AccountCompaniesController(
         LegalRepresentativeRepresentationType RepresentationType,
         string? AuthorityDescription,
         string? AppointmentInstrument,
-        DateTime? AppointmentDateUtc,
-        DateTime EffectiveFromUtc,
-        DateTime? EffectiveToUtc,
+        DateOnly? AppointmentDate,
+        DateOnly EffectiveFrom,
+        DateOnly? EffectiveTo,
         string? Email,
-        string? Phone,
-        bool? IsPrimary = null);
+        /// <remarks>
+        /// B-04 — `isPrimary` YA NO viaja aquí: el representante inicial es el único de la empresa, así que
+        /// el servidor lo marca como principal siempre. Un cliente que lo siga enviando no se rompe (el
+        /// serializador ignora propiedades desconocidas), simplemente se le ignora.
+        /// </remarks>
+        string? Phone);
 
     public sealed record UpdateAccountCompanyRequest(string Name, Guid? CompanyTypePublicId);
 

@@ -12,6 +12,19 @@ public interface IPayrollRunRepository
     Task<bool> ExistsOutsideTenantAsync(Guid payrollRunPublicId, CancellationToken cancellationToken);
 
     /// <summary>Sequential probe of the one-active-run slot (the filtered unique index closes the race).</summary>
+    /// <summary>
+    /// Si el tenant ya tiene una corrida VIVA (no anulada) de aguinaldo del año, en otra nómina o en otro
+    /// periodo. Es el candado anti-pago-doble: el aguinaldo es UNO por empleado y por año, y sin esto dos
+    /// nóminas de propósito AGUINALDO —o dos periodos de la misma— lo pagarían dos veces sin que nada
+    /// avisara, porque cada corrida es válida por separado.
+    /// </summary>
+    Task<bool> HasActiveAguinaldoRunForYearAsync(
+        Guid tenantId,
+        int year,
+        long excludedPayrollDefinitionId,
+        long excludedPayrollPeriodId,
+        CancellationToken cancellationToken);
+
     Task<bool> HasActiveRunAsync(
         Guid tenantId,
         long payrollDefinitionId,

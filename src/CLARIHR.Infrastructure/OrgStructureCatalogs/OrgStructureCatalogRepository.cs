@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
@@ -11,6 +12,8 @@ namespace CLARIHR.Infrastructure.OrgStructureCatalogs;
 internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbContext) : IOrgStructureCatalogRepository
 {
     public void AddOrgUnitType(OrgUnitTypeCatalogItem item) => dbContext.OrgUnitTypeCatalogItems.Add(item);
+
+    public void RemoveOrgUnitType(OrgUnitTypeCatalogItem item) => dbContext.OrgUnitTypeCatalogItems.Remove(item);
 
     public void AddFunctionalArea(FunctionalAreaCatalogItem item) => dbContext.FunctionalAreaCatalogItems.Add(item);
 
@@ -105,7 +108,7 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));
@@ -151,7 +154,7 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));
@@ -209,6 +212,83 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                 item.CreatedUtc,
                 item.ModifiedUtc))
             .SingleOrDefaultAsync(cancellationToken);
+
+    public void RemoveFunctionalArea(FunctionalAreaCatalogItem item) =>
+        dbContext.FunctionalAreaCatalogItems.Remove(item);
+
+    public async Task<FunctionalAreaUsageResponse?> GetFunctionalAreaUsageByIdAsync(
+        Guid functionalAreaId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.FunctionalAreaCatalogItems
+            .AsNoTracking()
+            .Where(catalogItem => catalogItem.PublicId == functionalAreaId)
+            .Select(catalogItem => new { catalogItem.Id, catalogItem.PublicId, catalogItem.Code, catalogItem.Name })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (item is null)
+        {
+            return null;
+        }
+
+        var orgUnitActive = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(orgUnit => orgUnit.FunctionalAreaCatalogItemId == item.Id && orgUnit.IsActive, cancellationToken);
+
+        var orgUnitInactive = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(orgUnit => orgUnit.FunctionalAreaCatalogItemId == item.Id && !orgUnit.IsActive, cancellationToken);
+
+        // 00003 / B-04 — sin clave foranea: la preferencia del tablero elige el area por su CODIGO. El
+        // grafo de FKs no la muestra, y borrar el area dejaria el indicador de RRHH apuntando a la nada.
+        var dashboardReferences = await dbContext.CompanyPreferences.AsNoTracking()
+            .CountAsync(preference => preference.HrFunctionalAreaCode == item.Code, cancellationToken);
+
+        return new FunctionalAreaUsageResponse(
+            item.PublicId,
+            item.Code,
+            item.Name,
+            orgUnitActive,
+            orgUnitInactive,
+            dashboardReferences,
+            orgUnitActive > 0 || dashboardReferences > 0);
+    }
+
+    public async Task<OrgUnitTypeUsageResponse?> GetOrgUnitTypeUsageByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.OrgUnitTypeCatalogItems
+            .AsNoTracking()
+            .Where(catalogItem => catalogItem.PublicId == orgUnitTypeId)
+            .Select(catalogItem => new { catalogItem.Id, catalogItem.PublicId, catalogItem.Code, catalogItem.Name })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (item is null)
+        {
+            return null;
+        }
+
+        // Las mismas dos preguntas que resuelve el guard de inactivacion, pero contadas y separadas:
+        // el guard las colapsa en un unico ORG_STRUCTURE_CATALOG_IN_USE que no dice cual disparo.
+        var orgUnitActive = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(orgUnit => orgUnit.OrgUnitTypeCatalogItemId == item.Id && orgUnit.IsActive, cancellationToken);
+
+        var orgUnitInactive = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(orgUnit => orgUnit.OrgUnitTypeCatalogItemId == item.Id && !orgUnit.IsActive, cancellationToken);
+
+        var classificationActive = await dbContext.PositionCategoryClassifications.AsNoTracking()
+            .CountAsync(classification => classification.OrgUnitTypeCatalogItemId == item.Id && classification.IsActive, cancellationToken);
+
+        var classificationInactive = await dbContext.PositionCategoryClassifications.AsNoTracking()
+            .CountAsync(classification => classification.OrgUnitTypeCatalogItemId == item.Id && !classification.IsActive, cancellationToken);
+
+        return new OrgUnitTypeUsageResponse(
+            item.PublicId,
+            item.Code,
+            item.Name,
+            orgUnitActive,
+            orgUnitInactive,
+            classificationActive,
+            classificationInactive,
+            orgUnitActive > 0 || classificationActive > 0);
+    }
 
     public Task<bool> HasOrgUnitsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.AnyAsync(

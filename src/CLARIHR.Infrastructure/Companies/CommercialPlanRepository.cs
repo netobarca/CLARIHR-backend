@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CommercialPlans;
@@ -92,7 +93,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(plan =>
                 plan.NormalizedCode.Contains(normalizedSearch) ||
                 plan.NormalizedName.Contains(normalizedSearch));

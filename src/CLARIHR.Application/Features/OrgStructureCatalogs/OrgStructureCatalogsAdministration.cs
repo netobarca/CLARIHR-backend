@@ -90,6 +90,27 @@ public sealed record SearchOrgUnitTypesQuery(
     bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<OrgUnitTypeCatalogListItemResponse>>;
 
+/// <summary>
+/// Active/inactive reference counts for an org unit type, so a client can tell WHICH references block
+/// inactivation instead of only being told that some do.
+/// </summary>
+/// <remarks>
+/// The inactivation handler already resolves both questions — org units and position category
+/// classifications — and collapses them into a single <c>ORG_STRUCTURE_CATALOG_IN_USE</c> that does not
+/// say which one fired. This exposes the counts the server was already computing and throwing away.
+/// </remarks>
+public sealed record OrgUnitTypeUsageResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int OrgUnitActiveReferences,
+    int OrgUnitInactiveReferences,
+    int PositionCategoryClassificationActiveReferences,
+    int PositionCategoryClassificationInactiveReferences,
+    bool HasActiveReferences);
+
+public sealed record GetOrgUnitTypeUsageQuery(Guid OrgUnitTypeId) : IQuery<OrgUnitTypeUsageResponse>;
+
 public sealed record GetOrgUnitTypeByIdQuery(Guid OrgUnitTypeId)
     : IQuery<OrgUnitTypeCatalogItemResponse>;
 
@@ -116,6 +137,15 @@ public sealed record ActivateOrgUnitTypeCommand(
     : ICommand<OrgUnitTypeCatalogItemResponse>;
 
 public sealed record InactivateOrgUnitTypeCommand(
+    Guid OrgUnitTypeId,
+    Guid ConcurrencyToken)
+    : ICommand<OrgUnitTypeCatalogItemResponse>;
+
+/// <summary>
+/// Borrado duro condicional del tipo de unidad. Resuelve el caso que la baja logica deja abierto: el
+/// registro tecleado mal que nadie llego a referenciar y que hoy se queda para siempre en el catalogo.
+/// </summary>
+public sealed record DeleteOrgUnitTypeCommand(
     Guid OrgUnitTypeId,
     Guid ConcurrencyToken)
     : ICommand<OrgUnitTypeCatalogItemResponse>;
@@ -159,6 +189,35 @@ public sealed record InactivateFunctionalAreaCommand(
     Guid ConcurrencyToken)
     : ICommand<FunctionalAreaCatalogItemResponse>;
 
+/// <summary>
+/// Que referencia a un area funcional, contado y separado. Espejo de <see cref="OrgUnitTypeUsageResponse"/>.
+/// </summary>
+/// <remarks>
+/// 00003 / B-04 — la preferencia del tablero NO tiene clave foranea: apunta al area por su CODIGO
+/// (<c>company_preferences.hr_functional_area_code</c>). El grafo de claves foraneas por si solo no la
+/// muestra, asi que un borrado guiado solo por el habria dejado el indicador de RRHH apuntando a un
+/// codigo inexistente. Se cuenta aparte porque bloquea el borrado pero no la baja logica.
+/// </remarks>
+public sealed record FunctionalAreaUsageResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int OrgUnitActiveReferences,
+    int OrgUnitInactiveReferences,
+    int DashboardPreferenceReferences,
+    bool HasActiveReferences);
+
+public sealed record GetFunctionalAreaUsageQuery(Guid FunctionalAreaId) : IQuery<FunctionalAreaUsageResponse>;
+
+/// <summary>
+/// Borrado duro condicional del area funcional. Mismo caso que el tipo de unidad: el registro tecleado
+/// mal que nadie llego a referenciar y que hoy se queda para siempre en el catalogo.
+/// </summary>
+public sealed record DeleteFunctionalAreaCommand(
+    Guid FunctionalAreaId,
+    Guid ConcurrencyToken)
+    : ICommand<FunctionalAreaCatalogItemResponse>;
+
 internal sealed class SearchOrgUnitTypesQueryValidator : AbstractValidator<SearchOrgUnitTypesQuery>
 {
     public SearchOrgUnitTypesQueryValidator()
@@ -167,9 +226,17 @@ internal sealed class SearchOrgUnitTypesQueryValidator : AbstractValidator<Searc
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(OrgStructureCatalogValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {OrgStructureCatalogValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(OrgStructureCatalogValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgStructureCatalogValidationRules.MaxPageSize);
+    }
+}
+
+internal sealed class GetOrgUnitTypeUsageQueryValidator : AbstractValidator<GetOrgUnitTypeUsageQuery>
+{
+    public GetOrgUnitTypeUsageQueryValidator()
+    {
+        RuleFor(query => query.OrgUnitTypeId).NotEmpty();
     }
 }
 
@@ -190,7 +257,7 @@ internal sealed class CreateOrgUnitTypeCommandValidator : AbstractValidator<Crea
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgStructureCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgStructureCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -206,7 +273,7 @@ internal sealed class UpdateOrgUnitTypeCommandValidator : AbstractValidator<Upda
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgStructureCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgStructureCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -217,6 +284,15 @@ internal sealed class UpdateOrgUnitTypeCommandValidator : AbstractValidator<Upda
 internal sealed class ActivateOrgUnitTypeCommandValidator : AbstractValidator<ActivateOrgUnitTypeCommand>
 {
     public ActivateOrgUnitTypeCommandValidator()
+    {
+        RuleFor(command => command.OrgUnitTypeId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class DeleteOrgUnitTypeCommandValidator : AbstractValidator<DeleteOrgUnitTypeCommand>
+{
+    public DeleteOrgUnitTypeCommandValidator()
     {
         RuleFor(command => command.OrgUnitTypeId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -240,7 +316,7 @@ internal sealed class SearchFunctionalAreasQueryValidator : AbstractValidator<Se
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(OrgStructureCatalogValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {OrgStructureCatalogValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(OrgStructureCatalogValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgStructureCatalogValidationRules.MaxPageSize);
     }
@@ -263,7 +339,7 @@ internal sealed class CreateFunctionalAreaCommandValidator : AbstractValidator<C
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgStructureCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgStructureCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -279,7 +355,7 @@ internal sealed class UpdateFunctionalAreaCommandValidator : AbstractValidator<U
             .NotEmpty()
             .MaximumLength(50)
             .Must(OrgStructureCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(OrgStructureCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -299,6 +375,23 @@ internal sealed class ActivateFunctionalAreaCommandValidator : AbstractValidator
 internal sealed class InactivateFunctionalAreaCommandValidator : AbstractValidator<InactivateFunctionalAreaCommand>
 {
     public InactivateFunctionalAreaCommandValidator()
+    {
+        RuleFor(command => command.FunctionalAreaId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class GetFunctionalAreaUsageQueryValidator : AbstractValidator<GetFunctionalAreaUsageQuery>
+{
+    public GetFunctionalAreaUsageQueryValidator()
+    {
+        RuleFor(query => query.FunctionalAreaId).NotEmpty();
+    }
+}
+
+internal sealed class DeleteFunctionalAreaCommandValidator : AbstractValidator<DeleteFunctionalAreaCommand>
+{
+    public DeleteFunctionalAreaCommandValidator()
     {
         RuleFor(command => command.FunctionalAreaId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -354,6 +447,40 @@ internal sealed class SearchOrgUnitTypesQueryHandler(
         }
 
         return Result<PagedResponse<OrgUnitTypeCatalogListItemResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetOrgUnitTypeUsageQueryHandler(
+    IOrgStructureCatalogAuthorizationService authorizationService,
+    IOrgStructureCatalogRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetOrgUnitTypeUsageQuery, OrgUnitTypeUsageResponse>
+{
+    public async Task<Result<OrgUnitTypeUsageResponse>> Handle(
+        GetOrgUnitTypeUsageQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<OrgUnitTypeUsageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authResult = await authorizationService.EnsureCanReadTenantAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authResult.IsFailure)
+        {
+            return Result<OrgUnitTypeUsageResponse>.Failure(authResult.Error);
+        }
+
+        var response = await repository.GetOrgUnitTypeUsageByIdAsync(query.OrgUnitTypeId, cancellationToken);
+        if (response is not null)
+        {
+            return Result<OrgUnitTypeUsageResponse>.Success(response);
+        }
+
+        return Result<OrgUnitTypeUsageResponse>.Failure(
+            await repository.ExistsOrgUnitTypeOutsideTenantAsync(query.OrgUnitTypeId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : OrgStructureCatalogErrors.CatalogNotFound);
     }
 }
 
@@ -602,6 +729,89 @@ internal sealed class ActivateOrgUnitTypeCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<OrgUnitTypeCatalogItemResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeleteOrgUnitTypeCommandHandler(
+    IOrgStructureCatalogAuthorizationService authorizationService,
+    IOrgStructureCatalogRepository repository,
+    ITenantContext tenantContext,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeleteOrgUnitTypeCommand, OrgUnitTypeCatalogItemResponse>
+{
+    // Devuelve el elemento eliminado, como el borrado hermano de JobCatalogs.
+    public async Task<Result<OrgUnitTypeCatalogItemResponse>> Handle(
+        DeleteOrgUnitTypeCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authResult = await authorizationService.EnsureCanManageTenantAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authResult.IsFailure)
+        {
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(authResult.Error);
+        }
+
+        var entity = await repository.GetOrgUnitTypeByIdAsync(command.OrgUnitTypeId, cancellationToken);
+        if (entity is null)
+        {
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(
+                await repository.ExistsOrgUnitTypeOutsideTenantAsync(command.OrgUnitTypeId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Delete)
+                    : OrgStructureCatalogErrors.CatalogNotFound);
+        }
+
+        if (entity.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(OrgStructureCatalogErrors.ConcurrencyConflict);
+        }
+
+        // Misma fuente que /usage, a proposito: el defecto que se corrige aqui es que el servidor sabia
+        // cual de las dos comprobaciones bloqueaba y las colapsaba en un unico codigo sin decirlo.
+        // Activas E inactivas: el borrado es duro y las dos FK que apuntan aqui son RESTRICT.
+        var usage = await repository.GetOrgUnitTypeUsageByIdAsync(entity.PublicId, cancellationToken);
+        if (usage is not null &&
+            usage.OrgUnitActiveReferences + usage.OrgUnitInactiveReferences +
+            usage.PositionCategoryClassificationActiveReferences +
+            usage.PositionCategoryClassificationInactiveReferences > 0)
+        {
+            return Result<OrgUnitTypeCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogItemInUseForDelete);
+        }
+
+        var before = await repository.GetOrgUnitTypeResponseByIdAsync(entity.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Org unit type response could not be resolved before deletion.");
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.RemoveOrgUnitType(entity);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.OrgUnitTypeCatalogItemDeleted,
+                    AuditEntityTypes.OrgUnitTypeCatalogItem,
+                    entity.PublicId,
+                    entity.Code,
+                    AuditActions.Delete,
+                    $"Deleted org unit type {entity.Code}.",
+                    Before: before,
+                    After: null),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<OrgUnitTypeCatalogItemResponse>.Success(before);
         }
         catch
         {
@@ -1140,6 +1350,121 @@ internal sealed class InactivateFunctionalAreaCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<FunctionalAreaCatalogItemResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class GetFunctionalAreaUsageQueryHandler(
+    IOrgStructureCatalogAuthorizationService authorizationService,
+    IOrgStructureCatalogRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetFunctionalAreaUsageQuery, FunctionalAreaUsageResponse>
+{
+    public async Task<Result<FunctionalAreaUsageResponse>> Handle(
+        GetFunctionalAreaUsageQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<FunctionalAreaUsageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authResult = await authorizationService.EnsureCanReadTenantAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authResult.IsFailure)
+        {
+            return Result<FunctionalAreaUsageResponse>.Failure(authResult.Error);
+        }
+
+        var response = await repository.GetFunctionalAreaUsageByIdAsync(query.FunctionalAreaId, cancellationToken);
+        if (response is not null)
+        {
+            return Result<FunctionalAreaUsageResponse>.Success(response);
+        }
+
+        return Result<FunctionalAreaUsageResponse>.Failure(
+            await repository.ExistsFunctionalAreaOutsideTenantAsync(query.FunctionalAreaId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : OrgStructureCatalogErrors.CatalogNotFound);
+    }
+}
+
+internal sealed class DeleteFunctionalAreaCommandHandler(
+    IOrgStructureCatalogAuthorizationService authorizationService,
+    IOrgStructureCatalogRepository repository,
+    ITenantContext tenantContext,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeleteFunctionalAreaCommand, FunctionalAreaCatalogItemResponse>
+{
+    // Devuelve el elemento eliminado, como el borrado hermano de JobCatalogs.
+    public async Task<Result<FunctionalAreaCatalogItemResponse>> Handle(
+        DeleteFunctionalAreaCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authResult = await authorizationService.EnsureCanManageTenantAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authResult.IsFailure)
+        {
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(authResult.Error);
+        }
+
+        var entity = await repository.GetFunctionalAreaByIdAsync(command.FunctionalAreaId, cancellationToken);
+        if (entity is null)
+        {
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(
+                await repository.ExistsFunctionalAreaOutsideTenantAsync(command.FunctionalAreaId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Delete)
+                    : OrgStructureCatalogErrors.CatalogNotFound);
+        }
+
+        if (entity.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(OrgStructureCatalogErrors.ConcurrencyConflict);
+        }
+
+        // Activas E inactivas: el borrado es duro y la FK de org_units es RESTRICT. La preferencia del
+        // tablero se suma aunque no tenga FK — apunta por codigo, y borrar el area la dejaria rota.
+        var usage = await repository.GetFunctionalAreaUsageByIdAsync(entity.PublicId, cancellationToken);
+        if (usage is not null &&
+            usage.OrgUnitActiveReferences + usage.OrgUnitInactiveReferences +
+            usage.DashboardPreferenceReferences > 0)
+        {
+            return Result<FunctionalAreaCatalogItemResponse>.Failure(OrgStructureCatalogErrors.CatalogItemInUseForDelete);
+        }
+
+        var before = await repository.GetFunctionalAreaResponseByIdAsync(entity.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Functional area response could not be resolved before deletion.");
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.RemoveFunctionalArea(entity);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.FunctionalAreaCatalogItemDeleted,
+                    AuditEntityTypes.FunctionalAreaCatalogItem,
+                    entity.PublicId,
+                    entity.Code,
+                    AuditActions.Delete,
+                    $"Deleted functional area {entity.Code}.",
+                    Before: before,
+                    After: null),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<FunctionalAreaCatalogItemResponse>.Success(before);
         }
         catch
         {

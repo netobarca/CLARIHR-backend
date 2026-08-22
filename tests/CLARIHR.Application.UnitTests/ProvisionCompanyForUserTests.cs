@@ -267,8 +267,13 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
     }
 
+    /// <summary>
+    /// B-04 — este test exigía `null` y con eso fijaba el defecto. Hoy afirma la garantía que el negocio pidió:
+    /// el representante inicial de una empresa queda marcado como principal, lo decida el servidor y no el
+    /// cliente (el formulario ni siquiera expone el flag — F-06).
+    /// </summary>
     [Fact]
-    public async Task Handle_WhenInitialLegalRepresentativeOmitsPrimaryFlag_ShouldPersistNullPrimaryFlag()
+    public async Task Handle_WhenProvisioningACompany_ShouldMarkTheInitialRepresentativeAsPrimary()
     {
         var userRepository = new TestUserRepository();
         var companyRepository = new TestCompanyRepository();
@@ -290,12 +295,12 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestUnitOfWork());
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative(isPrimary: null)),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Single(legalRepresentativeRepository.Items);
-        Assert.Null(legalRepresentativeRepository.Items[0].IsPrimary);
+        Assert.True(legalRepresentativeRepository.Items[0].IsPrimary);
     }
 
     [Fact]
@@ -498,7 +503,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             NullLogger<ProvisionCompanyForUserCommandHandler>.Instance);
     }
 
-    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative(bool? isPrimary = true) =>
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
         new(
             "Ana",
             "Mendoza",
@@ -508,12 +513,11 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
             "Representación general",
             "Acta notarial",
-            new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc),
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 5),
             null,
             "ana@company.com",
-            "+50370000000",
-            IsPrimary: isPrimary);
+            "+50370000000");
 
     private static User CreatePersistedUser(string email)
     {
@@ -1305,6 +1309,24 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
                 item.IsActive &&
                 item.IsPrimary == true &&
                 (!excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)));
+
+        /// <summary>
+        /// B-04 — replica el orden real del repositorio (activo más antiguo, desempate por <c>Id</c>) en vez de
+        /// devolver el primero que aparezca. Un doble más permisivo que la producción es cómo un guardrail se
+        /// vuelve decoración.
+        /// </summary>
+        public Task<LegalRepresentative?> GetPromotionCandidateAsync(
+            Guid tenantId,
+            Guid excludingLegalRepresentativePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Items
+                .Where(item =>
+                    item.TenantId == tenantId &&
+                    item.IsActive &&
+                    item.PublicId != excludingLegalRepresentativePublicId)
+                .OrderBy(item => item.CreatedUtc)
+                .ThenBy(item => item.Id)
+                .FirstOrDefault());
 
         public Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(
             Guid tenantId,

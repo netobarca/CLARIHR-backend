@@ -27,9 +27,9 @@ public sealed class LegalRepresentativePatchApplierTests
             RepresentationType: LegalRepresentativeRepresentationType.AlternateLegalRepresentative,
             AuthorityDescription: "Poder amplio",
             AppointmentInstrument: "Escritura 123",
-            AppointmentDateUtc: DateTime.UtcNow,
-            EffectiveFromUtc: DateTime.UtcNow,
-            EffectiveToUtc: null,
+            AppointmentDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            EffectiveFrom: DateOnly.FromDateTime(DateTime.UtcNow),
+            EffectiveTo: null,
             Email: "ana@acme.test",
             Phone: "2222-2222",
             IsPrimary: false,
@@ -80,10 +80,10 @@ public sealed class LegalRepresentativePatchApplierTests
     {
         var state = NewState();
 
-        var result = LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/appointmentDateUtc", "2024-01-15T00:00:00Z") }, state);
+        var result = LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/appointmentDate", "2024-01-15T00:00:00Z") }, state);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(state.AppointmentDateUtc);
+        Assert.NotNull(state.AppointmentDate);
     }
 
     [Fact]
@@ -91,10 +91,10 @@ public sealed class LegalRepresentativePatchApplierTests
     {
         var state = NewState();
 
-        var result = LegalRepresentativePatchApplier.Apply(new[] { Op("remove", "/appointmentDateUtc", null) }, state);
+        var result = LegalRepresentativePatchApplier.Apply(new[] { Op("remove", "/appointmentDate", null) }, state);
 
         Assert.True(result.IsSuccess);
-        Assert.Null(state.AppointmentDateUtc);
+        Assert.Null(state.AppointmentDate);
         Assert.True(state.HasMutation);
     }
 
@@ -105,8 +105,8 @@ public sealed class LegalRepresentativePatchApplierTests
 
         Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/documentNumber", "9") }, state).IsFailure);
         Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/documentType", "PAS") }, state).IsFailure);
-        Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/effectiveFromUtc", "2024-01-01T00:00:00Z") }, state).IsFailure);
-        Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/effectiveToUtc", "2024-12-31T00:00:00Z") }, state).IsFailure);
+        Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/effectiveFrom", "2024-01-01T00:00:00Z") }, state).IsFailure);
+        Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/effectiveTo", "2024-12-31T00:00:00Z") }, state).IsFailure);
         Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/isPrimary", true) }, state).IsFailure);
         Assert.True(LegalRepresentativePatchApplier.Apply(new[] { Op("replace", "/isActive", false) }, state).IsFailure);
         Assert.False(state.HasMutation);

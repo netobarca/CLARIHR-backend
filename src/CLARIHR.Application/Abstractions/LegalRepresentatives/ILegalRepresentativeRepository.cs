@@ -73,6 +73,19 @@ public interface ILegalRepresentativeRepository
         Guid? excludingLegalRepresentativePublicId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// B-04 — el sucesor cuando se da de baja al principal. Devuelve el representante activo más antiguo del
+    /// tenant, excluyendo al que se está dando de baja; <c>null</c> si no queda ninguno.
+    /// <para>
+    /// El orden es por antigüedad y se desempata por <c>Id</c>, para que la promoción sea determinista: sin un
+    /// orden estable, dos empresas con los mismos datos podrían promover a personas distintas.
+    /// </para>
+    /// </summary>
+    Task<LegalRepresentative?> GetPromotionCandidateAsync(
+        Guid tenantId,
+        Guid excludingLegalRepresentativePublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(
         Guid tenantId,
         bool? isActive,

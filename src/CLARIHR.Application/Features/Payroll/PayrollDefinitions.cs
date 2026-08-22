@@ -22,6 +22,9 @@ public sealed record PayrollDefinitionListItemResponse(
     int? OvertimeWindowOffsetDays,
     bool AttendanceWindowEnabled,
     int? AttendanceWindowOffsetDays,
+    // Para qué sirve la nómina: ORDINARIA (la de siempre) o AGUINALDO (anual, población completa, solo la
+    // línea de aguinaldo).
+    string PurposeCode,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -41,6 +44,7 @@ public sealed record PayrollDefinitionResponse(
     int? OvertimeWindowOffsetDays,
     bool AttendanceWindowEnabled,
     int? AttendanceWindowOffsetDays,
+    string PurposeCode,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -71,7 +75,8 @@ public sealed record CreatePayrollDefinitionCommand(
     bool OvertimeWindowEnabled,
     int? OvertimeWindowOffsetDays,
     bool AttendanceWindowEnabled,
-    int? AttendanceWindowOffsetDays)
+    int? AttendanceWindowOffsetDays,
+    string PurposeCode = PayrollPurposes.Ordinaria)
     : ICommand<PayrollDefinitionResponse>;
 
 public sealed record UpdatePayrollDefinitionCommand(
@@ -87,7 +92,8 @@ public sealed record UpdatePayrollDefinitionCommand(
     int? OvertimeWindowOffsetDays,
     bool AttendanceWindowEnabled,
     int? AttendanceWindowOffsetDays,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    string PurposeCode = PayrollPurposes.Ordinaria)
     : ICommand<PayrollDefinitionResponse>;
 
 public sealed record ActivatePayrollDefinitionCommand(Guid PayrollDefinitionId, Guid ConcurrencyToken)
@@ -138,7 +144,7 @@ internal sealed class SearchPayrollDefinitionsQueryValidator : AbstractValidator
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(PayrollConfigurationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PayrollConfigurationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PayrollConfigurationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PayrollConfigurationValidationRules.MaxPageSize);
     }
@@ -166,6 +172,24 @@ internal sealed class CreatePayrollDefinitionCommandValidator : AbstractValidato
         RuleFor(command => command.TotalPeriods)
             .InclusiveBetween(1, PayrollConfigurationValidationRules.MaxTotalPeriods);
         RuleFor(command => command.CurrencyCode).NotEmpty().Length(PayrollDefinition.CurrencyCodeLength);
+        // Una nómina de AGUINALDO no es «una nómina más con otro nombre»: paga una sola vez al año dentro de
+        // la ventana legal, así que su frecuencia tiene que ser ANUAL y su cuenta de periodos, uno. Con
+        // QUINCENAL y 24 periodos el generador de calendario produciría 24 corridas de aguinaldo.
+        RuleFor(command => command.PurposeCode)
+            .Must(code => PayrollPurposes.IsKnown(PayrollPurposes.Normalize(code)))
+            .WithMessage("Unknown payroll purpose.")
+            .WithErrorCode("PAYROLL_PURPOSE_UNKNOWN");
+        RuleFor(command => command.PayPeriodCode)
+            .Equal(PayrollFrequencies.Anual)
+            .WithMessage("An aguinaldo payroll must use the ANUAL pay period.")
+            .WithErrorCode("PAYROLL_AGUINALDO_REQUIRES_ANNUAL_PERIOD")
+            .When(command => PayrollPurposes.Normalize(command.PurposeCode) == PayrollPurposes.Aguinaldo);
+        RuleFor(command => command.TotalPeriods)
+            .Equal(1)
+            .WithMessage("An aguinaldo payroll has exactly one period per year.")
+            .WithErrorCode("PAYROLL_AGUINALDO_REQUIRES_SINGLE_PERIOD")
+            .When(command => PayrollPurposes.Normalize(command.PurposeCode) == PayrollPurposes.Aguinaldo);
+
         // Window offsets only while their window is enabled — mirrors the domain guard so the request dies
         // with a clean 400 instead of a 500 (the offset itself may be negative, P-18).
         RuleFor(command => command.OvertimeWindowOffsetDays)
@@ -192,6 +216,24 @@ internal sealed class UpdatePayrollDefinitionCommandValidator : AbstractValidato
         RuleFor(command => command.TotalPeriods)
             .InclusiveBetween(1, PayrollConfigurationValidationRules.MaxTotalPeriods);
         RuleFor(command => command.CurrencyCode).NotEmpty().Length(PayrollDefinition.CurrencyCodeLength);
+        // Una nómina de AGUINALDO no es «una nómina más con otro nombre»: paga una sola vez al año dentro de
+        // la ventana legal, así que su frecuencia tiene que ser ANUAL y su cuenta de periodos, uno. Con
+        // QUINCENAL y 24 periodos el generador de calendario produciría 24 corridas de aguinaldo.
+        RuleFor(command => command.PurposeCode)
+            .Must(code => PayrollPurposes.IsKnown(PayrollPurposes.Normalize(code)))
+            .WithMessage("Unknown payroll purpose.")
+            .WithErrorCode("PAYROLL_PURPOSE_UNKNOWN");
+        RuleFor(command => command.PayPeriodCode)
+            .Equal(PayrollFrequencies.Anual)
+            .WithMessage("An aguinaldo payroll must use the ANUAL pay period.")
+            .WithErrorCode("PAYROLL_AGUINALDO_REQUIRES_ANNUAL_PERIOD")
+            .When(command => PayrollPurposes.Normalize(command.PurposeCode) == PayrollPurposes.Aguinaldo);
+        RuleFor(command => command.TotalPeriods)
+            .Equal(1)
+            .WithMessage("An aguinaldo payroll has exactly one period per year.")
+            .WithErrorCode("PAYROLL_AGUINALDO_REQUIRES_SINGLE_PERIOD")
+            .When(command => PayrollPurposes.Normalize(command.PurposeCode) == PayrollPurposes.Aguinaldo);
+
         RuleFor(command => command.OvertimeWindowOffsetDays)
             .Null()
             .When(command => !command.OvertimeWindowEnabled)

@@ -1,0 +1,5 @@
+Test run for /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/bin/Debug/net10.0/CLARIHR.Api.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/TestResults/lote3b.trx
+
+Passed!  - Failed:     0, Passed:   282, Skipped:     0, Total:   282, Duration: 34 m 34 s - CLARIHR.Api.IntegrationTests.dll (net10.0)

@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Banks;
@@ -46,7 +47,7 @@ internal sealed class BankCatalogRepository(ApplicationDbContext dbContext) : IB
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch) ||
@@ -113,7 +114,7 @@ internal sealed class BankCatalogRepository(ApplicationDbContext dbContext) : IB
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch) ||

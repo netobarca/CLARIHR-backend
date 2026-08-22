@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using System.Collections.Concurrent;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Common.Pagination;
@@ -136,7 +137,7 @@ internal sealed class JobCatalogRepository(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));

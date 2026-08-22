@@ -2326,7 +2326,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             return query;
         }
 
-        var normalizedSearch = search.Trim().ToUpperInvariant();
+        var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
         if (!includeIdentificationMatch)
         {
             return query.Where(file => file.NormalizedFullName.Contains(normalizedSearch));

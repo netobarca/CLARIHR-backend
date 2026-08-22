@@ -328,7 +328,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var usTypes = await GetAccountCompanyTypesAsync(client, "US");
 
         Assert.NotEmpty(svTypes);
-        Assert.Contains(svTypes, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anonima de Capital Variable");
+        Assert.Contains(svTypes, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anónima de Capital Variable");
         Assert.DoesNotContain(svTypes, item => item.Code == "LLC");
 
         Assert.NotEmpty(usTypes);
@@ -539,8 +539,19 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         Assert.Equal("Active", payload.Status);
     }
 
+    /// <summary>
+    /// B-04 — <b>este test afirmaba lo contrario y estaba fijando el defecto.</b> Se llamaba
+    /// <c>…ShouldPersistNullPrimaryFlag</c> y exigía que el único representante de una empresa recién creada
+    /// quedara con <c>is_primary = NULL</c>: un tercer estado que ningún otro punto del sistema reconoce
+    /// —el índice único parcial filtra por <c>is_primary = true</c> y <c>Inactivate()</c> escribe <c>false</c>,
+    /// nunca <c>null</c>—.
+    /// <para>
+    /// Decisión de negocio tomada el 2026-08-16: <b>el servidor marca como principal al primer representante</b>.
+    /// El formulario no expone el flag (F-06), así que la garantía no puede depender del cliente.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task AccountCompanies_Create_WhenInitialLegalRepresentativeOmitsPrimaryFlag_ShouldPersistNullPrimaryFlag()
+    public async Task AccountCompanies_Create_WhenInitialLegalRepresentativeOmitsPrimaryFlag_ShouldMarkItAsPrimary()
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -576,7 +587,7 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
         Assert.NotNull(listPayload);
         var representative = Assert.Single(listPayload!.Items);
-        Assert.Null(representative.IsPrimary);
+        Assert.True(representative.IsPrimary, "El representante inicial debe venir marcado como principal.");
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -585,7 +596,8 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             .AsNoTracking()
             .SingleAsync(item => item.TenantId == payload.PublicId);
 
-        Assert.Null(persistedRepresentative.IsPrimary);
+        // Ni `null` ni `false`: el tri-estado desaparece del dominio con B-04.
+        Assert.True(persistedRepresentative.IsPrimary);
     }
 
     [Fact]
@@ -1338,9 +1350,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             representationType = "AttorneyInFact",
             authorityDescription = "Representacion especial",
             appointmentInstrument = "Poder especial",
-            appointmentDateUtc = DateTime.UtcNow.Date,
-            effectiveFromUtc = DateTime.UtcNow.Date,
-            effectiveToUtc = (DateTime?)null,
+            appointmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveTo = (DateOnly?)null,
             email = "carla.lopez@test.com",
             phone = "+50371111111",
             isPrimary = false
@@ -1495,9 +1507,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
             representationType = "AttorneyInFact",
             authorityDescription = "Representacion especial",
             appointmentInstrument = "Poder especial",
-            appointmentDateUtc = DateTime.UtcNow.Date,
-            effectiveFromUtc = DateTime.UtcNow.Date,
-            effectiveToUtc = (DateTime?)null,
+            appointmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveTo = (DateOnly?)null,
             email = "carla.lopez@test.com",
             phone = "+50371111111",
             isPrimary = false
@@ -5261,6 +5273,333 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_CYCLE_DETECTED");
     }
 
+    // El guard de profundidad de /move medía la profundidad del NODO movido y no la ALTURA de lo que
+    // arrastra. Mover una hoja al ultimo nivel valido se rechazaba bien; mover un subarbol pasaba y
+    // dejaba descendientes por encima de MaxDepth. Los dos tests van juntos a proposito: el primero
+    // exige el rechazo, el segundo impide que un arreglo que rechace todo movimiento pase por bueno.
+    [Fact]
+    public async Task OrgUnits_Move_WhenSubtreeHeightWouldExceedDepthLimit_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var deepest = await CreateChainAsync(client, scenario.TenantId, "CAD", OrgUnitValidationRules.MaxDepth - 1);
+
+        // Subarbol de altura 2 colgado aparte: al aterrizar en MaxDepth su hijo quedaria en MaxDepth + 1.
+        var movable = await CreateOrgUnitAsync(client, scenario.TenantId, "MOV-001", "Movible", "Gerencia");
+        _ = await CreateOrgUnitAsync(client, scenario.TenantId, "MOV-002", "Movible hijo", "Gerencia", movable.Id);
+
+        var response = await client.PatchJsonAsync($"/api/v1/organization-units/{movable.Id}/move", new
+        {
+            newParentPublicId = deepest.Id,
+            sortOrder = (int?)null,
+            concurrencyToken = movable.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_DEPTH_LIMIT_EXCEEDED");
+    }
+
+    [Fact]
+    public async Task OrgUnits_Move_WhenLeafLandsOnLastAllowedLevel_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var deepest = await CreateChainAsync(client, scenario.TenantId, "CAD", OrgUnitValidationRules.MaxDepth - 1);
+
+        // Una hoja aterriza exactamente en MaxDepth: es valido y debe seguir siendolo.
+        var leaf = await CreateOrgUnitAsync(client, scenario.TenantId, "HOJA-001", "Hoja", "Gerencia");
+
+        var response = await client.PatchJsonAsync($"/api/v1/organization-units/{leaf.Id}/move", new
+        {
+            newParentPublicId = deepest.Id,
+            sortOrder = (int?)null,
+            concurrencyToken = leaf.ConcurrencyToken
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // El 500 de /diagram-export se midio contra el ambiente desplegado con 26 unidades de nombres
+    // acentuados; la cobertura existente solo probaba 2 nodos ASCII. Esta prueba reproduce la forma
+    // real de los datos para separar "falla el API" de "falla el proxy".
+    [Fact]
+    public async Task OrgUnits_DiagramExport_WithRealisticGraph_ShouldSucceedInEveryFormat()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var raiz = await CreateOrgUnitAsync(client, scenario.TenantId, "DG", "Direcci\u00f3n General", "Direccion");
+
+        var nombres = new[]
+        {
+            "Vicepresidencia de Operaciones", "Vicepresidencia T\u00e9cnica", "Vicepresidencia Comercial",
+            "Direcci\u00f3n de Gente y Cultura", "Direcci\u00f3n de Seguridad Operacional", "Gerencia de Aeropuertos",
+            "Gerencia de Mantenimiento en L\u00ednea", "Gerencia de Ingenier\u00eda", "Almac\u00e9n T\u00e9cnico",
+            "Atracci\u00f3n de Talento", "Administraci\u00f3n de Personal", "Contabilidad",
+            "Counter y Sala de Abordaje", "Despacho y Control de Vuelo", "Rampa & Equipajes",
+            "Gesti\u00f3n de Ca\u00f1er\u00edas", "Compras", "Log\u00edstica", "Tecnolog\u00eda de la Informaci\u00f3n",
+            "Comunicaci\u00f3n Interna", "Auditor\u00eda Interna", "Planificaci\u00f3n", "Calidad",
+            "Formaci\u00f3n <Tripulaciones>", "Bienestar"
+        };
+
+        var padre = raiz;
+        for (var i = 0; i < nombres.Length; i++)
+        {
+            var creada = await CreateOrgUnitAsync(
+                client, scenario.TenantId, $"OU-{i:D3}", nombres[i], "Gerencia",
+                // arbol ancho pero con ramas: cada tercera unidad cuelga de la anterior
+                i % 3 == 0 ? raiz.Id : padre.Id);
+            padre = creada;
+        }
+
+        foreach (var (formato, tipoEsperado) in new[]
+        {
+            ("graphml", "application/graphml+xml"),
+            ("json", "application/json"),
+            ("dot", "text/vnd.graphviz")
+        })
+        {
+            var respuesta = await client.GetAsync(
+                $"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export?format={formato}");
+
+            Assert.True(
+                respuesta.IsSuccessStatusCode,
+                $"formato '{formato}' devolvio {(int)respuesta.StatusCode}: {await respuesta.Content.ReadAsStringAsync()}");
+            Assert.Equal(tipoEsperado, respuesta.Content.Headers.ContentType?.MediaType);
+            Assert.True((await respuesta.Content.ReadAsByteArrayAsync()).Length > 0, $"formato '{formato}' vino vacio");
+        }
+
+        // Y sin `format`, que es el caso que el hallazgo midio como 500.
+        var porDefecto = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/organization-units/diagram-export");
+        Assert.True(
+            porDefecto.IsSuccessStatusCode,
+            $"sin format devolvio {(int)porDefecto.StatusCode}: {await porDefecto.Content.ReadAsStringAsync()}");
+    }
+
+    // /usage existe para responder "por que no puedo inactivar esto". Las dos pruebas van en pareja:
+    // una comprueba que cuenta lo que bloquea, la otra que un registro libre sale en cero — sin la
+    // segunda, un endpoint que devolviera siempre "en uso" pasaria por bueno.
+    [Fact]
+    public async Task OrgUnits_Usage_WhenReferenced_ShouldReportWhatBlocksInactivation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var raiz = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+        var hijoActivo = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", raiz.Id);
+        var hijoInactivo = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-002", "Gerencia Legal", "Gerencia", raiz.Id);
+
+        var baja = await client.PatchJsonAsync($"/api/v1/organization-units/{hijoInactivo.Id}/inactivate", new
+        {
+            concurrencyToken = hijoInactivo.ConcurrencyToken
+        });
+        baja.EnsureSuccessStatusCode();
+
+        var response = await client.GetAsync($"/api/v1/organization-units/{raiz.Id}/usage");
+        response.EnsureSuccessStatusCode();
+
+        var uso = await response.Content.ReadFromJsonAsync<OrgUnitUsageItem>(JsonOptions);
+        Assert.NotNull(uso);
+        Assert.Equal(raiz.Id, uso!.Id);
+        Assert.Equal("DIR-001", uso.Code);
+        Assert.Equal(1, uso.ActiveChildren);
+        Assert.Equal(1, uso.InactiveChildren);   // el inactivo tambien se reporta: el guard no lo mira, el usuario si lo necesita
+        Assert.True(uso.HasActiveReferences);
+
+        // Y el guard sigue rechazando por la misma razon que /usage explica.
+        var intento = await client.PatchJsonAsync($"/api/v1/organization-units/{raiz.Id}/inactivate", new
+        {
+            concurrencyToken = raiz.ConcurrencyToken
+        });
+        await AssertProblemDetailsAsync(intento, HttpStatusCode.Conflict, "ORG_UNIT_HAS_ACTIVE_CHILDREN");
+
+        _ = hijoActivo;
+    }
+
+    [Fact]
+    public async Task OrgUnits_Usage_WhenUnreferenced_ShouldReportZeroAndAllowInactivation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var suelta = await CreateOrgUnitAsync(client, scenario.TenantId, "SUELTA-001", "Unidad sin nada", "Gerencia");
+
+        var response = await client.GetAsync($"/api/v1/organization-units/{suelta.Id}/usage");
+        response.EnsureSuccessStatusCode();
+
+        var uso = await response.Content.ReadFromJsonAsync<OrgUnitUsageItem>(JsonOptions);
+        Assert.NotNull(uso);
+        Assert.Equal(0, uso!.ActiveChildren);
+        Assert.Equal(0, uso.InactiveChildren);
+        Assert.Equal(0, uso.JobProfileActiveReferences);
+        Assert.False(uso.HasActiveReferences);
+
+        // Contrapeso: si /usage dice que nada la referencia, inactivarla debe funcionar.
+        var baja = await client.PatchJsonAsync($"/api/v1/organization-units/{suelta.Id}/inactivate", new
+        {
+            concurrencyToken = suelta.ConcurrencyToken
+        });
+        baja.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task OrgUnits_Usage_WhenNotFound_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/organization-units/{Guid.NewGuid()}/usage");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "ORG_UNIT_NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypeUsage_ShouldSeparateTheTwoChecksThatBlockInactivation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        // Crear una unidad de tipo "Gerencia" hace que ese tipo quede en uso.
+        _ = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia");
+        var tipo = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Gerencia");
+
+        var response = await client.GetAsync(
+            $"/api/v1/organization-structure-catalogs/unit-types/{tipo.Id}/usage");
+        response.EnsureSuccessStatusCode();
+
+        var uso = await response.Content.ReadFromJsonAsync<OrgUnitTypeUsageItem>(JsonOptions);
+        Assert.NotNull(uso);
+        Assert.Equal(tipo.Id, uso!.Id);
+        Assert.Equal(1, uso.OrgUnitActiveReferences);
+        // La segunda pregunta del guard se reporta por separado, que es el motivo de este endpoint.
+        Assert.Equal(0, uso.PositionCategoryClassificationActiveReferences);
+        Assert.True(uso.HasActiveReferences);
+    }
+
+    // El borrado condicional resuelve el caso que la baja logica deja abierto: el registro creado por
+    // error que nadie referencio. Las pruebas cubren los cuatro caminos, y el de exito verifica que el
+    // registro DESAPARECE — un 200 sin comprobar el efecto solo probaria que el endpoint responde.
+    [Fact]
+    public async Task OrgUnits_Delete_WhenUnreferenced_ShouldRemoveItPermanently()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var errata = await CreateOrgUnitAsync(client, scenario.TenantId, "ERRATA-001", "Creada por error", "Gerencia");
+
+        var response = await client.DeleteWithIfMatchAsync(
+            $"/api/v1/organization-units/{errata.Id}", errata.ConcurrencyToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Desapareció de verdad, no solo respondió bien.
+        var recuperar = await client.GetAsync($"/api/v1/organization-units/{errata.Id}");
+        await AssertProblemDetailsAsync(recuperar, HttpStatusCode.NotFound, "ORG_UNIT_NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task OrgUnits_Delete_WhenReferenced_ShouldReturn409AndKeepIt()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var raiz = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+        var hijo = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", raiz.Id);
+
+        // Inactivar al hijo NO desbloquea el borrado: la FK es RESTRICT, mire o no el estado.
+        var baja = await client.PatchJsonAsync($"/api/v1/organization-units/{hijo.Id}/inactivate", new
+        {
+            concurrencyToken = hijo.ConcurrencyToken
+        });
+        baja.EnsureSuccessStatusCode();
+
+        var response = await client.DeleteWithIfMatchAsync(
+            $"/api/v1/organization-units/{raiz.Id}", raiz.ConcurrencyToken);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_IN_USE");
+
+        // Y sigue ahí.
+        var recuperar = await client.GetAsync($"/api/v1/organization-units/{raiz.Id}");
+        recuperar.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task OrgUnits_Delete_WithStaleConcurrencyToken_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unidad = await CreateOrgUnitAsync(client, scenario.TenantId, "ERRATA-002", "Creada por error", "Gerencia");
+
+        var response = await client.DeleteWithIfMatchAsync(
+            $"/api/v1/organization-units/{unidad.Id}", Guid.NewGuid());
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_DeleteUnitType_ShouldRespectUsageAndRemoveWhenFree()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        // Un tipo en uso: no se borra.
+        _ = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia");
+        var enUso = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Gerencia");
+
+        var bloqueado = await client.DeleteWithIfMatchAsync(
+            $"/api/v1/organization-structure-catalogs/unit-types/{enUso.Id}", enUso.ConcurrencyToken);
+        await AssertProblemDetailsAsync(
+            bloqueado, HttpStatusCode.Conflict, "ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE");
+
+        // Un tipo que nadie usa: se borra y desaparece.
+        var libre = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "TipoSobrante");
+
+        var borrado = await client.DeleteWithIfMatchAsync(
+            $"/api/v1/organization-structure-catalogs/unit-types/{libre.Id}", libre.ConcurrencyToken);
+        Assert.Equal(HttpStatusCode.OK, borrado.StatusCode);
+
+        var recuperar = await client.GetAsync(
+            $"/api/v1/organization-structure-catalogs/unit-types/{libre.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, recuperar.StatusCode);
+    }
+
+    private sealed record OrgUnitUsageItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int ActiveChildren,
+        int InactiveChildren,
+        int JobProfileActiveReferences,
+        int JobProfileInactiveReferences,
+        bool HasActiveReferences);
+
+    private sealed record OrgUnitTypeUsageItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int OrgUnitActiveReferences,
+        int OrgUnitInactiveReferences,
+        int PositionCategoryClassificationActiveReferences,
+        int PositionCategoryClassificationInactiveReferences,
+        bool HasActiveReferences);
+
+    private async Task<OrgUnitItem> CreateChainAsync(HttpClient client, Guid companyId, string prefix, int length)
+    {
+        OrgUnitItem? current = null;
+        for (var index = 1; index <= length; index++)
+        {
+            current = await CreateOrgUnitAsync(
+                client,
+                companyId,
+                $"{prefix}-{index:D3}",
+                $"Nivel {index}",
+                "Gerencia",
+                current?.Id);
+        }
+
+        return current!;
+    }
+
     [Fact]
     public async Task OrgUnits_Inactivate_WhenHasActiveChildren_ShouldReturn409Conflict()
     {
@@ -5518,11 +5857,11 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         var secondPayload = await GetAccountCompanyTypesAsync(client, "MX");
 
         Assert.Equal(5, firstPayload.Count);
-        Assert.Contains(firstPayload, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anonima de Capital Variable");
+        Assert.Contains(firstPayload, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anónima de Capital Variable");
         Assert.Contains(firstPayload, item => item.Code == "S_DE_RL_DE_CV" && item.Name == "Sociedad de Responsabilidad Limitada de Capital Variable");
         Assert.Contains(firstPayload, item => item.Code == "SAS" && item.Name == "Sociedad por Acciones Simplificada");
         Assert.Contains(firstPayload, item => item.Code == "BRANCH_OFFICE" && item.Name == "Sucursal");
-        Assert.Contains(firstPayload, item => item.Code == "AC" && item.Name == "Asociacion Civil");
+        Assert.Contains(firstPayload, item => item.Code == "AC" && item.Name == "Asociación Civil");
         Assert.Equal(firstPayload.Count, secondPayload.Count);
     }
 
@@ -6434,6 +6773,75 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED");
+    }
+
+    // 00950/B-02: la cadena unidad → perfil → plaza no tenia ni un guard. Se podia inactivar un
+    // departamento, sus perfiles seguian publicados, y se creaban plazas nuevas contra ellos: personal
+    // asignado a un departamento que oficialmente no opera. Producto decidio bloquear el tercer salto,
+    // que es el unico sin defensa: inactivar puede ser legitimo y el historico debe conservarse, pero
+    // crear plazas NUEVAS bajo una unidad de baja no preserva historico, crea futuro.
+    [Fact]
+    public async Task PositionSlots_Create_WithInactiveOrgUnit_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS-INACT", "Direccion", "Direccion");
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PS-INACT");
+
+        // El perfil queda publicado y la unidad se da de baja: el estado que el defecto permitia explotar.
+        var baja = await client.PatchJsonAsync($"/api/v1/organization-units/{orgUnit.Id}/inactivate", new
+        {
+            concurrencyToken = orgUnit.ConcurrencyToken
+        });
+        baja.EnsureSuccessStatusCode();
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-INACT",
+            title = "Plaza bajo unidad inactiva",
+            jobProfilePublicId = published.Id,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_ORG_UNIT_INACTIVE");
+    }
+
+    // Contrapeso: sin el, un guard que rechazara toda creacion pasaria por bueno.
+    [Fact]
+    public async Task PositionSlots_Create_WithActiveOrgUnit_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS-ACT", "Direccion", "Direccion");
+        var published = await CreatePublishedJobProfileAsync(client, scenario.TenantId, orgUnit.Id, "JP-PS-ACT");
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-ACT",
+            title = "Plaza bajo unidad activa",
+            jobProfilePublicId = published.Id,
+            workCenterPublicId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     [Fact]
@@ -12120,9 +12528,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
                 representationType = "PrimaryLegalRepresentative",
                 authorityDescription = "Representación general",
                 appointmentInstrument = "Acta de nombramiento",
-                appointmentDateUtc = DateTime.UtcNow.Date,
-                effectiveFromUtc = DateTime.UtcNow.Date,
-                effectiveToUtc = (DateTime?)null,
+                appointmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+                effectiveTo = (DateOnly?)null,
                 email = "ana.mendoza@test.com",
                 phone = "+50370000000",
                 isPrimary
@@ -12137,9 +12545,9 @@ public sealed partial class ApiIntegrationTests(IntegrationTestWebApplicationFac
                 representationType = "PrimaryLegalRepresentative",
                 authorityDescription = "Representación general",
                 appointmentInstrument = "Acta de nombramiento",
-                appointmentDateUtc = DateTime.UtcNow.Date,
-                effectiveFromUtc = DateTime.UtcNow.Date,
-                effectiveToUtc = (DateTime?)null,
+                appointmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+                effectiveTo = (DateOnly?)null,
                 email = "ana.mendoza@test.com",
                 phone = "+50370000000"
             };

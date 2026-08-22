@@ -56,7 +56,28 @@ internal sealed class PayrollCalculationDataProvider(
             // does not override it (P-02).
             ?? 1.00m;
 
-        var rentaBrackets = await GetEffectiveBracketsAsync(tenantId, definition.PayPeriodCode, cancellationToken);
+        // La tabla de Renta de una corrida de aguinaldo es la MENSUAL. La ley publica tablas semanal,
+        // quincenal y mensual; no hay una anual, y el aguinaldo es un pago extraordinario que la práctica
+        // salvadoreña acumula al mes en que se paga. Sin este desvío una nómina ANUAL no encontraría tabla y
+        // retendría cero sobre el excedente — que es peor que retener con la mensual.
+        var rentaBrackets = await GetEffectiveBracketsAsync(
+            tenantId,
+            definition.IsAguinaldo ? PayrollFrequencies.Mensual : definition.PayPeriodCode,
+            cancellationToken);
+
+        // La corrida de aguinaldo NO consume ninguno de los cinco pools ni los registros del expediente
+        // (requerimiento §6: «solo se vea reflejado el pago de aguinaldo a cada empleado»). No se filtran
+        // después: no se consultan, y así tampoco se marcan como aplicados.
+        if (definition.IsAguinaldo)
+        {
+            var aguinaldo = await BuildAguinaldoContextAsync(tenantId, period, population, cancellationToken);
+            return new PayrollRunSourceData(
+                population, isss, afp, incafRate, rentaBrackets,
+                [], [], [], [], [], [], [], [],
+                complianceExclusions,
+                await BuildConceptClassificationsAsync(cancellationToken),
+                aguinaldo);
+        }
 
         // Pools — public scans/pending rows of each module, filtered to the population afterwards.
         var recurringIncomes = await BuildRecurringIncomeRowsAsync(tenantId, definition.PayrollTypeCode, populationFileIds, cancellationToken);
@@ -81,23 +102,6 @@ internal sealed class PayrollCalculationDataProvider(
         var disciplinary = await BuildDisciplinaryRowsAsync(tenantId, period, populationFileIds, cancellationToken);
         var incapacities = await BuildIncapacityRowsAsync(tenantId, period, populationFileIds, cancellationToken);
 
-        // H-29/H-30 — el catálogo de conceptos se lee UNA vez y viaja como snapshot: es lo que fija en qué columna
-        // del reporte cae cada monto y si entra en las bases de ley. Sin país en el filtro no: el catálogo está
-        // indexado por (country, code) y la corrida es de un tenant, cuyo país resuelve la compañía.
-        var conceptClassifications = await dbContext.Set<CompensationConceptTypeCatalogItem>()
-            .AsNoTracking()
-            .Where(item => item.IsActive)
-            .Select(item => new
-            {
-                item.NormalizedCode,
-                item.DefaultIncomeClass,
-                item.DefaultDeductionClass,
-                item.AffectsIsss,
-                item.AffectsAfp,
-                item.AffectsRenta,
-            })
-            .ToListAsync(cancellationToken);
-
         return new PayrollRunSourceData(
             population,
             isss,
@@ -113,17 +117,74 @@ internal sealed class PayrollCalculationDataProvider(
             disciplinary,
             incapacities,
             complianceExclusions,
-            conceptClassifications
-                .GroupBy(item => item.NormalizedCode, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    group => group.Key,
-                    group => new PayrollConceptClassification(
-                        group.First().DefaultIncomeClass,
-                        group.First().DefaultDeductionClass,
-                        group.First().AffectsIsss,
-                        group.First().AffectsAfp,
-                        group.First().AffectsRenta),
-                    StringComparer.OrdinalIgnoreCase));
+            await BuildConceptClassificationsAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// H-29/H-30 — el catálogo de conceptos se lee UNA vez y viaja como snapshot: es lo que fija en qué columna
+    /// del reporte cae cada monto y si entra en las bases de ley. Sin país en el filtro no: el catálogo está
+    /// indexado por (country, code) y la corrida es de un tenant, cuyo país resuelve la compañía.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, PayrollConceptClassification>> BuildConceptClassificationsAsync(
+        CancellationToken cancellationToken)
+    {
+        var conceptClassifications = await dbContext.Set<CompensationConceptTypeCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new
+            {
+                item.NormalizedCode,
+                item.DefaultIncomeClass,
+                item.DefaultDeductionClass,
+                item.AffectsIsss,
+                item.AffectsAfp,
+                item.AffectsRenta,
+            })
+            .ToListAsync(cancellationToken);
+
+        return conceptClassifications
+            .GroupBy(item => item.NormalizedCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => new PayrollConceptClassification(
+                    group.First().DefaultIncomeClass,
+                    group.First().DefaultDeductionClass,
+                    group.First().AffectsIsss,
+                    group.First().AffectsAfp,
+                    group.First().AffectsRenta),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// El contexto de la corrida de aguinaldo: el AÑO que se paga —el del periodo, que la fecha de pago de la
+    /// empresa colocó dentro de la ventana legal—, la exención vigente de ese año y la fecha de ingreso de
+    /// cada plaza. La fecha de ingreso sale del EXPEDIENTE (<c>PersonnelFile.HireDate</c>), no del inicio de
+    /// la plaza: es el invariante H-28, que en el finiquito costó una subestimación del 95 %.
+    /// </summary>
+    private async Task<PayrollAguinaldoContext> BuildAguinaldoContextAsync(
+        Guid tenantId,
+        PayrollPeriodDefinition period,
+        IReadOnlyList<PayrollPopulationRow> population,
+        CancellationToken cancellationToken)
+    {
+        var year = period.EndDate.Year;
+
+        var exemptAmount = await dbContext.AguinaldoExemptions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.Year == year && item.IsActive)
+            .Select(item => (decimal?)item.ExemptAmount)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // Sin fecha de ingreso no hay devengo que medir: el expediente sin perfil de empleado no entra.
+        var rows = population
+            .Where(row => row.HireDate.HasValue)
+            .Select(row => new PayrollAguinaldoRow(
+                row.PersonnelFilePublicId,
+                row.AssignedPositionPublicId,
+                row.HireDate!.Value))
+            .ToArray();
+
+        return new PayrollAguinaldoContext(year, exemptAmount, rows);
     }
 
     private async Task<(IReadOnlyList<PayrollPopulationRow> Population, IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions)> BuildPopulationAsync(
@@ -155,7 +216,10 @@ internal sealed class PayrollCalculationDataProvider(
             from profile in profiles.DefaultIfEmpty()
             where assignment.TenantId == tenantId &&
                   assignment.IsActive &&
-                  assignment.PayrollTypeCode == definition.PayrollTypeCode &&
+                  // La corrida de aguinaldo alcanza a TODOS los empleados activos: el aguinaldo es un derecho
+                  // de la relación laboral, no del tipo de planilla con que se le paga el salario. Un
+                  // quincenal y un mensual salen en la MISMA nómina anual.
+                  (definition.IsAguinaldo || assignment.PayrollTypeCode == definition.PayrollTypeCode) &&
                   file.RecordType == PersonnelFileRecordType.Employee &&
                   file.LifecycleStatus == PersonnelFileLifecycleStatus.Completed &&
                   (profile == null || profile.EmploymentStatusCode != PersonnelFileEmployeeProfile.RetiredEmploymentStatusCode)
@@ -169,6 +233,7 @@ internal sealed class PayrollCalculationDataProvider(
                 assignment.IsPrimary,
                 assignment.CostCenterPublicId,
                 MinimumMonthlyWage = profile != null ? profile.MinimumMonthlyWage : null,
+                HireDate = profile != null ? (DateTime?)profile.HireDate : null,
                 HasAfpAccountNumber = file.AfpAccountNumber != null,
                 HasNupIsss = file.Identifications.Any(identification => identification.IdentificationType == "NUP_ISSS"),
             })
@@ -272,7 +337,8 @@ internal sealed class PayrollCalculationDataProvider(
                 row.IsPrimary,
                 row.CostCenterPublicId is { } costCenterId && costCenters.TryGetValue(costCenterId, out var name) ? name : null,
                 row.MinimumMonthlyWage,
-                monthly));
+                monthly,
+                row.HireDate is { } hireDate ? DateOnly.FromDateTime(hireDate) : null));
         }
 
         return (result, complianceExclusions);

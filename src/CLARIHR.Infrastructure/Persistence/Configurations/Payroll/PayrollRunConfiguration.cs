@@ -192,6 +192,12 @@ internal sealed class PayrollRunLineConfiguration : IEntityTypeConfiguration<Pay
         builder.Property(line => line.EmployerPaidDays).HasColumnName("employer_paid_days").HasColumnType("numeric(10,2)");
         builder.Property(line => line.SubsidizedDays).HasColumnName("subsidized_days").HasColumnType("numeric(10,2)");
 
+        // Porción exenta de Renta de la línea, congelada al generar (aguinaldo).
+        builder.Property(line => line.ExemptAmount)
+            .HasColumnName("exempt_amount")
+            .HasColumnType("numeric(14,2)")
+            .HasDefaultValue(0m);
+
         builder.Property(line => line.Units).HasColumnName("units").HasColumnType("numeric(10,2)");
         builder.Property(line => line.BaseAmount).HasColumnName("base_amount").HasColumnType("numeric(14,2)");
         builder.Property(line => line.CalculatedAmount).HasColumnName("calculated_amount").HasColumnType("numeric(14,2)");

@@ -16,7 +16,11 @@ public sealed record PayrollPopulationRow(
     bool IsPrimary,
     string? CostCenterName,
     decimal? MinimumMonthlyWage,
-    decimal MonthlyBaseSalary);
+    decimal MonthlyBaseSalary,
+    // Fecha de ingreso a la EMPRESA. La trae la población porque su consulta ya une el perfil, y es lo que
+    // ancla el devengo y el tramo del aguinaldo (H-28: nunca el inicio de la plaza). Null solo si el
+    // expediente no tiene perfil de empleado — caso en que no hay aguinaldo que calcular.
+    DateOnly? HireDate = null);
 
 /// <summary>ISSS/AFP rates + MONTHLY cap resolved country-default → instance-override (molde settlement).</summary>
 public sealed record PayrollLegalScheme(
@@ -87,7 +91,28 @@ public sealed record PayrollRunSourceData(
     IReadOnlyList<PayrollRegistroRow> Incapacities,
     IReadOnlyList<PayrollComplianceExclusion> ComplianceExclusions,
     // H-29/H-30 — por código de concepto, leído UNA vez por corrida.
-    IReadOnlyDictionary<string, PayrollConceptClassification> ConceptClassifications);
+    IReadOnlyDictionary<string, PayrollConceptClassification> ConceptClassifications,
+    // La corrida de aguinaldo. Null en una nómina ORDINARIA — y esa nulidad es la señal de que el motor
+    // trabaja como siempre.
+    PayrollAguinaldoContext? Aguinaldo = null);
+
+/// <summary>
+/// Todo lo que la corrida de aguinaldo necesita, ya resuelto: el año que se paga, la exención vigente de ese
+/// año y una fila por plaza con la fecha de ingreso a la EMPRESA (H-28 — la antigüedad nunca sale de la
+/// plaza). El salario básico NO se repite acá: viaja en la fila de población, que es la fuente única del
+/// básico mensualizado de la plaza.
+/// </summary>
+/// <param name="ExemptAmount">Null = la empresa no registró exención para ese año → se grava todo + advertencia.</param>
+public sealed record PayrollAguinaldoContext(
+    int Year,
+    decimal? ExemptAmount,
+    IReadOnlyList<PayrollAguinaldoRow> Rows);
+
+/// <summary>Una plaza de la corrida de aguinaldo con la fecha de ingreso que fija su devengo y su tramo.</summary>
+public sealed record PayrollAguinaldoRow(
+    Guid PersonnelFilePublicId,
+    Guid AssignedPositionPublicId,
+    DateOnly HireDate);
 
 /// <summary>
 /// REQ-016 Gate B (ratified P-11/P-12): an otherwise-eligible employee left OUT of the population because

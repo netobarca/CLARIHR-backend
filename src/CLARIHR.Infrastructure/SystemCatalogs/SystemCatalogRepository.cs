@@ -239,7 +239,7 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));
@@ -297,7 +297,7 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch) ||

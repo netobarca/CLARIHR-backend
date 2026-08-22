@@ -94,7 +94,7 @@ internal sealed class SearchMedicalClinicsQueryValidator : AbstractValidator<Sea
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(LeaveConfigurationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {LeaveConfigurationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(LeaveConfigurationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LeaveConfigurationValidationRules.MaxPageSize);
     }

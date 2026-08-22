@@ -77,6 +77,28 @@ internal sealed class ResourceBackendMessageLocalizer : IBackendMessageLocalizer
         return template;
     }
 
+    public string? LocalizePropertyName(string propertyName) =>
+        ResolvePropertyName(propertyName);
+
+    /// <summary>
+    /// Las etiquetas están en los DOS recursos, porque
+    /// <c>BackendMessageLocalizationTests.EnglishAndSpanishResources_ShouldHaveTheSameKeys</c> exige
+    /// paridad de claves. Las inglesas son <b>exactamente</b> el nombre partido que FluentValidation
+    /// produciría por su cuenta (<c>SortOrder</c> → <c>Sort Order</c>), así que la salida en inglés no
+    /// cambia ni un carácter; <c>ValidationDisplayNameTests</c> lo comprueba.
+    /// Una propiedad sin etiqueta devuelve <c>null</c> y conserva el comportamiento por defecto.
+    /// </summary>
+    internal static string? ResolvePropertyName(string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return null;
+        }
+
+        var key = $"validation.property.{propertyName.Trim().ToLowerInvariant()}";
+        return ResourceManager.GetString(key, CultureInfo.CurrentUICulture);
+    }
+
     private static string ResolveTemplate(string key, string fallback)
     {
         var culture = CultureInfo.CurrentUICulture;

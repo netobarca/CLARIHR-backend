@@ -2,6 +2,7 @@ using System.Reflection;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Validation;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.Provisioning;
@@ -18,6 +19,10 @@ public static class DependencyInjection
         var assembly = typeof(DependencyInjection).Assembly;
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+
+        // 00002 / B-04 — engancha las etiquetas de negocio en los mensajes de validación. La búsqueda la
+        // instala la infraestructura (es la que tiene los recursos); sin ella esto no cambia nada.
+        ValidationDisplayNames.Install();
         services.AddScoped<ICommandDispatcher, RequestDispatcher>();
         services.AddScoped<IQueryDispatcher, RequestDispatcher>();
         services.AddScoped<ICompanyProvisioningService, CompanyProvisioningService>();

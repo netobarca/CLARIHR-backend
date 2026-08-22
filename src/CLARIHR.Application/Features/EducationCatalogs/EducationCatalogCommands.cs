@@ -50,7 +50,7 @@ internal sealed class CreateEducationCatalogItemCommandValidator
             .NotEmpty()
             .MaximumLength(80)
             .Must(EducationCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(EducationCatalogValidationRules.CodeFormatMessage);
         RuleFor(c => c.Name).NotEmpty().MaximumLength(200);
         RuleFor(c => c.SortOrder).GreaterThanOrEqualTo(0);
     }
@@ -66,7 +66,7 @@ internal sealed class UpdateEducationCatalogItemCommandValidator
             .NotEmpty()
             .MaximumLength(80)
             .Must(EducationCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(EducationCatalogValidationRules.CodeFormatMessage);
         RuleFor(c => c.Name).NotEmpty().MaximumLength(200);
         RuleFor(c => c.SortOrder).GreaterThanOrEqualTo(0);
         RuleFor(c => c.ConcurrencyToken).NotEmpty();

@@ -29,6 +29,23 @@ internal sealed class PayrollRunRepository(ApplicationDbContext dbContext) : IPa
             .IgnoreQueryFilters()
             .AnyAsync(run => run.PublicId == payrollRunPublicId, cancellationToken);
 
+    public Task<bool> HasActiveAguinaldoRunForYearAsync(
+        Guid tenantId,
+        int year,
+        long excludedPayrollDefinitionId,
+        long excludedPayrollPeriodId,
+        CancellationToken cancellationToken) =>
+        (from run in dbContext.Set<PayrollRun>()
+         join definition in dbContext.Set<PayrollDefinition>() on run.PayrollDefinitionId equals definition.Id
+         join period in dbContext.Set<PayrollPeriodDefinition>() on run.PayrollPeriodId equals period.Id
+         where run.TenantId == tenantId &&
+               run.IsActive &&
+               definition.PurposeCode == PayrollPurposes.Aguinaldo &&
+               period.Year == year &&
+               !(run.PayrollDefinitionId == excludedPayrollDefinitionId && run.PayrollPeriodId == excludedPayrollPeriodId)
+         select run.Id)
+        .AnyAsync(cancellationToken);
+
     public Task<bool> HasActiveRunAsync(
         Guid tenantId,
         long payrollDefinitionId,

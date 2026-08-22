@@ -144,7 +144,7 @@ internal sealed class SearchLocationGroupsQueryValidator : AbstractValidator<Sea
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(LocationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {LocationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(LocationValidationRules.SearchLengthMessage);
     }
 }
 
@@ -166,7 +166,7 @@ internal sealed class CreateLocationGroupCommandValidator : AbstractValidator<Cr
             .NotEmpty()
             .MaximumLength(50)
             .Must(LocationValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(LocationValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ParentId)
@@ -184,7 +184,7 @@ internal sealed class UpdateLocationGroupCommandValidator : AbstractValidator<Up
             .NotEmpty()
             .MaximumLength(50)
             .Must(LocationValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(LocationValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -1153,7 +1153,7 @@ internal static class LocationGroupPatchApplier
         }
         else if (!LocationValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [LocationValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

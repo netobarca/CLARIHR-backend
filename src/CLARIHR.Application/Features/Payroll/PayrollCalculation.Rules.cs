@@ -26,12 +26,18 @@ public static class PayrollEngineConceptCodes
     public const string IsssPatronal = "ISSS_PATRONAL";
     public const string AfpPatronal = "AFP_PATRONAL";
     public const string Incaf = "INCAF";
+
+    /// <summary>El aguinaldo anual — el código del catálogo, para que caiga en su columna del reporte.</summary>
+    public const string Aguinaldo = "AGUINALDO";
 }
 
 /// <summary>Source modules of a payroll-run line (§1.4 — the line→source traceability of REQ-013/014/015).</summary>
 public static class PayrollSourceModules
 {
     public const string Salario = "SALARIO";
+
+    /// <summary>La línea que produce el motor de aguinaldo — no viene de ningún registro del expediente.</summary>
+    public const string Aguinaldo = "AGUINALDO";
     public const string RecurringIncome = "RECURRING_INCOME";
     public const string OneTimeIncome = "ONE_TIME_INCOME";
     public const string Overtime = "OVERTIME";
@@ -63,6 +69,13 @@ public static class PayrollEngineWarningCodes
     /// the AFP account number. Header-level only (the employee has no line to carry a per-line warning).
     /// </summary>
     public const string EmployeeExcludedPrevisionalDataMissing = "PAYROLL_WARNING_EMPLOYEE_EXCLUDED_PREVISIONAL_DATA_MISSING";
+
+    /// <summary>
+    /// La corrida de aguinaldo del año no encontró exención registrada, así que gravó el aguinaldo COMPLETO.
+    /// No bloquea: retener de más es visible y corregible; no retener es una contingencia fiscal silenciosa.
+    /// Se registra a nivel de cabecera —es un dato de configuración de la empresa, no de una persona.
+    /// </summary>
+    public const string AguinaldoNoExemption = "PAYROLL_WARNING_AGUINALDO_NO_EXEMPTION";
 }
 
 /// <summary>ISSS/AFP scheme (rates + MONTHLY contribution cap; the engine prorates the cap by frequency).</summary>
@@ -93,7 +106,11 @@ public sealed record PayrollIncomeItem(
     bool AffectsIsss,
     bool AffectsAfp,
     bool AffectsRenta,
-    decimal? Units = null);
+    decimal? Units = null,
+    // Porción del monto EXENTA de Renta por ley. Hoy solo el aguinaldo la usa (los primeros $1,500 no
+    // tributan y la Renta cae sobre el excedente), pero el eje es general a propósito: cualquier ingreso con
+    // exención parcial se modela igual, sin volver a tocar el motor.
+    decimal ExemptAmount = 0m);
 
 /// <summary>One AUTORIZADA overtime record of the plaza (hours × factor; valued at the plaza's hour).</summary>
 public sealed record PayrollOvertimeItem(
@@ -154,7 +171,11 @@ public sealed record PayrollCalculationInput(
     decimal IncafRatePercent,
     IReadOnlyList<PayrollTaxBracket> RentaBrackets,
     IReadOnlyList<PayrollEmployeeInput> Employees,
-    decimal StandardDailyHours = 8m);
+    decimal StandardDailyHours = 8m,
+    // Una corrida de AGUINALDO no paga salario del periodo (requerimiento §6: «solo se vea reflejado el pago
+    // de aguinaldo a cada empleado»). Los cinco pools no necesitan bandera: el proveedor de datos
+    // sencillamente no los trae, y el motor calcula sobre lo que recibe.
+    bool PaysBaseSalary = true);
 
 public sealed record PayrollCalculatedLine(
     Guid PersonnelFilePublicId,
@@ -169,7 +190,8 @@ public sealed record PayrollCalculatedLine(
     string SourceModule,
     Guid? SourceReferencePublicId,
     IReadOnlyList<string> WarningCodes,
-    int SortOrder);
+    int SortOrder,
+    decimal ExemptAmount = 0m);
 
 public sealed record PayrollRunWarningResult(string Code, Guid? PersonnelFilePublicId, string? Context);
 
@@ -259,7 +281,7 @@ public static class PayrollCalculationRules
                 warnings.Add(new PayrollRunWarningResult(
                     PayrollEngineWarningCodes.BaseUndefined, employee.PersonnelFilePublicId, plaza.AssignedPositionPublicId.ToString()));
             }
-            else if (!isPorObra)
+            else if (!isPorObra && input.PaysBaseSalary)
             {
                 if (plaza.MonthlyBaseSalary <= 0m)
                 {
@@ -287,7 +309,10 @@ public static class PayrollCalculationRules
                     income.ConceptCode, income.ConceptName, PayrollLineClasses.Ingreso,
                     Units: income.Units, BaseAmount: null, CalculatedAmount: Round2(income.Amount),
                     income.SourceModule, income.SourceReferencePublicId,
-                    income.AffectsIsss, income.AffectsAfp, income.AffectsRenta, SortOrder: ++sort));
+                    income.AffectsIsss, income.AffectsAfp, income.AffectsRenta, SortOrder: ++sort)
+                {
+                    ExemptAmount = Math.Min(Round2(income.Amount), Round2(Math.Max(0m, income.ExemptAmount))),
+                });
             }
 
             // [3] HORAS_EXTRA — Σ(hours×factor) × HourlyRate(daily, standard) in ONE rounding (golden 2:
@@ -348,7 +373,12 @@ public static class PayrollCalculationRules
         // caps and the table apply once per employee per period).
         var isssBase = employeeLines.Where(l => l is { LineClass: PayrollLineClasses.Ingreso, IsIncluded: true, AffectsIsss: true }).Sum(l => l.CalculatedAmount);
         var afpBase = employeeLines.Where(l => l is { LineClass: PayrollLineClasses.Ingreso, IsIncluded: true, AffectsAfp: true }).Sum(l => l.CalculatedAmount);
-        var rentaIncomeBase = employeeLines.Where(l => l is { LineClass: PayrollLineClasses.Ingreso, IsIncluded: true, AffectsRenta: true }).Sum(l => l.CalculatedAmount);
+        // La base de Renta descuenta la porción EXENTA de cada línea. Es la diferencia entre «el aguinaldo
+        // tributa» y «el aguinaldo tributa sobre el excedente»: con $1,600 pagados y $1,500 exentos, a la
+        // tabla entran $100, no $1,600.
+        var rentaIncomeBase = employeeLines
+            .Where(l => l is { LineClass: PayrollLineClasses.Ingreso, IsIncluded: true, AffectsRenta: true })
+            .Sum(l => Math.Max(0m, l.CalculatedAmount - l.ExemptAmount));
 
         var isssCap = input.Isss.MonthlyContributionCap is { } isssMonthlyCap
             ? ProrateMonthly(isssMonthlyCap, input.PayPeriodCode)
@@ -503,6 +533,9 @@ public static class PayrollCalculationRules
     {
         public bool IsIncluded { get; set; } = true;
 
+        /// <summary>Porción exenta de Renta de una línea de ingreso — cero en todas las demás.</summary>
+        public decimal ExemptAmount { get; init; }
+
         public bool IsDeferrable { get; init; }
 
         public int DeferralOrder { get; init; }
@@ -522,6 +555,7 @@ public static class PayrollCalculationRules
             SourceModule,
             SourceReferencePublicId,
             WarningCodes,
-            SortOrder);
+            SortOrder,
+            ExemptAmount);
     }
 }

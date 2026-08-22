@@ -49,6 +49,21 @@ Api/Controllers/<Entidad>Controller.cs
 
 ⚙️ `sealed` por defecto en records y clases concretas. DTOs = `record` posicional inmutable.
 
+#### Tipo de fecha: día vs instante 🔒
+
+El tipo lo decide **lo que dice el negocio**, no la comodidad del serializador.
+
+| Lo que dice el negocio | Dominio | Columna | En el wire |
+|---|---|---|---|
+| «el **día** en que pasó» — `hireDate`, `birthDate`, `effectiveFrom`, `startDate` | `DateOnly` | `date` | `"2026-08-15"` |
+| «el **momento** en que pasó» — `createdUtc`, `annulledUtc`, `expirationUtc` | `DateTime` (UTC) | `timestamptz` | `"2026-08-15T18:07:00Z"` |
+
+⚠️ **El sufijo `Utc` es para instantes.** En un campo de día es la señal de que se modeló mal: un día no tiene zona horaria que fijar, así que fijarla en UTC no resuelve una ambigüedad — la inventa.
+
+⚠️ **Guardar un día como instante corre el día.** Con la fecha modelada como `DateTime`, la frontera convierte un cuerpo con offset (`ToUniversalTime`) y el día salta en las últimas horas del día local: desde El Salvador (−06:00), `2026-08-15T18:07:00-06:00` se almacena como **16 de agosto**. Con `DateOnly` no puede pasar: `LenientDateOnlyJsonConverter` lee el día **como está escrito** y nunca lo desplaza.
+
+⚙️ Para convertir un campo, **borrar el tipo y dejar que el compilador enumere**: no hay conversión implícita `DateOnly`↔`DateTime`, así que ningún cruce queda silencioso.
+
 ### 1.3 Tests
 
 🔒 El nombre del método empieza por la sección: **`<Seccion>_<LoQueHace>`**
@@ -104,8 +119,12 @@ Entity                      → Id (long), PublicId (Guid), CreateDeterministicP
 - Filtro global de query (`HasQueryFilter`) sobre `ITenantScopedEntity`.
 - `IgnoreQueryFilters` solo donde esté justificado y **gobernado por guardrail**.
 - Transacciones cortas. Trabajo pesado fuera del request path.
+- Columna según el tipo de fecha (§1.2): día → `date`, instante → `timestamptz`. **Nunca un día en `timestamptz`.**
 
 ⚠️ Trampas verificadas:
+- **Migrar `timestamptz` → `date` sin anclar la zona retrocede las fechas un día.** El cast se resuelve con el `TimeZone` de la **SESIÓN**, no con UTC. Medido contra `clarihr_dev`: con `TimeZone='America/El_Salvador'`, `('2026-12-01 00:00:00+00'::timestamptz)::date` → **`2026-11-30`**. EF genera el cast desnudo, así que hay que escribirlo a mano:
+  `ALTER COLUMN x TYPE date USING (x AT TIME ZONE 'UTC')::date`.
+- **Un `timestamptz` leído como fecha en consulta usa el `TimeZone` de la sesión.** Cualquier informe que agrupe por día puede correr un día según qué sesión lo ejecute. Con `date` en la columna el riesgo desaparece.
 - `AsNoTracking()` **antes** de `SaveChanges` en métodos `Add*` rompe el guardado (estuvo replicado en 11 repositorios).
 - EF no traduce **funciones locales** dentro de una expresión de consulta.
 - Fragmentos de GUID mal copiados en un `Designer.cs` de migración pasan el build y fallan en runtime.
@@ -163,6 +182,16 @@ Todo listado: `page`, `pageSize` con `[Range(1, <Modulo>ValidationRules.MaxPageS
 - Enums se serializan como **string** (`JsonStringEnumConverter`).
 - ⚠️ En records posicionales, `[property:Required]` provoca **500s**: usar `[Required]` con *param target*.
 - ⚠️ Los exports en JSON salen en **PascalCase**, no camelCase.
+
+🔒 **Las fechas se normalizan en la frontera, y la frontera tiene TRES puertas.** Cada una necesita su normalización propia; olvidar una devuelve la fecha con un `Kind` que `timestamptz` rechaza (`500`) o con el día corrido:
+
+| Puerta | Quién normaliza |
+|---|---|
+| Cuerpo JSON | `UtcDateTimeJsonConverter` (instantes) · `LenientDateOnlyJsonConverter` (días) |
+| Query / route / form | `UtcDateTimeModelBinder` — el serializador no los toca |
+| **Cuerpo de JSON Patch** | El *patch applier*: recibe un `JsonElement`, no un `DateTime`, así que **ningún converter se le aplica** |
+
+⚠️ `JsonElement.TryGetDateTime()` **no es la frontera**: devuelve `Kind=Unspecified` si el texto no trae zona y `Kind=Local` si trae offset — y para un campo de día, el offset además corre el día. Los *patch appliers* leen con `CalendarDateReader`, nunca con `TryGetDateTime` en crudo.
 
 ### 4.6 `allowedActions` y autoservicio
 
@@ -341,6 +370,7 @@ public sealed record Error(
 | **ANÓNIMOS** | La superficie `[AllowAnonymous]` no inyecta auditoría tenant-scoped (allow-list justificada) |
 | **DI SIN CICLOS** | El `DbContext` se resuelve en un hilo con deadline. ⚠️ Con `using`, el `Dispose()` del provider se cuelga en el mismo lock y el fallo nunca se reporta: hay que **fugar** el provider en el camino de fallo |
 | **CONTRATO PÚBLICO** | Superficie pública estable, sin fugas accidentales |
+| **TIPO DE FECHA** | Dos invariantes de §1.2/§4.5: (a) una propiedad de dominio cuyo nombre denota un **día** es `DateOnly`, no `DateTime` — con *allow-list* explícita y motivada para los instantes deliberados y para lo que aún no se ha convertido; (b) ningún lector de JSON Patch usa `TryGetDateTime` en crudo. ⚠️ La *allow-list* nace poblada con el inventario pendiente: **vaciarla es el avance**, no un efecto colateral. **Seguimiento de los 64 campos que faltan, por olas de consecuencia: `ComentariosPruebasBackend/00000-CreateCompany.md` §3.8** (los otros 15 de la lista son instantes deliberados de H-26, no deuda) |
 
 ---
 
@@ -353,3 +383,11 @@ public sealed record Error(
 **Configuración del contrato público**: `PublicContractJsonTypeInfoResolver` · `PublicContractRouteConvention` · `PublicContractSchemaFilter` · `PublicContractOperationFilter` · `PublicContractBindingMetadataProvider` · `AuthorizationPolicyOperationFilter` · `CatalogTypeSlugOperationFilter`.
 
 **Localización**: recursos `BackendMessages.resx` / `.es` / `.es-SV`, con `RequestLanguageResolver` e `IBackendMessageLocalizer`. ⚠️ El localizador **reemplaza el `detail`** del ProblemDetails por el texto catalogado — por eso los datos accionables van en `Extensions`, no en el mensaje.
+
+**Todo código de error nuevo exige dos entradas**: una en `BackendMessages.resx` (inglés) y una en `BackendMessages.es.resx`. Lo vigila `BackendMessageLocalizationTests.ResourceCatalog_ShouldContainAllApplicationErrorCodes_InEnglishAndSpanish`, que extrae los códigos de `CLARIHR.Application` y falla nombrando los que falten. No hay orden alfabético que respetar: el archivo ya trae 309 pares desordenados: se inserta junto a las claves hermanas.
+
+⚠️ **`BackendMessages.es-SV.resx` es inalcanzable.** `RequestLanguageResolver.TryNormalizeLanguage` corta la región (`es-SV` → `es`) y `ResolveCulture` devuelve siempre la cultura neutra, así que `CurrentUICulture` nunca vale `es-SV` y el `ResourceManager` jamás consulta ese archivo — la reserva de recursos va de específico a neutro, nunca al revés. Sus 23 claves no aportan nada: **0 son exclusivas** y su contenido ya se fusionó en `.es`.
+
+⚠️ **Varios planes técnicos afirman que olvidar una clave en `.es-SV.resx` «rompe el build». Es falso**: `BackendMessageLocalizationTests` solo compara inglés y `es`. La convención de «3 resx» que repiten esos planes apunta a un archivo que no se sirve.
+
+**La calidad del español la vigila `SpanishMessageQualityTests`** (paridad de claves ≠ calidad del texto): prohíbe fragmentos en inglés, pérdida de tildes o eñes, y valores idénticos al inglés. Al introducirlo el 2026-08-18 cazaba 196 y 204 mensajes respectivamente.

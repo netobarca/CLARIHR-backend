@@ -123,11 +123,15 @@ internal static class GlobalCatalogSeedData
             ModifiedUtc = SeededAtUtc
         });
 
+    // 00005 / B-01 — `normalizedName` va con nombre y SIN tildes a propósito: es la clave de búsqueda,
+    // no un texto que se muestre. Los repositorios comparan `NormalizedName.Contains(search.ToUpperInvariant())`
+    // sin plegar acentos, así que dejarla en ASCII es lo que permite encontrar «Cuscatlán» escribiendo
+    // «cuscatlan». El nombre visible sí lleva su tilde.
     public static IEnumerable<object> GetBankCatalogItems() =>
     [
-        CreateBankCatalogSeed(-9000L, "SV", "BANCO_AGRICOLA", "Banco Agricola", "Agricola", alias: "Agricola"),
+        CreateBankCatalogSeed(-9000L, "SV", "BANCO_AGRICOLA", "Banco Agrícola", normalizedName: "Agricola", alias: "Agrícola"),
         CreateBankCatalogSeed(-9001L, "SV", "DAVIVIENDA", "Davivienda", "Davivienda", alias: "Davivienda"),
-        CreateBankCatalogSeed(-9002L, "SV", "CUSCATLAN", "Cuscatlan", "Cuscatlan", alias: "Cuscatlan"),
+        CreateBankCatalogSeed(-9002L, "SV", "CUSCATLAN", "Cuscatlán", normalizedName: "Cuscatlan", alias: "Cuscatlán"),
         CreateBankCatalogSeed(-9003L, "SV", "BAC", "BAC Credomatic", "BAC Credomatic", alias: "BAC"),
         CreateBankCatalogSeed(-9010L, "US", "BANK_OF_AMERICA", "Bank of America", "Bank of America", alias: "BofA"),
         CreateBankCatalogSeed(-9011L, "US", "CITIBANK", "Citibank", "Citibank", alias: "Citi"),
@@ -444,7 +448,7 @@ internal static class GlobalCatalogSeedData
 
     public static IEnumerable<object> GetCurrencyCatalogItems() =>
     [
-        CreateGeneralCatalogSeed("CURRENCY_CATALOG", -9370L, "SV", "USD", "Dolar estadounidense", 10),
+        CreateGeneralCatalogSeed("CURRENCY_CATALOG", -9370L, "SV", "USD", "Dólar estadounidense", 10),
     ];
 
     public static IEnumerable<object> GetPaymentMethodCatalogItems() =>
@@ -822,28 +826,28 @@ internal static class GlobalCatalogSeedData
 
     public static IEnumerable<object> GetLanguageCatalogItems() =>
     [
-        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Ingles", 10),
-        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9411L, "SV", "SPANISH", "Espanol", 20),
+        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9410L, "SV", "ENGLISH", "Inglés", 10),
+        CreateGeneralCatalogSeed("LANGUAGE_CATALOG", -9411L, "SV", "SPANISH", "Español", 20),
     ];
 
     public static IEnumerable<object> GetLanguageLevelCatalogItems() =>
     [
         CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9420L, "SV", "ADVANCED", "Avanzado", 10),
         CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9421L, "SV", "INTERMEDIATE", "Intermedio", 20),
-        CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9422L, "SV", "BASIC", "Basico", 30),
+        CreateGeneralCatalogSeed("LANGUAGE_LEVEL_CATALOG", -9422L, "SV", "BASIC", "Básico", 30),
     ];
 
     public static IEnumerable<object> GetTrainingTypeCatalogItems() =>
     [
         CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9430L, "SV", "COURSE", "Curso", 10),
         CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9431L, "SV", "WORKSHOP", "Taller", 20),
-        CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9432L, "SV", "CERTIFICATION", "Certificacion", 30),
+        CreateGeneralCatalogSeed("TRAINING_TYPE_CATALOG", -9432L, "SV", "CERTIFICATION", "Certificación", 30),
     ];
 
     public static IEnumerable<object> GetDurationUnitCatalogItems() =>
     [
         CreateGeneralCatalogSeed("DURATION_UNIT_CATALOG", -9440L, "SV", "HOUR", "Hora", 10),
-        CreateGeneralCatalogSeed("DURATION_UNIT_CATALOG", -9441L, "SV", "DAY", "Dia", 20),
+        CreateGeneralCatalogSeed("DURATION_UNIT_CATALOG", -9441L, "SV", "DAY", "Día", 20),
     ];
 
     public static IEnumerable<object> GetReferenceTypeCatalogItems() =>
@@ -1152,9 +1156,9 @@ internal static class GlobalCatalogSeedData
     [
         CreateCompensationConceptTypeSeed(-9720L, "SV", "SALARIO_BASE", "Salario base", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 10, defaultIncomeClass: IncomeClass.Salario, affectsIsss: true, affectsAfp: true, affectsRenta: true, isBaseSalary: true),
         CreateCompensationConceptTypeSeed(-9721L, "SV", "HORAS_EXTRA", "Horas extra", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 20, defaultIncomeClass: IncomeClass.HorasExtra, affectsIsss: true, affectsAfp: true, affectsRenta: true),
-        CreateCompensationConceptTypeSeed(-9722L, "SV", "COMISION", "Comision", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30, defaultIncomeClass: IncomeClass.Comision, affectsIsss: true, affectsAfp: true, affectsRenta: true),
+        CreateCompensationConceptTypeSeed(-9722L, "SV", "COMISION", "Comisión", CompensationNature.Ingreso, false, null, CompensationCalculationType.Percentage, "SALARIO_BASE", null, null, null, 30, defaultIncomeClass: IncomeClass.Comision, affectsIsss: true, affectsAfp: true, affectsRenta: true),
         CreateCompensationConceptTypeSeed(-9723L, "SV", "BONO", "Bono", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 40, defaultIncomeClass: IncomeClass.Bono, affectsIsss: true, affectsAfp: true, affectsRenta: true),
-        CreateCompensationConceptTypeSeed(-9724L, "SV", "VIATICOS", "Viaticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50, defaultIncomeClass: IncomeClass.NoDeducible, affectsIsss: false, affectsAfp: false, affectsRenta: false),
+        CreateCompensationConceptTypeSeed(-9724L, "SV", "VIATICOS", "Viáticos", CompensationNature.Ingreso, false, null, CompensationCalculationType.Fixed, null, null, null, null, 50, defaultIncomeClass: IncomeClass.NoDeducible, affectsIsss: false, affectsAfp: false, affectsRenta: false),
         // El aguinaldo NO cotiza ISSS ni AFP, y sí tributa Renta: es la regla que el catálogo de FINIQUITOS ya
         // tenía ratificada para `AGUINALDO_PROPORCIONAL` (f/f/t). Antes la planilla lo cotizaba, porque los dos
         // mapeos de ingreso fijaban las tres banderas en `true` a mano.
@@ -1168,7 +1172,7 @@ internal static class GlobalCatalogSeedData
         CreateCompensationConceptTypeSeed(-9727L, "SV", "ISSS", "ISSS", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 3.00m, 7.50m, 1000.00m, 100, isBaseSalary: false, defaultPensionedEmployerRate: null, minContributionBase: 365.00m),
         CreateCompensationConceptTypeSeed(-9728L, "SV", "AFP", "AFP", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "IBC", 7.25m, 8.75m, 7045.06m, 110, isBaseSalary: false, defaultPensionedEmployerRate: 8.75m, minContributionBase: 365.00m),
         CreateCompensationConceptTypeSeed(-9729L, "SV", "RENTA", "Renta (ISR)", CompensationNature.Egreso, true, DeductionClass.Ley, CompensationCalculationType.Percentage, "SALARIO_BRUTO", null, null, null, 120),
-        CreateCompensationConceptTypeSeed(-9730L, "SV", "DANO_EQUIPO", "Dano de equipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 200),
+        CreateCompensationConceptTypeSeed(-9730L, "SV", "DANO_EQUIPO", "Daño de equipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 200),
         CreateCompensationConceptTypeSeed(-9731L, "SV", "ANTICIPO", "Anticipo", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 210),
         CreateCompensationConceptTypeSeed(-9732L, "SV", "PRESTAMO_INTERNO", "Prestamo interno", CompensationNature.Egreso, false, DeductionClass.Interno, CompensationCalculationType.Fixed, null, null, null, null, 220),
         CreateCompensationConceptTypeSeed(-9733L, "SV", "PRESTAMO_BANCARIO", "Prestamo bancario", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 300),
@@ -1178,7 +1182,7 @@ internal static class GlobalCatalogSeedData
         // REQ-008 (P-10): the two external deduction concepts the recurring-deduction module needs and the
         // country catalog was missing. Same shape as the other Externo concepts (non-statutory, fixed amount).
         CreateCompensationConceptTypeSeed(-9737L, "SV", "COOPERATIVA", "Cooperativa", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 340),
-        CreateCompensationConceptTypeSeed(-9738L, "SV", "PROCURADURIA", "Procuraduria", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 350),
+        CreateCompensationConceptTypeSeed(-9738L, "SV", "PROCURADURIA", "Procuraduría", CompensationNature.Egreso, false, DeductionClass.Externo, CompensationCalculationType.Fixed, null, null, null, null, 350),
     ];
 
     // Settlement ("liquidación") concepts (dedicated endpoint `settlement-concepts`): enriched country-scoped
@@ -1243,15 +1247,20 @@ internal static class GlobalCatalogSeedData
         CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9740L, "SV", "MENSUAL", "Mensual", 10),
         CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9741L, "SV", "QUINCENAL", "Quincenal", 20),
         CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9742L, "SV", "SEMANAL", "Semanal", 30),
-        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9743L, "SV", "UNICA", "Unica", 40),
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9743L, "SV", "UNICA", "Única", 40),
+        // ANUAL — un solo periodo al año. La trajo la nómina de aguinaldo, y el motor la soporta como
+        // cadencia propia (PayrollFrequencies.Anual → 1 periodo/año), así que es una frecuencia del sistema
+        // y no una fila de conveniencia: sin ella el validador de nóminas rechaza la única frecuencia con
+        // la que se puede declarar una nómina de aguinaldo.
+        CreateGeneralCatalogSeed("PAY_PERIOD_CATALOG", -9744L, "SV", "ANUAL", "Anual", 50),
     ];
 
     public static IEnumerable<object> GetCalculationBaseCatalogItems() =>
     [
         CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9750L, "SV", "SALARIO_BASE", "Salario base", 10),
         CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9751L, "SV", "SALARIO_BRUTO", "Salario bruto", 20),
-        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9752L, "SV", "IBC", "Ingreso base de cotizacion", 30),
-        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9753L, "SV", "RUBRO_ESPECIFICO", "Rubro especifico", 40),
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9752L, "SV", "IBC", "Ingreso base de cotización", 30),
+        CreateGeneralCatalogSeed("CALCULATION_BASE_CATALOG", -9753L, "SV", "RUBRO_ESPECIFICO", "Rubro específico", 40),
     ];
 
     // Education catalogs are SYSTEM-scoped (no country) — codes must stay stable as personnel-file education

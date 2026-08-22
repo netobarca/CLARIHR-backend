@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CostCenters;
@@ -69,7 +70,7 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.CostCenter.NormalizedCode.Contains(normalizedSearch) ||
                 item.CostCenter.NormalizedName.Contains(normalizedSearch));
@@ -255,7 +256,7 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.CostCenter.NormalizedCode.Contains(normalizedSearch) ||
                 item.CostCenter.NormalizedName.Contains(normalizedSearch));

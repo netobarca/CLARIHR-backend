@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Api.Configuration;
 
@@ -31,12 +32,12 @@ public sealed class UtcDateTimeJsonConverter : JsonConverter<DateTime>
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options) =>
         writer.WriteStringValue(ToUtc(value));
 
-    internal static DateTime ToUtc(DateTime value) => value.Kind switch
-    {
-        DateTimeKind.Utc => value,
-        DateTimeKind.Local => value.ToUniversalTime(),
-        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
-    };
+    /// <summary>
+    /// B-01 — la regla vive en <see cref="CalendarDateReader.ToUtcInstant"/>, en el dominio, porque los
+    /// lectores de JSON Patch de <c>CLARIHR.Application</c> necesitan la misma y no pueden ver esta capa.
+    /// Tenerla dos veces fue el defecto: la frontera quedó normalizada y el camino `PATCH` no.
+    /// </summary>
+    internal static DateTime ToUtc(DateTime value) => CalendarDateReader.ToUtcInstant(value);
 }
 
 /// <inheritdoc cref="UtcDateTimeJsonConverter"/>

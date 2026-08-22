@@ -297,9 +297,9 @@ internal static class IntegrationTestSeeder
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
             "Integration test seed representative.",
             "Integration test seed instrument.",
-            appointmentDateUtc: DateTime.UtcNow.Date,
-            effectiveFromUtc: DateTime.UtcNow.Date,
-            effectiveToUtc: null,
+            appointmentDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveFrom: DateOnly.FromDateTime(DateTime.UtcNow),
+            effectiveTo: null,
             email,
             phone: null,
             isPrimary: true);

@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Payroll;
@@ -72,7 +73,7 @@ internal sealed class WorkScheduleRepository(ApplicationDbContext dbContext) : I
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(schedule =>
                 schedule.NormalizedCode.Contains(normalizedSearch) ||
                 schedule.NormalizedName.Contains(normalizedSearch));

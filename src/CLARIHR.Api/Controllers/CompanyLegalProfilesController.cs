@@ -1,9 +1,11 @@
 using Asp.Versioning;
+using CLARIHR.Api.Authorization;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.Compliance;
+using CLARIHR.Application.Features.Preferences.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -15,6 +17,9 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 [Route("api/v{version:apiVersion}/companies/{companyId:guid}/legal-profile")]
 [Tags("Company Legal Profile")]
+// 00001 / B-01 — declara el recurso para que `AllowedActionsResultFilter` enriquezca las respuestas. El gate
+// real vive en los handlers (`CompanyPreferenceAuthorizationService`); esto sólo lo hace legible al cliente.
+[ResourceActions(CompanyPreferencePermissionCodes.ResourceKey)]
 public sealed class CompanyLegalProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

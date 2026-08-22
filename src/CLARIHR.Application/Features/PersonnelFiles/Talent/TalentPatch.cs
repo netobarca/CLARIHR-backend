@@ -12,6 +12,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
 
@@ -59,7 +60,7 @@ internal static class PersonnelFileTalentPatch
     {
         if (!IsNull(value) &&
             value!.Value.ValueKind == JsonValueKind.String &&
-            value.Value.TryGetDateTime(out var parsed))
+            CalendarDateReader.TryReadDayAsUtcMidnight(value.Value.GetString(), out var parsed))
         {
             return parsed;
         }

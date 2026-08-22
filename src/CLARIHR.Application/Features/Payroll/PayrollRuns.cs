@@ -84,6 +84,15 @@ public static class PayrollRunErrors
         "The payroll definition already has an active run for this period.",
         ErrorType.Conflict);
 
+    /// <summary>
+    /// El aguinaldo del año ya está pagado por otra corrida viva. Es 409 y no 422 porque el estado del
+    /// sistema es el que impide la operación: anular la otra corrida la habilita.
+    /// </summary>
+    public static readonly Error AguinaldoAlreadyPaidForYear = new(
+        "PAYROLL_AGUINALDO_ALREADY_PAID_FOR_YEAR",
+        "The aguinaldo of this year is already paid by another active payroll run.",
+        ErrorType.Conflict);
+
     /// <summary>A pool record changed between the scan and the apply — full rollback (§3.5).</summary>
     public static readonly Error PoolConflict = new(
         "PAYROLL_RUN_POOL_CONFLICT",

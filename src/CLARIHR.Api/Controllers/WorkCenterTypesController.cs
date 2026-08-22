@@ -57,6 +57,25 @@ public sealed class WorkCenterTypesController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("work-center-types/{id:guid}/usage")]
+    [ProducesResponseType<WorkCenterTypeUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a work center type's usage",
+        Description = """
+            Returns how many work centers reference the type, split into active and inactive.
+            Inactivation only looks at the active ones (`WORK_CENTER_TYPE_IN_USE`); a hard delete is
+            blocked by both, because the foreign key is `RESTRICT`. Returning the two counts lets a
+            client tell those two situations apart instead of guessing.
+            """)]
+    public async Task<ActionResult<WorkCenterTypeUsageResponse>> Usage(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetWorkCenterTypeUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("work-center-types/{id:guid}")]
     [ProducesResponseType<WorkCenterTypeResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -143,6 +162,29 @@ public sealed class WorkCenterTypesController(
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("work-center-types/{id:guid}")]
+    [ProducesResponseType<WorkCenterTypeResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Delete a work center type",
+        Description = """
+            Hard-deletes the work center type. Requires the current `concurrencyToken` in the
+            `If-Match` header (missing → `400`, stale → `409`). Rejected with
+            `409 WORK_CENTER_TYPE_IN_USE_FOR_DELETE` when any work center still references it, active
+            **or** inactive, since the foreign key is `RESTRICT`. Use
+            `GET /work-center-types/{id}/usage` to see what blocks it. Inactivation remains the way to
+            retire a type that is in use; this exists for the record created by mistake that nothing
+            ever used.
+            """)]
+    public async Task<ActionResult<WorkCenterTypeResponse>> Delete(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(new DeleteWorkCenterTypeCommand(id, concurrencyToken), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("work-center-types/{id:guid}")]

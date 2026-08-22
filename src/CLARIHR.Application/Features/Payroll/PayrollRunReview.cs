@@ -34,7 +34,10 @@ public sealed record PayrollRunLineResponse(
     Guid? SourceReferencePublicId,
     string CurrencyCode,
     IReadOnlyList<string> WarningCodes,
-    int SortOrder);
+    int SortOrder,
+    // Porción del ingreso exenta de Renta, congelada al generar (hoy solo el aguinaldo la usa). Cero en
+    // descuentos y pagos patronales.
+    decimal ExemptAmount = 0m);
 
 public sealed record PayrollRunEmployeeLinesResponse(
     Guid PayrollRunId,

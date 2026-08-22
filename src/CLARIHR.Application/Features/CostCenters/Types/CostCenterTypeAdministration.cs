@@ -86,7 +86,7 @@ internal sealed class GetCostCenterTypesQueryValidator : AbstractValidator<GetCo
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(CostCenterValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {CostCenterValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(CostCenterValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, CostCenterValidationRules.MaxPageSize);
     }
@@ -109,7 +109,7 @@ internal sealed class CreateCostCenterTypeCommandValidator : AbstractValidator<C
             .NotEmpty()
             .MaximumLength(50)
             .Must(CostCenterValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CostCenterValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
     }
@@ -124,7 +124,7 @@ internal sealed class UpdateCostCenterTypeCommandValidator : AbstractValidator<U
             .NotEmpty()
             .MaximumLength(50)
             .Must(CostCenterValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CostCenterValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -763,7 +763,7 @@ internal static class CostCenterTypePatchApplier
         }
         else if (!CostCenterValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [CostCenterValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

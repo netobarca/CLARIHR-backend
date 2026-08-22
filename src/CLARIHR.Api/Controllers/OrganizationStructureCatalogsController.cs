@@ -56,6 +56,23 @@ public sealed class OrganizationStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("organization-structure-catalogs/unit-types/{id:guid}/usage")]
+    [ProducesResponseType<OrgUnitTypeUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a unit type's usage",
+        Description = """
+            Returns the active/inactive reference counts for the unit type across organization units
+            and position category classifications, indicating whether it is safe to inactivate.
+            Inactivation collapses both checks into a single `ORG_STRUCTURE_CATALOG_IN_USE`; this
+            endpoint separates them so a client can say WHICH references block it.
+            """)]
+    public async Task<ActionResult<OrgUnitTypeUsageResponse>> UnitTypeUsage(Guid id, CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetOrgUnitTypeUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("organization-structure-catalogs/unit-types/{id:guid}")]
     [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -122,6 +139,30 @@ public sealed class OrganizationStructureCatalogsController(
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("organization-structure-catalogs/unit-types/{id:guid}")]
+    [ProducesResponseType<OrgUnitTypeCatalogItemResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Delete a unit type",
+        Description = """
+            Hard-deletes the unit type. Requires the current `concurrencyToken` in the `If-Match`
+            header (missing → `400`, stale → `409`). Rejected with
+            `409 ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE` when anything still references it —
+            organization units or position category classifications, active **or** inactive, since
+            both foreign keys are `RESTRICT`. Use
+            `GET /organization-structure-catalogs/unit-types/{id}/usage` to see which references
+            block it. Inactivation remains the way to retire a type that is in use; this exists for
+            the record created by mistake that nothing ever used.
+            """)]
+    public async Task<ActionResult<OrgUnitTypeCatalogItemResponse>> DeleteUnitType(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(new DeleteOrgUnitTypeCommand(id, concurrencyToken), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("organization-structure-catalogs/unit-types/{id:guid}/activate")]
@@ -197,6 +238,26 @@ public sealed class OrganizationStructureCatalogsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("organization-structure-catalogs/functional-areas/{id:guid}/usage")]
+    [ProducesResponseType<FunctionalAreaUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a functional area's usage",
+        Description = """
+            Returns the active/inactive reference counts for the functional area across organization
+            units, plus how many company preferences point at it. **The dashboard preference has no
+            foreign key** — it references the area by `code` — so it does not appear in the database
+            constraint graph, yet deleting the area would leave the HR-ratio metric pointing at a code
+            that no longer exists. It is counted here for that reason.
+            """)]
+    public async Task<ActionResult<FunctionalAreaUsageResponse>> FunctionalAreaUsage(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetFunctionalAreaUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("organization-structure-catalogs/functional-areas/{id:guid}")]
     [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -263,6 +324,30 @@ public sealed class OrganizationStructureCatalogsController(
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("organization-structure-catalogs/functional-areas/{id:guid}")]
+    [ProducesResponseType<FunctionalAreaCatalogItemResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Delete a functional area",
+        Description = """
+            Hard-deletes the functional area. Requires the current `concurrencyToken` in the `If-Match`
+            header (missing → `400`, stale → `409`). Rejected with
+            `409 ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE` when anything still references it —
+            organization units, active **or** inactive since the foreign key is `RESTRICT`, and also
+            the company dashboard preference, which points at the area by `code` without a foreign
+            key. Use `GET /organization-structure-catalogs/functional-areas/{id}/usage` to see which
+            references block it. Inactivation remains the way to retire an area that is in use; this
+            exists for the record created by mistake that nothing ever used.
+            """)]
+    public async Task<ActionResult<FunctionalAreaCatalogItemResponse>> DeleteFunctionalArea(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(new DeleteFunctionalAreaCommand(id, concurrencyToken), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("organization-structure-catalogs/functional-areas/{id:guid}/activate")]

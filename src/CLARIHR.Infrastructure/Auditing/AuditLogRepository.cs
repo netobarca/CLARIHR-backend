@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Domain.Auditing;
@@ -56,7 +57,7 @@ internal sealed class AuditLogRepository(ApplicationDbContext dbContext) : IAudi
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(log =>
                 (log.ActorEmail != null && log.ActorEmail.ToUpper().Contains(normalizedSearch)) ||
                 log.Summary.ToUpper().Contains(normalizedSearch));

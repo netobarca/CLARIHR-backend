@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Domain.GeneralCatalogs;
@@ -168,7 +169,7 @@ internal sealed class ExitInterviewRepository(ApplicationDbContext dbContext) : 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(form => form.NormalizedName.Contains(normalizedSearch));
         }
 

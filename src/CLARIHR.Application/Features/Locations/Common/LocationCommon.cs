@@ -9,6 +9,13 @@ public static partial class LocationValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
     public const int MinSearchLength = 2;
+
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
     public const string DefaultGroupCode = "GENERAL";
     public const string DefaultGroupName = "General";
     public const string GeneralLevelDisplayName = "General";
@@ -45,6 +52,14 @@ public static partial class LocationValidationRules
     // cardinality is small, so the bounded scan above MinSearchLength is acceptable (ADR-0002).
     public static bool IsValidSearchLength(string? search) =>
         string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
@@ -136,6 +151,19 @@ public static class LocationErrors
     public static readonly Error GroupHasActiveWorkCenters = new(
         "LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS",
         "The location group cannot be inactivated because it still has active work centers.",
+        ErrorType.Conflict);
+
+    // 00003 / B-04 — codigo propio para el BORRADO, distinto del de la baja logica: la inactivacion
+    // solo mira referencias ACTIVAS, y el borrado duro tiene que mirar tambien las inactivas porque la
+    // clave foranea es RESTRICT. Colapsarlos diria "en uso" en dos situaciones que no son la misma.
+    public static readonly Error WorkCenterTypeInUseForDelete = new(
+        "WORK_CENTER_TYPE_IN_USE_FOR_DELETE",
+        "The work center type cannot be deleted because work centers still reference it.",
+        ErrorType.Conflict);
+
+    public static readonly Error WorkCenterInUseForDelete = new(
+        "WORK_CENTER_IN_USE_FOR_DELETE",
+        "The work center cannot be deleted because position slots or personnel assignments still reference it.",
         ErrorType.Conflict);
 
     public static readonly Error WorkCenterTypeInUse = new(

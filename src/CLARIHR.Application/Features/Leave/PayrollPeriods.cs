@@ -129,6 +129,16 @@ public static class PayrollPeriodErrors
         "The payroll period could not be found.",
         ErrorType.NotFound);
 
+    /// <summary>
+    /// Generar el calendario de una nómina de AGUINALDO sin que la empresa haya configurado su fecha de pago
+    /// (preferencias, ventana legal 20-oct → 20-dic). No se inventa una fecha: el periodo entero existe para
+    /// colocar ese pago.
+    /// </summary>
+    public static readonly Error AguinaldoPaymentDateNotConfigured = new(
+        "AGUINALDO_PAYMENT_DATE_NOT_CONFIGURED",
+        "The company has not configured its aguinaldo payment date.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error TypeInvalid = new(
         "PAYROLL_PERIOD_TYPE_INVALID",
         "The pay period type code is not valid for the active catalog.",

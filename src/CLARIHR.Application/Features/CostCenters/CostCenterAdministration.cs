@@ -147,7 +147,7 @@ internal sealed class SearchCostCentersQueryValidator : AbstractValidator<Search
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(CostCenterValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {CostCenterValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(CostCenterValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, CostCenterValidationRules.MaxPageSize);
     }
@@ -178,7 +178,7 @@ internal sealed class ExportCostCentersQueryValidator : AbstractValidator<Export
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(CostCenterValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {CostCenterValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(CostCenterValidationRules.SearchLengthMessage);
     }
 }
 
@@ -191,7 +191,7 @@ internal sealed class CreateCostCenterCommandValidator : AbstractValidator<Creat
             .NotEmpty()
             .MaximumLength(50)
             .Must(CostCenterValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CostCenterValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.CostCenterTypeId).NotEmpty();
         RuleFor(command => command.PayrollExpenseAccountCode)
@@ -222,7 +222,7 @@ internal sealed class UpdateCostCenterCommandValidator : AbstractValidator<Updat
             .NotEmpty()
             .MaximumLength(50)
             .Must(CostCenterValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CostCenterValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.CostCenterTypeId).NotEmpty();
         RuleFor(command => command.PayrollExpenseAccountCode)
@@ -1027,7 +1027,7 @@ internal static class CostCenterPatchApplier
         }
         else if (!CostCenterValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [CostCenterValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.EmployeeRelations;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.EmployeeRelations;
@@ -68,7 +69,7 @@ internal sealed class DisciplinaryActionTypeRepository(ApplicationDbContext dbCo
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(type =>
                 type.NormalizedCode.Contains(normalizedSearch) ||
                 type.NormalizedName.Contains(normalizedSearch));

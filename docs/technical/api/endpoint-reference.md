@@ -1195,7 +1195,7 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido.
 - Response: `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
-- Observaciones: devuelve solo representantes legales activos, ordenados con los marcados como primarios primero, mas metadata del tipo de compania si existe. `activeLegalRepresentatives[].isPrimary` puede venir en `true`, `false` o `null`; `null` indica que el registro fue creado sin marcar prioridad inicial.
+- Observaciones: devuelve solo representantes legales activos, ordenados con los marcados como primarios primero, mas metadata del tipo de compania si existe. `activeLegalRepresentatives[].isPrimary` es `true` o `false` (B-04: dejo de ser anulable). Toda compania con representantes activos tiene exactamente uno en `true`.
 
 ##### `POST /api/v1/account/companies`
 
@@ -1203,10 +1203,10 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido.
 - Request body: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`.
 - Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras y existente en el catalogo global activo de paises; `companyTypePublicId` no puede ser `Guid.Empty` y, si se envia, debe pertenecer al catalogo global activo del pais seleccionado.
-- Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
+- Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFrom`; `effectiveTo >= effectiveFrom`; `email` opcional maximo `320`; `phone` opcional maximo `40`. `isPrimary` ya no se acepta aqui: el servidor marca como principal al representante inicial (B-04).
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
-- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, sincroniza ese rol admin contra todos los permisos tenant-scoped existentes, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/countries`. Para `initialLegalRepresentative.documentType`, el frontend debe usar el `code` devuelto por `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`. Para `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/legal-representative-representation-types`. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
+- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, sincroniza ese rol admin contra todos los permisos tenant-scoped existentes, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/countries`. Para `initialLegalRepresentative.documentType`, el frontend debe usar el `code` devuelto por `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`. Para `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por `GET /api/v1/account/companies/legal-representative-representation-types`. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. `initialLegalRepresentative` ya no lleva `isPrimary`: es el unico representante de la compania, asi que el servidor lo marca como principal siempre (B-04). Un cliente que lo siga enviando no se rompe; el campo se ignora.
 
 ##### `PUT /api/v1/account/companies/{companyPublicId}`
 
@@ -2333,7 +2333,7 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `get by id`, `usage`, `update`, `activate`, `inactivate` y `set-primary` usan solo `{id}` y resuelven el tenant desde el token actual.
 - Si un representante legal existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver `404` plano.
 - `LegalRepresentativeListItemResponse` devuelve `companyId`, nombre, documento, cargo, `representationType`, `isPrimary`, `isActive`, vigencias, `concurrencyToken`, timestamps y opcionalmente `allowedActions`.
-- `LegalRepresentativeResponse` agrega `authorityDescription`, `appointmentInstrument`, `appointmentDateUtc`, `email` y `phone`.
+- `LegalRepresentativeResponse` agrega `authorityDescription`, `appointmentInstrument`, `appointmentDate`, `email` y `phone`.
 - `isPrimary` es nullable en respuestas. `true` significa primario vigente; `false`, no primario; `null`, prioridad no especificada en el alta original.
 - `LegalRepresentativeUsageResponse` devuelve `legalRepresentativeId` y `canInactivate`.
 - `firstName` y `lastName` son obligatorios, maximo `100`, y usan validacion de nombre.
@@ -2343,8 +2343,8 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `authorityDescription` y `appointmentInstrument` aceptan hasta `500` caracteres.
 - `email` es opcional, pero si se envia debe ser email valido y maximo `320`.
 - `phone` es opcional y maximo `40`.
-- `effectiveFromUtc` es obligatorio.
-- `effectiveToUtc` es opcional, pero no puede ser menor que `effectiveFromUtc`.
+- `effectiveFrom` es obligatorio.
+- `effectiveTo` es opcional, pero no puede ser menor que `effectiveFrom`.
 - `pageSize` maximo es `100`, el default es `20`.
 - `update`, `activate`, `inactivate` y `set-primary` usan concurrencia optimista con `ConcurrencyToken`.
 - Todas las escrituras y el export generan auditoria.
@@ -2369,7 +2369,7 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - `LEGAL_REPRESENTATIVE_DOCUMENT_CONFLICT`: `409`, otro representante del mismo tenant ya usa esa combinacion de tipo y numero de documento.
 - `LEGAL_REPRESENTATIVE_ACTIVE_MIN_REQUIRED`: `409`, no puede inactivarse el ultimo representante activo de la compania.
 - `CONCURRENCY_CONFLICT`: `409`, el `concurrencyToken` ya no coincide con la version actual.
-- `LEGAL_REPRESENTATIVE_EFFECTIVE_DATES_INVALID`: `422`, `effectiveToUtc` es menor que `effectiveFromUtc`.
+- `LEGAL_REPRESENTATIVE_EFFECTIVE_DATES_INVALID`: `422`, `effectiveTo` es menor que `effectiveFrom`.
 - `LEGAL_REPRESENTATIVE_STATE_RULE_VIOLATION`: `422`, la operacion no es valida para el estado actual, por ejemplo marcar primario un registro inactivo.
 - `LEGAL_REPRESENTATIVE_EXPORT_FORMAT_INVALID`: `400`, `format` no soportado en el export.
 - `400` de validacion: `page/pageSize` invalidos, nombres invalidos, `documentType` o `documentNumber` invalido, `positionTitle` invalido, `q` menor a `2` caracteres, email invalido, ids vacios o `ConcurrencyToken` ausente.
@@ -2427,7 +2427,7 @@ Observaciones funcionales:
 
 - soporta `format=csv|xlsx`.
 - reutiliza los mismos filtros de busqueda operativa, salvo paginacion.
-- devuelve filas planas con nombre, documento, cargo, tipo de representacion, vigencias, contacto, `isPrimary`, `isActive` y timestamps. Cuando `isPrimary` es `null`, el valor sale vacio en el export.
+- devuelve filas planas con nombre, documento, cargo, tipo de representacion, vigencias, contacto, `isPrimary`, `isActive` y timestamps. `isPrimary` sale siempre como `true` o `false`; el `null` desaparecio con B-04.
 - genera auditoria de tipo `ReportExported`.
 - si `format` no es soportado, la respuesta observable es `LEGAL_REPRESENTATIVE_EXPORT_FORMAT_INVALID`.
 
@@ -2450,20 +2450,21 @@ Uso principal:
 Observaciones funcionales:
 
 - `create` devuelve `201 Created` con la `LegalRepresentativeResponse` creada.
-- `create` exige identidad, documento, cargo, tipo de representacion y `effectiveFromUtc`; acepta descripcion de autoridad, instrumento, fecha de nombramiento, contacto y `isPrimary`.
+- `create` exige identidad, documento, cargo, tipo de representacion y `effectiveFrom`; acepta descripcion de autoridad, instrumento, fecha de nombramiento, contacto y `isPrimary`.
 - `create` valida unicidad por `documentType + documentNumber` dentro del tenant.
 - si `create` recibe `isPrimary=true`, el sistema quita la marca primaria al representante activo actual en la misma transaccion; no devuelve conflicto por primario duplicado.
+- si la compania no tiene ningun principal activo, el representante que se crea lo es aunque se haya enviado `isPrimary=false` (B-04: el invariante es del servidor).
 - `update` exige `ConcurrencyToken` y puede cambiar todos los datos escalares, incluida la bandera `isPrimary`.
 - `update` falla con `LEGAL_REPRESENTATIVE_STATE_RULE_VIOLATION` si se intenta dejar como primario un representante inactivo.
 - `activate` exige `ConcurrencyToken` y reactiva el registro, pero no lo convierte automaticamente en primario.
-- `inactivate` exige `ConcurrencyToken`, limpia `isPrimary` y falla si dejaria a la compania sin representantes activos.
+- `inactivate` exige `ConcurrencyToken`, limpia `isPrimary` y falla si dejaria a la compania sin representantes activos. Si el que se da de baja era el principal, el sistema **promueve al activo mas antiguo** para que la compania nunca quede sin uno (B-04).
 - `set-primary` exige `ConcurrencyToken`, solo funciona sobre registros activos y desplaza al primario activo anterior en la misma transaccion.
 
 #### 5.7.10 Relacion con otros modulos
 
 - `Account companies` expone el catalogo auxiliar de `representation type` en `/api/v1/account/companies/legal-representative-representation-types`.
 - los tipos documentales de representantes legales y personal se unifican en `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`.
-- `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania, donde `isPrimary` ahora es opcional.
+- `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania, donde `isPrimary` ya no existe: lo decide el servidor (B-04).
 - Los detalles de compania reutilizan resumenes de representantes activos para mostrar la representacion vigente del tenant.
 
 `Legal representatives` queda asi como el modulo operativo posterior al onboarding: los catalogos se consultan desde `Account companies`, pero la administracion continua del registro legal ya ocurre aqui.

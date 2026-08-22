@@ -69,9 +69,9 @@ public sealed class LegalRepresentativeDocumentIdentityTests
             representationType: LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
             authorityDescription: null,
             appointmentInstrument: null,
-            appointmentDateUtc: null,
-            effectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            effectiveToUtc: null,
+            appointmentDate: null,
+            effectiveFrom: new DateOnly(2026, 1, 1),
+            effectiveTo: null,
             email: null,
             phone: null,
             isPrimary: true);

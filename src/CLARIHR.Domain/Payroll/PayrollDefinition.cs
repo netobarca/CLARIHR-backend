@@ -37,7 +37,8 @@ public sealed class PayrollDefinition : TenantEntity
         bool overtimeWindowEnabled,
         int? overtimeWindowOffsetDays,
         bool attendanceWindowEnabled,
-        int? attendanceWindowOffsetDays)
+        int? attendanceWindowOffsetDays,
+        string purposeCode)
     {
         PublicId = publicId;
         SetCode(code);
@@ -49,6 +50,7 @@ public sealed class PayrollDefinition : TenantEntity
         SetCurrencyCode(currencyCode);
         SetOvertimeWindow(overtimeWindowEnabled, overtimeWindowOffsetDays);
         SetAttendanceWindow(attendanceWindowEnabled, attendanceWindowOffsetDays);
+        SetPurposeCode(purposeCode);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -66,6 +68,18 @@ public sealed class PayrollDefinition : TenantEntity
 
     /// <summary>Pay frequency — a code of the country catalog <c>pay-periods</c>.</summary>
     public string PayPeriodCode { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Para qué sirve esta nómina (<see cref="PayrollPurposes"/>). <c>ORDINARIA</c> es la de siempre; con
+    /// <c>AGUINALDO</c> la corrida cambia de naturaleza: su población son TODOS los empleados activos sin
+    /// importar el tipo de planilla de su plaza, y en vez de salario y pools paga una sola línea de aguinaldo
+    /// (requerimiento 2026-08-12 §5/§6). Vive en la nómina y no en el periodo porque es una decisión de
+    /// configuración: la empresa declara «esta es mi nómina de aguinaldo» una vez.
+    /// </summary>
+    public string PurposeCode { get; private set; } = PayrollPurposes.Ordinaria;
+
+    /// <summary>Si esta nómina es la de aguinaldo — el atajo que lee el proveedor de datos y el motor.</summary>
+    public bool IsAguinaldo => PurposeCode == PayrollPurposes.Aguinaldo;
 
     /// <summary>
     /// Periods per year. Free (≥ 1): only MENSUAL/QUINCENAL/SEMANAL have a canonical cadence
@@ -108,7 +122,8 @@ public sealed class PayrollDefinition : TenantEntity
         bool overtimeWindowEnabled,
         int? overtimeWindowOffsetDays,
         bool attendanceWindowEnabled,
-        int? attendanceWindowOffsetDays) =>
+        int? attendanceWindowOffsetDays,
+        string purposeCode = PayrollPurposes.Ordinaria) =>
         new(
             Guid.NewGuid(),
             code,
@@ -121,7 +136,8 @@ public sealed class PayrollDefinition : TenantEntity
             overtimeWindowEnabled,
             overtimeWindowOffsetDays,
             attendanceWindowEnabled,
-            attendanceWindowOffsetDays);
+            attendanceWindowOffsetDays,
+            purposeCode);
 
     public void Update(
         string code,
@@ -134,7 +150,8 @@ public sealed class PayrollDefinition : TenantEntity
         bool overtimeWindowEnabled,
         int? overtimeWindowOffsetDays,
         bool attendanceWindowEnabled,
-        int? attendanceWindowOffsetDays)
+        int? attendanceWindowOffsetDays,
+        string purposeCode = PayrollPurposes.Ordinaria)
     {
         SetCode(code);
         SetName(name);
@@ -145,6 +162,7 @@ public sealed class PayrollDefinition : TenantEntity
         SetCurrencyCode(currencyCode);
         SetOvertimeWindow(overtimeWindowEnabled, overtimeWindowOffsetDays);
         SetAttendanceWindow(attendanceWindowEnabled, attendanceWindowOffsetDays);
+        SetPurposeCode(purposeCode);
         RefreshConcurrencyToken();
     }
 
@@ -191,6 +209,17 @@ public sealed class PayrollDefinition : TenantEntity
                 $"Payroll type code must be {MaxPayrollTypeCodeLength} characters or fewer.",
                 nameof(payrollTypeCode));
         }
+    }
+
+    private void SetPurposeCode(string purposeCode)
+    {
+        var normalized = PayrollPurposes.Normalize(purposeCode);
+        if (!PayrollPurposes.IsKnown(normalized))
+        {
+            throw new ArgumentException($"Unknown payroll purpose '{purposeCode}'.", nameof(purposeCode));
+        }
+
+        PurposeCode = normalized;
     }
 
     private void SetPayPeriodCode(string payPeriodCode)

@@ -108,7 +108,7 @@ internal sealed class SearchOvertimeTypesQueryValidator : AbstractValidator<Sear
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(OvertimeConfigurationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {OvertimeConfigurationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(OvertimeConfigurationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OvertimeConfigurationValidationRules.MaxPageSize);
     }

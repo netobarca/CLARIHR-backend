@@ -96,12 +96,15 @@ internal sealed class CompanyProvisioningService(
             initialLegalRepresentative.RepresentationType,
             initialLegalRepresentative.AuthorityDescription,
             initialLegalRepresentative.AppointmentInstrument,
-            initialLegalRepresentative.AppointmentDateUtc,
-            initialLegalRepresentative.EffectiveFromUtc,
-            initialLegalRepresentative.EffectiveToUtc,
+            initialLegalRepresentative.AppointmentDate,
+            initialLegalRepresentative.EffectiveFrom,
+            initialLegalRepresentative.EffectiveTo,
             initialLegalRepresentative.Email,
             initialLegalRepresentative.Phone,
-            initialLegalRepresentative.IsPrimary);
+            // B-04 — el primero es principal, y lo decide el servidor. Es el único representante de la empresa
+            // que acaba de nacer: no hay con quién competir ni nada que elegir. Antes esto pasaba el `bool?`
+            // del cliente tal cual, y omitirlo dejaba la empresa con su único representante sin marcar.
+            isPrimary: true);
         legalRepresentative.SetTenantId(company.PublicId);
         legalRepresentativeRepository.Add(legalRepresentative);
 

@@ -48,6 +48,7 @@ using CLARIHR.Infrastructure.IdentityAccess;
 using CLARIHR.Infrastructure.InternalCatalogs;
 using CLARIHR.Infrastructure.JobProfiles;
 using CLARIHR.Infrastructure.LegalRepresentatives;
+using CLARIHR.Application.Common.Validation;
 using CLARIHR.Infrastructure.Localization;
 using CLARIHR.Infrastructure.Locations;
 using CLARIHR.Infrastructure.OrgUnits;
@@ -119,6 +120,10 @@ public static class DependencyInjection
         services.AddScoped<IPlatformAuditService, PlatformAuditService>();
         services.AddSingleton<IAuditSanitizer, AuditSanitizer>();
         services.AddSingleton<IBackendMessageLocalizer, ResourceBackendMessageLocalizer>();
+
+        // 00002 / B-04 — la búsqueda de etiquetas vive aquí porque aquí están los recursos. Es estática a
+        // propósito: `ValidatorOptions.Global` también lo es, y el localizador no depende del scope.
+        ValidationDisplayNames.UseResolver(ResourceBackendMessageLocalizer.ResolvePropertyName);
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ICommercialAddonRepository, CommercialAddonRepository>();
         services.AddScoped<ICommercialPlanRepository, CommercialPlanRepository>();
@@ -216,6 +221,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonnelFileAuthorizationService, PersonnelFileAuthorizationService>();
         services.AddScoped<ISalaryTabulatorRepository, SalaryTabulatorRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Compensation.IIncomeTaxBracketRepository, CLARIHR.Infrastructure.Compensation.IncomeTaxBracketRepository>();
+        services.AddScoped<CLARIHR.Application.Abstractions.Compensation.IAguinaldoExemptionRepository, CLARIHR.Infrastructure.Compensation.AguinaldoExemptionRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Compensation.IIndebtednessRepository, CLARIHR.Infrastructure.Compensation.IndebtednessRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.PersonnelFiles.INotWorkedTimeTypeRepository, CLARIHR.Infrastructure.PersonnelFiles.NotWorkedTimeTypeRepository>();
         services.AddScoped<CLARIHR.Application.Abstractions.Leave.INotWorkedTimeTemplateSeeder, CLARIHR.Infrastructure.Leave.NotWorkedTimeTemplateSeeder>();

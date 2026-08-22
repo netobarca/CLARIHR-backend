@@ -18,12 +18,12 @@ public sealed class LegalRepresentative : TenantEntity
         LegalRepresentativeRepresentationType representationType,
         string? authorityDescription,
         string? appointmentInstrument,
-        DateTime? appointmentDateUtc,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
+        DateOnly? appointmentDate,
+        DateOnly effectiveFrom,
+        DateOnly? effectiveTo,
         string? email,
         string? phone,
-        bool? isPrimary)
+        bool isPrimary)
     {
         PublicId = publicId;
         SetName(firstName, lastName);
@@ -32,8 +32,8 @@ public sealed class LegalRepresentative : TenantEntity
         RepresentationType = representationType;
         AuthorityDescription = LegalRepresentativeNormalization.CleanOptional(authorityDescription);
         AppointmentInstrument = LegalRepresentativeNormalization.CleanOptional(appointmentInstrument);
-        AppointmentDateUtc = appointmentDateUtc;
-        SetEffectiveDates(effectiveFromUtc, effectiveToUtc);
+        AppointmentDate = appointmentDate;
+        SetEffectiveDates(effectiveFrom, effectiveTo);
         Email = LegalRepresentativeNormalization.CleanOptional(email);
         Phone = LegalRepresentativeNormalization.CleanOptional(phone);
         IsPrimary = isPrimary;
@@ -63,17 +63,17 @@ public sealed class LegalRepresentative : TenantEntity
 
     public string? AppointmentInstrument { get; private set; }
 
-    public DateTime? AppointmentDateUtc { get; private set; }
+    public DateOnly? AppointmentDate { get; private set; }
 
-    public DateTime EffectiveFromUtc { get; private set; }
+    public DateOnly EffectiveFrom { get; private set; }
 
-    public DateTime? EffectiveToUtc { get; private set; }
+    public DateOnly? EffectiveTo { get; private set; }
 
     public string? Email { get; private set; }
 
     public string? Phone { get; private set; }
 
-    public bool? IsPrimary { get; private set; }
+    public bool IsPrimary { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -88,12 +88,12 @@ public sealed class LegalRepresentative : TenantEntity
         LegalRepresentativeRepresentationType representationType,
         string? authorityDescription,
         string? appointmentInstrument,
-        DateTime? appointmentDateUtc,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
+        DateOnly? appointmentDate,
+        DateOnly effectiveFrom,
+        DateOnly? effectiveTo,
         string? email,
         string? phone,
-        bool? isPrimary) =>
+        bool isPrimary) =>
         new(
             Guid.NewGuid(),
             firstName,
@@ -104,9 +104,9 @@ public sealed class LegalRepresentative : TenantEntity
             representationType,
             authorityDescription,
             appointmentInstrument,
-            appointmentDateUtc,
-            effectiveFromUtc,
-            effectiveToUtc,
+            appointmentDate,
+            effectiveFrom,
+            effectiveTo,
             email,
             phone,
             isPrimary);
@@ -120,12 +120,12 @@ public sealed class LegalRepresentative : TenantEntity
         LegalRepresentativeRepresentationType representationType,
         string? authorityDescription,
         string? appointmentInstrument,
-        DateTime? appointmentDateUtc,
-        DateTime effectiveFromUtc,
-        DateTime? effectiveToUtc,
+        DateOnly? appointmentDate,
+        DateOnly effectiveFrom,
+        DateOnly? effectiveTo,
         string? email,
         string? phone,
-        bool? isPrimary)
+        bool isPrimary)
     {
         SetName(firstName, lastName);
         SetDocument(documentType, documentNumber);
@@ -133,8 +133,8 @@ public sealed class LegalRepresentative : TenantEntity
         RepresentationType = representationType;
         AuthorityDescription = LegalRepresentativeNormalization.CleanOptional(authorityDescription);
         AppointmentInstrument = LegalRepresentativeNormalization.CleanOptional(appointmentInstrument);
-        AppointmentDateUtc = appointmentDateUtc;
-        SetEffectiveDates(effectiveFromUtc, effectiveToUtc);
+        AppointmentDate = appointmentDate;
+        SetEffectiveDates(effectiveFrom, effectiveTo);
         Email = LegalRepresentativeNormalization.CleanOptional(email);
         Phone = LegalRepresentativeNormalization.CleanOptional(phone);
         IsPrimary = isPrimary;
@@ -149,7 +149,7 @@ public sealed class LegalRepresentative : TenantEntity
 
     public void ClearPrimary()
     {
-        if (IsPrimary != true)
+        if (!IsPrimary)
         {
             return;
         }
@@ -186,18 +186,20 @@ public sealed class LegalRepresentative : TenantEntity
         NormalizedDocumentNumber = LegalRepresentativeNormalization.NormalizeDocumentNumber(documentNumber);
     }
 
-    private void SetEffectiveDates(DateTime effectiveFromUtc, DateTime? effectiveToUtc)
+    /// <summary>
+    /// B-02 — las tres fechas son <see cref="DateOnly"/>: un día no tiene hora ni zona, así que aquí ya no hay
+    /// nada que normalizar. Antes había que truncar con <c>.Date</c> y etiquetar el <c>Kind</c>, y era donde se
+    /// colaba el corrimiento de F-03. El tipo lo vuelve imposible por construcción.
+    /// </summary>
+    private void SetEffectiveDates(DateOnly effectiveFrom, DateOnly? effectiveTo)
     {
-        var from = effectiveFromUtc.Date;
-        var to = effectiveToUtc?.Date;
-
-        if (to.HasValue && to.Value < from)
+        if (effectiveTo.HasValue && effectiveTo.Value < effectiveFrom)
         {
-            throw new InvalidOperationException("EffectiveToUtc cannot be earlier than EffectiveFromUtc.");
+            throw new InvalidOperationException("EffectiveTo cannot be earlier than EffectiveFrom.");
         }
 
-        EffectiveFromUtc = from;
-        EffectiveToUtc = to;
+        EffectiveFrom = effectiveFrom;
+        EffectiveTo = effectiveTo;
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();

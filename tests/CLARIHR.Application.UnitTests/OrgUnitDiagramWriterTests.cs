@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using System.Xml.Linq;
 using CLARIHR.Api.Common;
@@ -54,6 +55,37 @@ public sealed class OrgUnitDiagramWriterTests
         var document = XDocument.Parse(xml);
         XNamespace ns = "http://graphml.graphdrawing.org/xmlns";
         Assert.Contains(document.Descendants(ns + "data"), data => (string?)data == "R&D <Core>");
+    }
+
+    // Los nombres reales del producto llevan acentos y enes ("Direccion General", "Almacen Tecnico").
+    // El fixture original era ASCII puro, asi que ninguna de las tres ramas probaba ese caso.
+    [Theory]
+    [InlineData("Direccion General")]
+    [InlineData("Direcci\u00f3n General")]
+    [InlineData("Almac\u00e9n T\u00e9cnico")]
+    [InlineData("Gesti\u00f3n de Ca\u00f1er\u00edas & Log\u00edstica")]
+    public void DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(string label)
+    {
+        var graph = SampleGraph(rootLabel: label);
+
+        var xml = Writer.WriteGraphMl(graph);
+        var dot = Writer.WriteDot(graph);
+        var json = Writer.WriteJson(graph);
+
+        // GraphML debe seguir siendo XML valido y conservar la etiqueta intacta.
+        var document = XDocument.Parse(xml);
+        XNamespace ns = "http://graphml.graphdrawing.org/xmlns";
+        Assert.Contains(document.Descendants(ns + "data"), data => (string?)data == label);
+
+        Assert.Contains(label, dot, StringComparison.Ordinal);
+
+        // JSON escapa lo no-ASCII como \uXXXX por diseño del serializador: se compara el valor
+        // deserializado, no la cadena cruda. Afirmar sobre el texto seria afirmar sobre el escape.
+        using var parsed = JsonDocument.Parse(json);
+        var labels = parsed.RootElement.GetProperty("Nodes").EnumerateArray()
+            .Select(node => node.GetProperty("Label").GetString())
+            .ToArray();
+        Assert.Contains(label, labels);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Locations.WorkCenters;
@@ -10,6 +11,44 @@ namespace CLARIHR.Infrastructure.Locations;
 internal sealed class WorkCenterRepository(ApplicationDbContext dbContext) : IWorkCenterRepository
 {
     public void Add(WorkCenter workCenter) => dbContext.WorkCenters.Add(workCenter);
+
+    public void Remove(WorkCenter workCenter) => dbContext.WorkCenters.Remove(workCenter);
+
+    public async Task<WorkCenterUsageResponse?> GetUsageByIdAsync(
+        Guid workCenterId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.WorkCenters
+            .AsNoTracking()
+            .Where(center => center.PublicId == workCenterId)
+            .Select(center => new { center.Id, center.PublicId, center.Code, center.Name })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (item is null)
+        {
+            return null;
+        }
+
+        var plazasActivas = await dbContext.PositionSlots.AsNoTracking()
+            .CountAsync(slot => slot.WorkCenterId == item.Id && slot.IsActive, cancellationToken);
+
+        var plazasInactivas = await dbContext.PositionSlots.AsNoTracking()
+            .CountAsync(slot => slot.WorkCenterId == item.Id && !slot.IsActive, cancellationToken);
+
+        // 00003 / B-04 — sin clave foranea: la asignacion guarda el PublicId del centro. La base no lo
+        // protege, asi que si no se cuenta aqui el borrado dejaria expedientes apuntando a la nada.
+        var asignaciones = await dbContext.PersonnelFileEmploymentAssignments.AsNoTracking()
+            .CountAsync(assignment => assignment.WorkCenterPublicId == item.PublicId, cancellationToken);
+
+        return new WorkCenterUsageResponse(
+            item.PublicId,
+            item.Code,
+            item.Name,
+            plazasActivas,
+            plazasInactivas,
+            asignaciones,
+            plazasActivas > 0 || asignaciones > 0);
+    }
 
     public Task<WorkCenter?> GetByIdAsync(Guid workCenterId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters.SingleOrDefaultAsync(center => center.PublicId == workCenterId, cancellationToken);
@@ -66,7 +105,7 @@ internal sealed class WorkCenterRepository(ApplicationDbContext dbContext) : IWo
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.Center.NormalizedCode.Contains(normalizedSearch) ||
                 item.Center.NormalizedName.Contains(normalizedSearch) ||

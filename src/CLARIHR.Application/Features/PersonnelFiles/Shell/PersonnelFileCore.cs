@@ -215,7 +215,7 @@ internal sealed class SearchPersonnelFilesQueryValidator : AbstractValidator<Sea
         RuleFor(query => query.Search)
             .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
             .Must(PersonnelFileValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PersonnelFileValidationRules.SearchLengthMessage);
         RuleFor(query => query.MaritalStatus).MaximumLength(80);
         RuleFor(query => query.Nationality).MaximumLength(120);
         RuleFor(query => query.Profession).MaximumLength(120);

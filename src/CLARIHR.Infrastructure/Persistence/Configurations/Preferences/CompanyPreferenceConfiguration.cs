@@ -109,6 +109,13 @@ internal sealed class CompanyPreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(preference => preference.PayrollComplianceGatesEnabled)
             .HasColumnName("payroll_compliance_gates_enabled");
 
+        // Fecha de pago del aguinaldo (§5): mes + día SIN año — es una política recurrente, no un evento, y
+        // el año lo pone el periodo que se corre. Las dos columnas van juntas o van nulas las dos.
+        builder.Property(preference => preference.AguinaldoPaymentMonth)
+            .HasColumnName("aguinaldo_payment_month");
+        builder.Property(preference => preference.AguinaldoPaymentDay)
+            .HasColumnName("aguinaldo_payment_day");
+
         builder.Property(preference => preference.ConcurrencyToken)
             .HasColumnName("concurrency_token")
             .IsConcurrencyToken();

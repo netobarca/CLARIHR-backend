@@ -81,7 +81,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         Assert.NotNull(stored);
         Assert.Equal(selectedBank.Id, stored!.BankPublicId);
         Assert.Equal("BANCO_AGRICOLA", stored.BankCode);
-        Assert.Equal("Banco Agricola", stored.BankName);
+        Assert.Equal("Banco Agrícola", stored.BankName);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -97,8 +97,8 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var getPayload = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileBankAccountEnvelope>>(JsonOptions);
         var fetched = Assert.Single(getPayload!);
         Assert.Equal(selectedBank.Id, fetched.BankPublicId);
-        Assert.Equal("Banco Agricola", fetched.BankName);
-        Assert.Equal("Agricola", fetched.BankAlias);
+        Assert.Equal("Banco Agrícola", fetched.BankName);
+        Assert.Equal("Agrícola", fetched.BankAlias);
     }
 
     private sealed record PersonnelCatalogItemEnvelope(

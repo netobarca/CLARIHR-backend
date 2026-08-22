@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 namespace CLARIHR.Domain.Locations;
 
 internal static class LocationNormalization
@@ -21,7 +22,7 @@ internal static class LocationNormalization
         Clean(value, nameof(value)).ToUpperInvariant();
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 
     public static string? NormalizeOptionalEmail(string? value) =>
         string.IsNullOrWhiteSpace(value)

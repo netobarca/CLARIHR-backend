@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="a0e3f6c4-c054-4551-b060-d742d425e168" name="@Mac 2026-08-16 17:00:43" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-08-16T17:00:43.7692620-06:00" queuing="2026-08-16T17:00:43.7692620-06:00" start="2026-08-16T17:00:43.2306300-06:00" finish="2026-08-16T17:00:43.7718760-06:00" />
+  <TestSettings name="default" id="4e9da900-6dfe-45a9-b8d8-8f69a83fd91a">
+    <Deployment runDeploymentRoot="_Mac_2026-08-16_17_00_43" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="0b19ec87-c5fb-4087-ac23-470241801912" testId="51a941da-fa6d-fac9-6bb0-85703906b4f2" testName="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Dirección General&quot;)" computerName="Mac" duration="00:00:00.0000668" startTime="2026-08-16T17:00:43.7157270-06:00" endTime="2026-08-16T17:00:43.7157480-06:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0b19ec87-c5fb-4087-ac23-470241801912">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Contains() Failure: Sub-string not found
+String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+Not found: "Dirección General"</Message>
+          <StackTrace>   at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label) in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs:line 80
+   at InvokeStub_OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="91b75b59-52c0-46fe-b6c1-d09066b80280" testId="82fd037b-bff6-43ae-abe4-70cc38255606" testName="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Almacén Técnico&quot;)" computerName="Mac" duration="00:00:00.0125890" startTime="2026-08-16T17:00:43.6894710-06:00" endTime="2026-08-16T17:00:43.7091910-06:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="91b75b59-52c0-46fe-b6c1-d09066b80280">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Contains() Failure: Sub-string not found
+String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+Not found: "Almacén Técnico"</Message>
+          <StackTrace>   at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label) in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs:line 80
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="662d663f-bd54-46b2-9ffd-d64d51339d69" testId="818516e6-3d14-b296-590d-cc76de38b1f0" testName="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Direccion General&quot;)" computerName="Mac" duration="00:00:00.0006131" startTime="2026-08-16T17:00:43.7148580-06:00" endTime="2026-08-16T17:00:43.7149790-06:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="662d663f-bd54-46b2-9ffd-d64d51339d69" />
+    <UnitTestResult executionId="f7a59c0a-acd2-4eb6-8c50-43086add1ce0" testId="b9cb596d-da53-638c-1b5d-1a08e21e1619" testName="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Gestión de Cañerías &amp; Logística&quot;)" computerName="Mac" duration="00:00:00.0001413" startTime="2026-08-16T17:00:43.7153930-06:00" endTime="2026-08-16T17:00:43.7154240-06:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f7a59c0a-acd2-4eb6-8c50-43086add1ce0">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Contains() Failure: Sub-string not found
+String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+Not found: "Gestión de Cañerías &amp; Logística"</Message>
+          <StackTrace>   at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label) in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs:line 80
+   at InvokeStub_OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Almacén Técnico&quot;)" storage="/users/christophercanas/developments/clari new version/clarihr/clarihr-backend/tests/clarihr.application.unittests/bin/debug/net10.0/clarihr.application.unittests.dll" id="82fd037b-bff6-43ae-abe4-70cc38255606">
+      <Execution id="91b75b59-52c0-46fe-b6c1-d09066b80280" />
+      <TestMethod codeBase="/Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/bin/Debug/net10.0/CLARIHR.Application.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests" name="DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat" />
+    </UnitTest>
+    <UnitTest name="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Direccion General&quot;)" storage="/users/christophercanas/developments/clari new version/clarihr/clarihr-backend/tests/clarihr.application.unittests/bin/debug/net10.0/clarihr.application.unittests.dll" id="818516e6-3d14-b296-590d-cc76de38b1f0">
+      <Execution id="662d663f-bd54-46b2-9ffd-d64d51339d69" />
+      <TestMethod codeBase="/Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/bin/Debug/net10.0/CLARIHR.Application.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests" name="DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat" />
+    </UnitTest>
+    <UnitTest name="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Dirección General&quot;)" storage="/users/christophercanas/developments/clari new version/clarihr/clarihr-backend/tests/clarihr.application.unittests/bin/debug/net10.0/clarihr.application.unittests.dll" id="51a941da-fa6d-fac9-6bb0-85703906b4f2">
+      <Execution id="0b19ec87-c5fb-4087-ac23-470241801912" />
+      <TestMethod codeBase="/Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/bin/Debug/net10.0/CLARIHR.Application.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests" name="DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat" />
+    </UnitTest>
+    <UnitTest name="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: &quot;Gestión de Cañerías &amp; Logística&quot;)" storage="/users/christophercanas/developments/clari new version/clarihr/clarihr-backend/tests/clarihr.application.unittests/bin/debug/net10.0/clarihr.application.unittests.dll" id="b9cb596d-da53-638c-1b5d-1a08e21e1619">
+      <Execution id="f7a59c0a-acd2-4eb6-8c50-43086add1ce0" />
+      <TestMethod codeBase="/Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/bin/Debug/net10.0/CLARIHR.Application.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests" name="DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="51a941da-fa6d-fac9-6bb0-85703906b4f2" executionId="0b19ec87-c5fb-4087-ac23-470241801912" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="82fd037b-bff6-43ae-abe4-70cc38255606" executionId="91b75b59-52c0-46fe-b6c1-d09066b80280" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="818516e6-3d14-b296-590d-cc76de38b1f0" executionId="662d663f-bd54-46b2-9ffd-d64d51339d69" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b9cb596d-da53-638c-1b5d-1a08e21e1619" executionId="f7a59c0a-acd2-4eb6-8c50-43086add1ce0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="4" executed="4" passed="1" failed="3" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.2)
+[xUnit.net 00:00:00.07]   Discovering: CLARIHR.Application.UnitTests
+[xUnit.net 00:00:00.21]   Discovered:  CLARIHR.Application.UnitTests
+[xUnit.net 00:00:00.22]   Starting:    CLARIHR.Application.UnitTests
+[xUnit.net 00:00:00.25]       Assert.Contains() Failure: Sub-string not found
+[xUnit.net 00:00:00.25]       String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+[xUnit.net 00:00:00.25]       Not found: "Almacén Técnico"
+[xUnit.net 00:00:00.25]       Stack Trace:
+[xUnit.net 00:00:00.25]         /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs(80,0): at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label)
+[xUnit.net 00:00:00.25]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+[xUnit.net 00:00:00.25]            at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.26]       Assert.Contains() Failure: Sub-string not found
+[xUnit.net 00:00:00.26]       String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+[xUnit.net 00:00:00.26]       Not found: "Gestión de Cañerías &amp; Logística"
+[xUnit.net 00:00:00.26]       Stack Trace:
+[xUnit.net 00:00:00.26]         /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs(80,0): at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label)
+[xUnit.net 00:00:00.26]            at InvokeStub_OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(Object, Span`1)
+[xUnit.net 00:00:00.26]            at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:00.26]       Assert.Contains() Failure: Sub-string not found
+[xUnit.net 00:00:00.26]       String:    "{"Nodes":[{"Id":"11111111-1111-1111-1111-"···
+[xUnit.net 00:00:00.26]       Not found: "Dirección General"
+[xUnit.net 00:00:00.26]       Stack Trace:
+[xUnit.net 00:00:00.26]         /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/OrgUnitDiagramWriterTests.cs(80,0): at CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(String label)
+[xUnit.net 00:00:00.26]            at InvokeStub_OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(Object, Span`1)
+[xUnit.net 00:00:00.26]            at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:00.26]   Finished:    CLARIHR.Application.UnitTests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="Mac" outcome="Error" timestamp="2026-08-16T17:00:43.7107370-06:00">
+        <Text>[xUnit.net 00:00:00.25]     CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: "Almacén Técnico") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="Mac" outcome="Error" timestamp="2026-08-16T17:00:43.7156920-06:00">
+        <Text>[xUnit.net 00:00:00.26]     CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: "Gestión de Cañerías &amp; Logística") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="Mac" outcome="Error" timestamp="2026-08-16T17:00:43.7158070-06:00">
+        <Text>[xUnit.net 00:00:00.26]     CLARIHR.Application.UnitTests.OrgUnitDiagramWriterTests.DiagramWriter_WithNonAsciiLabels_ShouldNotThrowInAnyFormat(label: "Dirección General") [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

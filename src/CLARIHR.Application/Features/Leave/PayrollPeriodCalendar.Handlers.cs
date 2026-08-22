@@ -3,10 +3,12 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.Leave.Common;
+using CLARIHR.Application.Features.Payroll;
 using CLARIHR.Domain.Leave;
 using CLARIHR.Domain.Payroll;
 
@@ -24,6 +26,7 @@ internal sealed class GeneratePayrollPeriodCalendarCommandHandler(
     ILeaveConfigurationAuthorizationService authorizationService,
     IPayrollPeriodRepository repository,
     IPayrollDefinitionRepository payrollDefinitionRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<GeneratePayrollPeriodCalendarCommand, PayrollPeriodCalendarGenerationSummary>
@@ -78,6 +81,22 @@ internal sealed class GeneratePayrollPeriodCalendarCommandHandler(
             }
         }
 
+        // Una nómina de AGUINALDO paga en la fecha que la empresa configuró, no al cierre del periodo: es el
+        // requerimiento §5/§6. Sin esa configuración no hay calendario que generar — y decirlo con un error
+        // claro es mejor que producir doce meses de periodos que pagan el 31 de diciembre.
+        DateOnly? aguinaldoPaymentDate = null;
+        if (definition.IsAguinaldo)
+        {
+            var preference = await companyPreferenceRepository.GetByTenantIdAsync(command.CompanyId, cancellationToken);
+            if (preference?.AguinaldoPaymentMonth is not { } month || preference.AguinaldoPaymentDay is not { } day)
+            {
+                return Result<PayrollPeriodCalendarGenerationSummary>.Failure(
+                    PayrollPeriodErrors.AguinaldoPaymentDateNotConfigured);
+            }
+
+            aguinaldoPaymentDate = new DateOnly(command.Year, month, day);
+        }
+
         var existingNumbers = (await repository.GetExistingNumbersForDefinitionAsync(
             command.CompanyId, definition.Id, command.Year, cancellationToken)).ToHashSet();
 
@@ -106,8 +125,14 @@ internal sealed class GeneratePayrollPeriodCalendarCommandHandler(
                 period.SetTenantId(command.CompanyId);
                 period.AssignDefinition(definition.Id);
                 period.SetCode(code);
-                // Cutoff/payment default to the period end (editable — P-04 soft month = end's month).
-                period.SetSchedule(range.End, range.End, range.End.Month);
+                // Cutoff/payment default to the period end (editable — P-04 soft month = end's month). En la
+                // nómina de aguinaldo el pago es la fecha configurada y el corte es el cierre del devengo
+                // (12 de diciembre), que es lo que el cálculo proyecta aunque se pague en octubre.
+                var paymentDate = aguinaldoPaymentDate ?? range.End;
+                var cutoffDate = definition.IsAguinaldo
+                    ? AguinaldoRules.AccrualEnd(command.Year)
+                    : range.End;
+                period.SetSchedule(cutoffDate, paymentDate, paymentDate.Month);
                 period.SetWindows(
                     definition.OvertimeWindowEnabled,
                     definition.OvertimeWindowEnabled ? range.Start : null,
@@ -211,6 +236,12 @@ internal sealed class GeneratePayrollPeriodCalendarCommandHandler(
 
                 return ranges;
             }
+
+            case PayrollFrequencies.Anual:
+                // Un solo periodo: el año calendario. La nómina de aguinaldo lo usa entero como marco del
+                // devengo —que cierra el 12 de diciembre— y coloca su FECHA DE PAGO donde la empresa la haya
+                // configurado dentro de la ventana legal.
+                return [new PeriodRange(1, new DateOnly(year, 1, 1), new DateOnly(year, 12, 31))];
 
             default:
                 return null;

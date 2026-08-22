@@ -211,7 +211,7 @@ public sealed partial class ApiIntegrationTests
         using var doc = JsonDocument.Parse(payload);
         var root = doc.RootElement;
         Assert.Equal("EN_REVISION", root.GetProperty("statusCode").GetString());
-        Assert.Equal("Dano de equipo", root.GetProperty("conceptNameSnapshot").GetString());
+        Assert.Equal("Daño de equipo", root.GetProperty("conceptNameSnapshot").GetString());
         Assert.Equal(75m, root.GetProperty("amount").GetDecimal());
         Assert.True(root.GetProperty("isFixedValue").GetBoolean());
         // The requester's name is snapshotted onto the record (the trío).

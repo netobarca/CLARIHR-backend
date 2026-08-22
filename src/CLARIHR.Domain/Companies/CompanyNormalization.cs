@@ -1,4 +1,5 @@
 using System.Text;
+using CLARIHR.Domain.Common;
 using System.Text.RegularExpressions;
 
 namespace CLARIHR.Domain.Companies;
@@ -39,7 +40,7 @@ internal static class CompanyNormalization
     }
 
     public static string NormalizeName(string name) =>
-        Clean(name, nameof(name)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(name, nameof(name)));
 
     public static string? CleanOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

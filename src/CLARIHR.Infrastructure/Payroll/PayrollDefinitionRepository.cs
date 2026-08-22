@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Payroll;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Payroll;
@@ -57,7 +58,7 @@ internal sealed class PayrollDefinitionRepository(ApplicationDbContext dbContext
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(definition =>
                 definition.NormalizedCode.Contains(normalizedSearch) ||
                 definition.NormalizedName.Contains(normalizedSearch));
@@ -82,6 +83,7 @@ internal sealed class PayrollDefinitionRepository(ApplicationDbContext dbContext
                 definition.OvertimeWindowOffsetDays,
                 definition.AttendanceWindowEnabled,
                 definition.AttendanceWindowOffsetDays,
+                definition.PurposeCode,
                 definition.IsActive,
                 definition.ConcurrencyToken,
                 definition.CreatedUtc,
@@ -109,6 +111,7 @@ internal sealed class PayrollDefinitionRepository(ApplicationDbContext dbContext
                 definition.OvertimeWindowOffsetDays,
                 definition.AttendanceWindowEnabled,
                 definition.AttendanceWindowOffsetDays,
+                definition.PurposeCode,
                 definition.IsActive,
                 definition.ConcurrencyToken,
                 definition.CreatedUtc,

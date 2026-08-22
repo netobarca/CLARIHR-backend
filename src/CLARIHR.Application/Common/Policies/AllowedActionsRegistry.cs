@@ -15,6 +15,7 @@ using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Overtime.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.Preferences.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.JobProfiles;
 
@@ -184,6 +185,16 @@ public static class AllowedActionsRegistry
             PersonnelFilePermissionCodes.ViewOvertimeRecords,
             PersonnelFilePermissionCodes.ManageOvertimeRecords,
             PersonnelFilePermissionCodes.ManageAdministration);
+        // 00001 / B-01 — sin esta entrada el filtro es fail-closed y `allowedActions` sale `null` aunque el
+        // controller lleve `[ResourceActions]` y el DTO implemente la interfaz. Son TRES pasos, no dos.
+        // El perfil legal no tiene ciclo de vida (ni activar/inactivar ni borrar): solo ver, crear y editar.
+        yield return Policy(
+            CompanyPreferencePermissionCodes.ResourceKey,
+            CompanyPreferencePermissionCodes.Read,
+            CompanyPreferencePermissionCodes.Admin,
+            CompanyPreferencePermissionCodes.ManageAdministration,
+            supportsActivate: false,
+            supportsInactivate: false);
         yield return Policy(
             LegalRepresentativePermissionCodes.ResourceKey,
             LegalRepresentativePermissionCodes.Read,

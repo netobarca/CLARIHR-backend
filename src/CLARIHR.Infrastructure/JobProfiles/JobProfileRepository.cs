@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.JobProfiles;
@@ -254,7 +255,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(profile =>
                 profile.NormalizedCode.Contains(normalizedSearch) ||
                 profile.NormalizedTitle.Contains(normalizedSearch));

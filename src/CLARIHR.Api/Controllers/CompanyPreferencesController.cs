@@ -84,7 +84,9 @@ public sealed class CompanyPreferencesController(
                 request.OvertimeMaxDailyMinutes,
                 request.RecurringDeductionDefaultInterestRatePercent,
                 request.MaxIndebtednessPercent,
-                concurrencyToken),
+                concurrencyToken,
+                request.AguinaldoPaymentMonth,
+                request.AguinaldoPaymentDay),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
@@ -159,7 +161,13 @@ public sealed class CompanyPreferencesController(
         // the credit form when it uses compound interest. Null = no default. Must be in (0, 100] when
         // provided. The rate that governs a credit is always the one persisted on that credit.
         decimal? RecurringDeductionDefaultInterestRatePercent = null,
-        decimal? MaxIndebtednessPercent = null);
+        decimal? MaxIndebtednessPercent = null,
+        // Aguinaldo payment date (requerimiento §5), optional and set as a PAIR: the month and day the
+        // company pays the Christmas bonus, without a year — it is a standing policy, and the year comes
+        // from the payroll period being run. Must fall inside the legal window 20-Oct → 20-Dec (reform of
+        // 2025); outside it the request fails with `AGUINALDO_PAYMENT_DATE_OUT_OF_WINDOW`.
+        int? AguinaldoPaymentMonth = null,
+        int? AguinaldoPaymentDay = null);
 
     public sealed class PatchCompanyPreferencesRequest
     {

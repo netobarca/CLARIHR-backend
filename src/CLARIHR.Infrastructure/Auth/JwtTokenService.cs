@@ -265,8 +265,16 @@ internal sealed class JwtTokenService(
 
         claims.Add(new Claim("tid", tenantId.Value.ToString()));
 
-        var language = await userPreferenceRepository.ResolveLanguageAsync(user.Id, cancellationToken) ?? DefaultLanguage;
-        claims.Add(new Claim(LanguageClaimType, language));
+        // 00003 / B-03 — el claim se emite SOLO si el usuario eligió idioma. Con `?? DefaultLanguage`,
+        // «no eligió» y «eligió inglés» eran indistinguibles, y como `RequestLanguageResolver` resuelve
+        // `claim → Accept-Language → "en"`, un claim siempre presente hacía que la cabecera NUNCA se
+        // consultara: el producto respondía en inglés aunque se pidiera español explícitamente, con las
+        // 1051 traducciones ya escritas sin llegar a ningún usuario.
+        var language = await userPreferenceRepository.ResolveLanguageAsync(user.Id, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(language))
+        {
+            claims.Add(new Claim(LanguageClaimType, language));
+        }
 
         // Authorization is deliberately NOT carried here. Roles and permissions are resolved per request
         // from the current database state (see IEffectiveAccessResolver), which is what makes revocation

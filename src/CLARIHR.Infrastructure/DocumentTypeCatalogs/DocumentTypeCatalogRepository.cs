@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.DocumentTypeCatalogs;
@@ -43,7 +44,7 @@ internal sealed class DocumentTypeCatalogRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));

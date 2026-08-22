@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Leave;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Leave;
@@ -57,7 +58,7 @@ internal sealed class MedicalClinicRepository(ApplicationDbContext dbContext) : 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(clinic => clinic.NormalizedDescription.Contains(normalizedSearch));
         }
 

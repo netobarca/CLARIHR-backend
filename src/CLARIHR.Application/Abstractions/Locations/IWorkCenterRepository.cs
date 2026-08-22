@@ -8,6 +8,15 @@ public interface IWorkCenterRepository
 {
     void Add(WorkCenter workCenter);
 
+    /// <summary>00003 / B-04 — borrado duro, condicionado por <see cref="GetUsageByIdAsync"/>.</summary>
+    void Remove(WorkCenter workCenter);
+
+    /// <summary>
+    /// Que referencia al centro, separado por origen. Incluye las asignaciones de expediente, que
+    /// apuntan por <c>WorkCenterPublicId</c> y NO tienen clave foranea.
+    /// </summary>
+    Task<WorkCenterUsageResponse?> GetUsageByIdAsync(Guid workCenterId, CancellationToken cancellationToken);
+
     Task<WorkCenter?> GetByIdAsync(Guid workCenterId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken);

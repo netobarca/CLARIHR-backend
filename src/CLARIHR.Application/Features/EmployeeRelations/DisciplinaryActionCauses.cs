@@ -97,7 +97,7 @@ internal sealed class SearchDisciplinaryActionCausesQueryValidator : AbstractVal
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(EmployeeRelationsConfigurationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {EmployeeRelationsConfigurationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(EmployeeRelationsConfigurationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, EmployeeRelationsConfigurationValidationRules.MaxPageSize);
     }

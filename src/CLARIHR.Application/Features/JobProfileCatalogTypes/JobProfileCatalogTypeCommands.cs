@@ -47,7 +47,7 @@ internal sealed class CreateJobProfileCatalogTypeCommandValidator
             .NotEmpty()
             .MaximumLength(80)
             .Must(JobProfileCatalogTypeValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(JobProfileCatalogTypeValidationRules.CodeFormatMessage);
         RuleFor(c => c.Name).NotEmpty().MaximumLength(200);
         RuleFor(c => c.SortOrder).GreaterThanOrEqualTo(0);
     }

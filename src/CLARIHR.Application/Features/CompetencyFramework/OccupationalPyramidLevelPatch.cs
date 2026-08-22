@@ -236,7 +236,7 @@ internal static class OccupationalPyramidLevelPatchApplier
         }
         else if (!CompetencyFrameworkValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [CompetencyFrameworkValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

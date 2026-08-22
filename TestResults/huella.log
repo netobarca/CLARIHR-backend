@@ -1,0 +1,71 @@
+Test run for /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/bin/Debug/net10.0/CLARIHR.Api.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:59.73]     CLARIHR.Api.IntegrationTests.ContractFingerprintGuardrailsTests.ContractFingerprint_MatchesTheGeneratedContract [FAIL]
+  Failed CLARIHR.Api.IntegrationTests.ContractFingerprintGuardrailsTests.ContractFingerprint_MatchesTheGeneratedContract [12 s]
+  Error Message:
+   La huella versionada del contrato no coincide con el código.
+Archivo: /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/docs/technical/api/contract-fingerprint.txt
+Regenerar con: docs/technical/operations/regenerar-contrato.md
+
+EN EL CÓDIGO PERO NO EN LA HUELLA (901) — falta documentar:
+  + DELETE /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId} 204/400/401/403/404/409 e93f375e4a21
+  + DELETE /api/v1/companies/{companyPublicId}/job-catalogs/{category}/{jobCatalogPublicId} 200/400/401/403/404/409 f7174d290c87
+  + DELETE /api/v1/exit-interview-forms/{publicId} 200/400/401/403/404/409/422 a3ce18481752
+  + DELETE /api/v1/files/{filePublicId} 200/400/401/403/404/409 60513ba67b46
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/benefits/{benefitPublicId} 204/400/401/403/404/409 1adc317ef8df
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/compensations/{compensationPublicId} 204/400/401/403/404/409 75863787ea91
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId} 204/400/401/403/404/409 bdf9e3042072
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/items/{itemPublicId} 204/400/401/403/404/409 e01dc9d9d9fc
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/dependent-positions/{dependentPositionPublicId} 204/400/401/403/404/409 6b1c1c2b7f17
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId} 204/400/401/403/404/409 b0a40c00aa7a
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId} 204/400/401/403/404/409 ed14c13523ab
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId} 204/400/401/403/404/409 9cd1560999cd
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/trainings/{trainingPublicId} 204/400/401/403/404/409 5a74cd195e85
+  + DELETE /api/v1/job-profiles/{jobProfilePublicId}/working-conditions/{workingConditionPublicId} 204/400/401/403/404/409 faadbd99c226
+  + DELETE /api/v1/organization-structure-catalogs/unit-types/{publicId} 200/400/401/403/404/409/422 badbac6a97ed
+  + DELETE /api/v1/organization-units/{publicId} 200/400/401/403/404/409/422 f2bef870f366
+  + DELETE /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId} 204/400/401/403/404/409 78f18303f7c3
+  + DELETE /api/v1/personnel-files/{publicId}/addresses/{addressPublicId} 204/400/401/403/404/409 f62052b7e82d
+  + DELETE /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId} 204/400/401/403/404/409 8591578c3b75
+  + DELETE /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId} 204/400/401/403/404/409 3293a5c6b530
+  + DELETE /api/v1/personnel-files/{publicId}/associations/{associationPublicId} 204/400/401/403/404/409 4420b772953e
+  + DELETE /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId} 204/400/401/403/404/409 cb2005c2d748
+  + DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId} 204/400/401/403/404/409 72f84f41c9d9
+  + DELETE /api/v1/personnel-files/{publicId}/certificate-requests/{certificateRequestPublicId} 204/400/401/403/404/409 9dfefd557938
+  + DELETE /api/v1/personnel-files/{publicId}/certificate-requests/{certificateRequestPublicId}/documents/{documentPublicId} 204/400/401/403/404/409 4ed07762e1c5
+  … y 876 más
+
+EN LA HUELLA PERO NO EN EL CÓDIGO (901) — documenta algo que ya no existe:
+  - DELETE /api/v1/account/companies/{companyPublicId}/authorization/roles/{rolePublicId} 204/400/401/403/404/409 f4cb4fec07a2
+  - DELETE /api/v1/companies/{companyPublicId}/job-catalogs/{category}/{jobCatalogPublicId} 200/400/401/403/404/409 667e22c9966c
+  - DELETE /api/v1/exit-interview-forms/{publicId} 200/400/401/403/404/409/422 a8e876a2c30b
+  - DELETE /api/v1/files/{filePublicId} 200/400/401/403/404/409 3b70de5d1d79
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/benefits/{benefitPublicId} 204/400/401/403/404/409 2a07b9480f6b
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/compensations/{compensationPublicId} 204/400/401/403/404/409 1c3e594a2d7a
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId} 204/400/401/403/404/409 f3b6443e7938
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/items/{itemPublicId} 204/400/401/403/404/409 4bb17c5eafa2
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/dependent-positions/{dependentPositionPublicId} 204/400/401/403/404/409 b53f711bd11c
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId} 204/400/401/403/404/409 54220ea7cda6
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId} 204/400/401/403/404/409 79d0b44c620c
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId} 204/400/401/403/404/409 63c51fa389f2
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/trainings/{trainingPublicId} 204/400/401/403/404/409 42d916994f0c
+  - DELETE /api/v1/job-profiles/{jobProfilePublicId}/working-conditions/{workingConditionPublicId} 204/400/401/403/404/409 03f7b1e41828
+  - DELETE /api/v1/organization-structure-catalogs/unit-types/{publicId} 200/400/401/403/404/409/422 44182a884b24
+  - DELETE /api/v1/organization-units/{publicId} 200/400/401/403/404/409/422 420e5210ad33
+  - DELETE /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId} 204/400/401/403/404/409 e425d7da7092
+  - DELETE /api/v1/personnel-files/{publicId}/addresses/{addressPublicId} 204/400/401/403/404/409 7556725b557a
+  - DELETE /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId} 204/400/401/403/404/409 8d20be0339d4
+  - DELETE /api/v1/personnel-files/{publicId}/assigned-positions/{employmentAssignmentPublicId} 204/400/401/403/404/409 9a639f6967f7
+  - DELETE /api/v1/personnel-files/{publicId}/associations/{associationPublicId} 204/400/401/403/404/409 ccd67a952475
+  - DELETE /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId} 204/400/401/403/404/409 4d2437f0e262
+  - DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId} 204/400/401/403/404/409 3cdfc2dfde04
+  - DELETE /api/v1/personnel-files/{publicId}/certificate-requests/{certificateRequestPublicId} 204/400/401/403/404/409 1a26f9183f92
+  - DELETE /api/v1/personnel-files/{publicId}/certificate-requests/{certificateRequestPublicId}/documents/{documentPublicId} 204/400/401/403/404/409 6aa29b4abeb7
+  … y 876 más
+
+  Stack Trace:
+     at CLARIHR.Api.IntegrationTests.ContractFingerprintGuardrailsTests.ContractFingerprint_MatchesTheGeneratedContract() in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/ContractFingerprintGuardrailsTests.cs:line 82
+--- End of stack trace from previous location ---
+Results File: /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/TestResults/huella.trx
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 12 s - CLARIHR.Api.IntegrationTests.dll (net10.0)

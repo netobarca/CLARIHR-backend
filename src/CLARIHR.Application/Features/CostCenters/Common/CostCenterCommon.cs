@@ -16,6 +16,13 @@ public static partial class CostCenterValidationRules
     // minimum length is comfortably cheap. See project-foundation.md §12.8 / ADR-0002.
     public const int MinSearchLength = 2;
 
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
+
     // Single source of truth for the (TenantId, NormalizedCode) unique-index name — referenced by
     // both the EF mapping (CostCenterConfiguration) and the command handlers' duplicate-code race
     // backstop, so a rename cannot silently degrade the 23505 → clean 409 mapping into an HTTP 500.
@@ -25,6 +32,14 @@ public static partial class CostCenterValidationRules
     // index, shared by CostCenterTypeConfiguration and the type handlers' 23505 → 409 mapping
     // (mirrors WorkCenterTypeCodeUniqueConstraintName in LocationValidationRules).
     public const string CostCenterTypeCodeUniqueConstraintName = "uq_cost_center_types__tenant_code";
+
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());

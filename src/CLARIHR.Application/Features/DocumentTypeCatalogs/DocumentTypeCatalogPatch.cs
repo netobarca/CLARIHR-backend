@@ -192,7 +192,7 @@ internal static class DocumentTypeCatalogItemPatchApplier
         }
         else if (!DocumentTypeCatalogValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [DocumentTypeCatalogValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

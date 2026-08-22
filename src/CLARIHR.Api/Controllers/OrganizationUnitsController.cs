@@ -85,6 +85,23 @@ public sealed class OrganizationUnitsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("organization-units/{id:guid}/usage")]
+    [ProducesResponseType<OrgUnitUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an org unit's usage",
+        Description = """
+            Returns the active/inactive reference counts for the organization unit across its child
+            units and the job profiles anchored to it, indicating whether it is safe to inactivate.
+            Inactivation is rejected by active children alone (`ORG_UNIT_HAS_ACTIVE_CHILDREN`); this
+            endpoint exists so a client can say WHICH references block it instead of only that some do.
+            """)]
+    public async Task<ActionResult<OrgUnitUsageResponse>> Usage(Guid id, CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetOrgUnitUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("companies/{companyId:guid}/organization-units/tree")]
     [EnableRateLimiting(OrgUnitRateLimitPolicies.Tree)]
     [ProducesResponseType<IReadOnlyCollection<OrgUnitTreeNodeResponse>>(StatusCodes.Status200OK)]
@@ -399,6 +416,28 @@ public sealed class OrganizationUnitsController(
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("organization-units/{id:guid}")]
+    [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Delete an org unit",
+        Description = """
+            Hard-deletes the organization unit. Requires the current `concurrencyToken` in the
+            `If-Match` header (missing → `400`, stale → `409`). Rejected with `409 ORG_UNIT_IN_USE`
+            when anything still references it — child units or job profiles, active **or** inactive,
+            since both foreign keys are `RESTRICT`. Use `GET /organization-units/{id}/usage` to see
+            which references block it. Inactivation (`/inactivate`) remains the way to retire a unit
+            that is in use; this exists for the record created by mistake that nothing ever used.
+            """)]
+    public async Task<ActionResult<OrgUnitResponse>> Delete(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(new DeleteOrgUnitCommand(id, concurrencyToken), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("organization-units/{id:guid}/activate")]

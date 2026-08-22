@@ -5,14 +5,21 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Domain.Compliance;
+using System.Linq.Expressions;
 using FluentValidation;
 using System.Text.RegularExpressions;
 
 namespace CLARIHR.Application.Features.Compliance;
 
+/// <summary>
+/// 00001 / B-01 — expone <c>allowedActions</c> para que el cliente no tenga que replicar los códigos de
+/// permiso a mano. Sin esto, el frontend mostraba <i>Guardar cambios</i> habilitado a quien sólo tiene
+/// <c>CompanyPreferences.Read</c>, y el guard de la ruta pedía un permiso equivocado (F-01).
+/// </summary>
 public sealed record CompanyLegalProfileResponse(
     Guid Id,
     string LegalName,
@@ -23,7 +30,8 @@ public sealed record CompanyLegalProfileResponse(
     Guid? LegalRepresentativePublicId,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null) : ISupportsAllowedActions;
 
 public sealed record GetCompanyLegalProfileQuery(Guid CompanyId) : IQuery<CompanyLegalProfileResponse>;
 
@@ -104,33 +112,41 @@ public static class CompanyLegalProfileErrors
         ErrorType.UnprocessableEntity);
 }
 
-internal abstract class CompanyLegalProfileCommandValidatorBase<TCommand>
-    : AbstractValidator<TCommand>
-    where TCommand : notnull
+/// <summary>
+/// 00001 / B-02 — las reglas se declaran <b>por comando y con expresiones directas</b>, no a través de
+/// accesores lambda compartidos.
+/// <para>
+/// La versión anterior compartía las seis reglas con una clase base que recibía <c>Func&lt;TCommand, string&gt;</c>
+/// y las aplicaba como <c>RuleFor(command =&gt; legalName(command))</c>. FluentValidation deriva el nombre del
+/// campo <b>analizando la expresión</b> del <c>RuleFor</c>, y de una lambda <i>invocada</i> no hay propiedad que
+/// derivar: emitía todos los mensajes bajo la clave <c>""</c>. El cliente recibía una lista de textos sin saber
+/// a qué input pertenecía cada uno.
+/// </para>
+/// <para>
+/// Se eligió duplicar las reglas en vez de conservar la base con <c>.WithName("legalName")</c> a mano: son dos
+/// comandos con los mismos campos, y un nombre escrito como literal se desincroniza en silencio el día que la
+/// propiedad se renombre. Con la expresión directa el nombre sale del compilador.
+/// </para>
+/// </summary>
+internal static class CompanyLegalProfileRules
 {
-    protected void ApplySharedRules(
-        Func<TCommand, Guid> companyId,
-        Func<TCommand, string> legalName,
-        Func<TCommand, string> employerNitNumber,
-        Func<TCommand, string> isssEmployerRegistrationNumber,
-        Func<TCommand, string> fiscalAddress,
-        Func<TCommand, string?> economicActivityDescription)
-    {
-        RuleFor(command => companyId(command)).NotEmpty();
-        RuleFor(command => legalName(command)).NotEmpty().MaximumLength(200);
-        RuleFor(command => employerNitNumber(command))
+    internal static void ApplyEmployerNitRule<TCommand>(
+        AbstractValidator<TCommand> validator,
+        Expression<Func<TCommand, string>> selector) =>
+        validator.RuleFor(selector)
             .NotEmpty()
             .MaximumLength(20)
             .Must(CompanyLegalProfileValidation.IsEmployerNit)
             .WithMessage("Employer NIT must follow the ####-######-###-# format.");
-        RuleFor(command => isssEmployerRegistrationNumber(command))
+
+    internal static void ApplyIsssRule<TCommand>(
+        AbstractValidator<TCommand> validator,
+        Expression<Func<TCommand, string>> selector) =>
+        validator.RuleFor(selector)
             .NotEmpty()
             .MaximumLength(20)
             .Must(CompanyLegalProfileValidation.IsIsssEmployerRegistration)
             .WithMessage("ISSS employer registration number accepts digits and dashes only.");
-        RuleFor(command => fiscalAddress(command)).NotEmpty().MaximumLength(500);
-        RuleFor(command => economicActivityDescription(command)).MaximumLength(200);
-    }
 }
 
 internal sealed class GetCompanyLegalProfileQueryValidator : AbstractValidator<GetCompanyLegalProfileQuery>
@@ -139,30 +155,30 @@ internal sealed class GetCompanyLegalProfileQueryValidator : AbstractValidator<G
 }
 
 internal sealed class CreateCompanyLegalProfileCommandValidator
-    : CompanyLegalProfileCommandValidatorBase<CreateCompanyLegalProfileCommand>
+    : AbstractValidator<CreateCompanyLegalProfileCommand>
 {
-    public CreateCompanyLegalProfileCommandValidator() =>
-        ApplySharedRules(
-            static command => command.CompanyId,
-            static command => command.LegalName,
-            static command => command.EmployerNitNumber,
-            static command => command.IsssEmployerRegistrationNumber,
-            static command => command.FiscalAddress,
-            static command => command.EconomicActivityDescription);
+    public CreateCompanyLegalProfileCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.LegalName).NotEmpty().MaximumLength(200);
+        CompanyLegalProfileRules.ApplyEmployerNitRule(this, command => command.EmployerNitNumber);
+        CompanyLegalProfileRules.ApplyIsssRule(this, command => command.IsssEmployerRegistrationNumber);
+        RuleFor(command => command.FiscalAddress).NotEmpty().MaximumLength(500);
+        RuleFor(command => command.EconomicActivityDescription).MaximumLength(200);
+    }
 }
 
 internal sealed class UpdateCompanyLegalProfileCommandValidator
-    : CompanyLegalProfileCommandValidatorBase<UpdateCompanyLegalProfileCommand>
+    : AbstractValidator<UpdateCompanyLegalProfileCommand>
 {
     public UpdateCompanyLegalProfileCommandValidator()
     {
-        ApplySharedRules(
-            static command => command.CompanyId,
-            static command => command.LegalName,
-            static command => command.EmployerNitNumber,
-            static command => command.IsssEmployerRegistrationNumber,
-            static command => command.FiscalAddress,
-            static command => command.EconomicActivityDescription);
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.LegalName).NotEmpty().MaximumLength(200);
+        CompanyLegalProfileRules.ApplyEmployerNitRule(this, command => command.EmployerNitNumber);
+        CompanyLegalProfileRules.ApplyIsssRule(this, command => command.IsssEmployerRegistrationNumber);
+        RuleFor(command => command.FiscalAddress).NotEmpty().MaximumLength(500);
+        RuleFor(command => command.EconomicActivityDescription).MaximumLength(200);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }

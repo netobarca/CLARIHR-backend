@@ -14,7 +14,14 @@ public static class PayrollFrequencies
     public const string Quincenal = "QUINCENAL";
     public const string Semanal = "SEMANAL";
 
-    /// <summary>Canonical periods per year for the fixed frequencies (12 / 24 / 52).</summary>
+    /// <summary>
+    /// Frecuencia ANUAL — un solo periodo al año. Nació para la nómina de aguinaldo (requerimiento
+    /// 2026-08-12 §5/§6): «es como tener una nómina quincenal pero será una nómina anual en el periodo donde
+    /// la empresa haya establecido el pago». No es exclusiva del aguinaldo: es una cadencia más.
+    /// </summary>
+    public const string Anual = "ANUAL";
+
+    /// <summary>Canonical periods per year for the fixed frequencies (12 / 24 / 52 / 1).</summary>
     public static bool TryGetPeriodsPerYear(string? payPeriodCode, out int periodsPerYear)
     {
         switch (payPeriodCode?.Trim().ToUpperInvariant())
@@ -27,6 +34,9 @@ public static class PayrollFrequencies
                 return true;
             case Semanal:
                 periodsPerYear = 52;
+                return true;
+            case Anual:
+                periodsPerYear = 1;
                 return true;
             default:
                 periodsPerYear = 0;

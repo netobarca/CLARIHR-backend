@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CostCenters.Types;
@@ -46,7 +47,7 @@ internal sealed class CostCenterTypeRepository(ApplicationDbContext dbContext) :
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(type =>
                 type.NormalizedCode.Contains(normalizedSearch) ||
                 type.NormalizedName.Contains(normalizedSearch));

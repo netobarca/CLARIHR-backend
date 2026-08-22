@@ -1,0 +1,15 @@
+Test run for /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/bin/Debug/net10.0/CLARIHR.Api.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:42.97]     CLARIHR.Api.IntegrationTests.ApiIntegrationTests.OrgUnits_Move_WhenSubtreeHeightWouldExceedDepthLimit_ShouldReturn409Conflict [FAIL]
+  Failed CLARIHR.Api.IntegrationTests.ApiIntegrationTests.OrgUnits_Move_WhenSubtreeHeightWouldExceedDepthLimit_ShouldReturn409Conflict [9 s]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Conflict
+Actual:   OK
+  Stack Trace:
+     at CLARIHR.Api.IntegrationTests.ApiIntegrationTests.AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, String expectedCode) in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/ApiIntegrationTests.cs:line 12323
+   at CLARIHR.Api.IntegrationTests.ApiIntegrationTests.OrgUnits_Move_WhenSubtreeHeightWouldExceedDepthLimit_ShouldReturn409Conflict() in /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/ApiIntegrationTests.cs:line 5299
+--- End of stack trace from previous location ---
+Results File: /Users/christophercanas/Developments/CLARI NEW VERSION/clarihr/CLARIHR-backend/TestResults/rojo.trx
+
+Failed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 17 s - CLARIHR.Api.IntegrationTests.dll (net10.0)

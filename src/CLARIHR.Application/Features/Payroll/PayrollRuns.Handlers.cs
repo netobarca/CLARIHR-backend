@@ -47,7 +47,9 @@ internal static class PayrollRunAssembler
         // H-29/H-30 — el snapshot del catálogo, para que la persistencia de la línea grabe su clase.
         IReadOnlyDictionary<string, PayrollConceptClassification> ConceptClassifications,
         // H-31 — los días de cada registro, por su referencia de origen.
-        IReadOnlyDictionary<Guid, PayrollDayBreakdown> DaysBySourceReference)
+        IReadOnlyDictionary<Guid, PayrollDayBreakdown> DaysBySourceReference,
+        // El contexto de aguinaldo, para que la cabecera advierta si faltó la exención del año.
+        PayrollAguinaldoContext? Aguinaldo)
     {
         private static readonly PayrollDayBreakdown NoDays = new(null, null, null);
 
@@ -316,6 +318,56 @@ internal static class PayrollRunAssembler
             }
         }
 
+        // Aguinaldo — UNA línea por plaza, calculada por el motor puro. No hay pool que consumir ni registro
+        // que marcar: el derecho nace de la ley y de la fecha de ingreso, así que la línea no lleva
+        // `SourceReferencePublicId`. Va con su porción exenta separada para que la Renta caiga solo sobre el
+        // excedente (requerimiento §4).
+        if (source.Aguinaldo is { } aguinaldo)
+        {
+            var aguinaldoClass = Classify(source, PayrollEngineConceptCodes.Aguinaldo);
+
+            // Agrupado POR EMPLEADO, no por plaza: la exención es un tope por persona y por año, así que con
+            // dos plazas se reparte entre las dos líneas en vez de repetirse en cada una.
+            foreach (var employeeRows in aguinaldo.Rows
+                         .Where(candidate => rowByPlaza.ContainsKey(candidate.AssignedPositionPublicId))
+                         .GroupBy(candidate => candidate.PersonnelFilePublicId))
+            {
+                var plazaRows = employeeRows
+                    .OrderBy(candidate => candidate.AssignedPositionPublicId)
+                    .ToArray();
+
+                var results = AguinaldoRules.CalculateForEmployee(
+                    plazaRows[0].HireDate,
+                    aguinaldo.Year,
+                    plazaRows.Select(candidate => rowByPlaza[candidate.AssignedPositionPublicId].MonthlyBaseSalary).ToArray(),
+                    aguinaldo.ExemptAmount);
+
+                for (var index = 0; index < plazaRows.Length; index++)
+                {
+                    var row = plazaRows[index];
+                    var result = results[index];
+                    if (result.Amount <= 0m)
+                    {
+                        continue;
+                    }
+
+                    Bucket(incomesByPlaza, row.AssignedPositionPublicId).Add(new PayrollIncomeItem(
+                        PayrollEngineConceptCodes.Aguinaldo,
+                        $"Aguinaldo {aguinaldo.Year}",
+                        result.Amount,
+                        PayrollSourceModules.Aguinaldo,
+                        SourceReferencePublicId: null,
+                        aguinaldoClass.AffectsIsss,
+                        aguinaldoClass.AffectsAfp,
+                        aguinaldoClass.AffectsRenta,
+                        // Los días DEVENGADOS, que es lo que justifica el monto en la boleta: sin ellos, un
+                        // aguinaldo proporcional es un número sin explicación.
+                        Units: result.AccruedDays,
+                        ExemptAmount: result.ExemptAmount));
+                }
+            }
+        }
+
         var employees = source.Population
             .GroupBy(row => row.PersonnelFilePublicId)
             .OrderBy(group => group.Key)
@@ -343,7 +395,8 @@ internal static class PayrollRunAssembler
             new PayrollContributionScheme(source.Afp.EmployeeRatePercent, source.Afp.EmployerRatePercent, source.Afp.MonthlyContributionCap),
             source.IncafRatePercent,
             source.RentaBrackets,
-            employees);
+            employees,
+            PaysBaseSalary: source.Aguinaldo is null);
 
         // Deterministic global apply order (anti-deadlock §0.18): by module then record public id — every
         // concurrent generation walks the same sequence.
@@ -366,7 +419,7 @@ internal static class PayrollRunAssembler
 
         return new AssembledRun(
             engineInput, orderedTargets, rowByPlaza, primaryRowByFile, carryovers, source.ComplianceExclusions,
-            source.ConceptClassifications, daysBySourceReference);
+            source.ConceptClassifications, daysBySourceReference, source.Aguinaldo);
     }
 }
 
@@ -432,6 +485,18 @@ internal sealed class GeneratePayrollRunCommandHandler(
                 return Result<PayrollRunResponse>.Failure(PayrollRunErrors.AlreadyActive);
             }
 
+            // El aguinaldo es UNO por empleado y por año. El candado de arriba solo cubre esta nómina × este
+            // periodo; sin este segundo, una segunda nómina de aguinaldo —o un segundo periodo de la misma—
+            // lo pagaría otra vez, y las dos corridas serían válidas por separado. Regenerar esta misma
+            // corrida sí se permite: se excluye a sí misma.
+            if (definition.IsAguinaldo &&
+                await runRepository.HasActiveAguinaldoRunForYearAsync(
+                    command.CompanyId, period.Year, definition.Id, period.Id, cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<PayrollRunResponse>.Failure(PayrollRunErrors.AguinaldoAlreadyPaidForYear);
+            }
+
             var source = await dataProvider.BuildAsync(command.CompanyId, definition, period, command.EmployeeIds, today, cancellationToken);
             var assembled = PayrollRunAssembler.Assemble(definition, period, source);
             var calculation = PayrollCalculationRules.Calculate(assembled.EngineInput);
@@ -483,7 +548,8 @@ internal sealed class GeneratePayrollRunCommandHandler(
                     line.SourceReferencePublicId,
                     definition.CurrencyCode,
                     line.WarningCodes.Count == 0 ? null : JsonSerializer.Serialize(line.WarningCodes),
-                    line.SortOrder);
+                    line.SortOrder,
+                    line.ExemptAmount);
                 entity.SetTenantId(command.CompanyId);
                 lines.Add(entity);
             }
@@ -496,6 +562,14 @@ internal sealed class GeneratePayrollRunCommandHandler(
                     PayrollEngineWarningCodes.EmployeeExcludedPrevisionalDataMissing,
                     exclusion.PersonnelFilePublicId,
                     $"{exclusion.EmployeeFullName}: falta NUP ISSS y/o cuenta AFP.")))
+                // Sin exención registrada para el año, el aguinaldo se gravó COMPLETO. No se bloquea la
+                // corrida: es un dato de configuración que la empresa puede cargar y regenerar.
+                .Concat(assembled.Aguinaldo is { ExemptAmount: null } missing
+                    ? [new PayrollRunWarningResponse(
+                        PayrollEngineWarningCodes.AguinaldoNoExemption,
+                        null,
+                        $"No hay exención de renta registrada para el aguinaldo {missing.Year}: se gravó el monto completo.")]
+                    : Array.Empty<PayrollRunWarningResponse>())
                 .ToArray();
             var warningsJson = allWarnings.Length == 0 ? null : JsonSerializer.Serialize(allWarnings);
 
@@ -522,7 +596,7 @@ internal sealed class GeneratePayrollRunCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var response = PayrollRunGenerationSupport.ToResponse(run, definition.PublicId, period.PublicId, calculation.Warnings);
+            var response = PayrollRunGenerationSupport.ToResponse(run, definition.PublicId, period.PublicId, allWarnings);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -870,7 +944,7 @@ internal static class PayrollRunGenerationSupport
         PayrollRun run,
         Guid definitionPublicId,
         Guid periodPublicId,
-        IReadOnlyList<PayrollRunWarningResult> warnings) =>
+        IReadOnlyList<PayrollRunWarningResponse> warnings) =>
         new(
             run.PublicId,
             definitionPublicId,
@@ -892,7 +966,7 @@ internal static class PayrollRunGenerationSupport
             run.TotalDeductions,
             run.TotalEmployerCost,
             run.TotalNet,
-            warnings.Select(warning => new PayrollRunWarningResponse(warning.Code, warning.PersonnelFilePublicId, warning.Context)).ToArray(),
+            warnings,
             run.ConcurrencyToken,
             run.CreatedUtc,
             run.ModifiedUtc);

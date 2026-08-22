@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Locations.Groups;
@@ -103,7 +104,7 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(group =>
                 group.NormalizedCode.Contains(normalizedSearch) ||
                 group.NormalizedName.Contains(normalizedSearch));

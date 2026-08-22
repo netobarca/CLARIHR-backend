@@ -57,14 +57,17 @@ public static class AuditEventTypes
     public const string OrgUnitMoved = "ORG_UNIT_MOVED";
     public const string OrgUnitActivated = "ORG_UNIT_ACTIVATED";
     public const string OrgUnitInactivated = "ORG_UNIT_INACTIVATED";
+    public const string OrgUnitDeleted = "ORG_UNIT_DELETED";
     public const string OrgUnitTypeCatalogItemCreated = "ORG_UNIT_TYPE_CATALOG_ITEM_CREATED";
     public const string OrgUnitTypeCatalogItemUpdated = "ORG_UNIT_TYPE_CATALOG_ITEM_UPDATED";
     public const string OrgUnitTypeCatalogItemActivated = "ORG_UNIT_TYPE_CATALOG_ITEM_ACTIVATED";
+    public const string OrgUnitTypeCatalogItemDeleted = "ORG_UNIT_TYPE_CATALOG_ITEM_DELETED";
     public const string OrgUnitTypeCatalogItemInactivated = "ORG_UNIT_TYPE_CATALOG_ITEM_INACTIVATED";
     public const string FunctionalAreaCatalogItemCreated = "FUNCTIONAL_AREA_CATALOG_ITEM_CREATED";
     public const string FunctionalAreaCatalogItemUpdated = "FUNCTIONAL_AREA_CATALOG_ITEM_UPDATED";
     public const string FunctionalAreaCatalogItemActivated = "FUNCTIONAL_AREA_CATALOG_ITEM_ACTIVATED";
     public const string FunctionalAreaCatalogItemInactivated = "FUNCTIONAL_AREA_CATALOG_ITEM_INACTIVATED";
+    public const string FunctionalAreaCatalogItemDeleted = "FUNCTIONAL_AREA_CATALOG_ITEM_DELETED";
     public const string JobProfileCreated = "JOB_PROFILE_CREATED";
     public const string JobProfileUpdated = "JOB_PROFILE_UPDATED";
     public const string JobProfilePublished = "JOB_PROFILE_PUBLISHED";
@@ -152,10 +155,12 @@ public static class AuditEventTypes
     public const string WorkCenterReassigned = "WORK_CENTER_REASSIGNED";
     public const string WorkCenterActivated = "WORK_CENTER_ACTIVATED";
     public const string WorkCenterInactivated = "WORK_CENTER_INACTIVATED";
+    public const string WorkCenterDeleted = "WORK_CENTER_DELETED";
     public const string WorkCenterTypeCreated = "WORK_CENTER_TYPE_CREATED";
     public const string WorkCenterTypeUpdated = "WORK_CENTER_TYPE_UPDATED";
     public const string WorkCenterTypeActivated = "WORK_CENTER_TYPE_ACTIVATED";
     public const string WorkCenterTypeInactivated = "WORK_CENTER_TYPE_INACTIVATED";
+    public const string WorkCenterTypeDeleted = "WORK_CENTER_TYPE_DELETED";
     public const string LocationHierarchyUpdated = "LOCATION_HIERARCHY_UPDATED";
     public const string LocationLevelCreated = "LOCATION_LEVEL_CREATED";
     public const string LocationLevelUpdated = "LOCATION_LEVEL_UPDATED";
@@ -322,14 +327,17 @@ public static class AuditEventTypes
         OrgUnitMoved,
         OrgUnitActivated,
         OrgUnitInactivated,
+        OrgUnitDeleted,
         OrgUnitTypeCatalogItemCreated,
         OrgUnitTypeCatalogItemUpdated,
         OrgUnitTypeCatalogItemActivated,
+        OrgUnitTypeCatalogItemDeleted,
         OrgUnitTypeCatalogItemInactivated,
         FunctionalAreaCatalogItemCreated,
         FunctionalAreaCatalogItemUpdated,
         FunctionalAreaCatalogItemActivated,
         FunctionalAreaCatalogItemInactivated,
+        FunctionalAreaCatalogItemDeleted,
         JobProfileCreated,
         JobProfileUpdated,
         JobProfileCompensationCreated,
@@ -412,10 +420,12 @@ public static class AuditEventTypes
         WorkCenterReassigned,
         WorkCenterActivated,
         WorkCenterInactivated,
+        WorkCenterDeleted,
         WorkCenterTypeCreated,
         WorkCenterTypeUpdated,
         WorkCenterTypeActivated,
         WorkCenterTypeInactivated,
+        WorkCenterTypeDeleted,
         LocationHierarchyUpdated,
         LocationLevelCreated,
         LocationLevelUpdated,

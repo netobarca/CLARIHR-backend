@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives;
@@ -93,7 +94,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(legalRepresentative =>
                 legalRepresentative.NormalizedFullName.Contains(normalizedSearch) ||
                 legalRepresentative.PositionTitle.ToUpper().Contains(normalizedSearch) ||
@@ -118,8 +119,8 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
                 legalRepresentative.RepresentationType,
                 legalRepresentative.IsPrimary,
                 legalRepresentative.IsActive,
-                legalRepresentative.EffectiveFromUtc,
-                legalRepresentative.EffectiveToUtc,
+                legalRepresentative.EffectiveFrom,
+                legalRepresentative.EffectiveTo,
                 legalRepresentative.ConcurrencyToken,
                 legalRepresentative.CreatedUtc,
                 legalRepresentative.ModifiedUtc))
@@ -144,9 +145,9 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
                 legalRepresentative.RepresentationType,
                 legalRepresentative.AuthorityDescription,
                 legalRepresentative.AppointmentInstrument,
-                legalRepresentative.AppointmentDateUtc,
-                legalRepresentative.EffectiveFromUtc,
-                legalRepresentative.EffectiveToUtc,
+                legalRepresentative.AppointmentDate,
+                legalRepresentative.EffectiveFrom,
+                legalRepresentative.EffectiveTo,
                 legalRepresentative.Email,
                 legalRepresentative.Phone,
                 legalRepresentative.IsPrimary,
@@ -248,6 +249,19 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             .Where(item => !excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<LegalRepresentative?> GetPromotionCandidateAsync(
+        Guid tenantId,
+        Guid excludingLegalRepresentativePublicId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: applies explicit tenantId before resolving the successor.
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.IsActive)
+            .Where(item => item.PublicId != excludingLegalRepresentativePublicId)
+            .OrderBy(item => item.CreatedUtc)
+            .ThenBy(item => item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(
         Guid tenantId,
         bool? isActive,
@@ -278,7 +292,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(legalRepresentative =>
                 legalRepresentative.NormalizedFullName.Contains(normalizedSearch) ||
                 legalRepresentative.PositionTitle.ToUpper().Contains(normalizedSearch) ||
@@ -307,9 +321,9 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
                 legalRepresentative.RepresentationType,
                 legalRepresentative.AuthorityDescription,
                 legalRepresentative.AppointmentInstrument,
-                legalRepresentative.AppointmentDateUtc,
-                legalRepresentative.EffectiveFromUtc,
-                legalRepresentative.EffectiveToUtc,
+                legalRepresentative.AppointmentDate,
+                legalRepresentative.EffectiveFrom,
+                legalRepresentative.EffectiveTo,
                 legalRepresentative.Email,
                 legalRepresentative.Phone,
                 legalRepresentative.IsPrimary,

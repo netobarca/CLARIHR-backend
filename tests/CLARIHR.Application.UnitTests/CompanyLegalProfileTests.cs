@@ -196,9 +196,9 @@ public sealed class CompanyLegalProfileLegalRepresentativeResolutionTests
             representationType: LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
             authorityDescription: null,
             appointmentInstrument: null,
-            appointmentDateUtc: null,
-            effectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            effectiveToUtc: null,
+            appointmentDate: null,
+            effectiveFrom: new DateOnly(2026, 1, 1),
+            effectiveTo: null,
             email: null,
             phone: null,
             isPrimary: true);
@@ -339,6 +339,13 @@ public sealed class CompanyLegalProfileLegalRepresentativeResolutionTests
         public Task<LegalRepresentative?> GetActivePrimaryAsync(
             Guid tenantId,
             Guid? excludingLegalRepresentativePublicId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // Estos tests no ejercen la promoción; que reviente si alguna vez la tocan, en vez de devolver null en
+        // silencio y hacer pasar por bueno un camino que nadie probó.
+        public Task<LegalRepresentative?> GetPromotionCandidateAsync(
+            Guid tenantId,
+            Guid excludingLegalRepresentativePublicId,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(

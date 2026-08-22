@@ -100,7 +100,7 @@ internal sealed class InsuranceBeneficiaryInputValidator : AbstractValidator<Ins
             .Must(static type => string.IsNullOrWhiteSpace(type)
                 || string.Equals(type.Trim(), PersonnelFileInsuranceBeneficiary.TypePrimary, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type.Trim(), PersonnelFileInsuranceBeneficiary.TypeContingent, StringComparison.OrdinalIgnoreCase))
-            .WithMessage($"BeneficiaryType must be '{PersonnelFileInsuranceBeneficiary.TypePrimary}' or '{PersonnelFileInsuranceBeneficiary.TypeContingent}'.");
+            .WithMessage("BeneficiaryType must be 'PRINCIPAL' or 'CONTINGENTE'.");
     }
 }
 

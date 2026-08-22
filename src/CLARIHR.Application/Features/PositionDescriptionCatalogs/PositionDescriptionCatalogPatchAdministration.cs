@@ -1108,7 +1108,7 @@ internal static class PositionDescriptionCatalogPatchValidation
         }
         else if (!PositionDescriptionCatalogValidationRules.IsValidCode(code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [PositionDescriptionCatalogValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(name))

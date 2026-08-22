@@ -54,6 +54,17 @@ internal static class TestHttpClientExtensions
         return client.SendAsync(request, cancellationToken);
     }
 
+    /// <summary>
+    /// DELETE con el token de concurrencia en <c>If-Match</c>. El borrado condicional no lleva cuerpo,
+    /// así que no puede reutilizar el reflejo body→cabecera de <see cref="PatchJsonAsync"/>.
+    /// </summary>
+    public static Task<HttpResponseMessage> DeleteWithIfMatchAsync(this HttpClient client, string? requestUri, Guid concurrencyToken, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, requestUri);
+        request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        return client.SendAsync(request, cancellationToken);
+    }
+
     public static Task<HttpResponseMessage> PatchJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Patch, requestUri)

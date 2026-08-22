@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.SalaryTabulator;
@@ -92,7 +93,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(line =>
                 line.NormalizedSalaryClassCode.Contains(normalizedSearch) ||
                 line.NormalizedSalaryScaleCode.Contains(normalizedSearch) ||
@@ -176,7 +177,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(line =>
                 line.NormalizedSalaryClassCode.Contains(normalizedSearch) ||
                 line.NormalizedSalaryScaleCode.Contains(normalizedSearch) ||

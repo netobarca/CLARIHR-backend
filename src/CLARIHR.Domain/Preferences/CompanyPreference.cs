@@ -155,6 +155,18 @@ public sealed class CompanyPreference : TenantEntity
     /// </summary>
     public bool? PayrollComplianceGatesEnabled { get; private set; }
 
+    /// <summary>
+    /// Mes del día en que la empresa paga el aguinaldo (requerimiento 2026-08-12 §5). Se guarda como
+    /// <b>mes + día, sin año</b>: es una política recurrente («pagamos el 25 de octubre»), no un evento. El año
+    /// lo pone el periodo que se está corriendo, de modo que la configuración no caduca ni hay que recordar
+    /// moverla cada diciembre — que es justo el modo en que un dato así se queda viejo y bloquea una corrida.
+    /// <para>Null = la empresa aún no la definió: no se puede generar una nómina de aguinaldo.</para>
+    /// </summary>
+    public int? AguinaldoPaymentMonth { get; private set; }
+
+    /// <summary>Día del mes en que la empresa paga el aguinaldo. Ver <see cref="AguinaldoPaymentMonth"/>.</summary>
+    public int? AguinaldoPaymentDay { get; private set; }
+
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyPreference Create(string currencyCode, string timeZone) =>
@@ -353,6 +365,39 @@ public sealed class CompanyPreference : TenantEntity
     public void SetPayrollCompliancePolicy(bool? gatesEnabled)
     {
         PayrollComplianceGatesEnabled = gatesEnabled;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Fija el día del año en que la empresa paga el aguinaldo (requerimiento §5). Pasar <c>null</c> en ambos
+    /// lo borra. La ventana legal (20-oct → 20-dic, reforma de 2025) NO se valida acá: el dominio solo verifica
+    /// que el par sea una fecha existente, y la regla legal vive en el validador, donde puede devolver un
+    /// código de error al cliente en vez de reventar.
+    /// </summary>
+    public void SetAguinaldoPaymentDate(int? month, int? day)
+    {
+        if (month is null ^ day is null)
+        {
+            throw new ArgumentException("Aguinaldo payment month and day must be set together or cleared together.", nameof(month));
+        }
+
+        if (month is not null && day is not null)
+        {
+            if (month is < 1 or > 12)
+            {
+                throw new ArgumentOutOfRangeException(nameof(month), "Month must be between 1 and 12.");
+            }
+
+            // Se valida contra un año NO bisiesto a propósito: un 29 de febrero configurado como política anual
+            // no existiría tres de cada cuatro años.
+            if (day < 1 || day > DateTime.DaysInMonth(2001, month.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(day), "Day must be a valid day of the month.");
+            }
+        }
+
+        AguinaldoPaymentMonth = month;
+        AguinaldoPaymentDay = day;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

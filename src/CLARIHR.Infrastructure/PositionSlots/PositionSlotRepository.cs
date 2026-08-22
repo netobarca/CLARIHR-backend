@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using System.Linq.Expressions;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.Pagination;
@@ -93,12 +94,16 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == jobProfileId, cancellationToken);
 
-    public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) =>
-        dbContext.WorkCenters
+    public async Task<(long Id, bool IsActive)?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken)
+    {
+        var fila = await dbContext.WorkCenters
             .AsNoTracking()
             .Where(center => center.TenantId == tenantId && center.PublicId == workCenterId)
-            .Select(center => (long?)center.Id)
+            .Select(center => new { center.Id, center.IsActive })
             .SingleOrDefaultAsync(cancellationToken);
+
+        return fila is null ? null : (fila.Id, fila.IsActive);
+    }
 
     public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters
@@ -398,6 +403,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              profile.PublicId,
              orgUnit != null ? orgUnit.PublicId : null,
              orgUnit != null ? orgUnit.Name : null,
+             orgUnit != null ? orgUnit.IsActive : null,
              orgUnit != null ? orgUnit.CostCenterCode : null,
              positionCategory != null ? positionCategory.PublicId : null,
              classification != null ? classification.PublicId : null,
@@ -530,7 +536,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             return query;
         }
 
-        var normalizedSearch = search.Trim().ToUpperInvariant();
+        var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
         return query.Where(MatchesNormalizedSearch(normalizedSearch));
     }
 

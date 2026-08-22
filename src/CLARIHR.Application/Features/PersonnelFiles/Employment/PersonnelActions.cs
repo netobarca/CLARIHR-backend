@@ -147,7 +147,7 @@ internal sealed class SearchPersonnelFilePersonnelActionsQueryValidator : Abstra
         RuleFor(query => query.Search)
             .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
             .Must(PersonnelFileValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PersonnelFileValidationRules.SearchLengthMessage);
         RuleFor(query => query.SortBy).MaximumLength(80);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PersonnelFileValidationRules.MaxPageSize);

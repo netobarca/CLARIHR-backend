@@ -117,6 +117,50 @@ public sealed class OrgUnitDomainTests
         Assert.True(depth > OrgUnitValidationRules.MaxDepth);
     }
 
+    // Contraparte de CalculateDepth: aquel sube, este baja. El guard de /move necesita los dos.
+    [Theory]
+    [InlineData(1, 1)]   // hoja suelta
+    [InlineData(2, 2)]   // padre con un hijo
+    [InlineData(4, 4)]   // cadena de cuatro
+    public void OrgUnitHierarchyBuilder_CalculateSubtreeHeight_ShouldCountRootAndDescendants(int chainLength, int expectedHeight)
+    {
+        var nodes = Enumerable.Range(1, chainLength)
+            .Select(index => CreateHierarchyNode(index, $"U-{index}", $"Unit {index}", index == 1 ? null : index - 1, null, index))
+            .ToDictionary(static node => node.InternalId);
+
+        var height = OrgUnitHierarchyBuilder.CalculateSubtreeHeight(1, nodes);
+
+        Assert.Equal(expectedHeight, height);
+    }
+
+    [Fact]
+    public void OrgUnitHierarchyBuilder_CalculateSubtreeHeight_WhenNodeIsDeeperInTheChain_ShouldMeasureOnlyItsOwnSubtree()
+    {
+        // Una cadena de 5: medida desde el nodo 4 la altura es 2, no 5. Si midiera el arbol entero,
+        // el guard de /move rechazaria movimientos perfectamente validos.
+        var nodes = Enumerable.Range(1, 5)
+            .Select(index => CreateHierarchyNode(index, $"U-{index}", $"Unit {index}", index == 1 ? null : index - 1, null, index))
+            .ToDictionary(static node => node.InternalId);
+
+        Assert.Equal(2, OrgUnitHierarchyBuilder.CalculateSubtreeHeight(4, nodes));
+        Assert.Equal(1, OrgUnitHierarchyBuilder.CalculateSubtreeHeight(5, nodes));
+    }
+
+    [Fact]
+    public void OrgUnitHierarchyBuilder_CalculateSubtreeHeight_WhenDataIsCyclic_ShouldStopInsteadOfSpinning()
+    {
+        // Hay arboles ya corrompidos por el defecto que este guard corrige; el recorrido no debe colgarse.
+        var nodes = new[]
+        {
+            CreateHierarchyNode(1, "U-1", "Unit 1", 2, null, 1),
+            CreateHierarchyNode(2, "U-2", "Unit 2", 1, null, 2)
+        }.ToDictionary(static node => node.InternalId);
+
+        var height = OrgUnitHierarchyBuilder.CalculateSubtreeHeight(1, nodes);
+
+        Assert.True(height <= OrgUnitValidationRules.MaxDepth + 1);
+    }
+
     private static OrgUnitHierarchyNodeData CreateHierarchyNode(
         long internalId,
         string code,

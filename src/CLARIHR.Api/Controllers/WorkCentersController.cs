@@ -59,6 +59,26 @@ public sealed class WorkCentersController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("work-centers/{id:guid}/usage")]
+    [ProducesResponseType<WorkCenterUsageResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a work center's usage",
+        Description = """
+            Returns how many position slots reference the work center, split into active and inactive,
+            plus how many personnel employment assignments point at it. **The assignments have no
+            foreign key** — they store the work center's `publicId` — so they do not appear in the
+            database constraint graph, yet deleting the centre would leave those assignments pointing
+            at something that no longer exists. They are counted here for that reason.
+            """)]
+    public async Task<ActionResult<WorkCenterUsageResponse>> Usage(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetWorkCenterUsageQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("work-centers/{id:guid}")]
     [ProducesResponseType<WorkCenterResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
@@ -153,6 +173,30 @@ public sealed class WorkCentersController(
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("work-centers/{id:guid}")]
+    [ProducesResponseType<WorkCenterResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Delete a work center",
+        Description = """
+            Hard-deletes the work center. Requires the current `concurrencyToken` in the `If-Match`
+            header (missing → `400`, stale → `409`). Rejected with
+            `409 WORK_CENTER_IN_USE_FOR_DELETE` when position slots still reference it — active
+            **or** inactive, since the foreign key is `RESTRICT` — or when any personnel employment
+            assignment points at it, which the database does not enforce because that reference has no
+            foreign key. Use `GET /work-centers/{id}/usage` to see what blocks it. Inactivation remains
+            the way to retire a centre that is in use; this exists for the record created by mistake
+            that nothing ever used.
+            """)]
+    public async Task<ActionResult<WorkCenterResponse>> Delete(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(new DeleteWorkCenterCommand(id, concurrencyToken), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("work-centers/{id:guid}")]

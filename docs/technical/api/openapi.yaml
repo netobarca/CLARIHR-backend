@@ -2671,6 +2671,100 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/aguinaldo-exemptions:
+    get:
+      tags:
+        - Compensation
+      summary: List the aguinaldo income-tax exemptions by year
+      description: "Returns the tenant's configured aguinaldo exemptions — the ABSOLUTE amount of the Christmas bonus\nthat is exempt from income tax (Renta), one row per calendar year. Optionally filtered by `year`.\nNewest year first.\n\nWhen an aguinaldo payroll run finds no ACTIVE row for its year, the whole aguinaldo is taxed and\nthe run reports the `PAYROLL_WARNING_AGUINALDO_NO_EXEMPTION` warning: withholding too much is\nvisible and correctable, not withholding is a silent liability.\n\n**Requires permission:** one of `PersonnelFiles.Read`, `PersonnelFiles.Admin`, `iam.administration.manage`."
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AguinaldoExemptionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Compensation
+      summary: Replace the aguinaldo income-tax exemptions
+      description: "Replaces the whole set of yearly exemptions (the parameter is edited as a set, like the Renta\ntable). At most one row per `year` — a duplicate year fails with\n`AGUINALDO_EXEMPTION_DUPLICATE_YEAR`. Years omitted from the payload are deleted.\n\n**Requires permission:** one of `PersonnelFiles.Admin`, `iam.administration.manage`."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceAguinaldoExemptionsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AguinaldoExemptionResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/auth/register:
     post:
       tags:
@@ -7067,6 +7161,103 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
           description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/occupational-pyramid-levels/order':
+    patch:
+      tags:
+        - Competency Framework
+      summary: Reorder the occupational pyramid
+      description: "Rewrites the whole pyramid's ranking in one transaction. Send `orderedPublicIds` with **every**\nlevel of the company exactly once, in the desired order; the server assigns the ranks (`10`, `20`,\n`30`, …). No rank travels in the request.\n\nThis exists because `levelOrder` is **unique per company**, which is deliberate — a pyramid is a\nstrict ranking — but made a plain swap impossible to express one call at a time: setting the first\nlevel to the other's rank collides, so a client had to invent a temporary value across three calls.\n\nA partial or duplicated list is rejected with\n`422 OCCUPATIONAL_PYRAMID_LEVEL_ORDER_SET_INCOMPLETE`: whatever is omitted keeps its old rank, which\ncan collide with the ranks just assigned, and a half-applied ranking means nothing.\n\n**No `If-Match`**, deliberately: there is no single aggregate to hold a token for, and the request\ncarries the full desired order, so the semantics are last-writer-wins — the honest reading of a\ndrag-and-drop save. Inactive levels are included: the rank is unique across all of them."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderCatalogRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ReorderCatalogRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ReorderCatalogRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ReorderOccupationalPyramidLevelsResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderOccupationalPyramidLevelsResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ReorderOccupationalPyramidLevelsResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
           content:
             text/plain:
               schema:
@@ -13536,6 +13727,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/job-catalogs/{category}/order':
+    patch:
+      tags:
+        - Job Profiles
+      summary: Reorder the items of a category
+      description: "Rewrites `sortOrder` for the whole category in one transaction. Send `orderedPublicIds` with **every**\nitem of the category exactly once, in the desired order; the server assigns `10`, `20`, `30`, …\n\nA partial or duplicated list is rejected with `422 JOB_CATALOG_ORDER_SET_INCOMPLETE`.\n\n**No `If-Match`**, deliberately — see the occupational pyramid's equivalent for the reasoning.\n\n**Requires permission:** one of `JobCatalogs.Admin`, `iam.administration.manage`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderCatalogRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderJobCatalogItemsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/job-profiles/{jobProfilePublicId}/benefits':
     get:
       tags:
@@ -16472,6 +16723,194 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/job-profiles/{publicId}/archival':
+    patch:
+      tags:
+        - Job Profiles
+      summary: Archive a job profile
+      description: "`Draft` or `Published` → `Archived`, and sets `isActive` to `false`. Terminal: an archived\nprofile can no longer be modified, republished or reopened. Idempotent — archiving an already\narchived profile returns it unchanged.\n\nExisting position slots are NOT removed or deactivated (`job_profile_id` is `RESTRICT`, and\nthere is no delete for a job profile). Requires the dedicated `JobProfiles.Publish` grant and\n`If-Match`."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCoreResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/job-profiles/{publicId}/reopening':
+    patch:
+      tags:
+        - Job Profiles
+      summary: Reopen a published job profile for editing
+      description: "`Published` → `Draft` with a MANDATORY reason — the only way to correct an approved descriptor,\nand the change-control record of why it was unfrozen. The reason is stored in the audit trail\n(`JOB_PROFILE_REOPENED`). `version` is incremented, so every publish/reopen cycle is traceable.\n\n**Existing position slots and their occupants are untouched**: the state governs new downstream\nwrites only. What a reopening blocks is creating or repointing a slot while the profile is not\npublished; the plazas already created keep working, and payroll is unaffected.\n\nRequires the dedicated `JobProfiles.Publish` grant and `If-Match`. Only a `Published` profile\ncan be reopened (`422 JOB_PROFILE_STATE_RULE_VIOLATION`)."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReopenJobProfileRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCoreResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/job-profiles/{publicId}/publication':
+    patch:
+      tags:
+        - Job Profiles
+      summary: Publish a job profile
+      description: "`Draft` → `Published`. **The descriptor FREEZES**: neither the profile core nor any of its 9\ncollections can be modified afterwards (`422 JOB_PROFILE_STATE_RULE_VIOLATION`) until the\nprofile is reopened. Publishing is also what makes the profile usable downstream — a position\nslot cannot be created against a profile that is not published.\n\nRequires the dedicated `JobProfiles.Publish` grant (`JobProfiles.Admin` does NOT imply it) and\n`If-Match` with the profile's current `concurrencyToken`. The minimum content is enforced:\nobjective, responsibilities, at least one requirement and at least one function\n(`422 JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING`). Only a `Draft` profile can be published.\n\nThe competency matrix is deliberately NOT frozen: it is an operational overlay on an approved\ndescriptor and stays writable while the profile is published."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCoreResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/job-profiles/{jobProfilePublicId}/trainings':
     get:
       tags:
@@ -17637,7 +18076,7 @@ paths:
       tags:
         - Legal Representatives
       summary: Patch a legal representative
-      description: "Applies a partial update using JSON Patch (RFC 6902), media type\n`application/json-patch+json`. Patchable descriptive/contact paths: `/firstName`,\n`/lastName`, `/positionTitle`, `/representationType`, `/authorityDescription`,\n`/appointmentInstrument`, `/appointmentDateUtc`, `/email`, `/phone`. The legal identity\n(`/documentType`, `/documentNumber`) and the `/effectiveFromUtc`-`/effectiveToUtc` range\nare validated as units via PUT; the `/isPrimary` flag is changed via `/set-primary`; and\nactivation via `/activate` and `/inactivate`. Requires the current `concurrencyToken` in\nthe `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
+      description: "Applies a partial update using JSON Patch (RFC 6902), media type\n`application/json-patch+json`. Patchable descriptive/contact paths: `/firstName`,\n`/lastName`, `/positionTitle`, `/representationType`, `/authorityDescription`,\n`/appointmentInstrument`, `/appointmentDate`, `/email`, `/phone`. The legal identity\n(`/documentType`, `/documentNumber`) and the `/effectiveFrom`-`/effectiveTo` range\nare validated as units via PUT; the `/isPrimary` flag is changed via `/set-primary`; and\nactivation via `/activate` and `/inactivate`. Requires the current `concurrencyToken` in\nthe `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned\nin the body and the `ETag` header."
       parameters:
         - name: publicId
           in: path
@@ -20969,6 +21408,108 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Organization Structure Catalogs
+      summary: Delete a unit type
+      description: "Hard-deletes the unit type. Requires the current `concurrencyToken` in the `If-Match`\nheader (missing → `400`, stale → `409`). Rejected with\n`409 ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE` when anything still references it —\norganization units or position category classifications, active **or** inactive, since\nboth foreign keys are `RESTRICT`. Use\n`GET /organization-structure-catalogs/unit-types/{id}/usage` to see which references\nblock it. Inactivation remains the way to retire a type that is in use; this exists for\nthe record created by mistake that nothing ever used."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeCatalogItemResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeCatalogItemResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeCatalogItemResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/organization-structure-catalogs/unit-types/{publicId}/activate':
     patch:
       tags:
@@ -21165,6 +21706,68 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/organization-structure-catalogs/unit-types/{publicId}/usage':
+    get:
+      tags:
+        - Organization Structure Catalogs
+      summary: Get a unit type's usage
+      description: "Returns the active/inactive reference counts for the unit type across organization units\nand position category classifications, indicating whether it is safe to inactivate.\nInactivation collapses both checks into a single `ORG_STRUCTURE_CATALOG_IN_USE`; this\nendpoint separates them so a client can say WHICH references block it."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeUsageResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeUsageResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitTypeUsageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
           content:
             text/plain:
               schema:
@@ -21537,6 +22140,170 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Organization Structure Catalogs
+      summary: Delete a functional area
+      description: "Hard-deletes the functional area. Requires the current `concurrencyToken` in the `If-Match`\nheader (missing → `400`, stale → `409`). Rejected with\n`409 ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE` when anything still references it —\norganization units, active **or** inactive since the foreign key is `RESTRICT`, and also\nthe company dashboard preference, which points at the area by `code` without a foreign\nkey. Use `GET /organization-structure-catalogs/functional-areas/{id}/usage` to see which\nreferences block it. Inactivation remains the way to retire an area that is in use; this\nexists for the record created by mistake that nothing ever used."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaCatalogItemResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaCatalogItemResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaCatalogItemResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/organization-structure-catalogs/functional-areas/{publicId}/usage':
+    get:
+      tags:
+        - Organization Structure Catalogs
+      summary: Get a functional area's usage
+      description: "Returns the active/inactive reference counts for the functional area across organization\nunits, plus how many company preferences point at it. **The dashboard preference has no\nforeign key** — it references the area by `code` — so it does not appear in the database\nconstraint graph, yet deleting the area would leave the HR-ratio metric pointing at a code\nthat no longer exists. It is counted here for that reason."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaUsageResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaUsageResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FunctionalAreaUsageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
           content:
             text/plain:
               schema:
@@ -22247,6 +23014,108 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Organization Units
+      summary: Delete an org unit
+      description: "Hard-deletes the organization unit. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). Rejected with `409 ORG_UNIT_IN_USE`\nwhen anything still references it — child units or job profiles, active **or** inactive,\nsince both foreign keys are `RESTRICT`. Use `GET /organization-units/{id}/usage` to see\nwhich references block it. Inactivation (`/inactivate`) remains the way to retire a unit\nthat is in use; this exists for the record created by mistake that nothing ever used."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/OrgUnitResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/companies/{companyPublicId}/organization-units/tree':
     get:
       tags:
@@ -22734,6 +23603,68 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/organization-units/{publicId}/usage':
+    get:
+      tags:
+        - Organization Units
+      summary: Get an org unit's usage
+      description: "Returns the active/inactive reference counts for the organization unit across its child\nunits and the job profiles anchored to it, indicating whether it is safe to inactivate.\nInactivation is rejected by active children alone (`ORG_UNIT_HAS_ACTIVE_CHILDREN`); this\nendpoint exists so a client can say WHICH references block it instead of only that some do."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/OrgUnitUsageResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitUsageResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnitUsageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
           content:
             text/plain:
               schema:
@@ -58453,6 +59384,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/companies/{companyPublicId}/position-description-catalogs/{catalogType}/items/order':
+    patch:
+      tags:
+        - Position Description Catalogs
+      summary: Reorder the items of a catalog type
+      description: "Rewrites `sortOrder` for the whole catalog type in one transaction. Send `orderedPublicIds` with\n**every** item of the type exactly once, in the desired order; the server assigns `10`, `20`, `30`, …\n\nReplaces the previous N-patches-per-reorder. A partial or duplicated list is rejected with\n`422 POSITION_DESCRIPTION_CATALOG_ORDER_SET_INCOMPLETE`.\n\n**No `If-Match`**, deliberately — see the occupational pyramid's equivalent for the reasoning. Unlike\nthat one, `sortOrder` here is not unique, so a single write phase suffices.\n\n**Requires permission:** one of `PositionDescriptionCatalogs.Admin`, `iam.administration.manage`."
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: catalogType
+          in: path
+          description: 'Catalog type slug. One of: position-function-types, position-contract-types, strategic-objectives, frequencies, requirement-types, requirements, general-functions, salary-classes, work-equipments, responsibilities-catalog, benefits-catalog, work-condition-types, work-conditions, competency-domains.'
+          required: true
+          schema:
+            enum:
+              - position-function-types
+              - position-contract-types
+              - strategic-objectives
+              - frequencies
+              - requirement-types
+              - requirements
+              - general-functions
+              - salary-classes
+              - work-equipments
+              - responsibilities-catalog
+              - benefits-catalog
+              - work-condition-types
+              - work-conditions
+              - competency-domains
+            type: string
+            example: position-function-types
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderCatalogRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderPositionDescriptionCatalogItemsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/position-description-catalogs/{catalogType}/items/{positionDescriptionCatalogItemPublicId}':
     get:
       tags:
@@ -62671,6 +63679,170 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Work Center Types
+      summary: Delete a work center type
+      description: "Hard-deletes the work center type. Requires the current `concurrencyToken` in the\n`If-Match` header (missing → `400`, stale → `409`). Rejected with\n`409 WORK_CENTER_TYPE_IN_USE_FOR_DELETE` when any work center still references it, active\n**or** inactive, since the foreign key is `RESTRICT`. Use\n`GET /work-center-types/{id}/usage` to see what blocks it. Inactivation remains the way to\nretire a type that is in use; this exists for the record created by mistake that nothing\never used."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/work-center-types/{publicId}/usage':
+    get:
+      tags:
+        - Work Center Types
+      summary: Get a work center type's usage
+      description: "Returns how many work centers reference the type, split into active and inactive.\nInactivation only looks at the active ones (`WORK_CENTER_TYPE_IN_USE`); a hard delete is\nblocked by both, because the foreign key is `RESTRICT`. Returning the two counts lets a\nclient tell those two situations apart instead of guessing."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeUsageResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeUsageResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterTypeUsageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/work-center-types/{publicId}/activate':
     patch:
       tags:
@@ -63356,6 +64528,170 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Work Centers
+      summary: Delete a work center
+      description: "Hard-deletes the work center. Requires the current `concurrencyToken` in the `If-Match`\nheader (missing → `400`, stale → `409`). Rejected with\n`409 WORK_CENTER_IN_USE_FOR_DELETE` when position slots still reference it — active\n**or** inactive, since the foreign key is `RESTRICT` — or when any personnel employment\nassignment points at it, which the database does not enforce because that reference has no\nforeign key. Use `GET /work-centers/{id}/usage` to see what blocks it. Inactivation remains\nthe way to retire a centre that is in use; this exists for the record created by mistake\nthat nothing ever used."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkCenterResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterResponse'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable Content
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/work-centers/{publicId}/usage':
+    get:
+      tags:
+        - Work Centers
+      summary: Get a work center's usage
+      description: "Returns how many position slots reference the work center, split into active and inactive,\nplus how many personnel employment assignments point at it. **The assignments have no\nforeign key** — they store the work center's `publicId` — so they do not appear in the\ndatabase constraint graph, yet deleting the centre would leave those assignments pointing\nat something that no longer exists. They are counted here for that reason."
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkCenterUsageResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterUsageResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkCenterUsageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
           content:
             text/plain:
               schema:
@@ -64900,7 +66236,6 @@ components:
           type: string
         isPrimary:
           type: boolean
-          nullable: true
       additionalProperties: false
     AddAdditionalBenefitRequest:
       type: object
@@ -66710,6 +68045,33 @@ components:
           type: string
           readOnly: true
       additionalProperties: false
+    AguinaldoExemptionResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+          format: int32
+        exemptAmount:
+          type: number
+          format: double
+        isActive:
+          type: boolean
+      additionalProperties: false
+    AguinaldoExemptionRequestItem:
+      type: object
+      properties:
+        year:
+          type: integer
+          format: int32
+        exemptAmount:
+          type: number
+          format: double
+        isActive:
+          type: boolean
+      additionalProperties: false
     AllowedActionPermissionResponse:
       type: object
       properties:
@@ -67667,6 +69029,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
       additionalProperties: false
     CompanyPreferenceResponse:
       type: object
@@ -69114,16 +70478,16 @@ components:
         appointmentInstrument:
           type: string
           nullable: true
-        appointmentDateUtc:
+        appointmentDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
-        effectiveFromUtc:
+        effectiveFrom:
           type: string
-          format: date-time
-        effectiveToUtc:
+          format: date
+        effectiveTo:
           type: string
-          format: date-time
+          format: date
           nullable: true
         email:
           type: string
@@ -71276,6 +72640,31 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+    FunctionalAreaUsageResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        orgUnitActiveReferences:
+          type: integer
+          format: int32
+        orgUnitInactiveReferences:
+          type: integer
+          format: int32
+        dashboardPreferenceReferences:
+          type: integer
+          format: int32
+        hasActiveReferences:
+          type: boolean
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
     GeneratePayrollRunRequest:
       type: object
       properties:
@@ -72097,25 +73486,22 @@ components:
         appointmentInstrument:
           type: string
           nullable: true
-        appointmentDateUtc:
+        appointmentDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
-        effectiveFromUtc:
+        effectiveFrom:
           type: string
-          format: date-time
-        effectiveToUtc:
+          format: date
+        effectiveTo:
           type: string
-          format: date-time
+          format: date
           nullable: true
         email:
           type: string
           nullable: true
         phone:
           type: string
-          nullable: true
-        isPrimary:
-          type: boolean
           nullable: true
       additionalProperties: false
     InternalCatalogDefinitionResponse:
@@ -72183,6 +73569,21 @@ components:
         - BehaviorLevel
         - Behavior
       type: string
+    JobCatalogItemOrderItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
     JobCatalogItemResponse:
       type: object
       properties:
@@ -73173,15 +74574,14 @@ components:
           $ref: '#/components/schemas/LegalRepresentativeRepresentationType'
         isPrimary:
           type: boolean
-          nullable: true
         isActive:
           type: boolean
-        effectiveFromUtc:
+        effectiveFrom:
           type: string
-          format: date-time
-        effectiveToUtc:
+          format: date
+        effectiveTo:
           type: string
-          format: date-time
+          format: date
           nullable: true
         concurrencyToken:
           type: string
@@ -73282,16 +74682,16 @@ components:
         appointmentInstrument:
           type: string
           nullable: true
-        appointmentDateUtc:
+        appointmentDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
-        effectiveFromUtc:
+        effectiveFrom:
           type: string
-          format: date-time
-        effectiveToUtc:
+          format: date
+        effectiveTo:
           type: string
-          format: date-time
+          format: date
           nullable: true
         email:
           type: string
@@ -73301,7 +74701,6 @@ components:
           nullable: true
         isPrimary:
           type: boolean
-          nullable: true
         isActive:
           type: boolean
         concurrencyToken:
@@ -74343,6 +75742,21 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+    OccupationalPyramidLevelOrderItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        levelOrder:
+          type: integer
+          format: int32
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
     OccupationalPyramidLevelResponse:
       type: object
       properties:
@@ -75377,6 +76791,62 @@ components:
         totalCount:
           type: integer
           format: int32
+      additionalProperties: false
+    OrgUnitUsageResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        activeChildren:
+          type: integer
+          format: int32
+        inactiveChildren:
+          type: integer
+          format: int32
+        jobProfileActiveReferences:
+          type: integer
+          format: int32
+        jobProfileInactiveReferences:
+          type: integer
+          format: int32
+        hasActiveReferences:
+          type: boolean
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    OrgUnitTypeUsageResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        orgUnitActiveReferences:
+          type: integer
+          format: int32
+        orgUnitInactiveReferences:
+          type: integer
+          format: int32
+        positionCategoryClassificationActiveReferences:
+          type: integer
+          format: int32
+        positionCategoryClassificationInactiveReferences:
+          type: integer
+          format: int32
+        hasActiveReferences:
+          type: boolean
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     OvertimeApplyPeriodResult:
       type: object
@@ -81066,6 +82536,21 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+    PositionDescriptionCatalogItemOrderItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
     PositionDescriptionCatalogItemResponse:
       type: object
       properties:
@@ -83517,6 +85002,59 @@ components:
           type: string
           nullable: true
       additionalProperties: false
+    ReplaceAguinaldoExemptionsRequest:
+      type: object
+      properties:
+        exemptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AguinaldoExemptionRequestItem'
+      additionalProperties: false
+    ReorderPositionDescriptionCatalogItemsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionDescriptionCatalogItemOrderItemResponse'
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    ReorderOccupationalPyramidLevelsResponse:
+      type: object
+      properties:
+        levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupationalPyramidLevelOrderItemResponse'
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    ReorderJobCatalogItemsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobCatalogItemOrderItemResponse'
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    ReorderCatalogRequest:
+      type: object
+      properties:
+        orderedPublicIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+    ReopenJobProfileRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
     ReplaceIncapacityRiskParametersRequest:
       type: object
       properties:
@@ -84299,6 +85837,37 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+      additionalProperties: false
+    SalaryTabulatorOutOfBandPositionSlot:
+      type: object
+      properties:
+        positionSlotPublicId:
+          type: string
+          format: uuid
+        positionSlotCode:
+          type: string
+        jobProfilePublicId:
+          type: string
+          format: uuid
+        jobProfileCode:
+          type: string
+        configuredBaseSalary:
+          type: number
+          format: double
+        configuredBaseSalaryCurrencyCode:
+          type: string
+          nullable: true
+        bandMinAmount:
+          type: number
+          format: double
+          nullable: true
+        bandMaxAmount:
+          type: number
+          format: double
+          nullable: true
+        bandCurrencyCode:
+          type: string
+          nullable: true
       additionalProperties: false
     SaveExitInterviewFormDefinitionRequest:
       type: object
@@ -85946,16 +87515,16 @@ components:
         appointmentInstrument:
           type: string
           nullable: true
-        appointmentDateUtc:
+        appointmentDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
-        effectiveFromUtc:
+        effectiveFrom:
           type: string
-          format: date-time
-        effectiveToUtc:
+          format: date
+        effectiveTo:
           type: string
-          format: date-time
+          format: date
           nullable: true
         email:
           type: string
@@ -87756,6 +89325,53 @@ components:
         totalCount:
           type: integer
           format: int32
+      additionalProperties: false
+    WorkCenterTypeUsageResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        workCenterActiveReferences:
+          type: integer
+          format: int32
+        workCenterInactiveReferences:
+          type: integer
+          format: int32
+        hasActiveReferences:
+          type: boolean
+        normalizedCode:
+          type: string
+          readOnly: true
+      additionalProperties: false
+    WorkCenterUsageResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        positionSlotActiveReferences:
+          type: integer
+          format: int32
+        positionSlotInactiveReferences:
+          type: integer
+          format: int32
+        employmentAssignmentReferences:
+          type: integer
+          format: int32
+        hasActiveReferences:
+          type: boolean
+        normalizedCode:
+          type: string
+          readOnly: true
       additionalProperties: false
     WorkScheduleDayInputModel:
       type: object

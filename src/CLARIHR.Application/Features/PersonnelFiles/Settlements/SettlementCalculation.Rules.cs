@@ -456,7 +456,10 @@ internal static class SettlementCalculationRules
                     break;
 
                 case SettlementConceptCodes.AguinaldoProporcional:
-                    units = spec.UnitsOrDays ?? DaysInAguinaldoPeriod(input.PlazaStartDate, input.RetirementDate);
+                    // H-28 — desde el INGRESO, no desde la plaza. Este era el tercer sitio del ancla y se quedó
+                    // fuera cuando los otros dos se movieron: con una plaza registrada hace 20 días el devengo
+                    // arrancaba hace 20 días en vez del 12 de diciembre, subestimando el aguinaldo un 95 %.
+                    units = spec.UnitsOrDays ?? DaysInAguinaldoPeriod(input.SeniorityStartDate, input.RetirementDate);
                     calculationBase = derived.DailySalary;
                     calculated = Round2(derived.DailySalary * derived.AguinaldoDays * units.Value / parameters.YearDivisorDays);
                     detail = $"{derived.DailySalary:0.00} × {derived.AguinaldoDays:0.##} días × {units:0.##}/{parameters.YearDivisorDays}";
@@ -719,13 +722,13 @@ internal static class SettlementCalculationRules
     /// Days worked inside the aguinaldo period (Dec 12 → Dec 11, ratified §17.5) up to the retirement date,
     /// clipped to the plaza start when the employee joined mid-period.
     /// </summary>
-    public static int DaysInAguinaldoPeriod(DateTime plazaStartDate, DateTime retirementDate)
+    public static int DaysInAguinaldoPeriod(DateTime seniorityStartDate, DateTime retirementDate)
     {
         var end = retirementDate.Date;
         var periodStart = new DateTime(end >= new DateTime(end.Year, 12, 12) ? end.Year : end.Year - 1, 12, 12);
-        if (plazaStartDate.Date > periodStart)
+        if (seniorityStartDate.Date > periodStart)
         {
-            periodStart = plazaStartDate.Date;
+            periodStart = seniorityStartDate.Date;
         }
 
         return Math.Max(0, (end - periodStart).Days);

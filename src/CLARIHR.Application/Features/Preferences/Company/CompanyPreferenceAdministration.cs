@@ -6,6 +6,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Payroll;
 using CLARIHR.Application.Features.Preferences.Common;
 using CLARIHR.Domain.Preferences;
 using FluentValidation;
@@ -42,6 +43,10 @@ public sealed record CompanyPreferenceResponse(
     decimal? RecurringDeductionDefaultInterestRatePercent,
     // Indebtedness ceiling (REQ-010 D-16): null = the company has NO indebtedness control at all.
     decimal? MaxIndebtednessPercent,
+    // Aguinaldo payment date (requerimiento 2026-08-12 §5): month+day WITHOUT a year — it is a recurring
+    // policy, and the year comes from the run's period. Both null = not defined yet (no aguinaldo run).
+    int? AguinaldoPaymentMonth,
+    int? AguinaldoPaymentDay,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
@@ -78,7 +83,11 @@ public sealed record UpdateCompanyPreferencesCommand(
     decimal? RecurringDeductionDefaultInterestRatePercent,
     // Indebtedness ceiling (REQ-010 D-16): null = the company has NO indebtedness control at all.
     decimal? MaxIndebtednessPercent,
-    Guid ConcurrencyToken) : ICommand<CompanyPreferenceResponse>;
+    Guid ConcurrencyToken,
+    // Aguinaldo payment date (§5): month+day, inside the legal window 20-Oct → 20-Dec. Van al final con
+    // default para que omitirlos signifique «no la configures», que es el estado inicial de toda empresa.
+    int? AguinaldoPaymentMonth = null,
+    int? AguinaldoPaymentDay = null) : ICommand<CompanyPreferenceResponse>;
 
 public sealed record CompanyPreferencePatchOperation(
     string Op,
@@ -174,6 +183,18 @@ internal sealed class UpdateCompanyPreferencesCommandValidator : AbstractValidat
             .GreaterThan(0m)
             .LessThanOrEqualTo(100m)
             .When(static command => command.MaxIndebtednessPercent.HasValue);
+        // Fecha de pago del aguinaldo (§5): el par va junto y cae dentro de la ventana legal 20-oct → 20-dic
+        // que fijó la reforma de 2025. Pagar fuera de esa ventana es una infracción, no una preferencia.
+        RuleFor(command => command)
+            .Must(static command => command.AguinaldoPaymentMonth.HasValue == command.AguinaldoPaymentDay.HasValue)
+            .WithMessage("The aguinaldo payment month and day must be provided together or both omitted.")
+            .WithErrorCode("AGUINALDO_PAYMENT_DATE_INCOMPLETE");
+        RuleFor(command => command)
+            .Must(static command => CompanyPreferenceAdministrationHelpers.IsAguinaldoPaymentDateLegal(
+                command.AguinaldoPaymentMonth, command.AguinaldoPaymentDay))
+            .WithMessage("The aguinaldo payment date must fall between October 20 and December 20.")
+            .WithErrorCode("AGUINALDO_PAYMENT_DATE_OUT_OF_WINDOW")
+            .When(static command => command.AguinaldoPaymentMonth.HasValue && command.AguinaldoPaymentDay.HasValue);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -275,6 +296,9 @@ internal sealed class UpdateCompanyPreferencesCommandHandler(
             command.RecurringDeductionDefaultInterestRatePercent);
         preference.SetIndebtednessPolicies(
             command.MaxIndebtednessPercent);
+        preference.SetAguinaldoPaymentDate(
+            command.AguinaldoPaymentMonth,
+            command.AguinaldoPaymentDay);
 
         return await CompanyPreferenceAdministrationHelpers.ApplyUpdateAndAuditAsync(
             preference,
@@ -528,6 +552,33 @@ internal static class CompanyPreferencePatchApplier
 
 internal static class CompanyPreferenceAdministrationHelpers
 {
+    /// <summary>
+    /// Si el par mes/día cae dentro de la ventana legal de pago del aguinaldo (20-oct → 20-dic, reforma de
+    /// 2025). Se apoya en <see cref="AguinaldoRules"/> para que la ventana tenga UNA definición: si la
+    /// asamblea la vuelve a mover, se cambia en el motor y esta validación lo sigue.
+    /// </summary>
+    public static bool IsAguinaldoPaymentDateLegal(int? month, int? day)
+    {
+        if (month is null || day is null)
+        {
+            return true;
+        }
+
+        if (month is < 1 or > 12 || day < 1 || day > 31)
+        {
+            return false;
+        }
+
+        // Año no bisiesto a propósito: una política anual no puede caer un 29 de febrero. Irrelevante para la
+        // ventana de octubre-diciembre, pero deja la validación correcta si la ventana cambiara.
+        if (day > DateTime.DaysInMonth(2001, month.Value))
+        {
+            return false;
+        }
+
+        return AguinaldoRules.IsWithinPaymentWindow(new DateOnly(2001, month.Value, day.Value));
+    }
+
     public static CompanyPreferenceResponse Map(CompanyPreference preference) =>
         new(
             preference.PublicId,
@@ -554,6 +605,8 @@ internal static class CompanyPreferenceAdministrationHelpers
             preference.OvertimeMaxDailyMinutes,
             preference.RecurringDeductionDefaultInterestRatePercent,
             preference.MaxIndebtednessPercent,
+            preference.AguinaldoPaymentMonth,
+            preference.AguinaldoPaymentDay,
             preference.ConcurrencyToken,
             preference.CreatedUtc,
             preference.ModifiedUtc);

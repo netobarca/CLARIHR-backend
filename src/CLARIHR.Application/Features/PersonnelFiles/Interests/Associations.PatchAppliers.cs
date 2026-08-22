@@ -13,6 +13,7 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Features.Files.Common;
+using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -184,7 +185,7 @@ internal static class PersonnelFileAssociationPatchApplier
     {
         if (!IsNull(value) &&
             value!.Value.ValueKind == JsonValueKind.String &&
-            value.Value.TryGetDateTime(out var parsed))
+            CalendarDateReader.TryReadDayAsUtcMidnight(value.Value.GetString(), out var parsed))
         {
             return parsed;
         }

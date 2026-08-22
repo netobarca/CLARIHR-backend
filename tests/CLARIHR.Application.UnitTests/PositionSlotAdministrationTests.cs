@@ -197,6 +197,7 @@ public sealed class PositionSlotAdministrationTests
             JobProfileId: jobProfileId,
             OrgUnitId: orgUnitId,
             OrgUnitName: "Finanzas",
+            OrgUnitIsActive: true,
             CostCenterCode: null,
             PositionCategoryId: null,
             PositionCategoryClassificationId: null,
@@ -272,6 +273,7 @@ public sealed class PositionSlotAdministrationTests
             JobProfileId: originalJobProfileId,
             OrgUnitId: orgUnitId,
             OrgUnitName: "Operaciones",
+            OrgUnitIsActive: true,
             CostCenterCode: null,
             PositionCategoryId: null,
             PositionCategoryClassificationId: null,
@@ -284,6 +286,7 @@ public sealed class PositionSlotAdministrationTests
             JobProfileId: replacementJobProfileId,
             OrgUnitId: orgUnitId,
             OrgUnitName: "Operaciones",
+            OrgUnitIsActive: true,
             CostCenterCode: null,
             PositionCategoryId: null,
             PositionCategoryClassificationId: null,
@@ -354,6 +357,7 @@ public sealed class PositionSlotAdministrationTests
             JobProfileId: jobProfileId,
             OrgUnitId: orgUnitId,
             OrgUnitName: "Tecnologia",
+            OrgUnitIsActive: true,
             CostCenterCode: null,
             PositionCategoryId: null,
             PositionCategoryClassificationId: null,
@@ -433,6 +437,7 @@ public sealed class PositionSlotAdministrationTests
             JobProfileId: jobProfileId,
             OrgUnitId: orgUnitId,
             OrgUnitName: "Unidad",
+            OrgUnitIsActive: true,
             CostCenterCode: null,
             PositionCategoryId: null,
             PositionCategoryClassificationId: null,
@@ -566,8 +571,11 @@ public sealed class PositionSlotAdministrationTests
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) =>
-            Task.FromResult<long?>(null);
+        // 00950 / B-02 (§3.6) — `null` = "no existe ese centro", que es lo que estas pruebas ejercitan.
+        // El doble NO devuelve un centro inactivo: eso lo cubre la prueba de integracion, contra la
+        // consulta real. Aqui un valor inventado solo diria que el tuple compila.
+        public Task<(long Id, bool IsActive)?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) =>
+            Task.FromResult<(long Id, bool IsActive)?>(null);
 
         public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) =>
             Task.FromResult(false);

@@ -12,6 +12,13 @@ public static class OvertimeConfigurationValidationRules
     public const int MaxPageSize = 100;
     public const int MinSearchLength = 2;
 
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
+
     public static bool IsValidSearchLength(string? search) =>
         string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
 }

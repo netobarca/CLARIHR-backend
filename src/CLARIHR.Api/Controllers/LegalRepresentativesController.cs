@@ -179,9 +179,9 @@ public sealed class LegalRepresentativesController(
                 request.RepresentationType,
                 request.AuthorityDescription,
                 request.AppointmentInstrument,
-                request.AppointmentDateUtc,
-                request.EffectiveFromUtc,
-                request.EffectiveToUtc,
+                request.AppointmentDate,
+                request.EffectiveFrom,
+                request.EffectiveTo,
                 request.Email,
                 request.Phone,
                 request.IsPrimary),
@@ -225,9 +225,9 @@ public sealed class LegalRepresentativesController(
                 request.RepresentationType,
                 request.AuthorityDescription,
                 request.AppointmentInstrument,
-                request.AppointmentDateUtc,
-                request.EffectiveFromUtc,
-                request.EffectiveToUtc,
+                request.AppointmentDate,
+                request.EffectiveFrom,
+                request.EffectiveTo,
                 request.Email,
                 request.Phone,
                 request.IsPrimary,
@@ -248,8 +248,8 @@ public sealed class LegalRepresentativesController(
             Applies a partial update using JSON Patch (RFC 6902), media type
             `application/json-patch+json`. Patchable descriptive/contact paths: `/firstName`,
             `/lastName`, `/positionTitle`, `/representationType`, `/authorityDescription`,
-            `/appointmentInstrument`, `/appointmentDateUtc`, `/email`, `/phone`. The legal identity
-            (`/documentType`, `/documentNumber`) and the `/effectiveFromUtc`-`/effectiveToUtc` range
+            `/appointmentInstrument`, `/appointmentDate`, `/email`, `/phone`. The legal identity
+            (`/documentType`, `/documentNumber`) and the `/effectiveFrom`-`/effectiveTo` range
             are validated as units via PUT; the `/isPrimary` flag is changed via `/set-primary`; and
             activation via `/activate` and `/inactivate`. Requires the current `concurrencyToken` in
             the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned
@@ -350,9 +350,9 @@ public sealed class LegalRepresentativesController(
         LegalRepresentativeRepresentationType RepresentationType,
         string? AuthorityDescription,
         string? AppointmentInstrument,
-        DateTime? AppointmentDateUtc,
-        DateTime EffectiveFromUtc,
-        DateTime? EffectiveToUtc,
+        DateOnly? AppointmentDate,
+        DateOnly EffectiveFrom,
+        DateOnly? EffectiveTo,
         string? Email,
         string? Phone,
         bool IsPrimary = false);
@@ -366,9 +366,9 @@ public sealed class LegalRepresentativesController(
         LegalRepresentativeRepresentationType RepresentationType,
         string? AuthorityDescription,
         string? AppointmentInstrument,
-        DateTime? AppointmentDateUtc,
-        DateTime EffectiveFromUtc,
-        DateTime? EffectiveToUtc,
+        DateOnly? AppointmentDate,
+        DateOnly EffectiveFrom,
+        DateOnly? EffectiveTo,
         string? Email,
         string? Phone,
         bool IsPrimary);
@@ -381,7 +381,7 @@ public sealed class LegalRepresentativesController(
         public LegalRepresentativeRepresentationType RepresentationType { get; set; }
         public string? AuthorityDescription { get; set; }
         public string? AppointmentInstrument { get; set; }
-        public DateTime? AppointmentDateUtc { get; set; }
+        public DateOnly? AppointmentDate { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
     }

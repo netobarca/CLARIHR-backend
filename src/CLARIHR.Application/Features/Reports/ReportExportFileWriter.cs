@@ -173,6 +173,10 @@ public static class ReportExportFileWriter
         value switch
         {
             null => string.Empty,
+            // B-02 — un DÍA se exporta en ISO, igual que viaja por la API. Sin este caso caía en la rama
+            // `IFormattable` de abajo, que en cultura invariante da `08/15/2026`: ambiguo al abrir el CSV y
+            // distinto de lo que devuelve el endpoint.
+            DateOnly date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             DateTime dateTime => dateTime.ToString("O", CultureInfo.InvariantCulture),
             DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
             bool boolean => boolean ? "true" : "false",

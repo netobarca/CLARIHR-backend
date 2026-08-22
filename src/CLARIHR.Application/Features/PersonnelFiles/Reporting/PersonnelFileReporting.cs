@@ -133,7 +133,7 @@ internal sealed class ExportPersonnelFilesQueryValidator : AbstractValidator<Exp
         RuleFor(query => query.Search)
             .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
             .Must(PersonnelFileValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PersonnelFileValidationRules.SearchLengthMessage);
         RuleFor(query => query.MaritalStatus).MaximumLength(80);
         RuleFor(query => query.Nationality).MaximumLength(120);
         RuleFor(query => query.Profession).MaximumLength(120);
@@ -160,13 +160,13 @@ internal sealed class DynamicQueryPersonnelFilesQueryValidator : AbstractValidat
         RuleFor(query => query.Search)
             .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
             .Must(PersonnelFileValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PersonnelFileValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PersonnelFileValidationRules.MaxPageSize);
 
         RuleFor(query => query.GroupBy)
             .Must(groupBy => groupBy.Count <= PersonnelFileDynamicQuerySpec.MaxGroupFields)
-            .WithMessage($"A maximum of {PersonnelFileDynamicQuerySpec.MaxGroupFields} group fields is allowed.");
+            .WithMessage("A maximum of 3 group fields is allowed.");
         RuleForEach(query => query.GroupBy)
             .NotEmpty()
             .MaximumLength(80)
@@ -217,7 +217,7 @@ internal sealed class GetPersonnelFilesAnalyticsSummaryQueryValidator : Abstract
         RuleFor(query => query.Search)
             .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
             .Must(PersonnelFileValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PersonnelFileValidationRules.SearchLengthMessage);
     }
 }
 

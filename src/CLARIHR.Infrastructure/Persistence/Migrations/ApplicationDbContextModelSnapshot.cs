@@ -743,7 +743,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9000L,
-                            Alias = "Agricola",
+                            Alias = "Agrícola",
                             Code = "BANCO_AGRICOLA",
                             ConcurrencyToken = new Guid("0d78d96e-f3c3-6cc3-df75-7aa0d20d5743"),
                             CountryCatalogItemId = -7068L,
@@ -751,8 +751,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Banco Agricola",
-                            NormalizedAlias = "AGRICOLA",
+                            Name = "Banco Agrícola",
+                            NormalizedAlias = "AGRÍCOLA",
                             NormalizedCode = "BANCO_AGRICOLA",
                             NormalizedName = "AGRICOLA",
                             PublicId = new Guid("c242c10d-3457-f77a-77cb-055689206e26"),
@@ -779,7 +779,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9002L,
-                            Alias = "Cuscatlan",
+                            Alias = "Cuscatlán",
                             Code = "CUSCATLAN",
                             ConcurrencyToken = new Guid("33552f9e-df6e-f9ef-6c8f-004fd4a8495e"),
                             CountryCatalogItemId = -7068L,
@@ -787,8 +787,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan",
-                            NormalizedAlias = "CUSCATLAN",
+                            Name = "Cuscatlán",
+                            NormalizedAlias = "CUSCATLÁN",
                             NormalizedCode = "CUSCATLAN",
                             NormalizedName = "CUSCATLAN",
                             PublicId = new Guid("5c08e418-a564-818e-628e-793c9c769e6d"),
@@ -2925,6 +2925,65 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("user_companies", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Compensation.AguinaldoExemption", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<decimal>("ExemptAmount")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("exempt_amount");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_aguinaldo_exemptions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_aguinaldo_exemptions__public_id");
+
+                    b.HasIndex("TenantId", "Year")
+                        .IsUnique()
+                        .HasDatabaseName("uq_aguinaldo_exemptions__tenant_year");
+
+                    b.ToTable("aguinaldo_exemptions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_aguinaldo_exemptions__amount", "exempt_amount >= 0");
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Compensation.CompensationConceptTypeCatalogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -3146,10 +3205,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Comision",
+                            Name = "Comisión",
                             Nature = "Ingreso",
                             NormalizedCode = "COMISION",
-                            NormalizedName = "COMISION",
+                            NormalizedName = "COMISIÓN",
                             PublicId = new Guid("00e8df3d-b932-9a6a-83a3-0b0375d48027"),
                             SortOrder = 30
                         },
@@ -3194,10 +3253,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Viaticos",
+                            Name = "Viáticos",
                             Nature = "Ingreso",
                             NormalizedCode = "VIATICOS",
-                            NormalizedName = "VIATICOS",
+                            NormalizedName = "VIÁTICOS",
                             PublicId = new Guid("f8099f09-b23d-ccd6-8e6d-923ec76999b7"),
                             SortOrder = 50
                         },
@@ -3350,10 +3409,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Dano de equipo",
+                            Name = "Daño de equipo",
                             Nature = "Egreso",
                             NormalizedCode = "DANO_EQUIPO",
-                            NormalizedName = "DANO DE EQUIPO",
+                            NormalizedName = "DAÑO DE EQUIPO",
                             PublicId = new Guid("983cf927-e2cf-262e-17b8-f112f16768f3"),
                             SortOrder = 200
                         },
@@ -3542,10 +3601,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsBaseSalary = false,
                             IsStatutory = false,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Procuraduria",
+                            Name = "Procuraduría",
                             Nature = "Egreso",
                             NormalizedCode = "PROCURADURIA",
-                            NormalizedName = "PROCURADURIA",
+                            NormalizedName = "PROCURADURÍA",
                             PublicId = new Guid("6bc8f11f-13f8-4730-154c-a83882b91da1"),
                             SortOrder = 350
                         });
@@ -8129,9 +8188,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingreso base de cotizacion",
+                            Name = "Ingreso base de cotización",
                             NormalizedCode = "IBC",
-                            NormalizedName = "INGRESO BASE DE COTIZACION",
+                            NormalizedName = "INGRESO BASE DE COTIZACIÓN",
                             PublicId = new Guid("b3617314-6dad-3891-e93a-f855f25c6e5e"),
                             SortOrder = 30
                         },
@@ -8145,9 +8204,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Rubro especifico",
+                            Name = "Rubro específico",
                             NormalizedCode = "RUBRO_ESPECIFICO",
-                            NormalizedName = "RUBRO ESPECIFICO",
+                            NormalizedName = "RUBRO ESPECÍFICO",
                             PublicId = new Guid("519e9347-362b-ff78-4283-08b76cfc73f4"),
                             SortOrder = 40
                         });
@@ -9561,9 +9620,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Dolar estadounidense",
+                            Name = "Dólar estadounidense",
                             NormalizedCode = "USD",
-                            NormalizedName = "DOLAR ESTADOUNIDENSE",
+                            NormalizedName = "DÓLAR ESTADOUNIDENSE",
                             PublicId = new Guid("e28875cc-cf00-49e5-5d19-3fe706a5a33f"),
                             SortOrder = 10
                         });
@@ -9879,9 +9938,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Dia",
+                            Name = "Día",
                             NormalizedCode = "DAY",
-                            NormalizedName = "DIA",
+                            NormalizedName = "DÍA",
                             PublicId = new Guid("8033d7d6-d068-2842-95f8-353a2c80e415"),
                             SortOrder = 20
                         });
@@ -11397,9 +11456,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingles",
+                            Name = "Inglés",
                             NormalizedCode = "ENGLISH",
-                            NormalizedName = "INGLES",
+                            NormalizedName = "INGLÉS",
                             PublicId = new Guid("5fcab141-6fb9-d5d8-2ac4-1665345f6f02"),
                             SortOrder = 10
                         },
@@ -11413,9 +11472,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Espanol",
+                            Name = "Español",
                             NormalizedCode = "SPANISH",
-                            NormalizedName = "ESPANOL",
+                            NormalizedName = "ESPAÑOL",
                             PublicId = new Guid("cf70307b-242b-2509-429d-dea44398eb47"),
                             SortOrder = 20
                         });
@@ -11548,9 +11607,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Basico",
+                            Name = "Básico",
                             NormalizedCode = "BASIC",
-                            NormalizedName = "BASICO",
+                            NormalizedName = "BÁSICO",
                             PublicId = new Guid("a49e08ba-12d1-3eb2-2692-06c94dccf5fa"),
                             SortOrder = 30
                         });
@@ -12948,11 +13007,27 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Unica",
+                            Name = "Única",
                             NormalizedCode = "UNICA",
-                            NormalizedName = "UNICA",
+                            NormalizedName = "ÚNICA",
                             PublicId = new Guid("7345b4b9-9347-9fce-6b2c-4cd6000b26ce"),
                             SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9744L,
+                            Code = "ANUAL",
+                            ConcurrencyToken = new Guid("8d8f161c-7c9b-ec89-672a-6f3c78103785"),
+                            CountryCatalogItemId = -7068L,
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Anual",
+                            NormalizedCode = "ANUAL",
+                            NormalizedName = "ANUAL",
+                            PublicId = new Guid("47838a09-5700-2df9-9290-c59074f06045"),
+                            SortOrder = 50
                         });
                 });
 
@@ -15580,9 +15655,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Certificacion",
+                            Name = "Certificación",
                             NormalizedCode = "CERTIFICATION",
-                            NormalizedName = "CERTIFICACION",
+                            NormalizedName = "CERTIFICACIÓN",
                             PublicId = new Guid("8299c70a-64fe-60e9-9d08-96506de5c191"),
                             SortOrder = 30
                         });
@@ -18112,9 +18187,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<DateTime?>("AppointmentDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("appointment_date_utc");
+                    b.Property<DateOnly?>("AppointmentDate")
+                        .HasColumnType("date")
+                        .HasColumnName("appointment_date");
 
                     b.Property<string>("AppointmentInstrument")
                         .HasMaxLength(500)
@@ -18147,13 +18222,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("document_type");
 
-                    b.Property<DateTime>("EffectiveFromUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_from_utc");
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_from");
 
-                    b.Property<DateTime?>("EffectiveToUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_to_utc");
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_to");
 
                     b.Property<string>("Email")
                         .HasMaxLength(320)
@@ -18176,7 +18251,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.Property<bool?>("IsPrimary")
+                    b.Property<bool>("IsPrimary")
                         .HasColumnType("boolean")
                         .HasColumnName("is_primary");
 
@@ -18247,7 +18322,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_legal_representatives__tenant_document_type_number");
 
-                    b.HasIndex("TenantId", "EffectiveFromUtc", "EffectiveToUtc")
+                    b.HasIndex("TenantId", "EffectiveFrom", "EffectiveTo")
                         .HasDatabaseName("ix_legal_representatives__tenant_effective_dates");
 
                     b.HasIndex("TenantId", "IsPrimary", "IsActive")
@@ -18260,7 +18335,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.ToTable("legal_representatives", null, t =>
                         {
-                            t.HasCheckConstraint("ck_legal_representatives__effective_dates", "effective_to_utc is null or effective_to_utc >= effective_from_utc");
+                            t.HasCheckConstraint("ck_legal_representatives__effective_dates", "effective_to is null or effective_to >= effective_from");
                         });
                 });
 
@@ -22435,12 +22510,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             ConcurrencyToken = new Guid("4f1c9778-dcce-91b8-9019-726b201a6014"),
                             CountryCatalogItemId = -7068L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sociedad mercantil con capital representado en acciones y posibilidad de variacion de capital.",
+                            Description = "Sociedad mercantil con capital representado en acciones y posibilidad de variación de capital.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sociedad Anonima de Capital Variable",
+                            Name = "Sociedad Anónima de Capital Variable",
                             NormalizedCode = "SA_DE_CV",
-                            NormalizedName = "SOCIEDAD ANONIMA DE CAPITAL VARIABLE",
+                            NormalizedName = "SOCIEDAD ANÓNIMA DE CAPITAL VARIABLE",
                             PublicId = new Guid("44fce38b-0973-102e-4294-c4d4668201f4"),
                             SortOrder = 10
                         },
@@ -22467,7 +22542,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             ConcurrencyToken = new Guid("34430f95-ab20-0377-0154-824491183943"),
                             CountryCatalogItemId = -7068L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Operacion empresarial inscrita a nombre de una sola persona.",
+                            Description = "Operación empresarial inscrita a nombre de una sola persona.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Empresa Individual",
@@ -22483,7 +22558,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             ConcurrencyToken = new Guid("b61c2e4a-d3ce-c341-c7bb-170f378c5828"),
                             CountryCatalogItemId = -7068L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Entidad asociativa organizada bajo el regimen cooperativo.",
+                            Description = "Entidad asociativa organizada bajo el régimen cooperativo.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cooperativa",
@@ -22502,9 +22577,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Description = "Entidad asociativa sin fines de lucro reconocida legalmente.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Asociacion",
+                            Name = "Asociación",
                             NormalizedCode = "ASSOCIATION",
-                            NormalizedName = "ASOCIACION",
+                            NormalizedName = "ASOCIACIÓN",
                             PublicId = new Guid("a36cd3b2-0ebe-a377-7d58-470a6ec059ae"),
                             SortOrder = 50
                         },
@@ -22518,9 +22593,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Description = "Sociedad mercantil mexicana con capital representado en acciones.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sociedad Anonima de Capital Variable",
+                            Name = "Sociedad Anónima de Capital Variable",
                             NormalizedCode = "SA_DE_CV",
-                            NormalizedName = "SOCIEDAD ANONIMA DE CAPITAL VARIABLE",
+                            NormalizedName = "SOCIEDAD ANÓNIMA DE CAPITAL VARIABLE",
                             PublicId = new Guid("8f6b5423-1e9d-8eeb-0578-4c3597d2b3a5"),
                             SortOrder = 10
                         },
@@ -22582,9 +22657,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Description = "Persona moral de naturaleza civil sin fines preponderantemente mercantiles.",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Asociacion Civil",
+                            Name = "Asociación Civil",
                             NormalizedCode = "AC",
-                            NormalizedName = "ASOCIACION CIVIL",
+                            NormalizedName = "ASOCIACIÓN CIVIL",
                             PublicId = new Guid("9f23ad01-a794-6393-8bc9-1bd6559027f8"),
                             SortOrder = 50
                         },
@@ -23239,6 +23314,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
 
+                    b.Property<string>("PurposeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("ORDINARIA")
+                        .HasColumnName("purpose_code");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -23525,6 +23608,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("EmployerPaidDays")
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("employer_paid_days");
+
+                    b.Property<decimal>("ExemptAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(14,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("exempt_amount");
 
                     b.Property<string>("IncomeClass")
                         .HasMaxLength(20)
@@ -36215,6 +36304,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<int?>("AdditionalVacationBenefitDaysDefault")
                         .HasColumnType("integer")
                         .HasColumnName("additional_vacation_benefit_days_default");
+
+                    b.Property<int?>("AguinaldoPaymentDay")
+                        .HasColumnType("integer")
+                        .HasColumnName("aguinaldo_payment_day");
+
+                    b.Property<int?>("AguinaldoPaymentMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("aguinaldo_payment_month");
 
                     b.Property<bool?>("AllowVacationEndOnHoliday")
                         .HasColumnType("boolean")

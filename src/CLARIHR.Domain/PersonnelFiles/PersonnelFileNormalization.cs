@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Domain.PersonnelFiles;
 
@@ -25,7 +26,7 @@ public static partial class PersonnelFileNormalization
     }
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 
     /// <summary>
     /// H-27 — normaliza un número de CUENTA BANCARIA quitando todo separador antes de pasar a mayúsculas, así la

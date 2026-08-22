@@ -174,6 +174,133 @@ public sealed partial class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// 00001 / B-02 — el `400` tiene que decir **qué campo** falló. Los validadores compartían las reglas a
+    /// través de accesores lambda (`RuleFor(c => legalName(c))`), y FluentValidation no puede derivar el
+    /// nombre de una propiedad de una lambda *invocada*: emitía todo bajo la clave `""`, dejando al cliente
+    /// una lista de textos sin saber a qué input pertenecen.
+    /// <para>
+    /// Se mandan **dos** campos malformados a la vez a propósito: con uno solo, un `errors` de una entrada
+    /// pasaría igual aunque la clave siguiera siendo la vacía.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task CompanyLegalProfile_WhenValidationFails_ShouldKeyErrorsByField()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var admin = factory.CreateClientFor(LegalProfileAdminContext(scenario));
+
+        var response = await admin.PostJsonAsync(LegalProfileUrl(scenario.TenantId), new
+        {
+            legalName = "Acme El Salvador, S.A. de C.V.",
+            employerNitNumber = "0614123456101 5",     // formato inválido
+            isssEmployerRegistrationNumber = "ABC/123", // solo dígitos y guiones
+            fiscalAddress = "Col. Escalón, San Salvador",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var errors = document.RootElement.GetProperty("errors");
+
+        Assert.False(
+            errors.TryGetProperty("", out _),
+            "El `400` no debe agrupar los mensajes bajo la clave vacía: el cliente no puede señalar el campo.");
+        Assert.True(errors.TryGetProperty("employerNitNumber", out _), "Falta la clave `employerNitNumber`.");
+        Assert.True(
+            errors.TryGetProperty("isssEmployerRegistrationNumber", out _),
+            "Falta la clave `isssEmployerRegistrationNumber`.");
+    }
+
+    /// <summary>
+    /// 00001 / B-01 — el recurso no exponía `allowedActions`, así que el frontend no tenía forma de saber si
+    /// el usuario puede escribir sin replicar a mano los códigos de permiso — que es justo donde ya se
+    /// equivocó (F-01: el guard pedía `PersonnelFiles.Read`).
+    /// <para>
+    /// Se comprueba con los DOS perfiles, no solo con el admin: un `canEdit` que saliera `true` para todos
+    /// sería tan inútil como no tenerlo.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task CompanyLegalProfile_Get_ShouldExposeAllowedActionsPerPermission()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var admin = factory.CreateClientFor(LegalProfileAdminContext(scenario));
+        Assert.Equal(HttpStatusCode.Created, (await CreateLegalProfileAsync(admin, scenario.TenantId)).StatusCode);
+
+        var adminGet = await admin.GetAsync(LegalProfileUrl(scenario.TenantId));
+        adminGet.EnsureSuccessStatusCode();
+        using var adminBody = JsonDocument.Parse(await adminGet.Content.ReadAsStringAsync());
+        var adminActions = adminBody.RootElement.GetProperty("allowedActions");
+        Assert.True(adminActions.GetProperty("canView").GetBoolean());
+        Assert.True(adminActions.GetProperty("canEdit").GetBoolean());
+
+        using var reader = factory.CreateClientFor(LegalProfileReaderContext(scenario));
+        var readerGet = await reader.GetAsync(LegalProfileUrl(scenario.TenantId));
+        readerGet.EnsureSuccessStatusCode();
+        using var readerBody = JsonDocument.Parse(await readerGet.Content.ReadAsStringAsync());
+        var readerActions = readerBody.RootElement.GetProperty("allowedActions");
+        Assert.True(readerActions.GetProperty("canView").GetBoolean());
+        Assert.False(readerActions.GetProperty("canEdit").GetBoolean());
+    }
+
+    /// <summary>
+    /// 00003 / B-03 — <b>el canal de localización entrega español cuando se pide.</b>
+    /// <para>
+    /// El producto tiene 1051 claves traducidas y respondía en inglés siempre. La causa no era que faltaran
+    /// traducciones: <c>JwtTokenService</c> emitía el claim <c>language</c> incluso cuando el usuario no había
+    /// elegido idioma (<c>?? "en"</c>), y <c>RequestLanguageResolver</c> resuelve
+    /// <c>claim → Accept-Language → "en"</c>, así que la cabecera nunca llegaba a consultarse.
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>Este test NO habría cazado el defecto por sí solo</b>, y conviene saberlo: el harness de
+    /// integración no emite el claim <c>language</c>, así que aquí la cabecera siempre pudo ganar. El rojo que
+    /// sí lo cazó está en <c>JwtTokenServiceTests</c>, que es donde vive la causa. Éste prueba lo otro: que el
+    /// canal entrega de punta a punta, que es lo que quedaba sin demostrar.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("es")]
+    [InlineData("es-SV,es;q=0.9")]
+    public async Task Localization_WhenSpanishIsRequested_ShouldAnswerInSpanish(string acceptLanguage)
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var admin = factory.CreateClientFor(LegalProfileAdminContext(scenario));
+        admin.DefaultRequestHeaders.Add("Accept-Language", acceptLanguage);
+
+        // Sin perfil legal configurado todavía: 404 con una clave que sí tiene traducción completa.
+        var response = await admin.GetAsync(LegalProfileUrl(scenario.TenantId));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+
+        using var document = JsonDocument.Parse(payload);
+        // `code` va en la RAÍZ del ProblemDetails (§5.3 de las definiciones): `extensions` no existe en el wire.
+        Assert.Equal("COMPANY_LEGAL_PROFILE_NOT_FOUND", document.RootElement.GetProperty("code").GetString());
+        Assert.Equal(
+            "La empresa todavía no tiene un perfil legal configurado.",
+            document.RootElement.GetProperty("title").GetString());
+    }
+
+    /// <summary>
+    /// El contrapeso: sin cabecera se responde en inglés. Sin este test, «localiza siempre en español» pasaría
+    /// por bueno y el producto habría cambiado de idioma para todos.
+    /// </summary>
+    [Fact]
+    public async Task Localization_WhenNoLanguageIsRequested_ShouldFallBackToEnglish()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var admin = factory.CreateClientFor(LegalProfileAdminContext(scenario));
+
+        var response = await admin.GetAsync(LegalProfileUrl(scenario.TenantId));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "The company does not have a legal profile configured yet.",
+            document.RootElement.GetProperty("title").GetString());
+    }
+
     private static string LegalProfileUrl(Guid companyId) => $"/api/v1/companies/{companyId}/legal-profile";
 
     private static TestUserContext LegalProfileAdminContext(IntegrationTestScenario scenario) =>

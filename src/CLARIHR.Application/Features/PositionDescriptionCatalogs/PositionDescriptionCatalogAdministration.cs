@@ -147,7 +147,7 @@ internal sealed class SearchPositionDescriptionCatalogItemsQueryValidator : Abst
         RuleFor(query => query.Search)
             .MaximumLength(PositionDescriptionCatalogValidationRules.MaxSearchLength)
             .Must(PositionDescriptionCatalogValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PositionDescriptionCatalogValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionDescriptionCatalogValidationRules.MaxPageSize);
     }
@@ -167,7 +167,7 @@ internal sealed class CreatePositionDescriptionCatalogItemCommandValidator : Abs
             .NotEmpty()
             .MaximumLength(50)
             .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -188,7 +188,7 @@ internal sealed class SearchPositionCategoryClassificationsQueryValidator : Abst
         RuleFor(query => query.Search)
             .MaximumLength(PositionDescriptionCatalogValidationRules.MaxSearchLength)
             .Must(PositionDescriptionCatalogValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PositionDescriptionCatalogValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionDescriptionCatalogValidationRules.MaxPageSize);
     }
@@ -208,7 +208,7 @@ internal sealed class CreatePositionCategoryClassificationCommandValidator : Abs
             .NotEmpty()
             .MaximumLength(50)
             .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.PositionFunctionTypeId).NotEmpty();
@@ -227,7 +227,7 @@ internal sealed class SearchPositionCategoriesQueryValidator : AbstractValidator
         RuleFor(query => query.Search)
             .MaximumLength(PositionDescriptionCatalogValidationRules.MaxSearchLength)
             .Must(PositionDescriptionCatalogValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PositionDescriptionCatalogValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionDescriptionCatalogValidationRules.MaxPageSize);
     }
@@ -247,7 +247,7 @@ internal sealed class CreatePositionCategoryCommandValidator : AbstractValidator
             .NotEmpty()
             .MaximumLength(50)
             .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(PositionDescriptionCatalogValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ClassificationId).NotEmpty();

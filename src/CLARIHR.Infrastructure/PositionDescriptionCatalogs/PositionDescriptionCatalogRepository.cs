@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using System.Collections.Concurrent;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Common.Pagination;
@@ -135,7 +136,7 @@ internal sealed class PositionDescriptionCatalogRepository(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.NormalizedCode.Contains(normalizedSearch) ||
                 item.NormalizedName.Contains(normalizedSearch));
@@ -231,7 +232,7 @@ internal sealed class PositionDescriptionCatalogRepository(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.Classification.NormalizedCode.Contains(normalizedSearch) ||
                 item.Classification.NormalizedName.Contains(normalizedSearch) ||
@@ -318,7 +319,7 @@ internal sealed class PositionDescriptionCatalogRepository(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.Category.NormalizedCode.Contains(normalizedSearch) ||
                 item.Category.NormalizedName.Contains(normalizedSearch) ||

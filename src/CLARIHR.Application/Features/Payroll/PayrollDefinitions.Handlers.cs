@@ -143,7 +143,8 @@ internal sealed class CreatePayrollDefinitionCommandHandler(
             command.OvertimeWindowEnabled,
             command.OvertimeWindowOffsetDays,
             command.AttendanceWindowEnabled,
-            command.AttendanceWindowOffsetDays);
+            command.AttendanceWindowOffsetDays,
+            command.PurposeCode);
         definition.SetTenantId(command.CompanyId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -259,7 +260,8 @@ internal sealed class UpdatePayrollDefinitionCommandHandler(
                 command.OvertimeWindowEnabled,
                 command.OvertimeWindowOffsetDays,
                 command.AttendanceWindowEnabled,
-                command.AttendanceWindowOffsetDays);
+                command.AttendanceWindowOffsetDays,
+                command.PurposeCode);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(definition.PublicId, cancellationToken)

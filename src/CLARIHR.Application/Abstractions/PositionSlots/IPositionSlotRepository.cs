@@ -45,7 +45,11 @@ public interface IPositionSlotRepository
 
     Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken);
 
-    Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken);
+    /// <summary>
+    /// 00950 / B-02 (§3.6) — devuelve tambien <c>IsActive</c>: sin el, el resolvedor no podia distinguir
+    /// "no existe" de "existe pero esta de baja", y creaba plazas contra sedes cerradas.
+    /// </summary>
+    Task<(long Id, bool IsActive)?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken);
 
     Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken);
 

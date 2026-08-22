@@ -138,7 +138,7 @@ internal sealed class SearchWorkSchedulesQueryValidator : AbstractValidator<Sear
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(PayrollConfigurationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {PayrollConfigurationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(PayrollConfigurationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PayrollConfigurationValidationRules.MaxPageSize);
     }

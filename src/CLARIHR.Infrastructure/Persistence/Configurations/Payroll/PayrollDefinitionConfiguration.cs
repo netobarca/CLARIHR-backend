@@ -50,6 +50,13 @@ internal sealed class PayrollDefinitionConfiguration : IEntityTypeConfiguration<
             .HasColumnName("pay_period_code")
             .HasMaxLength(PayrollDefinition.MaxPayPeriodCodeLength);
 
+        // Para qué sirve la nómina (ORDINARIA / AGUINALDO). Con default en la base para que las nóminas ya
+        // creadas queden explícitamente ordinarias en vez de con la cadena vacía.
+        builder.Property(definition => definition.PurposeCode)
+            .HasColumnName("purpose_code")
+            .HasMaxLength(40)
+            .HasDefaultValue(PayrollPurposes.Ordinaria);
+
         builder.Property(definition => definition.TotalPeriods)
             .HasColumnName("total_periods");
 

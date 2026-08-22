@@ -226,4 +226,61 @@ public sealed partial class ApiIntegrationTests
             benefit.GetProperty("finalAmount").GetDecimal() > 0m,
             $"La prestación quedó en 0: la antigüedad se está midiendo desde la plaza. {benefit}");
     }
+
+    /// <summary>
+    /// H-28 — el sitio que se me quedó fuera al mover el ancla. La antigüedad y la vacación proporcional pasaron al
+    /// <c>SeniorityStartDate</c>, pero el **aguinaldo proporcional** siguió contando desde el
+    /// <c>PlazaStartDate</c>: <c>DaysInAguinaldoPeriod</c> arranca el devengo en
+    /// <c>max(12-dic anterior, inicio)</c>, así que con una plaza registrada hace 20 días el devengo empezaba hace
+    /// 20 días en vez del 12 de diciembre.
+    /// <para>
+    /// Medido sobre los datos del ambiente antes del arreglo: 12 días en lugar de 244, es decir un aguinaldo
+    /// proporcional subestimado en un 95 % en código certificado que paga dinero real.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Settlement_AguinaldoProporcional_AccruesFromTheHireDateNotThePlaza()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateRetirementContext(scenario));
+
+        // Ingresó hace 4 años; su plaza se registró hace 20 días (la empresa que arranca con empleados antiguos).
+        var (employeeId, plazaId) = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Aguinaldo", "Antiguo", "EMP-AGU-1", "aguinaldo.antiguo@empresa.test",
+            plazaStartDate: DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-20)),
+            hireDate: HireYearsAgo(4));
+        _ = await SeedSettlementCandidateAsync(
+            scenario.TenantId, "Gestora", "Aguinaldo", "EMP-AGU-2", "gestora.aguinaldo@empresa.test",
+            linkedUserPublicId: scenario.ActorUserId);
+
+        var today = DateTime.UtcNow.Date;
+        var created = await client.PostAsJsonAsync(
+            $"/api/v1/personnel-files/{employeeId}/settlements/scenarios",
+            new
+            {
+                assignedPositionPublicId = plazaId,
+                estimatedRetirementDate = today,
+                retirementCategoryCode = "VOLUNTARIA",
+                retirementReasonCode = "MOTIVOS_PERSONALES",
+                requestDate = today,
+            });
+
+        var payload = await created.Content.ReadAsStringAsync();
+        Assert.True(created.StatusCode == HttpStatusCode.OK, $"{(int)created.StatusCode}: {payload}");
+
+        using var document = JsonDocument.Parse(payload);
+        var line = document.RootElement.GetProperty("lines").EnumerateArray()
+            .Single(item => item.GetProperty("conceptCode").GetString() == "AGUINALDO_PROPORCIONAL");
+
+        // El devengo arranca el 12 de diciembre anterior, no en la fecha de la plaza.
+        var expectedStart = today >= new DateTime(today.Year, 12, 12)
+            ? new DateTime(today.Year, 12, 12)
+            : new DateTime(today.Year - 1, 12, 12);
+        var expectedDays = (decimal)(today - expectedStart).Days;
+
+        Assert.Equal(expectedDays, line.GetProperty("unitsOrDays").GetDecimal());
+        Assert.True(
+            line.GetProperty("finalAmount").GetDecimal() > 0m,
+            $"El aguinaldo proporcional quedó en 0: el devengo se está contando desde la plaza. {line}");
+    }
 }

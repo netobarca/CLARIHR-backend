@@ -12,7 +12,7 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
             "legal_representatives",
             tableBuilder => tableBuilder.HasCheckConstraint(
                 "ck_legal_representatives__effective_dates",
-                "effective_to_utc is null or effective_to_utc >= effective_from_utc"));
+                "effective_to is null or effective_to >= effective_from"));
 
         builder.HasKey(legalRepresentative => legalRepresentative.Id)
             .HasName("pk_legal_representatives");
@@ -71,14 +71,14 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
             .HasColumnName("appointment_instrument")
             .HasMaxLength(500);
 
-        builder.Property(legalRepresentative => legalRepresentative.AppointmentDateUtc)
-            .HasColumnName("appointment_date_utc");
+        builder.Property(legalRepresentative => legalRepresentative.AppointmentDate)
+            .HasColumnName("appointment_date");
 
-        builder.Property(legalRepresentative => legalRepresentative.EffectiveFromUtc)
-            .HasColumnName("effective_from_utc");
+        builder.Property(legalRepresentative => legalRepresentative.EffectiveFrom)
+            .HasColumnName("effective_from");
 
-        builder.Property(legalRepresentative => legalRepresentative.EffectiveToUtc)
-            .HasColumnName("effective_to_utc");
+        builder.Property(legalRepresentative => legalRepresentative.EffectiveTo)
+            .HasColumnName("effective_to");
 
         builder.Property(legalRepresentative => legalRepresentative.Email)
             .HasColumnName("email")
@@ -88,9 +88,11 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
             .HasColumnName("phone")
             .HasMaxLength(40);
 
+        // B-04 — `is_primary` era anulable y el `null` era un tercer estado que nadie más reconocía: el índice
+        // único parcial de abajo filtra por `is_primary = true` y `Inactivate()` escribe `false`, nunca `null`.
         builder.Property(legalRepresentative => legalRepresentative.IsPrimary)
             .HasColumnName("is_primary")
-            .IsRequired(false);
+            .IsRequired();
 
         builder.Property(legalRepresentative => legalRepresentative.IsActive)
             .HasColumnName("is_active");
@@ -140,7 +142,7 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(legalRepresentative => new { legalRepresentative.TenantId, legalRepresentative.NormalizedFullName })
             .HasDatabaseName("ix_legal_representatives__tenant_normalized_name");
 
-        builder.HasIndex(legalRepresentative => new { legalRepresentative.TenantId, legalRepresentative.EffectiveFromUtc, legalRepresentative.EffectiveToUtc })
+        builder.HasIndex(legalRepresentative => new { legalRepresentative.TenantId, legalRepresentative.EffectiveFrom, legalRepresentative.EffectiveTo })
             .HasDatabaseName("ix_legal_representatives__tenant_effective_dates");
     }
 }

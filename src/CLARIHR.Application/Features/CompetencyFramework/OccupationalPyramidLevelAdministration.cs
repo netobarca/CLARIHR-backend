@@ -103,7 +103,7 @@ internal sealed class CreateOccupationalPyramidLevelCommandValidator : AbstractV
             .NotEmpty()
             .MaximumLength(OccupationalPyramidLevel.MaxCodeLength)
             .Must(CompetencyFrameworkValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CompetencyFrameworkValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(OccupationalPyramidLevel.MaxNameLength);
         RuleFor(command => command.LevelOrder).GreaterThan(0);
         RuleFor(command => command.Description).MaximumLength(OccupationalPyramidLevel.MaxDescriptionLength);
@@ -119,7 +119,7 @@ internal sealed class UpdateOccupationalPyramidLevelCommandValidator : AbstractV
             .NotEmpty()
             .MaximumLength(OccupationalPyramidLevel.MaxCodeLength)
             .Must(CompetencyFrameworkValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(CompetencyFrameworkValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(OccupationalPyramidLevel.MaxNameLength);
         RuleFor(command => command.LevelOrder).GreaterThan(0);
         RuleFor(command => command.Description).MaximumLength(OccupationalPyramidLevel.MaxDescriptionLength);

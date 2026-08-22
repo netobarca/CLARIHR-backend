@@ -8,13 +8,31 @@ public interface IOrgStructureCatalogRepository
 {
     void AddOrgUnitType(OrgUnitTypeCatalogItem item);
 
+    void RemoveOrgUnitType(OrgUnitTypeCatalogItem item);
+
     void AddFunctionalArea(FunctionalAreaCatalogItem item);
+
+    /// <summary>
+    /// 00003 / B-04 — borrado duro del area funcional, condicionado por
+    /// <see cref="GetFunctionalAreaUsageByIdAsync"/>.
+    /// </summary>
+    void RemoveFunctionalArea(FunctionalAreaCatalogItem item);
+
+    /// <summary>
+    /// Que referencia al area funcional, separado por origen. Incluye la preferencia del tablero, que
+    /// apunta por CODIGO y no tiene clave foranea.
+    /// </summary>
+    Task<FunctionalAreaUsageResponse?> GetFunctionalAreaUsageByIdAsync(
+        Guid functionalAreaId,
+        CancellationToken cancellationToken);
 
     Task<OrgUnitTypeCatalogItem?> GetOrgUnitTypeByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken);
 
     Task<FunctionalAreaCatalogItem?> GetFunctionalAreaByIdAsync(Guid functionalAreaId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOrgUnitTypeOutsideTenantAsync(Guid orgUnitTypeId, CancellationToken cancellationToken);
+
+    Task<OrgUnitTypeUsageResponse?> GetOrgUnitTypeUsageByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken);
 
     Task<bool> ExistsFunctionalAreaOutsideTenantAsync(Guid functionalAreaId, CancellationToken cancellationToken);
 

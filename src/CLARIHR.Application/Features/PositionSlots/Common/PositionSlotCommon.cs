@@ -19,6 +19,13 @@ public static partial class PositionSlotValidationRules
     // Aligned with the PDC §P2 precedent (MinSearchLength: 2) — see
     // project-foundation.md §12.8 / ADR-0002.
     public const int MinSearchLength = 2;
+
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
     public const int MaxSearchLength = 150;
 
     // Empty/whitespace search means "no filter" (the repository skips the predicate
@@ -26,6 +33,14 @@ public static partial class PositionSlotValidationRules
     // length on the trimmed term.
     public static bool IsValidSearchLength(string? search) =>
         string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
@@ -146,6 +161,28 @@ public static class PositionSlotErrors
     public static readonly Error JobProfileNotPublished = new(
         "POSITION_SLOT_JOB_PROFILE_NOT_PUBLISHED",
         "The selected job profile is not published. Publish the job profile before creating or updating position slots.",
+        ErrorType.UnprocessableEntity);
+
+    /// <summary>
+    /// 00950/B-02 — la unidad organizativa del perfil está de baja.
+    /// </summary>
+    /// <remarks>
+    /// El bloqueo va aquí y no en la inactivación de la unidad porque los tres saltos de la cadena
+    /// —inactivar la unidad, mantener el perfil, crear la plaza— no son igual de defendibles. Cerrar un
+    /// departamento es legítimo y su histórico debe conservarse, así que inactivar no se toca y las plazas
+    /// existentes siguen válidas. Lo que no tiene defensa es crear plazas NUEVAS bajo una unidad de baja:
+    /// eso no preserva histórico, crea futuro. Decisión de producto del 2026-08-16.
+    /// </remarks>
+    // 00950 / B-02 (§3.6) — el otro padre de la plaza. La asimetria delataba la omision: el TIPO de
+    // centro ya estaba protegido (WORK_CENTER_TYPE_INACTIVE) y el centro mismo no.
+    public static readonly Error WorkCenterInactive = new(
+        "POSITION_SLOT_WORK_CENTER_INACTIVE",
+        "The selected work center is inactive. Reactivate it before creating or updating position slots against it.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error OrgUnitInactive = new(
+        "POSITION_SLOT_ORG_UNIT_INACTIVE",
+        "The job profile's organization unit is inactive. Reactivate the unit before creating or updating position slots under it.",
         ErrorType.UnprocessableEntity);
 
     public static readonly Error CostCenterInvalid = new(

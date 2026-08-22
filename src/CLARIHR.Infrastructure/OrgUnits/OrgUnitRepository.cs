@@ -1,3 +1,4 @@
+using CLARIHR.Domain.Common;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.OrgUnits;
@@ -10,6 +11,8 @@ namespace CLARIHR.Infrastructure.OrgUnits;
 internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUnitRepository
 {
     public void Add(OrgUnit orgUnit) => dbContext.OrgUnits.Add(orgUnit);
+
+    public void Remove(OrgUnit orgUnit) => dbContext.OrgUnits.Remove(orgUnit);
 
     public Task<OrgUnit?> GetByIdAsync(Guid orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.SingleOrDefaultAsync(unit => unit.PublicId == orgUnitId, cancellationToken);
@@ -76,7 +79,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             query = query.Where(item =>
                 item.Unit.NormalizedCode.Contains(normalizedSearch) ||
                 item.Unit.NormalizedName.Contains(normalizedSearch) ||
@@ -215,7 +218,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var normalizedSearch = SearchTextNormalization.FoldSearchTerm(search);
             var byId = hierarchy.ToDictionary(node => node.Id);
             filtered = filtered.Where(node =>
                 node.Code.ToUpperInvariant().Contains(normalizedSearch) ||
@@ -262,6 +265,44 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
 
     public Task<bool> HasActiveChildrenAsync(long orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.AnyAsync(unit => unit.ParentId == orgUnitId && unit.IsActive, cancellationToken);
+
+    public async Task<OrgUnitUsageResponse?> GetUsageByIdAsync(Guid orgUnitId, CancellationToken cancellationToken)
+    {
+        var orgUnit = await dbContext.OrgUnits
+            .AsNoTracking()
+            .Where(item => item.PublicId == orgUnitId)
+            .Select(item => new { item.Id, item.PublicId, item.Code, item.Name })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (orgUnit is null)
+        {
+            return null;
+        }
+
+        // Se cuentan activas E inactivas a proposito: el guard de inactivacion solo mira las activas,
+        // pero quien pregunta "por que no puedo" tambien necesita saber que hay colgando aunque este de baja.
+        var activeChildren = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(child => child.ParentId == orgUnit.Id && child.IsActive, cancellationToken);
+
+        var inactiveChildren = await dbContext.OrgUnits.AsNoTracking()
+            .CountAsync(child => child.ParentId == orgUnit.Id && !child.IsActive, cancellationToken);
+
+        var jobProfileActiveReferences = await dbContext.JobProfiles.AsNoTracking()
+            .CountAsync(profile => profile.OrgUnitId == orgUnit.Id && profile.IsActive, cancellationToken);
+
+        var jobProfileInactiveReferences = await dbContext.JobProfiles.AsNoTracking()
+            .CountAsync(profile => profile.OrgUnitId == orgUnit.Id && !profile.IsActive, cancellationToken);
+
+        return new OrgUnitUsageResponse(
+            orgUnit.PublicId,
+            orgUnit.Code,
+            orgUnit.Name,
+            activeChildren,
+            inactiveChildren,
+            jobProfileActiveReferences,
+            jobProfileInactiveReferences,
+            activeChildren > 0 || jobProfileActiveReferences > 0);
+    }
 
     public Task<bool> HasActiveChildrenByPublicIdAsync(Guid orgUnitPublicId, CancellationToken cancellationToken) =>
         (from child in dbContext.OrgUnits.AsNoTracking()

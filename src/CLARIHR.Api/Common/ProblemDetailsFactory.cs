@@ -48,7 +48,7 @@ internal static class ProblemDetailsFactory
             : requestServices.GetService<IBackendMessageLocalizer>();
 
         ProblemDetails problemDetails = error.Type == ErrorType.Validation
-            ? CreateValidationProblemDetails(error, localizer)
+            ? CreateValidationProblemDetails(error, localizer, PublicFieldNameMap.For(httpContext))
             : new ProblemDetails();
 
         var localizedMessage = localizer?.Localize(error.Code, error.Message, error.MessageArguments)
@@ -95,17 +95,35 @@ internal static class ProblemDetailsFactory
             _ => StatusCodes.Status500InternalServerError
         };
 
+    /// <summary>
+    /// 00005 / B-02 — la clave de cada error se traduce al <b>nombre público</b> del campo antes de salir.
+    /// <para>
+    /// Los validadores de FluentValidation corren sobre el <i>query object</i> o el comando, así que emiten el
+    /// nombre interno de la propiedad: <c>search</c> donde el cliente mandó <c>q</c>, <c>pageNumber</c> donde
+    /// mandó <c>page</c>, <c>locationGroupId</c> donde mandó <c>locationGroupPublicId</c>. El frontend mapea
+    /// <c>errors[clave]</c> a su control, y con el nombre interno no encuentra ninguno.
+    /// </para>
+    /// <para>
+    /// ⚠️ Este es el camino que producía el defecto. El otro —model-binding de MVC— ya normalizaba en
+    /// <c>ProblemDetailsDefaults.NormalizeValidationErrors</c>, y por eso el defecto no se veía allí.
+    /// </para>
+    /// </summary>
     private static ValidationProblemDetails CreateValidationProblemDetails(
         Error error,
-        IBackendMessageLocalizer? localizer)
+        IBackendMessageLocalizer? localizer,
+        PublicFieldNameMap publicNames)
     {
         var validationProblemDetails = new ValidationProblemDetails();
         foreach (var validationError in error.ValidationErrors ?? new Dictionary<string, string[]>())
         {
-            validationProblemDetails.Errors[validationError.Key] = validationError.Value
+            var key = publicNames.Resolve(validationError.Key);
+            var messages = validationError.Value
                 .Select(message => LocalizeValidationMessage(localizer, message))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
+                .Distinct(StringComparer.Ordinal);
+
+            validationProblemDetails.Errors[key] = validationProblemDetails.Errors.TryGetValue(key, out var existing)
+                ? existing.Concat(messages).Distinct(StringComparer.Ordinal).ToArray()
+                : messages.ToArray();
         }
 
         return validationProblemDetails;

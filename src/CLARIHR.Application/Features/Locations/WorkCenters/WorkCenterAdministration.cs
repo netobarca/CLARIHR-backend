@@ -88,6 +88,164 @@ public sealed record ActivateWorkCenterCommand(Guid WorkCenterId, Guid Concurren
 
 public sealed record InactivateWorkCenterCommand(Guid WorkCenterId, Guid ConcurrencyToken) : ICommand<WorkCenterResponse>;
 
+/// <summary>
+/// 00003 / B-04 — que referencia al centro de trabajo, contado y separado por origen.
+/// </summary>
+/// <remarks>
+/// ⚠️ Las asignaciones de expediente apuntan al centro por <c>WorkCenterPublicId</c> y <b>no tienen clave
+/// foranea</b>. El grafo de restricciones de la base no las muestra, asi que un borrado guiado solo por
+/// el habria dejado expedientes apuntando a un centro inexistente. Se cuentan aparte porque bloquean el
+/// borrado aunque la base de datos no lo impida por si sola.
+/// </remarks>
+public sealed record WorkCenterUsageResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    int PositionSlotActiveReferences,
+    int PositionSlotInactiveReferences,
+    int EmploymentAssignmentReferences,
+    bool HasActiveReferences);
+
+public sealed record GetWorkCenterUsageQuery(Guid WorkCenterId) : IQuery<WorkCenterUsageResponse>;
+
+/// <summary>
+/// Borrado duro condicional del centro de trabajo: la sede tecleada mal que nadie llego a usar y que la
+/// baja logica deja para siempre en el listado.
+/// </summary>
+public sealed record DeleteWorkCenterCommand(Guid WorkCenterId, Guid ConcurrencyToken) : ICommand<WorkCenterResponse>;
+
+internal sealed class GetWorkCenterUsageQueryValidator : AbstractValidator<GetWorkCenterUsageQuery>
+{
+    public GetWorkCenterUsageQueryValidator()
+    {
+        RuleFor(query => query.WorkCenterId).NotEmpty();
+    }
+}
+
+internal sealed class DeleteWorkCenterCommandValidator : AbstractValidator<DeleteWorkCenterCommand>
+{
+    public DeleteWorkCenterCommandValidator()
+    {
+        RuleFor(command => command.WorkCenterId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class GetWorkCenterUsageQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    IWorkCenterRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetWorkCenterUsageQuery, WorkCenterUsageResponse>
+{
+    public async Task<Result<WorkCenterUsageResponse>> Handle(
+        GetWorkCenterUsageQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<WorkCenterUsageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<WorkCenterUsageResponse>.Failure(authorizationResult.Error);
+        }
+
+        var response = await repository.GetUsageByIdAsync(query.WorkCenterId, cancellationToken);
+        if (response is not null)
+        {
+            return Result<WorkCenterUsageResponse>.Success(response);
+        }
+
+        return Result<WorkCenterUsageResponse>.Failure(
+            await repository.ExistsOutsideTenantAsync(query.WorkCenterId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : LocationErrors.WorkCenterNotFound);
+    }
+}
+
+internal sealed class DeleteWorkCenterCommandHandler(
+    ILocationAuthorizationService authorizationService,
+    IWorkCenterRepository repository,
+    ITenantContext tenantContext,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeleteWorkCenterCommand, WorkCenterResponse>
+{
+    // Devuelve el elemento eliminado, como el borrado hermano de JobCatalogs.
+    public async Task<Result<WorkCenterResponse>> Handle(
+        DeleteWorkCenterCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<WorkCenterResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(authorizationResult.Error);
+        }
+
+        var workCenter = await repository.GetByIdAsync(command.WorkCenterId, cancellationToken);
+        if (workCenter is null)
+        {
+            return Result<WorkCenterResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.WorkCenterId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Delete)
+                    : LocationErrors.WorkCenterNotFound);
+        }
+
+        if (workCenter.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<WorkCenterResponse>.Failure(LocationErrors.ConcurrencyConflict);
+        }
+
+        // Plazas activas E inactivas (la FK es RESTRICT) mas las asignaciones de expediente, que apuntan
+        // por PublicId SIN clave foranea: la base no las protegeria y quedarian colgando.
+        var usage = await repository.GetUsageByIdAsync(workCenter.PublicId, cancellationToken);
+        if (usage is not null &&
+            usage.PositionSlotActiveReferences + usage.PositionSlotInactiveReferences +
+            usage.EmploymentAssignmentReferences > 0)
+        {
+            return Result<WorkCenterResponse>.Failure(LocationErrors.WorkCenterInUseForDelete);
+        }
+
+        var before = await repository.GetResponseByIdAsync(workCenter.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Work center response could not be resolved before deletion.");
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.Remove(workCenter);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.WorkCenterDeleted,
+                    AuditEntityTypes.WorkCenter,
+                    workCenter.PublicId,
+                    workCenter.Code,
+                    AuditActions.Delete,
+                    $"Deleted work center {workCenter.Code}.",
+                    Before: before,
+                    After: null),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<WorkCenterResponse>.Success(before);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
 public sealed record WorkCenterPatchOperation(
     string Op,
     string Path,
@@ -109,7 +267,7 @@ internal sealed class SearchWorkCentersQueryValidator : AbstractValidator<Search
         RuleFor(query => query.Search)
             .MaximumLength(150)
             .Must(LocationValidationRules.IsValidSearchLength)
-            .WithMessage($"Search must be at least {LocationValidationRules.MinSearchLength} characters when provided.");
+            .WithMessage(LocationValidationRules.SearchLengthMessage);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LocationValidationRules.MaxPageSize);
     }
@@ -132,7 +290,7 @@ internal sealed class CreateWorkCenterCommandValidator : AbstractValidator<Creat
             .NotEmpty()
             .MaximumLength(50)
             .Must(LocationValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(LocationValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.WorkCenterTypeId).NotEmpty();
         RuleFor(command => command.LocationGroupId).NotEmpty();
@@ -154,7 +312,7 @@ internal sealed class UpdateWorkCenterCommandValidator : AbstractValidator<Updat
             .NotEmpty()
             .MaximumLength(50)
             .Must(LocationValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
+            .WithMessage(LocationValidationRules.CodeFormatMessage);
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.WorkCenterTypeId).NotEmpty();
         RuleFor(command => command.LocationGroupId).NotEmpty();
@@ -1055,7 +1213,7 @@ internal static class WorkCenterPatchApplier
         }
         else if (!LocationValidationRules.IsValidCode(state.Code))
         {
-            errors["code"] = ["Code format is invalid."];
+            errors["code"] = [LocationValidationRules.CodeFormatMessage];
         }
 
         if (string.IsNullOrWhiteSpace(state.Name))

@@ -6,6 +6,15 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.LegalRepresentatives.Common;
 
+/// <summary>
+/// El representante con el que nace una empresa.
+/// <para>
+/// B-04 — <b>no lleva <c>IsPrimary</c> a propósito</b>. Es el único representante de una empresa recién creada,
+/// así que sólo hay un valor válido: principal. Un campo que sólo admite un valor es ruido en el contrato, y
+/// dejarlo abierto fue el defecto — llegaba <c>null</c> y la empresa nacía sin ningún principal. La garantía es
+/// del servidor (<c>CompanyProvisioningService</c>), no del cliente, que además ni siquiera expone el flag (F-06).
+/// </para>
+/// </summary>
 public sealed record InitialLegalRepresentativeInput(
     string FirstName,
     string LastName,
@@ -15,12 +24,11 @@ public sealed record InitialLegalRepresentativeInput(
     LegalRepresentativeRepresentationType RepresentationType,
     string? AuthorityDescription,
     string? AppointmentInstrument,
-    DateTime? AppointmentDateUtc,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
+    DateOnly? AppointmentDate,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
     string? Email,
-    string? Phone,
-    bool? IsPrimary = null);
+    string? Phone);
 
 public static partial class LegalRepresentativeValidationRules
 {
@@ -42,6 +50,13 @@ public static partial class LegalRepresentativeValidationRules
     // scan + min length is comfortably cheap; escalate to pg_trgm GIN + EF.Functions.ILike only if
     // cardinality grows unexpectedly. See project-foundation.md §12.8 / ADR-0002.
     public const int MinSearchLength = 2;
+
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
 
     public static bool IsValidSearchLength(string? search) =>
         string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
@@ -240,11 +255,11 @@ internal sealed class InitialLegalRepresentativeInputValidator : AbstractValidat
         RuleFor(input => input.Phone)
             .MaximumLength(40);
 
-        RuleFor(input => input.EffectiveFromUtc)
+        RuleFor(input => input.EffectiveFrom)
             .NotEmpty();
 
-        RuleFor(input => input.EffectiveToUtc)
-            .Must((input, to) => !to.HasValue || to.Value.Date >= input.EffectiveFromUtc.Date)
+        RuleFor(input => input.EffectiveTo)
+            .Must((input, to) => !to.HasValue || to.Value >= input.EffectiveFrom)
             .WithMessage(LegalRepresentativeErrors.EffectiveDatesInvalid.Message);
     }
 }

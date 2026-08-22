@@ -1133,7 +1133,8 @@ internal static class PayrollRunReviewSupport
                 line.SourceReferencePublicId,
                 definition.CurrencyCode,
                 line.WarningCodes.Count == 0 ? null : JsonSerializer.Serialize(line.WarningCodes),
-                line.SortOrder);
+                line.SortOrder,
+                line.ExemptAmount);
             entity.SetTenantId(tenantId);
             lines.Add(entity);
         }
@@ -1222,7 +1223,8 @@ internal static class PayrollRunReviewSupport
         line.SourceReferencePublicId,
         line.CurrencyCode,
         line.WarningCodesJson is null ? [] : JsonSerializer.Deserialize<List<string>>(line.WarningCodesJson) ?? [],
-        line.SortOrder);
+        line.SortOrder,
+        line.ExemptAmount);
 
     private static decimal Round2(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }

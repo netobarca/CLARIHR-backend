@@ -10,11 +10,26 @@ public static partial class OrgStructureCatalogValidationRules
     public const int MaxPageSize = 100;
     public const int MinSearchLength = 2;
 
+    // 00002 / B-03 — el texto es LITERAL, no interpolado. Con `$"…{MinSearchLength}…"` la clave que el
+    // localizador deriva del mensaje se calcula en tiempo de ejecución, así que no se puede verificar de
+    // forma estática que exista en el .resx — y no existía: los 37 sitios salían en inglés. Que el número
+    // siga coincidiendo con la constante lo comprueba `CodeFormatMessageTests`.
+    public const string SearchLengthMessage =
+        "Search must be at least 2 characters when provided.";
+
     // OSC-005: single source of truth for the (TenantId, NormalizedCode) unique index names, shared by
     // the EF configuration and the OrgStructureCatalogConstraintViolations guard that maps a concurrent
     // duplicate-code race to a clean 409 instead of a 500 (mirrors OrgUnits OU-004).
     public const string UnitTypeCodeUniqueConstraintName = "uq_org_unit_type_catalog_items__tenant_code";
     public const string FunctionalAreaCodeUniqueConstraintName = "uq_functional_area_catalog_items__tenant_code";
+
+    // 00002 / B-03 — el texto vive JUNTO a la regla, no junto al validador. Antes decía «Code format is
+    // invalid.» en los 34 sitios que lo usan, sin decir cuál es el formato, y las reglas NO son iguales
+    // entre sí (hay de 50 y de 80 caracteres, con juegos de caracteres distintos): un texto compartido
+    // habría sido falso en la mayoría. `CodeFormatMessageTests` verifica que lo que dice esta frase sea
+    // exactamente lo que acepta la regex de abajo.
+    public const string CodeFormatMessage =
+        "Code must start with a letter or number and may contain only letters, numbers, hyphen and underscore, up to 50 characters.";
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
@@ -59,6 +74,15 @@ public static class OrgStructureCatalogErrors
     public static readonly Error CatalogInUse = new(
         "ORG_STRUCTURE_CATALOG_IN_USE",
         "The catalog item cannot be inactivated while it is in use.",
+        ErrorType.Conflict);
+
+    /// <remarks>
+    /// Distinto de <see cref="CatalogInUse"/>, que habla de la baja logica y solo cuenta referencias
+    /// ACTIVAS. El borrado duro se bloquea con cualquier referencia: las FK son RESTRICT.
+    /// </remarks>
+    public static readonly Error CatalogItemInUseForDelete = new(
+        "ORG_STRUCTURE_CATALOG_IN_USE_FOR_DELETE",
+        "The catalog item cannot be deleted because other records still reference it.",
         ErrorType.Conflict);
 
     public static readonly Error ResourceInUse = new(

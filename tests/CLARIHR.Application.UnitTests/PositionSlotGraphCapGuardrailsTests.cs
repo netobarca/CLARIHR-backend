@@ -131,7 +131,7 @@ public sealed class PositionSlotGraphCapGuardrailsTests
         public Task<PositionSlot?> GetByIdAsync(Guid slotId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<(long Id, bool IsActive)?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<long?> ResolvePositionSlotIdAsync(Guid tenantId, Guid slotId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PagedResponse<PositionSlotListItemResponse>> SearchAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, bool? isActive, Guid? directDependencyPositionSlotId, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Domain.LegalRepresentatives;
 
@@ -20,7 +21,7 @@ internal static partial class LegalRepresentativeNormalization
             : value.Trim();
 
     public static string NormalizeName(string value) =>
-        Clean(value, nameof(value)).ToUpperInvariant();
+        SearchTextNormalization.Fold(Clean(value, nameof(value)));
 
     /// <summary>
     /// Strips every separator before upper-casing, so the uniqueness key is the document itself and not the

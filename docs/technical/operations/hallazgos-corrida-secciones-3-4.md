@@ -2546,6 +2546,26 @@ modificó" cuando en realidad es "mandaste el token equivocado".
 > **2026-02-01 → 2027-01-31** —su aniversario de ingreso— y fondo de 15 días con provisión de $6,630 donde antes
 > había `422` y ceros. Los 52 periodos de la prueba se borraron después.
 >
+> ### ⚠️ Corrección 2026-08-13 — el ancla tenía TRES sitios y solo se movieron dos
+>
+> `SettlementCalculation.Rules.cs` anclaba en tres lugares. La antigüedad (`:217`) y la vacación proporcional
+> (`:452`) pasaron al ingreso; **el aguinaldo proporcional (`:462`) se quedó en el `PlazaStartDate`**. Lo destapó
+> el análisis del requerimiento de aguinaldo del día siguiente, no un test — porque no había ninguno que lo
+> cubriera.
+>
+> `DaysInAguinaldoPeriod` arranca el devengo en `max(12-dic anterior, inicio)`, así que con una plaza registrada
+> hace 20 días el devengo empezaba hace 20 días. **Medido sobre los datos del ambiente**: José Hernández (ingreso
+> 2024-02-01, plaza 2026-08-01, diaria $340) recibía el aguinaldo proporcional sobre **12 días en vez de 244** —
+> **$168 en lugar de $3,409**, un 95 % menos, en código certificado que paga dinero real.
+>
+> Arreglado con `Settlement_AguinaldoProporcional_AccruesFromTheHireDateNotThePlaza`, que nació rojo con el número
+> exacto (`Expected: 244 · Actual: 20`). El parámetro del helper se renombró para que no vuelva a leerse como si
+> fuera de la plaza.
+>
+> **Lección**: cuando un cambio de invariante tiene N sitios, hay que enumerarlos borrando el símbolo y dejando que
+> el compilador los liste — acá los tres compilaban igual porque los dos campos son `DateTime`, y el tipo no
+> distingue «inicio de plaza» de «fecha de ingreso».
+>
 > ### Lo que NO se hizo, a propósito
 >
 > **Sin fallback a la plaza.** Un fallback que solo dispara cuando falta un dato es exactamente la trampa que
@@ -2833,7 +2853,8 @@ Y en el caso individual más claro:
 > acumula horas extras, sea quien sea el que la ocupe—. Sin el segundo, «horasExtras funciona» no diría nada sobre
 > la exención por plaza.
 >
-> Con esto **las 17 columnas de la matriz tienen cobertura**.
+> Con esto **las 17 columnas de la matriz tienen cobertura**. Verificado: unitarios **2924/2924** ·
+> nómina + plazas + horas extras + perfiles + unidades organizativas **227/227** en 27 m 52 s · build limpio.
 >
 > #### Verificación de la corrección
 >
